@@ -1,0 +1,18 @@
+/* src/styles/Layout.css */
+.layout {
+  display: flex;
+  height: 100vh;
+}
+
+.sidebar {
+  width: 250px;
+  background: linear-gradient(180deg, #6d28d9, #9333ea); /* example dark sidebar */
+  color: white;
+}
+
+.content {
+  flex: 1;
+  padding: 20px;
+  background: #f8fafc;
+  overflow-y: auto;
+}

@@ -1,0 +1,37 @@
+// Root-level Gradle build file
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "com.android.tools.build:gradle:8.7.3"
+        classpath "com.google.gms:google-services:4.4.2"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+// ✅ Redirect Flutter build outputs to a shared build folder
+def newBuildDir = rootProject.layout.buildDirectory.dir("../../build").get().asFile
+rootProject.layout.buildDirectory.set(newBuildDir)
+
+subprojects {
+    def newSubprojectBuildDir = new File(newBuildDir, project.name)
+    project.layout.buildDirectory.set(file(newSubprojectBuildDir))
+}
+
+// ✅ Ensure app module is evaluated first
+subprojects {
+    project.evaluationDependsOn(":app")
+}
+
+// ✅ Clean task
+tasks.register("clean", Delete) {
+    delete rootProject.layout.buildDirectory
+}

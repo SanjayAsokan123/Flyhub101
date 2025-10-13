@@ -1,0 +1,31 @@
+mutation {
+  changeSellerStatus(id: "68e787f9cf6de22dca256499", status: "approved") {
+    id
+    name
+    email
+    status
+  }
+}
+
+
+{
+  "data": {
+    "adminLogin": {
+      "success": true,
+      "message": "Login successful!",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZThhM2U2NGJjOThhMmY5ZDkxMGU5OSIsImVtYWlsIjoiYmh1dmlAZmx5aHViLmluIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzYwMDc2ODc0LCJleHAiOjE3NjAwNzc3NzR9.-6NQ9tydZ_87MhUt_bf6ED6gq40k8hwLkfQmo2u7L8g",
+      "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZThhM2U2NGJjOThhMmY5ZDkxMGU5OSIsImVtYWlsIjoiYmh1dmlAZmx5aHViLmluIiwiaWF0IjoxNzYwMDc2ODc0LCJleHAiOjE3NjA2ODE2NzR9.NUIvdOvody86NVJBwyWr9c6D_E-9oH2tSkuIeYoJJ7U"
+    }
+  }
+}
+
+//after 7 days / 15 mins refreshtoken
+mutation {
+  refreshAdminToken(
+    refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZThhM2U2NGJjOThhMmY5ZDkxMGU5OSIsImVtYWlsIjoiYmh1dmlAZmx5aHViLmluIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzYwMDc2ODc0LCJleHAiOjE3NjAwNzc3NzR9.-6NQ9tydZ_87MhUt_bf6ED6gq40k8hwLkfQmo2u7L8g"
+  ) {
+    success
+    message
+    token
+  }
+}
