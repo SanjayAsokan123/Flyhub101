@@ -1,268 +1,405 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 
-// ✅ Local imports
-import './SellerPage.dart';
+// ✅ Local Imports
+import './BuyerPage.dart';
+import './admin_login.dart';
+import '../../AddDroneForm.dart';
 import '../Dynamichome.dart';
-import '../../Login/SellerOtpAuthScreen.dart';
+import './GuestProfilePage.dart';
+import '../../firebase_options.dart';
 
-class SellerFormDialog {
-  static void show(BuildContext context) {
-    final FirebaseAuth _auth = FirebaseAuth.instance;
+class SellerFormDialog extends StatefulWidget {
+  const SellerFormDialog({super.key});
 
-    final loginEmailController = TextEditingController();
-    final loginPasswordController = TextEditingController();
+  @override
+  State<SellerFormDialog> createState() => _SellerFormDialogState();
+}
 
-    bool loading = false;
-    String? errorMessage;
+class _SellerFormDialogState extends State<SellerFormDialog> {
+  User? _user;
+  String? _sellerName;
+  String? _sellerEmail;
+  bool _loading = true;
 
-    //Local Commit
-    showDialog(
-      context: context,
-      barrierDismissible: false,
+  final Color themeColor = const Color(0xFF1A0A5B);
 
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            Future<void> handleLogin() async {
-              final email = loginEmailController.text.trim();
-              final password = loginPasswordController.text.trim();
+  @override
+  void initState() {
+    super.initState();
+    _initializeSeller();
+  }
 
-              if (email.isEmpty || password.isEmpty) {
-                setState(() => errorMessage = "Please enter both email and password.");
-                return;
-              }
+  Future<void> _initializeSeller() async {
+    await _ensureFirebase();
+    await _checkAccess();
+    await _loadSellerData();
+    if (mounted) setState(() => _loading = false);
+  }
 
-              try {
-                setState(() {
-                  loading = true;
-                  errorMessage = null;
-                });
+  /// ✅ Ensure Firebase is initialized safely
+  Future<void> _ensureFirebase() async {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+      print('✅ Firebase initialized inside SellerFormDialog');
+    }
+  }
 
-                // 🔹 Firebase Email Login
-                UserCredential userCredential =
-                await _auth.signInWithEmailAndPassword(
-                  email: email,
-                  password: password,
-                );
+  /// 🧩 Check Seller Access & Profile Status
+  Future<void> _checkAccess() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const GuestProfilePage()),
+      );
+      return;
+    }
 
-                final uid = userCredential.user!.uid;
+    final db = FirebaseFirestore.instanceFor(
+      app: Firebase.app(),
+      // ✅ Use correct database name if your Firestore console shows "(default)"
+      databaseId: 'flyhub',
+    );
 
-                // 🔹 Set Firestore role
-                await FirebaseFirestore.instance.collection('users').doc(uid).set({
-                  'uid': uid,
-                  'email': email,
-                  'role': 'seller',
-                  'updatedAt': FieldValue.serverTimestamp(),
-                }, SetOptions(merge: true));
+    try {
+      final doc = await db.collection('users').doc(user.uid).get();
 
-                if (!context.mounted) return;
+      if (!doc.exists) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("⚠️ No profile found — switching to Buyer view.")),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const BuyerPage()),
+        );
+        return;
+      }
 
-                Navigator.pop(context);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const SellerPage()),
-                );
+      final data = doc.data()!;
+      final role = data.containsKey('role') ? data['role'] : 'buyer';
+      final isProfileComplete = data.containsKey('sellerProfileCompleted')
+          ? data['sellerProfileCompleted']
+          : false;
 
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("✅ Seller Login Successful!")),
-                );
-              } on FirebaseAuthException catch (e) {
-                setState(() => errorMessage = e.message ?? "Login failed. Try again.");
-              } catch (e) {
-                setState(() => errorMessage = "Unexpected error: $e");
-              } finally {
-                setState(() => loading = false);
-              }
-            }
+      if (role != 'seller') {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("🔒 Access denied — switching to Buyer view.")),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const BuyerPage()),
+        );
+        return;
+      }
 
-            // ---------------- LOGIN UI ----------------
-            return Dialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Header
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Seller Portal",
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1A0A5B),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close, color: Colors.grey),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      ],
+      if (!isProfileComplete) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const AddDroneForm()),
+          );
+        });
+      }
+    } catch (e) {
+      print('❌ Firestore access error: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("Firestore error: $e")));
+    }
+  }
+
+  /// 🔹 Load Seller Profile Data
+  Future<void> _loadSellerData() async {
+    _user = FirebaseAuth.instance.currentUser;
+    if (_user == null) return;
+
+    final db = FirebaseFirestore.instanceFor(
+      app: Firebase.app(),
+      databaseId: 'flyhub',
+    );
+
+    try {
+      final doc = await db.collection('users').doc(_user!.uid).get();
+      if (doc.exists) {
+        final data = doc.data()!;
+        if (!mounted) return;
+        setState(() {
+          _sellerEmail = data.containsKey('email') ? data['email'] : _user!.email;
+          _sellerName = (data.containsKey('name')
+              ? data['name']
+              : (data['firstName'] ?? "Seller"))
+              .toString();
+        });
+      }
+    } catch (e) {
+      print('⚠️ Error loading seller data: $e');
+    }
+  }
+
+  /// 🔄 Switch to Buyer Mode
+  Future<void> _switchToBuyer() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const GuestProfilePage()),
+      );
+      return;
+    }
+
+    try {
+      final db = FirebaseFirestore.instanceFor(
+        app: Firebase.app(),
+        databaseId: 'flyhub',
+      );
+
+      await db.collection('users').doc(user.uid).set({
+        'role': 'buyer',
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("✅ Switched to Buyer Mode")),
+      );
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const BuyerPage()),
+      );
+    } catch (e) {
+      print('❌ Switch to Buyer error: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("❌ Error switching to Buyer: $e")));
+    }
+  }
+
+  /// 🚪 Logout Function
+  Future<void> _logout() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
+            (route) => false,
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("👋 Logged out successfully.")),
+      );
+    } catch (e) {
+      print('⚠️ Logout error: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("❌ Logout error: $e")));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: Color(0xFF1A0A5B))),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text('Seller Profile'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 1,
+        actions: [
+          IconButton(
+            onPressed: () {},
+            icon: Icon(Icons.edit, color: themeColor),
+          ),
+          InkWell(
+            onTap: _switchToBuyer,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [themeColor, themeColor.withOpacity(0.8)],
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: themeColor.withOpacity(0.3),
+                    offset: const Offset(2, 2),
+                    blurRadius: 5,
+                  ),
+                ],
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.switch_account, color: Colors.white, size: 18),
+                  SizedBox(width: 6),
+                  Text(
+                    'Switch to Buyer',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(height: 20),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          children: [
+            CircleAvatar(
+              radius: 40,
+              backgroundColor: themeColor,
+              child: Text(
+                _sellerName != null && _sellerName!.isNotEmpty
+                    ? _sellerName![0].toUpperCase()
+                    : 'S',
+                style: const TextStyle(color: Colors.white, fontSize: 22),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _sellerName ?? 'Seller',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              _sellerEmail ?? '',
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
+            ),
 
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        "Seller Login",
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1A0A5B),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
+            const SizedBox(height: 25),
+            _buildSectionTitle("Seller Dashboard"),
+            const Divider(),
+            buildAddRow("Add Drone (Sell)", context, openAddDroneForm: true),
+            buildAddRow("Add Drone (Rental)", context),
+            buildAddRow("Add Jobs", context),
+            buildAddRow("Add Services", context),
+            buildAddRow("Add Spare Parts", context),
 
-                    buildStyledTextField(
-                      loginEmailController,
-                      "Email",
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                    buildStyledPasswordField(
-                      loginPasswordController,
-                      "Password",
-                    ),
+            const SizedBox(height: 25),
+            _buildSectionTitle("Account Settings"),
+            const Divider(),
+            buildSettingsRow("Personal Information"),
+            buildSettingsRow("Notifications", badge: "3"),
+            buildSettingsRow("Help & Support"),
+            buildSettingsRow("Admin Login", onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => AdminLoginPage()),
+              );
+            }),
 
-                    const SizedBox(height: 10),
-
-                    if (errorMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Text(
-                          errorMessage!,
-                          style: const TextStyle(color: Colors.red, fontSize: 13),
-                        ),
-                      ),
-                    if (loading)
-                      const Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: CircularProgressIndicator(color: Color(0xFF1A0A5B)),
-                      ),
-
-                    const SizedBox(height: 20),
-
-                    // 🔹 Login button
-                    Center(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1A0A5B),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 40, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                        ),
-                        onPressed: loading ? null : handleLogin,
-                        child: const Text(
-                          "Login",
-                          style: TextStyle(color: Colors.white, fontSize: 16),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // 🔹 Register with OTP
-                    Center(
-                      child: TextButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => const SellerOtpAuthScreen()),
-                          );
-                        },
-                        child: const Text(
-                          "New Seller? Register with OTP",
-                          style: TextStyle(
-                            color: Color(0xFF1A0A5B),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    // 🔹 Back to home
-                    const SizedBox(height: 10),
-                    Center(
-                      child: TextButton.icon(
-                        icon: const Icon(Icons.home_outlined, color: Colors.grey),
-                        onPressed: () {
-                          Navigator.pop(context);
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) =>
-                                const Dynamichome(selectedIndex: 0)),
-                          );
-                        },
-                        label: const Text(
-                          "Back to Home",
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ),
-                    ),
-                  ],
+            const SizedBox(height: 25),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ElevatedButton.icon(
+                onPressed: _logout,
+                icon: const Icon(Icons.logout, color: Colors.white, size: 18),
+                label: const Text(
+                  "Logout",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    fontSize: 14,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: themeColor,
+                  minimumSize: const Size(double.infinity, 45),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
-            );
-          },
-        );
+            ),
+            const SizedBox(height: 10),
+            const Text("Version 1.0.0",
+                style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+      ),
+    );
+  }
+
+  Widget buildAddRow(String title, BuildContext context, {bool openAddDroneForm = false}) {
+    return ListTile(
+      leading: Icon(Icons.add_circle_outline, color: themeColor),
+      title: Text(title),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+      onTap: () {
+        if (openAddDroneForm) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AddDroneForm()),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$title page coming soon...')),
+          );
+        }
       },
     );
   }
 
-  // ---------------- FIELD WIDGETS ----------------
-  static Widget buildStyledTextField(
-      TextEditingController controller,
-      String label, {
-        TextInputType? keyboardType,
-      }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: TextFormField(
-        controller: controller,
-        keyboardType: keyboardType,
-        decoration: InputDecoration(
-          labelText: label,
-          filled: true,
-          fillColor: Colors.grey.shade100,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
+  Widget buildSettingsRow(String label, {String? badge, VoidCallback? onTap}) {
+    return ListTile(
+      leading: const Icon(Icons.settings_outlined, color: Color(0xFF1A0A5B)),
+      title: Text(label),
+      trailing: badge != null
+          ? Stack(
+        alignment: Alignment.center,
+        children: [
+          const Icon(Icons.chevron_right),
+          Positioned(
+            top: 4,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: themeColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                badge,
+                style: const TextStyle(color: Colors.white, fontSize: 10),
+              ),
+            ),
           ),
-          contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        ),
-      ),
-    );
-  }
-
-  static Widget buildStyledPasswordField(
-      TextEditingController controller, String label) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: TextFormField(
-        controller: controller,
-        obscureText: true,
-        decoration: InputDecoration(
-          labelText: label,
-          filled: true,
-          fillColor: Colors.grey.shade100,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        ),
-      ),
+        ],
+      )
+          : const Icon(Icons.chevron_right),
+      onTap: onTap,
     );
   }
 }

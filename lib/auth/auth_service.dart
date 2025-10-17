@@ -1,24 +1,34 @@
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:http/http.dart' as http;
 
-/// 🔹 Firebase + Twilio OTP Authentication Service (with Firestore role sync)
+/// 🔹 FlyHub AuthService — Twilio OTP + Firebase Auth + Firestore Role Sync
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  /// 🔹 Use --dart-define=API_URL to set your backend endpoint
+  late final FirebaseFirestore _db;
+
+  AuthService() {
+    // ✅ Correctly initialize Firestore with required 'app' argument
+    final app = Firebase.app();
+    _db = FirebaseFirestore.instanceFor(
+      app: app,
+      databaseId: 'flyhub',
+    );
+  }
+
+  /// ✅ Backend base URL (use --dart-define to override for prod/staging)
   static const String baseUrl = String.fromEnvironment(
     'API_URL',
-    defaultValue: 'http://192.168.1.178:5001/graphql', // fallback for local dev
+    defaultValue: 'http://192.168.0.180:5001', // fallback for local dev
   );
 
   // ─────────────────────────────
   // 🔹 TWILIO OTP METHODS
   // ─────────────────────────────
 
-  /// Send OTP via Twilio backend
   Future<bool> sendOTP(String phone) async {
     try {
       if (!phone.startsWith('+')) {
@@ -45,7 +55,6 @@ class AuthService {
     }
   }
 
-  /// Verify OTP via Twilio backend
   Future<bool> verifyOTP(String phone, String code) async {
     try {
       final res = await http.post(
@@ -62,6 +71,8 @@ class AuthService {
         } else {
           print("❌ Invalid OTP for $phone");
         }
+      } else {
+        print("❌ OTP verification failed: ${res.body}");
       }
       return false;
     } catch (e) {
@@ -74,13 +85,12 @@ class AuthService {
   // 🔹 FIREBASE AUTH + FIRESTORE SYNC
   // ─────────────────────────────
 
-  /// 🔹 Sign up new user (buyer/seller)
   Future<User?> signUp({
     required String email,
     required String password,
     required String phone,
     required String otpCode,
-    String? role, // "buyer" or "seller"
+    String? role,
     String? firstName,
     String? lastName,
   }) async {
@@ -92,19 +102,18 @@ class AuthService {
         return null;
       }
 
-      // 2️⃣ Create Firebase account
+      // 2️⃣ Create Firebase user
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email.trim(),
         password: password.trim(),
       );
-
       final user = userCredential.user;
       if (user == null) return null;
 
-      // 3️⃣ Send verification email
+      // 3️⃣ Send email verification
       await user.sendEmailVerification();
 
-      // 4️⃣ Create Firestore user document
+      // 4️⃣ Create or update Firestore record
       await _createOrUpdateUserDoc(
         user,
         role: role ?? 'buyer',
@@ -124,7 +133,6 @@ class AuthService {
     }
   }
 
-  /// 🔹 Login user (with optional OTP)
   Future<User?> login(
       String email,
       String password, {
@@ -132,7 +140,6 @@ class AuthService {
         String? otpCode,
       }) async {
     try {
-      // Optional OTP verification
       if (phone != null && otpCode != null) {
         final otpValid = await verifyOTP(phone, otpCode);
         if (!otpValid) {
@@ -145,7 +152,6 @@ class AuthService {
         email: email.trim(),
         password: password.trim(),
       );
-
       final user = userCredential.user;
       if (user == null) return null;
 
@@ -153,9 +159,7 @@ class AuthService {
         print("⚠️ Email not verified. Please verify before login.");
       }
 
-      // ✅ Ensure Firestore doc exists or updates role
       await _createOrUpdateUserDoc(user);
-
       print("✅ Login successful for: ${user.email}");
       return user;
     } on FirebaseAuthException catch (e) {
@@ -167,7 +171,6 @@ class AuthService {
     }
   }
 
-  /// 🔹 Create or Update Firestore document for user
   Future<void> _createOrUpdateUserDoc(
       User user, {
         String? role,
@@ -178,31 +181,28 @@ class AuthService {
     final docRef = _db.collection('users').doc(user.uid);
     final snapshot = await docRef.get();
 
+    final data = {
+      'uid': user.uid,
+      'email': user.email ?? '',
+      'phone': phone ?? '',
+      'firstName': firstName ?? '',
+      'lastName': lastName ?? '',
+      'role': role ?? 'buyer',
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
     if (!snapshot.exists) {
-      // Create new doc
       await docRef.set({
-        'uid': user.uid,
-        'email': user.email ?? '',
-        'phone': phone ?? '',
-        'firstName': firstName ?? '',
-        'lastName': lastName ?? '',
-        'role': role ?? 'buyer',
+        ...data,
         'createdAt': FieldValue.serverTimestamp(),
       });
       print("🆕 Firestore document created for ${user.email}");
     } else {
-      // Update existing doc (if any info missing)
-      await docRef.update({
-        'email': user.email ?? '',
-        if (role != null) 'role': role,
-        if (phone != null) 'phone': phone,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      await docRef.update(data);
       print("🔁 Firestore document updated for ${user.email}");
     }
   }
 
-  /// 🔹 Update role (switch between buyer/seller)
   Future<void> switchRole(String newRole) async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -214,15 +214,12 @@ class AuthService {
     print("🔄 Role switched to $newRole for ${user.email}");
   }
 
-  /// 🔹 Logout
   Future<void> logout() async {
     await _auth.signOut();
     print("👋 User logged out successfully.");
   }
 
-  /// 🔹 Get current logged-in user
   User? get currentUser => _auth.currentUser;
 
-  /// 🔹 Auth state listener
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 }

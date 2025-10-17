@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flyhub/PilotRegistration.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../Dynamichome.dart';
 import '../../BuyerDetails/MyCartPage.dart';
 
@@ -14,13 +14,13 @@ class PilotPage extends StatefulWidget {
 
 class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
   late TabController _mainTabController;
-
   static const Color themeColor = Color(0xFF1A0A5B);
 
   int cartCount = 0;
   String selectedFilter = '';
+  List<Map<String, String>> cartItems = [];
 
-  List<Map<String, String>> pilots = [
+  final List<Map<String, String>> pilots = [
     {
       "name": "Arjun Singh",
       "role": "Certified DGCA Pilot\nSpecializes in Wedding Photography",
@@ -47,8 +47,12 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
     },
   ];
 
-  List<Map<String, String>> cartItems = [];
-  final List<String> filters = ['Photography', 'Survey', 'Agriculture', 'Available Today'];
+  final List<String> filters = [
+    'Photography',
+    'Survey',
+    'Agriculture',
+    'Available Today'
+  ];
 
   @override
   void initState() {
@@ -60,17 +64,30 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
   Future<void> _loadCartCount() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString('pilotCart') ?? '[]';
-    cartItems = List<Map<String, String>>.from(jsonDecode(saved).map((e) => Map<String, String>.from(e)));
-    setState(() => cartCount = cartItems.length);
+    try {
+      cartItems = List<Map<String, String>>.from(
+        jsonDecode(saved).map((e) => Map<String, String>.from(e)),
+      );
+      if (mounted) setState(() => cartCount = cartItems.length);
+    } catch (_) {
+      if (mounted) setState(() => cartCount = 0);
+    }
   }
 
   Future<void> _addToCart(Map<String, String> pilot) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
+    HapticFeedback.selectionClick();
+    final prefs = await SharedPreferences.getInstance();
     cartItems.add(pilot);
     await prefs.setString('pilotCart', jsonEncode(cartItems));
+    if (!mounted) return;
     setState(() => cartCount = cartItems.length);
+
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("${pilot['name']} added to bookings")),
+      SnackBar(
+        backgroundColor: themeColor,
+        content: Text("${pilot['name']} added to bookings",
+            style: const TextStyle(color: Colors.white)),
+      ),
     );
   }
 
@@ -87,15 +104,21 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
         : pilots.where((p) => p["specialty"] == selectedFilter).toList();
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("Certified Pilots", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          "Certified Pilots",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 1,
         leading: GestureDetector(
           onTap: () {
             Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => const Dynamichome(selectedIndex: 0)),
+              MaterialPageRoute(
+                builder: (context) => const Dynamichome(selectedIndex: 0),
+              ),
                   (Route<dynamic> route) => false,
             );
           },
@@ -113,9 +136,13 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
           Stack(
             children: [
               IconButton(
-                icon: const Icon(Icons.shopping_cart_outlined, color: themeColor),
+                icon: const Icon(Icons.shopping_cart_outlined,
+                    color: themeColor),
                 onPressed: () async {
-                  await Navigator.push(context, MaterialPageRoute(builder: (_) => const MyCartPage()));
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MyCartPage()),
+                  );
                   _loadCartCount();
                 },
               ),
@@ -125,11 +152,19 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
                   top: 6,
                   child: Container(
                     padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(10)),
-                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints:
+                    const BoxConstraints(minWidth: 16, minHeight: 16),
                     child: Text(
                       '$cartCount',
-                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -155,9 +190,9 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
       ),
       body: Column(
         children: [
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _buildFilterChips(),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Expanded(
             child: TabBarView(
               controller: _mainTabController,
@@ -171,16 +206,23 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: "pilot_register_fab", // ✅ unique tag avoids Hero conflict
         backgroundColor: themeColor,
         shape: const CircleBorder(),
         onPressed: () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const Pilotregistration()));
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const Pilotregistration(),
+            ),
+          );
         },
         child: const Icon(Icons.add, color: Colors.white, size: 30),
       ),
     );
   }
 
+  // ✅ Filter Chips
   Widget _buildFilterChips() {
     return SizedBox(
       height: 40,
@@ -191,7 +233,9 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
         itemBuilder: (context, index) {
           final selected = selectedFilter == filters[index];
           return GestureDetector(
-            onTap: () => setState(() => selectedFilter = selected ? '' : filters[index]),
+            onTap: () => setState(() {
+              selectedFilter = selected ? '' : filters[index];
+            }),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               margin: const EdgeInsets.only(right: 10),
@@ -215,7 +259,15 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
     );
   }
 
+  // ✅ Pilot List
   Widget _buildPilotList(List<Map<String, String>> filteredPilots) {
+    if (filteredPilots.isEmpty) {
+      return const Center(
+        child: Text("No pilots available",
+            style: TextStyle(color: Colors.grey)),
+      );
+    }
+
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       itemCount: filteredPilots.length,
@@ -226,12 +278,9 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
     );
   }
 
+  // ✅ Pilot Card
   Widget _buildPilotCard(Map<String, String> pilot) {
-    double screenWidth = MediaQuery.of(context).size.width;
-    final double iconSize = screenWidth * 0.04;
-    String rating = "4";
-    int ratingValue = int.tryParse(rating) ?? 0;
-
+    const double rating = 4.5;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       margin: const EdgeInsets.only(bottom: 16),
@@ -239,51 +288,70 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 5, offset: const Offset(0, 3))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade300,
+            blurRadius: 5,
+            offset: const Offset(0, 3),
+          )
+        ],
       ),
       child: Row(
         children: [
-          CircleAvatar(radius: 26, backgroundImage: AssetImage(pilot["image"]!)),
+          CircleAvatar(
+              radius: 28, backgroundImage: AssetImage(pilot["image"]!)),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(pilot["name"]!, style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text(pilot["role"]!, style: const TextStyle(fontSize: 12, color: Colors.black87)),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: List.generate(5, (index) {
-                      return Icon(
-                        Icons.star,
-                        size: iconSize,
-                        color: index < ratingValue ? Colors.orange : Colors.grey[300],
-                      );
-                    }),
-                  ),
-                  const SizedBox(width: 4),
-                  const Text("4.5", style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(width: 6),
-                  const Text("(86)", style: TextStyle(color: Colors.grey)),
-                ],
-              ),
-            ]),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(pilot["name"]!,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(
+                  pilot["role"]!,
+                  style: const TextStyle(fontSize: 12, color: Colors.black87),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Row(
+                      children: List.generate(5, (index) {
+                        return Icon(
+                          Icons.star,
+                          size: 16,
+                          color: index < rating.round()
+                              ? Colors.orange
+                              : Colors.grey[300],
+                        );
+                      }),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(rating.toString(),
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 6),
+                    const Text("(86)", style: TextStyle(color: Colors.grey)),
+                  ],
+                )
+              ],
+            ),
           ),
           ElevatedButton(
             onPressed: () => _addToCart(pilot),
             style: ElevatedButton.styleFrom(
               backgroundColor: themeColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            child: const Text("Book Now", style: TextStyle(color: Colors.white)),
+            child:
+            const Text("Book Now", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
   }
 
+  // ✅ Filter Sheet
   void _showFilterSheet() {
     showModalBottomSheet(
       context: context,
@@ -295,7 +363,13 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-            boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, -3))],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 10,
+                offset: Offset(0, -3),
+              )
+            ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -303,7 +377,10 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
               Container(
                 width: 50,
                 height: 5,
-                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               const SizedBox(height: 15),
               const Row(
@@ -311,8 +388,13 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
                 children: [
                   Icon(Icons.filter_alt_rounded, color: themeColor),
                   SizedBox(width: 8),
-                  Text("Filter Pilots",
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: themeColor)),
+                  Text(
+                    "Filter Pilots",
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: themeColor),
+                  ),
                 ],
               ),
               const SizedBox(height: 20),
@@ -326,7 +408,9 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
                   selectedColor: themeColor,
                   backgroundColor: Colors.grey.shade200,
                   labelStyle: TextStyle(
-                    color: selectedFilter == filter ? Colors.white : Colors.black87,
+                    color: selectedFilter == filter
+                        ? Colors.white
+                        : Colors.black87,
                     fontWeight: FontWeight.w600,
                   ),
                   onSelected: (val) {
@@ -342,11 +426,14 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
               ElevatedButton.icon(
                 icon: const Icon(Icons.clear_all_rounded, color: Colors.white),
                 label: const Text("Clear Filters",
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: themeColor,
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 32, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
                 ),
                 onPressed: () {
                   setState(() => selectedFilter = '');

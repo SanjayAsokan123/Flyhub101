@@ -15,6 +15,7 @@ import { partTypeDefs } from "./schema/parts.schema.js";
 import { accessoryTypeDefs } from "./schema/accessories.schema.js";
 import { seller_buyer_TypeDefs } from "./schema/seller_buyer.schema.js";
 import { adminTypeDefs } from "./schema/admin.schema.js";
+import { rentalTypeDefs } from "./schema/rental.schema.js";
 
 // 🧩 Resolvers
 import { droneResolvers } from "./resolvers/drone.resolver.js";
@@ -22,6 +23,7 @@ import { partResolvers } from "./resolvers/parts.resolver.js";
 import { accessoryResolvers } from "./resolvers/accessories.resolver.js";
 import { seller_buyer_Resolvers } from "./resolvers/seller_buyer.resolver.js";
 import { adminResolvers } from "./resolvers/admin.resolver.js";
+import { rentalResolvers } from "./resolvers/rental.resolver.js";
 
 import { marketplaceTypeDefs } from "./schema/marketplace.schema.js";
 import { marketplaceResolvers } from "./resolvers/marketplace.resolver.js";
@@ -53,6 +55,7 @@ app.use(verifyFirebaseToken);
         marketplaceTypeDefs,
       seller_buyer_TypeDefs,
       adminTypeDefs,
+      rentalTypeDefs,
     ]);
 
     const resolvers = mergeResolvers([
@@ -62,6 +65,7 @@ app.use(verifyFirebaseToken);
        marketplaceResolvers,
       seller_buyer_Resolvers,
       adminResolvers,
+      rentalResolvers,
     ]);
 
     // ✅ Apollo Server Context (JWT Auth)

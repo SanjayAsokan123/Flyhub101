@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../CommonClass/ApiClass.dart';
-import '../../CommonClass/Utils.dart';
+import '../../CommonClass/utils.dart';
 import '../../BuyerDetails/MyCartPage.dart';
 import '../../MyDroneListScreen.dart';
 import '../Dynamichome.dart';
@@ -23,23 +24,22 @@ class _RentalsPageState extends State<RentalsPage>
 
   List<dynamic> rentalList = [];
   List<dynamic> filteredList = [];
-
   final Set<String> favoriteItems = {};
   final Map<String, dynamic> favoriteData = {};
 
   int cartCount = 0;
   bool isLoading = true;
   String searchQuery = '';
+  String selectedFilter = 'All';
+  final Color primaryColor = const Color(0xFF1A0A5B);
 
   final List<String> subFilters = [
     'All',
     'Today',
     'Professional',
     'With Pilot',
-    'Insured'
+    'Insured',
   ];
-  String selectedFilter = 'All';
-  final Color primaryColor = const Color(0xFF1A0A5B);
 
   @override
   void initState() {
@@ -56,49 +56,55 @@ class _RentalsPageState extends State<RentalsPage>
     super.dispose();
   }
 
-  // ✅ Fetch Drone Rentals using ApiClass
+  /// ✅ Fetch Drone Rentals
   Future<void> fetchRentals() async {
-    if (await Utils.checkInternetConnection()) {
-      try {
-        setState(() => isLoading = true);
-        final response = await _apiClass.getMarketplaceItems("drones");
-        if (response != null) {
-          setState(() {
-            rentalList = response;
-            filteredList = rentalList;
-            isLoading = false;
-          });
-        } else {
-          setState(() => isLoading = false);
-        }
-      } catch (e) {
+    HapticFeedback.selectionClick();
+    if (!await Utils.checkInternetConnection()) {
+      Utils.bottomToast(context, "Please check your internet connection");
+      return;
+    }
+    try {
+      if (mounted) setState(() => isLoading = true);
+      final response = await _apiClass.getMarketplaceItems("drones");
+      if (!mounted) return;
+      setState(() {
+        rentalList = response ?? [];
+        filteredList = rentalList;
+        isLoading = false;
+      });
+    } catch (e) {
+      if (mounted) {
         Utils.bottomToast(context, "Error loading rentals: $e");
         setState(() => isLoading = false);
       }
-    } else {
-      Utils.bottomToast(context, "Check your internet connection");
     }
   }
 
-  // ✅ Cart + Favorites
+  /// ✅ Load Cart & Favorites
   Future<void> _loadCartCount() async {
     final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString('cart') ?? '[]';
-    final cartItems = jsonDecode(saved);
-    setState(() => cartCount = cartItems.length);
+    try {
+      final saved = prefs.getString('cart') ?? '[]';
+      final cartItems = jsonDecode(saved) as List;
+      if (mounted) setState(() => cartCount = cartItems.length);
+    } catch (_) {
+      if (mounted) setState(() => cartCount = 0);
+    }
   }
 
   Future<void> _loadFavorites() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString('wishlist');
-    if (saved != null) {
+    if (saved == null) return;
+    try {
       final decoded = jsonDecode(saved) as List;
       for (var item in decoded) {
-        favoriteItems.add(item['id'].toString());
-        favoriteData[item['id'].toString()] = item;
+        final id = item['id'].toString();
+        favoriteItems.add(id);
+        favoriteData[id] = item;
       }
-      setState(() {});
-    }
+      if (mounted) setState(() {});
+    } catch (_) {}
   }
 
   Future<void> _saveFavorites() async {
@@ -106,8 +112,10 @@ class _RentalsPageState extends State<RentalsPage>
     await prefs.setString('wishlist', jsonEncode(favoriteData.values.toList()));
   }
 
-  // ✅ Filters
+  /// ✅ Filters
   void applyFilter(String filter) {
+    HapticFeedback.selectionClick();
+    if (!mounted) return;
     setState(() {
       selectedFilter = filter;
       if (filter == 'All') {
@@ -152,136 +160,128 @@ class _RentalsPageState extends State<RentalsPage>
     });
   }
 
-  // ✅ Rental Card (adaptive layout)
+  /// ✅ Rental Card
   Widget buildRentalCard(Map<String, dynamic> drone) {
     final id = drone['id'].toString();
     final isFav = favoriteItems.contains(id);
     final imageUrl = (drone['image'] ?? '').toString();
     final fullImageUrl = imageUrl.startsWith('http')
         ? imageUrl
-        : 'http://192.168.1.178:5001/uploads/$imageUrl';
+        : 'http://192.168.0.180:5001/uploads/$imageUrl';
 
     final name = drone['name'] ?? 'Unnamed Drone';
     final category = drone['category'] ?? '';
     final price = drone['price'] ?? 0;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        double imageHeight = constraints.maxHeight * 0.55;
-
-        return Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          elevation: 3,
-          margin: const EdgeInsets.all(8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Image section
-              Stack(children: [
-                ClipRRect(
-                  borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
-                  child: CachedNetworkImage(
-                    imageUrl: fullImageUrl,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: imageHeight,
-                    placeholder: (context, url) =>
-                    const Center(child: CircularProgressIndicator()),
-                    errorWidget: (context, url, error) =>
-                    const Icon(Icons.error, size: 50),
-                  ),
-                ),
-                Positioned(
-                  right: 10,
-                  top: 10,
-                  child: GestureDetector(
-                    onTap: () async {
-                      if (isFav) {
-                        favoriteItems.remove(id);
-                        favoriteData.remove(id);
-                      } else {
-                        favoriteItems.add(id);
-                        favoriteData[id] = drone;
-                      }
-                      await _saveFavorites();
-                      setState(() {});
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.9),
-                        boxShadow: [
-                          BoxShadow(color: Colors.black26, blurRadius: 4)
-                        ],
-                      ),
-                      padding: const EdgeInsets.all(6),
-                      child: Icon(
-                        isFav ? Icons.favorite : Icons.favorite_border,
-                        color: isFav ? Colors.redAccent : primaryColor,
-                        size: 22,
-                      ),
-                    ),
-                  ),
-                )
-              ]),
-
-              // Details section (Expanded fixes overflow)
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.lexend(
-                                  fontWeight: FontWeight.bold)),
-                          Text(category.toUpperCase(),
-                              style: GoogleFonts.lexend(
-                                  color: Colors.grey[600], fontSize: 12)),
-                        ],
-                      ),
-                      Text("₹$price/day",
-                          style: GoogleFonts.lexend(
-                              fontWeight: FontWeight.bold, color: primaryColor)),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 32,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryColor,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
-                            padding: EdgeInsets.zero,
-                          ),
-                          onPressed: () {
-                            Utils.bottomToast(
-                                context, "$name booking coming soon!");
-                          },
-                          child: Text("Book Now",
-                              style: GoogleFonts.lexend(
-                                  color: Colors.white, fontSize: 13)),
-                        ),
-                      ),
+    return Card(
+      margin: const EdgeInsets.all(8),
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ✅ Image Section
+          Stack(children: [
+            ClipRRect(
+              borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(12)),
+              child: CachedNetworkImage(
+                imageUrl: fullImageUrl,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: 140,
+                placeholder: (context, url) =>
+                const Center(child: CircularProgressIndicator()),
+                errorWidget: (context, url, error) =>
+                const Icon(Icons.error, size: 50),
+              ),
+            ),
+            Positioned(
+              right: 10,
+              top: 10,
+              child: GestureDetector(
+                onTap: () async {
+                  HapticFeedback.selectionClick();
+                  if (isFav) {
+                    favoriteItems.remove(id);
+                    favoriteData.remove(id);
+                  } else {
+                    favoriteItems.add(id);
+                    favoriteData[id] = drone;
+                  }
+                  await _saveFavorites();
+                  if (mounted) setState(() {});
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.9),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black26, blurRadius: 4)
                     ],
+                  ),
+                  padding: const EdgeInsets.all(6),
+                  child: Icon(
+                    isFav ? Icons.favorite : Icons.favorite_border,
+                    color: isFav ? Colors.redAccent : primaryColor,
+                    size: 22,
                   ),
                 ),
               ),
-            ],
+            ),
+          ]),
+
+          // ✅ Details Section
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                          GoogleFonts.lexend(fontWeight: FontWeight.bold)),
+                      Text(category.toUpperCase(),
+                          style: GoogleFonts.lexend(
+                              color: Colors.grey[600], fontSize: 12)),
+                    ],
+                  ),
+                  Text("₹$price/day",
+                      style: GoogleFonts.lexend(
+                          fontWeight: FontWeight.bold, color: primaryColor)),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 32,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: () =>
+                          Utils.bottomToast(context, "$name booking coming soon!"),
+                      child: Text("Book Now",
+                          style: GoogleFonts.lexend(
+                              color: Colors.white, fontSize: 13)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
-  // ✅ Filter Tabs
+  /// ✅ Sub Filter Tabs
   Widget buildSubFilterTabs() {
     return SizedBox(
       height: 40,
@@ -297,7 +297,8 @@ class _RentalsPageState extends State<RentalsPage>
             onTap: () => applyFilter(filter),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: selected ? primaryColor : const Color(0xffF7F7F8),
                 borderRadius: BorderRadius.circular(16),
@@ -317,7 +318,7 @@ class _RentalsPageState extends State<RentalsPage>
     );
   }
 
-  // ✅ MAIN UI
+  /// ✅ MAIN UI
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -328,7 +329,8 @@ class _RentalsPageState extends State<RentalsPage>
           onTap: () {
             Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(
-                  builder: (context) => const Dynamichome(selectedIndex: 0)),
+                builder: (context) => const Dynamichome(selectedIndex: 0),
+              ),
                   (Route<dynamic> route) => false,
             );
           },
@@ -346,8 +348,10 @@ class _RentalsPageState extends State<RentalsPage>
               IconButton(
                 icon: Icon(Icons.shopping_cart_outlined, color: primaryColor),
                 onPressed: () async {
-                  await Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const MyCartPage()));
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MyCartPage()),
+                  );
                   _loadCartCount();
                 },
               ),
@@ -363,12 +367,15 @@ class _RentalsPageState extends State<RentalsPage>
                     ),
                     constraints:
                     const BoxConstraints(minWidth: 16, minHeight: 16),
-                    child: Text('$cartCount',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.center),
+                    child: Text(
+                      '$cartCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 )
             ],
@@ -392,7 +399,7 @@ class _RentalsPageState extends State<RentalsPage>
         child: TabBarView(
           controller: _mainTabController,
           children: [
-            // ✅ Tab 1 - Available
+            // ✅ Available Rentals
             Column(
               children: [
                 const SizedBox(height: 10),
@@ -404,8 +411,9 @@ class _RentalsPageState extends State<RentalsPage>
                       hintText: "Search drones...",
                       prefixIcon: Icon(Icons.search, color: primaryColor),
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none),
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
                       filled: true,
                       fillColor: Colors.grey[200],
                       contentPadding:
@@ -419,7 +427,9 @@ class _RentalsPageState extends State<RentalsPage>
                   child: isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : filteredList.isEmpty
-                      ? const Center(child: Text("No rentals available 😶"))
+                      ? const Center(
+                    child: Text("No rentals available 😶"),
+                  )
                       : GridView.builder(
                     padding: const EdgeInsets.all(12),
                     gridDelegate:
@@ -436,38 +446,35 @@ class _RentalsPageState extends State<RentalsPage>
                 ),
               ],
             ),
-            // ✅ Tab 2
-            SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Center(
-                child: Text(
-                  "My Bookings will appear here",
-                  style: GoogleFonts.lexend(
-                      fontSize: 16, color: Colors.grey.shade600),
-                ),
+
+            // ✅ My Bookings Tab
+            Center(
+              child: Text(
+                "My Bookings will appear here",
+                style: GoogleFonts.lexend(
+                    fontSize: 16, color: Colors.grey.shade600),
               ),
             ),
-            // ✅ Tab 3
-            SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Center(
-                child: Text(
-                  "Insurance details coming soon",
-                  style: GoogleFonts.lexend(
-                      fontSize: 16, color: Colors.grey.shade600),
-                ),
+
+            // ✅ Insurance Tab
+            Center(
+              child: Text(
+                "Insurance details coming soon",
+                style: GoogleFonts.lexend(
+                    fontSize: 16, color: Colors.grey.shade600),
               ),
             ),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: "rental_add_fab", // ✅ prevents Hero animation crash
         backgroundColor: primaryColor,
         shape: const CircleBorder(),
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) =>  MyDroneListPage()),
+            MaterialPageRoute(builder: (context) => MyDroneListPage()),
           );
         },
         child: const Icon(Icons.add, color: Colors.white, size: 30),

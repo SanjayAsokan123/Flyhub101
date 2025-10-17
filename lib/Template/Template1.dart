@@ -7,7 +7,7 @@ import 'package:flyhub/DroneServicesPage.dart';
 import 'package:flyhub/JobsPage.dart';
 import '../HomeScreen/Dynamichome.dart';
 import '../category_tile.dart';
-import '../../CommonClass/Utils.dart';
+import '../../CommonClass/utils.dart';
 
 class Template1 extends StatefulWidget {
   final List items;

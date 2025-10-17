@@ -1,139 +1,26 @@
 {
   "project_info": {
-    "project_number": "40959779123",
-    "project_id": "flyhub-c99ec",
-    "storage_bucket": "flyhub-c99ec.firebasestorage.app"
+    "project_number": "127883848645",
+    "project_id": "mythic-inn-475111-s0",
+    "storage_bucket": "mythic-inn-475111-s0.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:40959779123:android:bb859b62bd643bd5bc9e46",
+        "mobilesdk_app_id": "1:127883848645:android:0d0baf8d2ffd48ee36f9ac",
         "android_client_info": {
-          "package_name": "com.example.FlyHub"
+          "package_name": "flyhub.com"
         }
       },
-      "oauth_client": [
-        {
-          "client_id": "40959779123-0im8hc5tebf2icvlpti5gb1cafm7plrg.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.example.FlyHub",
-            "certificate_hash": "f42d2b2d4d4e7b1168887d6aa67fd10f0354ca36"
-          }
-        },
-        {
-          "client_id": "40959779123-q894pfj708g0lrk98m0b0jq8qfc7ci9o.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
+      "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyB_dHHixveEiqYs48mIj7bJzvVgOva8SrI"
+          "current_key": "AIzaSyBrDegpRvobnfJH-mTQ97kFLi0X-tio4m0"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "40959779123-q894pfj708g0lrk98m0b0jq8qfc7ci9o.apps.googleusercontent.com",
-              "client_type": 3
-            },
-            {
-              "client_id": "40959779123-vdhj2aqd2r0kjqpliu212q5njrg10qg6.apps.googleusercontent.com",
-              "client_type": 2,
-              "ios_info": {
-                "bundle_id": "com.example.flyhub"
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:40959779123:android:f4c2b3470d4ab85cbc9e46",
-        "android_client_info": {
-          "package_name": "com.example.drone_sales_app"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "40959779123-8678kmiklpmmdgvr9003td5o57552vlb.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.example.drone_sales_app",
-            "certificate_hash": "3948c294acf67c7ef9101cd7f85212cba4cb86fe"
-          }
-        },
-        {
-          "client_id": "40959779123-q894pfj708g0lrk98m0b0jq8qfc7ci9o.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyB_dHHixveEiqYs48mIj7bJzvVgOva8SrI"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "40959779123-q894pfj708g0lrk98m0b0jq8qfc7ci9o.apps.googleusercontent.com",
-              "client_type": 3
-            },
-            {
-              "client_id": "40959779123-vdhj2aqd2r0kjqpliu212q5njrg10qg6.apps.googleusercontent.com",
-              "client_type": 2,
-              "ios_info": {
-                "bundle_id": "com.example.flyhub"
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:40959779123:android:ae35fb35ef78e058bc9e46",
-        "android_client_info": {
-          "package_name": "com.example.flyhub"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "40959779123-i67cri88vsfhrjlad4u8fqmfrn81m5tn.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.example.flyhub",
-            "certificate_hash": "f42d2b2d4d4e7b1168887d6aa67fd10f0354ca36"
-          }
-        },
-        {
-          "client_id": "40959779123-q894pfj708g0lrk98m0b0jq8qfc7ci9o.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyB_dHHixveEiqYs48mIj7bJzvVgOva8SrI"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "40959779123-q894pfj708g0lrk98m0b0jq8qfc7ci9o.apps.googleusercontent.com",
-              "client_type": 3
-            },
-            {
-              "client_id": "40959779123-vdhj2aqd2r0kjqpliu212q5njrg10qg6.apps.googleusercontent.com",
-              "client_type": 2,
-              "ios_info": {
-                "bundle_id": "com.example.flyhub"
-              }
-            }
-          ]
+          "other_platform_oauth_client": []
         }
       }
     }

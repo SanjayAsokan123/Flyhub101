@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pinput/pinput.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../CommonClass/Utils.dart';
+import '../CommonClass/utils.dart';
 import '../HomeScreen/Bottoms/SellerFormDialog.dart';
 
 class OtpScreen extends StatefulWidget {
@@ -27,6 +27,8 @@ class _OtpScreenState extends State<OtpScreen> {
   int _secondsRemaining = 60;
   Timer? _timer;
 
+  final Color primaryColor = const Color(0xFF1A0A5B);
+
   @override
   void initState() {
     super.initState();
@@ -40,7 +42,7 @@ class _OtpScreenState extends State<OtpScreen> {
     _sendOtp();
   }
 
-  // 🔹 Send OTP via Firebase
+  // 🔹 Send OTP
   Future<void> _sendOtp() async {
     if (_mobileNumber == null || _mobileNumber!.isEmpty) {
       Utils.bottomToast(context, "No mobile number found");
@@ -115,8 +117,15 @@ class _OtpScreenState extends State<OtpScreen> {
   void _onOtpVerified() {
     setState(() => _isLoading = false);
     Utils.bottomToast(context, "✅ OTP Verified Successfully!");
+
+    // Close OTP screen
     Navigator.pop(context);
-    SellerFormDialog.show(context);
+
+    // Navigate to SellerFormDialog page
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const SellerFormDialog()),
+    );
   }
 
   // 🔁 Resend OTP timer
@@ -154,19 +163,26 @@ class _OtpScreenState extends State<OtpScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               SizedBox(height: h * 0.05),
-              Image.asset('assets/images/otp_screen_img.png', width: w * 0.9),
+
+              // OTP Illustration
+              Image.asset(
+                'assets/images/otp_screen_img.png',
+                width: w * 0.9,
+              ),
 
               SizedBox(height: h * 0.03),
+
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: w * 0.08),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Text(
-                      "${widget.logindata['verify_page']['title1']}",
+                      widget.logindata['verify_page']['title1'] ?? "Verify OTP",
                       style: GoogleFonts.lexend(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
+                        color: Colors.black87,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -176,7 +192,7 @@ class _OtpScreenState extends State<OtpScreen> {
                     ),
                     SizedBox(height: h * 0.03),
 
-                    // 🔢 OTP Field
+                    // 🔢 OTP Input
                     Pinput(
                       length: 6,
                       controller: _otpController,
@@ -190,7 +206,7 @@ class _OtpScreenState extends State<OtpScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey),
+                          border: Border.all(color: Colors.grey.shade400),
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
@@ -199,19 +215,20 @@ class _OtpScreenState extends State<OtpScreen> {
 
                     // 🚀 Verify Button
                     _isLoading
-                        ? const CircularProgressIndicator(color: Colors.purple)
+                        ? const CircularProgressIndicator(color: Color(0xFF1A0A5B))
                         : ElevatedButton(
                       onPressed: _verifyOtp,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.purple,
+                        backgroundColor: primaryColor,
                         minimumSize: Size(w * 0.8, h * 0.06),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
                       child: Text(
-                        "${widget.logindata['verify_page']['button_name']}",
-                        style: const TextStyle(
+                        widget.logindata['verify_page']['button_name'] ??
+                            "Verify OTP",
+                        style: GoogleFonts.lexend(
                           fontSize: 18,
                           color: Colors.white,
                         ),
@@ -227,8 +244,8 @@ class _OtpScreenState extends State<OtpScreen> {
                         _resendEnabled
                             ? "Resend OTP"
                             : "Resend in $_secondsRemaining sec",
-                        style: TextStyle(
-                          color: _resendEnabled ? Colors.purple : Colors.grey,
+                        style: GoogleFonts.lexend(
+                          color: _resendEnabled ? primaryColor : Colors.grey,
                           fontWeight: FontWeight.w500,
                         ),
                       ),

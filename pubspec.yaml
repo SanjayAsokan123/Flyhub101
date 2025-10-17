@@ -11,18 +11,24 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # 🌍 International Phone Field (default +91 for OTP)
+  # 🌍 International Phone Field (for OTP input)
   intl_phone_field: ^3.2.0
 
-  # 📡 GraphQL (if you’re using GraphQL backend)
+  # 📡 GraphQL Client
   graphql_flutter: ^5.2.0
 
-  # 🔥 Firebase dependencies
+  # 🔥 Firebase Packages (Aligned with firebase_core v3)
   firebase_core: ^3.15.2
   firebase_auth: ^5.7.0
   cloud_firestore: ^5.6.12
+  firebase_storage: ^12.4.2
   google_sign_in: ^6.2.1
-
+  firebase_messaging: ^15.1.3   # ✅ Push Notifications
+  firebase_analytics: ^11.3.3   # ✅ Event tracking
+  firebase_crashlytics: ^4.1.3  # ✅ Crash reporting
+  flutter_local_notifications: ^17.2.1
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
   # 📱 Common Flutter packages
   cupertino_icons: ^1.0.8
   flutter_svg: ^2.2.0
@@ -37,6 +43,9 @@ dependencies:
   pinput: ^5.0.1
   image_picker: ^1.1.2
   share_plus: ^10.0.0
+  path: ^1.9.0
+  http_parser: ^4.0.2
+
   # 🖼️ Image & Animation utilities
   flutter_image_compress: ^2.4.0
   image_cropper: ^9.1.0
@@ -55,10 +64,13 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-
   assets:
     - assets/
     - assets/images/
     - assets/jsonFiles/Fly.json
     - assets/jsonFiles/spalshScreenJson.json
-#    - assets/sounds/success.mp3   # ✅ uncommented
+    # - assets/sounds/success.mp3  # Uncomment if you want to add sounds later
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/MaskGroup34.png"   # 👈 put your logo here

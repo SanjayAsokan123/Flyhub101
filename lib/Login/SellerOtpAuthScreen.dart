@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../HomeScreen/Bottoms/SellerFormDialog.dart';
 import 'package:pinput/pinput.dart';
+
+// ✅ Local Imports
+import '../HomeScreen/Bottoms/SellerFormDialog.dart';
 
 class SellerOtpAuthScreen extends StatefulWidget {
   const SellerOtpAuthScreen({super.key});
@@ -20,21 +22,21 @@ class _SellerOtpAuthScreenState extends State<SellerOtpAuthScreen> {
   bool _loading = false;
   bool _resendEnabled = false;
   int _resendCountdown = 60;
+  final Color themeColor = const Color(0xFF1A0A5B);
 
   // 🔹 Send OTP
   Future<void> _sendOtp() async {
     String phone = _phoneController.text.trim();
 
-    // Automatically add +91 if missing
-    if (!phone.startsWith('+')) {
-      phone = '+91$phone';
-    }
-
-    if (phone.length < 10) {
+    if (phone.isEmpty || phone.length < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please enter a valid phone number")),
       );
       return;
+    }
+
+    if (!phone.startsWith('+91')) {
+      phone = '+91$phone';
     }
 
     setState(() {
@@ -48,7 +50,6 @@ class _SellerOtpAuthScreenState extends State<SellerOtpAuthScreen> {
       timeout: const Duration(seconds: 60),
 
       verificationCompleted: (PhoneAuthCredential credential) async {
-        // ✅ Auto verification (Android only)
         await _auth.signInWithCredential(credential);
         _onOtpSuccess();
       },
@@ -83,7 +84,7 @@ class _SellerOtpAuthScreenState extends State<SellerOtpAuthScreen> {
   Future<void> _verifyOtp() async {
     if (_verificationId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("No verification ID. Please request OTP again.")),
+        const SnackBar(content: Text("Please request OTP again.")),
       );
       return;
     }
@@ -108,23 +109,29 @@ class _SellerOtpAuthScreenState extends State<SellerOtpAuthScreen> {
     } catch (e) {
       setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("❌ Invalid OTP: $e")),
+        const SnackBar(content: Text("❌ Invalid OTP. Try again.")),
       );
     }
   }
 
-  // ✅ On Successful Verification
+  // ✅ OTP Verified
   void _onOtpSuccess() {
     setState(() => _loading = false);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("✅ OTP Verified Successfully!")),
     );
 
+    // Close OTP screen
     Navigator.pop(context);
-    SellerFormDialog.show(context); // Open Seller registration form
+
+    // Navigate to Seller Registration Page
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const SellerFormDialog()),
+    );
   }
 
-  // 🔁 Start resend countdown timer
+  // 🔁 Countdown Timer
   void _startResendTimer() {
     Future.delayed(const Duration(seconds: 1), () {
       if (!mounted) return;
@@ -140,6 +147,7 @@ class _SellerOtpAuthScreenState extends State<SellerOtpAuthScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text("Seller OTP Verification"),
         backgroundColor: Colors.white,
@@ -151,7 +159,7 @@ class _SellerOtpAuthScreenState extends State<SellerOtpAuthScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // 📞 Phone number field
+            // 📞 Phone Field
             TextField(
               controller: _phoneController,
               keyboardType: TextInputType.phone,
@@ -165,9 +173,9 @@ class _SellerOtpAuthScreenState extends State<SellerOtpAuthScreen> {
                 prefixIcon: const Icon(Icons.phone_android),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 25),
 
-            // 🔢 OTP input field
+            // 🔢 OTP Input
             if (_otpSent)
               Pinput(
                 length: 6,
@@ -183,20 +191,20 @@ class _SellerOtpAuthScreenState extends State<SellerOtpAuthScreen> {
                   ),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.purple),
+                    border: Border.all(color: themeColor),
                   ),
                 ),
               ),
 
             const SizedBox(height: 25),
 
-            // 🚀 Send / Verify button
+            // 🚀 Button
             _loading
-                ? const CircularProgressIndicator(color: Colors.purple)
+                ? const CircularProgressIndicator(color: Color(0xFF1A0A5B))
                 : ElevatedButton(
               onPressed: _otpSent ? _verifyOtp : _sendOtp,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple,
+                backgroundColor: themeColor,
                 minimumSize: const Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -210,7 +218,7 @@ class _SellerOtpAuthScreenState extends State<SellerOtpAuthScreen> {
 
             const SizedBox(height: 10),
 
-            // 🔁 Resend OTP section
+            // 🔁 Resend OTP
             if (_otpSent)
               TextButton(
                 onPressed: _resendEnabled ? _sendOtp : null,
@@ -219,7 +227,8 @@ class _SellerOtpAuthScreenState extends State<SellerOtpAuthScreen> {
                       ? "Resend OTP"
                       : "Resend in $_resendCountdown sec",
                   style: TextStyle(
-                    color: _resendEnabled ? Colors.purple : Colors.grey,
+                    color: _resendEnabled ? themeColor : Colors.grey,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),

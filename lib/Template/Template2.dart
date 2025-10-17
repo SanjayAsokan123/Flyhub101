@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../RegisterPage.dart';
-import '../../CommonClass/Utils.dart';
+import '../../CommonClass/utils.dart';
 
 class Template2 extends StatefulWidget {
   final String title;

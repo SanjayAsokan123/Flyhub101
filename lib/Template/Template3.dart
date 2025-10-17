@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../drone_card.dart';
-import '../../CommonClass/Utils.dart';
+import '../../CommonClass/utils.dart';
 
 class Template3 extends StatelessWidget {
   final String featureTitle;

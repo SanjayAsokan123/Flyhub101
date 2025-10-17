@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../CommonClass/ApiClass.dart';
-import '../CommonClass/Utils.dart';
+import '../CommonClass/utils.dart';
 
 class Mobilelogin extends StatefulWidget {
   final Map<String, dynamic> logindata;

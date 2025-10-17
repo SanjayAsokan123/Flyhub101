@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../CommonClass/Utils.dart';
+import '../../CommonClass/utils.dart';
 
 class ProductDetailPage extends StatelessWidget {
   final dynamic productData;
@@ -14,7 +14,7 @@ class ProductDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // ✅ Base image URL for your backend
-    const String baseUrl = "http://192.168.1.178:5001/uploads/";
+    const String baseUrl = "http://192.168.0.180:5001/uploads/";
 
     // ✅ Safely extract data with fallback values
     String imageUrl = Utils.safeString(productData["image1"] ?? productData["img"]);
