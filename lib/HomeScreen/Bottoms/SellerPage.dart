@@ -57,7 +57,8 @@ class _SellerPageState extends State<SellerPage> {
   /// 🔧 Ensure Firebase is initialized before using Firestore
   Future<void> _ensureFirebaseInitialized() async {
     if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+      await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform);
       debugPrint("✅ Firebase initialized inside SellerPage");
     }
   }
@@ -75,11 +76,7 @@ class _SellerPageState extends State<SellerPage> {
     }
 
     try {
-      final db = FirebaseFirestore.instanceFor(
-        app: Firebase.app(),
-        databaseId: 'flyhub',
-      );
-
+      final db = FirebaseFirestore.instance;
       final doc = await db.collection('users').doc(user.uid).get();
       final data = doc.data();
 
@@ -112,11 +109,7 @@ class _SellerPageState extends State<SellerPage> {
     if (_user == null) return;
 
     try {
-      final db = FirebaseFirestore.instanceFor(
-        app: Firebase.app(),
-        databaseId: 'flyhub',
-      );
-
+      final db = FirebaseFirestore.instance;
       final doc = await db.collection('users').doc(_user!.uid).get();
       if (doc.exists && mounted) {
         final data = doc.data() ?? {};
@@ -144,11 +137,7 @@ class _SellerPageState extends State<SellerPage> {
     }
 
     try {
-      final db = FirebaseFirestore.instanceFor(
-        app: Firebase.app(),
-        databaseId: 'flyhub',
-      );
-
+      final db = FirebaseFirestore.instance;
       await db.collection('users').doc(user.uid).set({
         'role': 'buyer',
         'updatedAt': FieldValue.serverTimestamp(),
@@ -219,9 +208,7 @@ class _SellerPageState extends State<SellerPage> {
         elevation: 1,
         actions: [
           IconButton(
-            onPressed: () {
-              HapticFeedback.selectionClick();
-            },
+            onPressed: () => HapticFeedback.selectionClick(),
             icon: Icon(Icons.edit, color: themeColor),
           ),
           InkWell(
@@ -229,7 +216,8 @@ class _SellerPageState extends State<SellerPage> {
             borderRadius: BorderRadius.circular(20),
             child: Container(
               margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [themeColor, themeColor.withOpacity(0.8)],
@@ -280,7 +268,8 @@ class _SellerPageState extends State<SellerPage> {
             const SizedBox(height: 12),
             Text(
               _sellerName ?? 'Seller',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style:
+              const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             Text(
               _sellerEmail ?? '',
@@ -375,9 +364,11 @@ class _SellerPageState extends State<SellerPage> {
     );
   }
 
-  Widget buildSettingsRow(String label, {String? badge, VoidCallback? onTap}) {
+  Widget buildSettingsRow(String label,
+      {String? badge, VoidCallback? onTap}) {
     return ListTile(
-      leading: const Icon(Icons.settings_outlined, color: Color(0xFF1A0A5B)),
+      leading:
+      const Icon(Icons.settings_outlined, color: Color(0xFF1A0A5B)),
       title: Text(label),
       trailing: badge != null
           ? Stack(
@@ -388,16 +379,16 @@ class _SellerPageState extends State<SellerPage> {
             top: 4,
             right: 16,
             child: Container(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: themeColor,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 badge,
-                style:
-                const TextStyle(color: Colors.white, fontSize: 10),
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 10),
               ),
             ),
           ),

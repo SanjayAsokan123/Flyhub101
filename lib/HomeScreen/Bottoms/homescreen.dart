@@ -346,7 +346,7 @@ class _HomeScreenState extends State<HomeScreen> {
               final imageUrl = (item["image"] ?? "").toString();
               final fullImageUrl = imageUrl.startsWith("http")
                   ? imageUrl
-                  : "http://192.168.0.180:5001/uploads/$imageUrl";
+                  : "http://192.168.0.178:5001/uploads/$imageUrl";
 
               return GestureDetector(
                 onTap: () => Navigator.push(

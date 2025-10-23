@@ -12,7 +12,20 @@
           "package_name": "flyhub.com"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "127883848645-ksj8p1dvtb28cn4b2i3pt6kim63btbhs.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "flyhub.com",
+            "certificate_hash": "f42d2b2d4d4e7b1168887d6aa67fd10f0354ca36"
+          }
+        },
+        {
+          "client_id": "127883848645-qec5mcvqvc31r0m00eci237f4d7cmrdn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBrDegpRvobnfJH-mTQ97kFLi0X-tio4m0"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "127883848645-qec5mcvqvc31r0m00eci237f4d7cmrdn.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "127883848645-07o8qir1m73hm4l0rsnn0r3fneahqrl4.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.flyhub"
+              }
+            }
+          ]
         }
       }
     }

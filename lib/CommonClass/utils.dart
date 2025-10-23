@@ -11,7 +11,7 @@ class Utils {
   // ============================================================
   // 🌐 GRAPHQL ENDPOINT
   // ============================================================
-  static const String graphqlUrl = "http://192.168.0.180:5001/graphql";
+  static const String graphqlUrl = "http://192.168.0.178:5001/graphql";
 
   // ============================================================
   // 🔔 TOAST MESSAGES

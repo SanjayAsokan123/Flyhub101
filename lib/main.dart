@@ -76,7 +76,7 @@ Future<void> main() async {
   // ✅ GraphQL setup
   const String graphqlEndpoint = String.fromEnvironment(
     'GRAPHQL_URL',
-    defaultValue: 'http://192.168.0.180:5001/graphql',
+    defaultValue: 'http://192.168.0.178:5001/graphql',
   );
 
   final HttpLink httpLink = HttpLink(graphqlEndpoint);

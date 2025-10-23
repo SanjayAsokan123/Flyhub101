@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -32,22 +33,33 @@ class _SellerFormDialogState extends State<SellerFormDialog> {
     _initializeSeller();
   }
 
+  /// ✅ Initialize everything
   Future<void> _initializeSeller() async {
-    await _ensureFirebase();
-    await _checkAccess();
-    await _loadSellerData();
-    if (mounted) setState(() => _loading = false);
-  }
-
-  /// ✅ Ensure Firebase is initialized safely
-  Future<void> _ensureFirebase() async {
-    if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-      print('✅ Firebase initialized inside SellerFormDialog');
+    try {
+      await _ensureFirebase();
+      await _checkAccess();
+      await _loadSellerData();
+    } catch (e) {
+      debugPrint("❌ Initialization Error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  /// 🧩 Check Seller Access & Profile Status
+  /// ✅ Ensure Firebase initialized
+  Future<void> _ensureFirebase() async {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform);
+      debugPrint('✅ Firebase initialized inside SellerFormDialog');
+    }
+  }
+
+  /// 🧩 Verify seller access
   Future<void> _checkAccess() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -59,19 +71,15 @@ class _SellerFormDialogState extends State<SellerFormDialog> {
       return;
     }
 
-    final db = FirebaseFirestore.instanceFor(
-      app: Firebase.app(),
-      // ✅ Use correct database name if your Firestore console shows "(default)"
-      databaseId: 'flyhub',
-    );
+    final db = FirebaseFirestore.instance;
 
     try {
       final doc = await db.collection('users').doc(user.uid).get();
-
       if (!doc.exists) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("⚠️ No profile found — switching to Buyer view.")),
+          const SnackBar(
+              content: Text("⚠️ No profile found — switching to Buyer view.")),
         );
         Navigator.pushReplacement(
           context,
@@ -81,15 +89,14 @@ class _SellerFormDialogState extends State<SellerFormDialog> {
       }
 
       final data = doc.data()!;
-      final role = data.containsKey('role') ? data['role'] : 'buyer';
-      final isProfileComplete = data.containsKey('sellerProfileCompleted')
-          ? data['sellerProfileCompleted']
-          : false;
+      final role = (data['role'] ?? 'buyer').toString();
+      final profileComplete = data['sellerProfileCompleted'] ?? false;
 
       if (role != 'seller') {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("🔒 Access denied — switching to Buyer view.")),
+          const SnackBar(
+              content: Text("🔒 Access denied — switching to Buyer view.")),
         );
         Navigator.pushReplacement(
           context,
@@ -98,53 +105,49 @@ class _SellerFormDialogState extends State<SellerFormDialog> {
         return;
       }
 
-      if (!isProfileComplete) {
+      // Redirect seller to complete their profile if needed
+      if (!profileComplete) {
         Future.delayed(const Duration(milliseconds: 500), () {
-          if (!mounted) return;
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const AddDroneForm()),
-          );
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const AddDroneForm()),
+            );
+          }
         });
       }
     } catch (e) {
-      print('❌ Firestore access error: $e');
+      debugPrint('❌ Firestore access error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text("Firestore error: $e")));
     }
   }
 
-  /// 🔹 Load Seller Profile Data
+  /// 🔹 Load seller info
   Future<void> _loadSellerData() async {
     _user = FirebaseAuth.instance.currentUser;
     if (_user == null) return;
 
-    final db = FirebaseFirestore.instanceFor(
-      app: Firebase.app(),
-      databaseId: 'flyhub',
-    );
-
     try {
+      final db = FirebaseFirestore.instance;
       final doc = await db.collection('users').doc(_user!.uid).get();
-      if (doc.exists) {
-        final data = doc.data()!;
-        if (!mounted) return;
+      if (doc.exists && mounted) {
+        final data = doc.data() ?? {};
         setState(() {
-          _sellerEmail = data.containsKey('email') ? data['email'] : _user!.email;
-          _sellerName = (data.containsKey('name')
-              ? data['name']
-              : (data['firstName'] ?? "Seller"))
-              .toString();
+          _sellerEmail = data['email'] ?? _user!.email;
+          _sellerName =
+              data['name'] ?? data['firstName'] ?? _user!.displayName ?? "Seller";
         });
       }
     } catch (e) {
-      print('⚠️ Error loading seller data: $e');
+      debugPrint('⚠️ Error loading seller data: $e');
     }
   }
 
-  /// 🔄 Switch to Buyer Mode
+  /// 🔄 Switch to buyer mode
   Future<void> _switchToBuyer() async {
+    HapticFeedback.selectionClick();
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       if (!mounted) return;
@@ -156,11 +159,7 @@ class _SellerFormDialogState extends State<SellerFormDialog> {
     }
 
     try {
-      final db = FirebaseFirestore.instanceFor(
-        app: Firebase.app(),
-        databaseId: 'flyhub',
-      );
-
+      final db = FirebaseFirestore.instance;
       await db.collection('users').doc(user.uid).set({
         'role': 'buyer',
         'updatedAt': FieldValue.serverTimestamp(),
@@ -175,15 +174,16 @@ class _SellerFormDialogState extends State<SellerFormDialog> {
         MaterialPageRoute(builder: (_) => const BuyerPage()),
       );
     } catch (e) {
-      print('❌ Switch to Buyer error: $e');
+      debugPrint('❌ Switch to Buyer error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("❌ Error switching to Buyer: $e")));
+          .showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
-  /// 🚪 Logout Function
+  /// 🚪 Logout function
   Future<void> _logout() async {
+    HapticFeedback.lightImpact();
     try {
       await FirebaseAuth.instance.signOut();
       if (!mounted) return;
@@ -196,10 +196,10 @@ class _SellerFormDialogState extends State<SellerFormDialog> {
         const SnackBar(content: Text("👋 Logged out successfully.")),
       );
     } catch (e) {
-      print('⚠️ Logout error: $e');
+      debugPrint('⚠️ Logout error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("❌ Logout error: $e")));
+          .showSnackBar(SnackBar(content: Text("Logout error: $e")));
     }
   }
 
@@ -207,7 +207,8 @@ class _SellerFormDialogState extends State<SellerFormDialog> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: Color(0xFF1A0A5B))),
+        body: Center(
+            child: CircularProgressIndicator(color: Color(0xFF1A0A5B))),
       );
     }
 
@@ -220,13 +221,15 @@ class _SellerFormDialogState extends State<SellerFormDialog> {
         elevation: 1,
         actions: [
           IconButton(
-            onPressed: () {},
+            onPressed: () => HapticFeedback.selectionClick(),
             icon: Icon(Icons.edit, color: themeColor),
           ),
           InkWell(
             onTap: _switchToBuyer,
+            borderRadius: BorderRadius.circular(20),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [themeColor, themeColor.withOpacity(0.8)],
@@ -277,14 +280,15 @@ class _SellerFormDialogState extends State<SellerFormDialog> {
             const SizedBox(height: 10),
             Text(
               _sellerName ?? 'Seller',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                  fontSize: 18, fontWeight: FontWeight.bold),
             ),
             Text(
               _sellerEmail ?? '',
               style: const TextStyle(fontSize: 13, color: Colors.grey),
             ),
-
             const SizedBox(height: 25),
+
             _buildSectionTitle("Seller Dashboard"),
             const Divider(),
             buildAddRow("Add Drone (Sell)", context, openAddDroneForm: true),
@@ -311,21 +315,20 @@ class _SellerFormDialogState extends State<SellerFormDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: ElevatedButton.icon(
                 onPressed: _logout,
-                icon: const Icon(Icons.logout, color: Colors.white, size: 18),
+                icon:
+                const Icon(Icons.logout, color: Colors.white, size: 18),
                 label: const Text(
                   "Logout",
                   style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    fontSize: 14,
-                  ),
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontSize: 14),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: themeColor,
                   minimumSize: const Size(double.infinity, 45),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
             ),
@@ -344,20 +347,21 @@ class _SellerFormDialogState extends State<SellerFormDialog> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Align(
         alignment: Alignment.centerLeft,
-        child: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
+        child: Text(title,
+            style:
+            const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
       ),
     );
   }
 
-  Widget buildAddRow(String title, BuildContext context, {bool openAddDroneForm = false}) {
+  Widget buildAddRow(String title, BuildContext context,
+      {bool openAddDroneForm = false}) {
     return ListTile(
       leading: Icon(Icons.add_circle_outline, color: themeColor),
       title: Text(title),
       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
       onTap: () {
+        HapticFeedback.selectionClick();
         if (openAddDroneForm) {
           Navigator.push(
             context,
@@ -372,9 +376,11 @@ class _SellerFormDialogState extends State<SellerFormDialog> {
     );
   }
 
-  Widget buildSettingsRow(String label, {String? badge, VoidCallback? onTap}) {
+  Widget buildSettingsRow(String label,
+      {String? badge, VoidCallback? onTap}) {
     return ListTile(
-      leading: const Icon(Icons.settings_outlined, color: Color(0xFF1A0A5B)),
+      leading:
+      const Icon(Icons.settings_outlined, color: Color(0xFF1A0A5B)),
       title: Text(label),
       trailing: badge != null
           ? Stack(
@@ -385,14 +391,16 @@ class _SellerFormDialogState extends State<SellerFormDialog> {
             top: 4,
             right: 16,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: themeColor,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 badge,
-                style: const TextStyle(color: Colors.white, fontSize: 10),
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 10),
               ),
             ),
           ),

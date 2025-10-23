@@ -31,12 +31,11 @@ class _MarketPageState extends State<MarketPage>
 
   bool isLoading = true;
 
-  final String backendUrl = "http://192.168.0.180:5001/graphql";
+  final String backendUrl = "http://192.168.0.178:5001/graphql";
   final Set<String> favoriteItems = {};
   final Map<String, dynamic> favoriteData = {};
   int cartCount = 0;
   String searchQuery = '';
-  String selectedPriceFilter = 'None';
   final Color primaryColor = const Color(0xFF1A0A5B);
 
   final String getMarketplaceQuery = '''
@@ -73,10 +72,11 @@ class _MarketPageState extends State<MarketPage>
     super.dispose();
   }
 
+  /// ✅ Load cart item count
   Future<void> _loadCartCount() async {
     final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString('cart') ?? '[]';
     try {
+      final saved = prefs.getString('cart') ?? '[]';
       final cartItems = jsonDecode(saved) as List<dynamic>;
       if (mounted) setState(() => cartCount = cartItems.length);
     } catch (_) {
@@ -84,14 +84,17 @@ class _MarketPageState extends State<MarketPage>
     }
   }
 
+  /// ✅ Load wishlist (favorites)
   Future<void> _loadFavorites() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString('wishlist');
     if (saved == null) return;
+
     try {
       final decoded = jsonDecode(saved) as List<dynamic>;
       favoriteItems.clear();
       favoriteData.clear();
+
       for (var item in decoded) {
         final id = item['id']?.toString() ?? '';
         if (id.isNotEmpty) {
@@ -105,14 +108,14 @@ class _MarketPageState extends State<MarketPage>
 
   Future<void> _saveFavorites() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-        'wishlist', jsonEncode(favoriteData.values.toList()));
+    await prefs.setString('wishlist', jsonEncode(favoriteData.values.toList()));
   }
 
+  /// ✅ Fetch all marketplace data (drones, parts, accessories)
   Future<void> fetchAllData() async {
     HapticFeedback.selectionClick();
     if (!await Utils.checkInternetConnection()) {
-      Utils.bottomToast(context, "No Internet connection");
+      Utils.bottomToast(context, "Please check your internet connection");
       return;
     }
 
@@ -140,12 +143,11 @@ class _MarketPageState extends State<MarketPage>
 
         final raw = result.data?['marketplace'] ?? [];
         return (raw as List<dynamic>).map((e) {
-          return {
-            ...Map<String, dynamic>.from(e as Map),
-            'price': e['price'] is num
-                ? e['price']
-                : (double.tryParse(e['price']?.toString() ?? '0') ?? 0),
-          };
+          final map = Map<String, dynamic>.from(e as Map);
+          map['price'] = e['price'] is num
+              ? e['price']
+              : double.tryParse(e['price']?.toString() ?? '0') ?? 0.0;
+          return map;
         }).toList();
       }
 
@@ -156,6 +158,7 @@ class _MarketPageState extends State<MarketPage>
       ]);
 
       if (!mounted) return;
+
       setState(() {
         drones = results[0];
         parts = results[1];
@@ -168,16 +171,15 @@ class _MarketPageState extends State<MarketPage>
 
       debugPrint("✅ Marketplace data loaded successfully");
     } catch (e) {
-      debugPrint("❌ Exception while fetching data: $e");
+      debugPrint("❌ Exception fetching data: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error fetching data: $e")),
-        );
+        Utils.bottomToast(context, "Error loading marketplace data");
         setState(() => isLoading = false);
       }
     }
   }
 
+  /// ✅ Search function
   void _searchProducts(String query) {
     setState(() {
       searchQuery = query.trim().toLowerCase();
@@ -196,26 +198,15 @@ class _MarketPageState extends State<MarketPage>
     }).toList();
   }
 
-  void _applyPriceFilter(
-      String label, List<dynamic> items, Function(List<dynamic>) onUpdate) {
-    setState(() {
-      selectedPriceFilter = label;
-      var sorted = List<dynamic>.from(items);
-      if (label == 'Low to High') {
-        sorted.sort((a, b) => (a['price'] as num).compareTo(b['price'] as num));
-      } else if (label == 'High to Low') {
-        sorted.sort((a, b) => (b['price'] as num).compareTo(a['price'] as num));
-      }
-      onUpdate(sorted);
-    });
-  }
-
-  // ✅ Modern card widget
+  /// ✅ Product Card
   Widget buildMarketCard(Map<String, dynamic> item) {
     final imageUrl = (item['image'] ?? '').toString();
-    final fullUrl = imageUrl.startsWith('http')
+    final fullUrl = imageUrl.isEmpty
+        ? 'https://via.placeholder.com/300x200?text=No+Image'
+        : (imageUrl.startsWith('http')
         ? imageUrl
-        : '${backendUrl.replaceAll('/graphql', '')}/uploads/$imageUrl';
+        : '${backendUrl.replaceAll('/graphql', '')}/uploads/$imageUrl');
+
     final id = (item['id'] ?? '').toString();
     final isFav = favoriteItems.contains(id);
 
@@ -223,7 +214,8 @@ class _MarketPageState extends State<MarketPage>
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
-            builder: (_) => DroneDetailPage(drone: item, Drone: null)),
+          builder: (_) => DroneDetailPage(drone: item, Drone: null),
+        ),
       ),
       child: Card(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -308,8 +300,9 @@ class _MarketPageState extends State<MarketPage>
                     ],
                   ),
                   child: Icon(
-                      isFav ? Icons.favorite : Icons.favorite_border,
-                      color: primaryColor),
+                    isFav ? Icons.favorite : Icons.favorite_border,
+                    color: isFav ? Colors.redAccent : primaryColor,
+                  ),
                 ),
               ),
             ),
@@ -319,19 +312,19 @@ class _MarketPageState extends State<MarketPage>
     );
   }
 
+  /// ✅ Tab content
   Widget buildTabView(List<dynamic> items, List<dynamic> filteredItems) {
     if (isLoading) return const Center(child: CircularProgressIndicator());
-    final viewItems = searchQuery.isEmpty
-        ? (filteredItems.isEmpty ? items : filteredItems)
-        : filteredItems;
+    final viewItems =
+    searchQuery.isEmpty ? items : filteredItems.isNotEmpty ? filteredItems : [];
     if (viewItems.isEmpty) {
-      return const Center(child: Text("No items available"));
+      return const Center(child: Text("No items available 😶"));
     }
 
     return RefreshIndicator(
       onRefresh: fetchAllData,
       child: GridView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        padding: const EdgeInsets.all(8),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           childAspectRatio: 0.78,
@@ -345,6 +338,7 @@ class _MarketPageState extends State<MarketPage>
     );
   }
 
+  /// ✅ MAIN UI
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -358,10 +352,8 @@ class _MarketPageState extends State<MarketPage>
         actions: [
           IconButton(
             icon: Icon(Icons.favorite_border, color: primaryColor),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text("Open Wishlist - implement Wishlist page.")));
-            },
+            onPressed: () =>
+                Utils.bottomToast(context, "Wishlist page coming soon!"),
           ),
           Stack(
             children: [
@@ -422,13 +414,13 @@ class _MarketPageState extends State<MarketPage>
               ),
               TabBar(
                 controller: _mainTabController,
-                labelColor: const Color(0xff7057FF),
+                labelColor: primaryColor,
                 unselectedLabelColor: Colors.grey,
-                indicatorColor: const Color(0xff7057FF),
+                indicatorColor: primaryColor,
                 tabs: const [
                   Tab(text: 'Drones'),
                   Tab(text: 'Parts'),
-                  Tab(text: 'Accessories')
+                  Tab(text: 'Accessories'),
                 ],
               ),
             ],
@@ -444,8 +436,8 @@ class _MarketPageState extends State<MarketPage>
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        heroTag: "market_refresh_fab", // ✅ Fixes Hero conflicts
-        backgroundColor: const Color(0xff7057FF),
+        heroTag: "market_refresh_fab",
+        backgroundColor: primaryColor,
         onPressed: fetchAllData,
         child: const Icon(Icons.refresh, color: Colors.white),
       ),
