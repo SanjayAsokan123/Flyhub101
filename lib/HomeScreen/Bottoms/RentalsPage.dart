@@ -56,33 +56,38 @@ class _RentalsPageState extends State<RentalsPage>
     super.dispose();
   }
 
-  /// Fetch Rentals safely
+  /// ✅ Fetch Rentals using ApiClass (with ApiResult)
   Future<void> fetchRentals() async {
     HapticFeedback.selectionClick();
+
     if (!await Utils.checkInternetConnection()) {
-      if (!mounted) return;
       Utils.bottomToast(context, "Please check your internet connection");
       return;
     }
 
-    try {
-      if (mounted) setState(() => isLoading = true);
-      final response = await _apiClass.getMarketplaceItems("drones");
+    setState(() => isLoading = true);
 
-      if (!mounted) return;
-      setState(() {
-        rentalList = response ?? [];
-        filteredList = List.from(rentalList);
-        isLoading = false;
-      });
+    try {
+      final result = await _apiClass.getMarketplaceItems("drones");
+
+      if (result.status == "success" && result.data is List) {
+        setState(() {
+          rentalList = result.data;
+          filteredList = List.from(rentalList);
+          isLoading = false;
+        });
+      } else {
+        setState(() => isLoading = false);
+        Utils.bottomToast(context,
+            result.message.isNotEmpty ? result.message : "No rentals found");
+      }
     } catch (e) {
-      if (!mounted) return;
-      Utils.bottomToast(context, "Error loading rentals: $e");
       setState(() => isLoading = false);
+      Utils.bottomToast(context, "Error loading rentals: $e");
     }
   }
 
-  /// Load Cart & Favorites
+  /// 🛒 Load Cart Count
   Future<void> _loadCartCount() async {
     final prefs = await SharedPreferences.getInstance();
     try {
@@ -96,6 +101,7 @@ class _RentalsPageState extends State<RentalsPage>
     }
   }
 
+  /// ❤️ Load Favorites
   Future<void> _loadFavorites() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString('wishlist');
@@ -110,8 +116,7 @@ class _RentalsPageState extends State<RentalsPage>
         favoriteItems.add(id);
         favoriteData[id] = item;
       }
-      if (!mounted) return;
-      setState(() {});
+      if (mounted) setState(() {});
     } catch (_) {}
   }
 
@@ -120,7 +125,7 @@ class _RentalsPageState extends State<RentalsPage>
     await prefs.setString('wishlist', jsonEncode(favoriteData.values.toList()));
   }
 
-  /// Apply Filters
+  /// 🎛 Apply Filters
   void applyFilter(String filter) {
     HapticFeedback.selectionClick();
     if (!mounted) return;
@@ -147,7 +152,7 @@ class _RentalsPageState extends State<RentalsPage>
     });
   }
 
-  /// Search Rentals
+  /// 🔍 Search Rentals
   void _searchRentals(String query) {
     if (!mounted) return;
 
@@ -161,7 +166,7 @@ class _RentalsPageState extends State<RentalsPage>
     });
   }
 
-  /// Build Rental Card
+  /// 🛩️ Build Rental Card
   Widget buildRentalCard(Map<String, dynamic> drone) {
     final id = drone['id'].toString();
     final isFav = favoriteItems.contains(id);
@@ -174,7 +179,9 @@ class _RentalsPageState extends State<RentalsPage>
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         color: Colors.white,
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -187,8 +194,10 @@ class _RentalsPageState extends State<RentalsPage>
                 fit: BoxFit.cover,
                 width: double.infinity,
                 height: 140,
-                placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                errorWidget: (context, url, error) => const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+                placeholder: (context, url) =>
+                const Center(child: CircularProgressIndicator()),
+                errorWidget: (context, url, error) =>
+                const Icon(Icons.broken_image, size: 50, color: Colors.grey),
               ),
             ),
             Positioned(
@@ -215,7 +224,11 @@ class _RentalsPageState extends State<RentalsPage>
                     boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
                   ),
                   padding: const EdgeInsets.all(6),
-                  child: Icon(isFav ? Icons.favorite : Icons.favorite_border, color: isFav ? Colors.redAccent : primaryColor, size: 22),
+                  child: Icon(
+                    isFav ? Icons.favorite : Icons.favorite_border,
+                    color: isFav ? Colors.redAccent : primaryColor,
+                    size: 22,
+                  ),
                 ),
               ),
             ),
@@ -225,18 +238,30 @@ class _RentalsPageState extends State<RentalsPage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(drone['name'] ?? 'Unnamed Drone', maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.lexend(fontWeight: FontWeight.bold)),
-                Text((drone['category'] ?? '').toString().toUpperCase(), style: GoogleFonts.lexend(color: Colors.grey[600], fontSize: 12)),
+                Text(drone['name'] ?? 'Unnamed Drone',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.lexend(fontWeight: FontWeight.bold)),
+                Text((drone['category'] ?? '').toString().toUpperCase(),
+                    style: GoogleFonts.lexend(color: Colors.grey[600], fontSize: 12)),
                 const SizedBox(height: 6),
-                Text("₹${drone['price'] ?? 0}/day", style: GoogleFonts.lexend(fontWeight: FontWeight.bold, color: primaryColor)),
+                Text("₹${drone['price'] ?? 0}/day",
+                    style: GoogleFonts.lexend(
+                        fontWeight: FontWeight.bold, color: primaryColor)),
                 const SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,
                   height: 32,
                   child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: primaryColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                    onPressed: () => Utils.bottomToast(context, "${drone['name']} booking feature coming soon!"),
-                    child: Text("Book Now", style: GoogleFonts.lexend(color: Colors.white, fontSize: 13)),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8))),
+                    onPressed: () => Utils.bottomToast(
+                        context, "${drone['name']} booking feature coming soon!"),
+                    child: Text("Book Now",
+                        style: GoogleFonts.lexend(
+                            color: Colors.white, fontSize: 13)),
                   ),
                 ),
               ],
@@ -247,7 +272,7 @@ class _RentalsPageState extends State<RentalsPage>
     );
   }
 
-  /// Build Sub Filters
+  /// 🧭 Build Sub Filters
   Widget buildSubFilterTabs() {
     return SizedBox(
       height: 40,
@@ -268,7 +293,11 @@ class _RentalsPageState extends State<RentalsPage>
                 color: selected ? primaryColor : const Color(0xffF7F7F8),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Text(filter, style: GoogleFonts.lexend(fontSize: 12, fontWeight: FontWeight.w500, color: selected ? Colors.white : Colors.black)),
+              child: Text(filter,
+                  style: GoogleFonts.lexend(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: selected ? Colors.white : Colors.black)),
             ),
           );
         },
@@ -301,7 +330,8 @@ class _RentalsPageState extends State<RentalsPage>
               IconButton(
                 icon: Icon(Icons.shopping_cart_outlined, color: primaryColor),
                 onPressed: () async {
-                  await Navigator.push(context, MaterialPageRoute(builder: (_) => const MyCartPage()));
+                  await Navigator.push(
+                      context, MaterialPageRoute(builder: (_) => const MyCartPage()));
                   _loadCartCount();
                 },
               ),
@@ -311,19 +341,32 @@ class _RentalsPageState extends State<RentalsPage>
                   top: 6,
                   child: Container(
                     padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(10)),
-                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                    child: Text('$cartCount', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                    decoration: BoxDecoration(
+                        color: Colors.redAccent,
+                        borderRadius: BorderRadius.circular(10)),
+                    constraints:
+                    const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text('$cartCount',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center),
                   ),
                 ),
             ],
           ),
         ],
-        bottom: TabBar(controller: _mainTabController, labelColor: primaryColor, unselectedLabelColor: Colors.grey, indicatorColor: primaryColor, tabs: const [
-          Tab(text: 'Available'),
-          Tab(text: 'My Bookings'),
-          Tab(text: 'Insurance'),
-        ]),
+        bottom: TabBar(
+            controller: _mainTabController,
+            labelColor: primaryColor,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: primaryColor,
+            tabs: const [
+              Tab(text: 'Available'),
+              Tab(text: 'My Bookings'),
+              Tab(text: 'Insurance'),
+            ]),
       ),
       body: RefreshIndicator(
         color: primaryColor,
@@ -341,10 +384,13 @@ class _RentalsPageState extends State<RentalsPage>
                     decoration: InputDecoration(
                       hintText: "Search drones...",
                       prefixIcon: Icon(Icons.search, color: primaryColor),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none),
                       filled: true,
                       fillColor: Colors.grey[200],
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16),
                     ),
                   ),
                 ),
@@ -357,20 +403,28 @@ class _RentalsPageState extends State<RentalsPage>
                       ? const Center(child: Text("No rentals available 😶"))
                       : GridView.builder(
                     padding: const EdgeInsets.all(12),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       childAspectRatio: 0.72,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
                     ),
                     itemCount: filteredList.length,
-                    itemBuilder: (context, i) => buildRentalCard(filteredList[i]),
+                    itemBuilder: (context, i) =>
+                        buildRentalCard(filteredList[i]),
                   ),
                 ),
               ],
             ),
-            Center(child: Text("My Bookings will appear here", style: GoogleFonts.lexend(fontSize: 16, color: Colors.grey.shade600))),
-            Center(child: Text("Insurance details coming soon", style: GoogleFonts.lexend(fontSize: 16, color: Colors.grey.shade600))),
+            Center(
+                child: Text("My Bookings will appear here",
+                    style: GoogleFonts.lexend(
+                        fontSize: 16, color: Colors.grey.shade600))),
+            Center(
+                child: Text("Insurance details coming soon",
+                    style: GoogleFonts.lexend(
+                        fontSize: 16, color: Colors.grey.shade600))),
           ],
         ),
       ),
@@ -378,7 +432,8 @@ class _RentalsPageState extends State<RentalsPage>
         heroTag: "rental_add_fab",
         backgroundColor: primaryColor,
         onPressed: () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => MyDroneListPage()));
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => MyDroneListPage()));
         },
         child: const Icon(Icons.add, color: Colors.white, size: 30),
       ),

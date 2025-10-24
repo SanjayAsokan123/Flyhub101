@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flyhub/HomeScreen/Dynamichome.dart';
 import 'package:flyhub/HomeScreen/Bottoms/SellerFormDialog.dart';
-import 'LoginPage.dart';
+import 'package:flyhub/Login/LoginPage.dart';
+import 'package:flyhub/services/role_manager.dart'; // ✅ new helper
 
 class FlyHubSelectionPage extends StatelessWidget {
   const FlyHubSelectionPage({super.key});
@@ -36,18 +39,18 @@ class FlyHubSelectionPage extends StatelessWidget {
                   style: GoogleFonts.lexend(
                     color: Colors.grey.shade600,
                     fontSize: 14,
-                    fontWeight: FontWeight.w400,
                   ),
                 ),
                 const SizedBox(height: 50),
 
-                // 🔹 Seller Option
+                // 🟣 Seller Option
                 _buildButton(
                   context,
                   "Become a Seller",
                   primaryColor,
                   Icons.store_mall_directory_outlined,
-                      () {
+                      () async {
+                    await RoleManager.setLocalRole("seller");
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -58,58 +61,46 @@ class FlyHubSelectionPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 18),
 
-                // 🔹 Buyer Option
+                // 🔵 Buyer Option
                 _buildButton(
                   context,
                   "Become a Buyer",
                   Colors.deepPurpleAccent,
                   Icons.shopping_bag_outlined,
-                      () {
+                      () async {
+                    await RoleManager.setLocalRole("buyer");
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const LoginPage(
-                          logoPath: 'assets/logo.png',
-                        ),
+                        builder: (context) => const LoginPage(),
                       ),
                     );
                   },
                 ),
                 const SizedBox(height: 30),
 
-                // 🔹 Divider Text
+                // Divider
                 Row(
                   children: [
-                    Expanded(
-                      child: Divider(
-                        color: Colors.grey.shade300,
-                        thickness: 1,
-                      ),
-                    ),
+                    Expanded(child: Divider(color: Colors.grey.shade300)),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Text(
-                        "or",
-                        style: GoogleFonts.lexend(
-                          color: Colors.grey.shade600,
-                          fontSize: 14,
-                        ),
-                      ),
+                      child: Text("or",
+                          style: GoogleFonts.lexend(
+                            color: Colors.grey.shade600,
+                            fontSize: 14,
+                          )),
                     ),
-                    Expanded(
-                      child: Divider(
-                        color: Colors.grey.shade300,
-                        thickness: 1,
-                      ),
-                    ),
+                    Expanded(child: Divider(color: Colors.grey.shade300)),
                   ],
                 ),
                 const SizedBox(height: 20),
 
-                // 🔹 Guest Option
+                // 🟢 Guest Option
                 TextButton.icon(
-                  onPressed: () {
-                    Navigator.push(
+                  onPressed: () async {
+                    await RoleManager.setLocalRole("guest");
+                    Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
                         builder: (context) =>
@@ -127,10 +118,8 @@ class FlyHubSelectionPage extends StatelessWidget {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 50),
 
-                // 🔹 Footer Text
                 Text(
                   "FlyHub Technologies Pvt. Ltd.",
                   style: GoogleFonts.lexend(
@@ -154,7 +143,7 @@ class FlyHubSelectionPage extends StatelessWidget {
     );
   }
 
-  /// 🔹 Reusable Button Builder
+  /// 🔹 Reusable button
   Widget _buildButton(
       BuildContext context,
       String text,

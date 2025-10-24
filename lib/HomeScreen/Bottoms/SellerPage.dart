@@ -2,15 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_core/firebase_core.dart';
 
-// ✅ Local Imports
-import './BuyerPage.dart';
-import './admin_login.dart';
+import '../../HomeScreen/Dynamichome.dart';
+import '../../HomeScreen/Bottoms/BuyerProfilePage.dart';
+import '../../HomeScreen/Bottoms/GuestProfilePage.dart';
+import '../../services/role_manager.dart';
 import '../../add_drone_form.dart';
-import '../Dynamichome.dart';
-import './GuestProfilePage.dart';
-import '../../firebase_options.dart';
+import 'admin_login.dart';
 
 class SellerPage extends StatefulWidget {
   const SellerPage({super.key});
@@ -20,173 +18,146 @@ class SellerPage extends StatefulWidget {
 }
 
 class _SellerPageState extends State<SellerPage> {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
   User? _user;
-  String? _sellerName;
-  String? _sellerEmail;
+  Map<String, dynamic>? _sellerData;
   bool _loading = true;
 
-  final Color themeColor = const Color(0xFF1A0A5B);
+  static const Color themeColor = Color(0xFF1A0A5B);
 
   @override
   void initState() {
     super.initState();
-    _initializeSellerPage();
+    _initSellerPage();
   }
 
-  /// ✅ Initialize Firebase, verify role, and load data
-  Future<void> _initializeSellerPage() async {
+  Future<void> _initSellerPage() async {
     try {
-      await _ensureFirebaseInitialized();
-      await _checkAccess();
-      await _loadSellerData();
-    } catch (e) {
-      debugPrint("❌ Initialization error: $e");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: Colors.redAccent,
-            content: Text("Error initializing seller page: $e"),
-          ),
+      _user = _auth.currentUser;
+
+      // 🧩 Not logged in → Guest
+      if (_user == null) {
+        await RoleManager.setLocalRole("guest");
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const GuestProfilePage()),
         );
+        return;
       }
+
+      final doc = await _firestore.collection('users').doc(_user!.uid).get();
+
+      // 🧩 No Firestore document → treat as Buyer
+      if (!doc.exists) {
+        await RoleManager.setLocalRole("buyer");
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const BuyerProfilePage()),
+        );
+        return;
+      }
+
+      final data = doc.data()!;
+      final role = data['role']?.toString().toLowerCase() ?? "buyer";
+
+      // 🧩 Wrong role → Redirect
+      if (role != "seller") {
+        await RoleManager.setLocalRole("buyer");
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const BuyerProfilePage()),
+        );
+        return;
+      }
+
+      await RoleManager.setLocalRole("seller");
+      setState(() => _sellerData = data);
+    } catch (e) {
+      debugPrint("❌ SellerPage init error: $e");
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  /// 🔧 Ensure Firebase is initialized before using Firestore
-  Future<void> _ensureFirebaseInitialized() async {
-    if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.currentPlatform);
-      debugPrint("✅ Firebase initialized inside SellerPage");
-    }
-  }
-
-  /// 🛡 Verify Seller Access Role
-  Future<void> _checkAccess() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const GuestProfilePage()),
-      );
-      return;
-    }
-
-    try {
-      final db = FirebaseFirestore.instance;
-      final doc = await db.collection('users').doc(user.uid).get();
-      final data = doc.data();
-
-      if (data == null || (data['role'] ?? 'buyer') != 'seller') {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: Colors.orangeAccent,
-            content: Text("🔒 Access denied — switching to Buyer view."),
-          ),
-        );
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const BuyerPage()),
-        );
-      }
-    } catch (e) {
-      debugPrint("❌ Firestore Access Error: $e");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("❌ Error verifying seller access: $e")),
-        );
-      }
-    }
-  }
-
-  /// 🔹 Load Seller Profile Data
-  Future<void> _loadSellerData() async {
-    _user = FirebaseAuth.instance.currentUser;
-    if (_user == null) return;
-
-    try {
-      final db = FirebaseFirestore.instance;
-      final doc = await db.collection('users').doc(_user!.uid).get();
-      if (doc.exists && mounted) {
-        final data = doc.data() ?? {};
-        setState(() {
-          _sellerEmail = data['email'] ?? _user!.email;
-          _sellerName = data['name'] ?? data['firstName'] ?? "Seller";
-        });
-      }
-    } catch (e) {
-      debugPrint("⚠️ Error loading seller data: $e");
-    }
-  }
-
-  /// 🔄 Switch to Buyer Mode
+  /// 🔄 Switch to Buyer Mode (safe and clean)
   Future<void> _switchToBuyer() async {
     HapticFeedback.selectionClick();
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const GuestProfilePage()),
-      );
-      return;
-    }
-
     try {
-      final db = FirebaseFirestore.instance;
-      await db.collection('users').doc(user.uid).set({
-        'role': 'buyer',
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
+      await RoleManager.updateRole("buyer");
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: Colors.green,
-          content: Text("✅ Switched to Buyer Mode"),
-        ),
-      );
+
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const BuyerPage()),
+        MaterialPageRoute(builder: (_) => const BuyerProfilePage()),
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("✅ Switched to Buyer Mode")),
       );
     } catch (e) {
-      debugPrint("❌ Error switching to Buyer: $e");
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("❌ Failed to switch to Buyer: $e")),
-      );
+      debugPrint("⚠️ Error switching to buyer: $e");
     }
   }
 
-  /// 🚪 Logout Function
+  /// 🚪 Logout safely
   Future<void> _logout() async {
     HapticFeedback.lightImpact();
-    try {
-      await FirebaseAuth.instance.signOut();
-      if (!mounted) return;
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
-            (route) => false,
-      );
+    await _auth.signOut();
+    await RoleManager.clearRole();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: Colors.green,
-          content: Text("👋 Logged out successfully."),
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
+          (route) => false,
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("👋 Logged out successfully")),
+    );
+  }
+
+  /// 🧱 Reusable tile
+  Widget _buildTile(String label, IconData icon, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon, color: themeColor),
+      title: Text(label, style: const TextStyle(fontSize: 15)),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+      onTap: onTap,
+    );
+  }
+
+  /// 🧩 Seller Info Header
+  Widget _buildHeader() {
+    final name = _sellerData?['name'] ??
+        _sellerData?['firstName'] ??
+        _user?.displayName ??
+        "Seller";
+    final email = _sellerData?['email'] ?? _user?.email ?? "No email";
+
+    return Column(
+      children: [
+        CircleAvatar(
+          radius: 40,
+          backgroundColor: themeColor,
+          child: Text(
+            name.isNotEmpty ? name[0].toUpperCase() : "?",
+            style: const TextStyle(color: Colors.white, fontSize: 24),
+          ),
         ),
-      );
-    } catch (e) {
-      debugPrint("❌ Logout Error: $e");
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("❌ Logout error: $e")));
-    }
+        const SizedBox(height: 10),
+        Text(name,
+            style:
+            const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        Text(email, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+        const SizedBox(height: 20),
+      ],
+    );
   }
 
   @override
@@ -194,7 +165,7 @@ class _SellerPageState extends State<SellerPage> {
     if (_loading) {
       return const Scaffold(
         body: Center(
-          child: CircularProgressIndicator(color: Color(0xFF1A0A5B)),
+          child: CircularProgressIndicator(color: themeColor),
         ),
       );
     }
@@ -202,47 +173,34 @@ class _SellerPageState extends State<SellerPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Seller Profile'),
+        title: const Text("Seller Profile"),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 1,
         actions: [
-          IconButton(
-            onPressed: () => HapticFeedback.selectionClick(),
-            icon: Icon(Icons.edit, color: themeColor),
-          ),
           InkWell(
             onTap: _switchToBuyer,
             borderRadius: BorderRadius.circular(20),
             child: Container(
               margin: const EdgeInsets.only(right: 8),
-              padding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [themeColor, themeColor.withOpacity(0.8)],
                 ),
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: themeColor.withOpacity(0.25),
-                    offset: const Offset(2, 2),
-                    blurRadius: 6,
-                  ),
-                ],
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.switch_account, color: Colors.white, size: 18),
+                  Icon(Icons.swap_horiz, color: Colors.white, size: 18),
                   SizedBox(width: 6),
                   Text(
-                    'Switch to Buyer',
+                    "Switch to Buyer",
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -251,151 +209,57 @@ class _SellerPageState extends State<SellerPage> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(vertical: 20),
+        padding: const EdgeInsets.symmetric(vertical: 15),
         child: Column(
           children: [
-            // 🧑‍💼 Profile Header
-            CircleAvatar(
-              radius: 45,
-              backgroundColor: themeColor,
-              child: Text(
-                _sellerName != null && _sellerName!.isNotEmpty
-                    ? _sellerName![0].toUpperCase()
-                    : 'S',
-                style: const TextStyle(color: Colors.white, fontSize: 24),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              _sellerName ?? 'Seller',
-              style:
-              const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              _sellerEmail ?? '',
-              style: const TextStyle(fontSize: 13, color: Colors.grey),
-            ),
-            const SizedBox(height: 25),
+            _buildHeader(),
 
-            _buildSectionTitle("Seller Dashboard"),
-            const Divider(),
-            buildAddRow("Add Drone (Sell)", context, openAddDroneForm: true),
-            buildAddRow("Add Drone (Rental)", context),
-            buildAddRow("Add Jobs", context),
-            buildAddRow("Add Services", context),
-            buildAddRow("Add Spare Parts", context),
-
-            const SizedBox(height: 25),
-            _buildSectionTitle("Account Settings"),
-            const Divider(),
-            buildSettingsRow("Personal Information"),
-            buildSettingsRow("Notifications", badge: "3"),
-            buildSettingsRow("Help & Support"),
-            buildSettingsRow("Admin Login", onTap: () {
+            _buildSection("My Store"),
+            _buildTile("Add Drone for Sale", Icons.airplanemode_active, () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) =>  AdminLoginPage()),
+                MaterialPageRoute(builder: (_) => const AddDroneForm()),
               );
             }),
+            _buildTile("Add Spare Parts", Icons.build_outlined, () {}),
+            _buildTile("Add Rental Drone", Icons.precision_manufacturing, () {}),
+            _buildTile("Add Drone Services", Icons.design_services_outlined, () {}),
+            _buildTile("Add Jobs / Gigs", Icons.work_outline, () {}),
 
-            const SizedBox(height: 25),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ElevatedButton.icon(
-                onPressed: _logout,
-                icon: const Icon(Icons.logout, color: Colors.white, size: 18),
-                label: const Text(
-                  "Logout",
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      fontSize: 14),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: themeColor,
-                  minimumSize: const Size(double.infinity, 45),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 15),
+            const SizedBox(height: 20),
+            _buildSection("Account Settings"),
+            _buildTile("Admin Login", Icons.admin_panel_settings_outlined, () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => AdminLoginPage()),
+              );
+            }),
+            _buildTile("Logout", Icons.logout, _logout),
+
+            const SizedBox(height: 30),
             const Text("Version 1.0.0",
                 style: TextStyle(fontSize: 12, color: Colors.grey)),
-            const SizedBox(height: 30),
+            const SizedBox(height: 20),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSection(String title) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(
           title,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: Colors.black,
+          ),
         ),
       ),
-    );
-  }
-
-  Widget buildAddRow(String title, BuildContext context,
-      {bool openAddDroneForm = false}) {
-    return ListTile(
-      leading: Icon(Icons.add_circle_outline, color: themeColor),
-      title: Text(title),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-      onTap: () {
-        HapticFeedback.selectionClick();
-        if (openAddDroneForm) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AddDroneForm()),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('$title page coming soon...')),
-          );
-        }
-      },
-    );
-  }
-
-  Widget buildSettingsRow(String label,
-      {String? badge, VoidCallback? onTap}) {
-    return ListTile(
-      leading:
-      const Icon(Icons.settings_outlined, color: Color(0xFF1A0A5B)),
-      title: Text(label),
-      trailing: badge != null
-          ? Stack(
-        alignment: Alignment.center,
-        children: [
-          const Icon(Icons.chevron_right),
-          Positioned(
-            top: 4,
-            right: 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: themeColor,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                badge,
-                style: const TextStyle(
-                    color: Colors.white, fontSize: 10),
-              ),
-            ),
-          ),
-        ],
-      )
-          : const Icon(Icons.chevron_right),
-      onTap: onTap,
     );
   }
 }

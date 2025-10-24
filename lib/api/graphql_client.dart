@@ -3,7 +3,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 
 class GraphQLConfig {
   static HttpLink httpLink = HttpLink(
-    "http://192.168.0.178:5001/graphql", // Android emulator
+    "http://192.168.1.178:5001/graphql", // Android emulator
     // Or "http://localhost:5001/graphql" for web/iOS
     // Or "https://flyhub-api.onrender.com/graphql" if deployed
   );

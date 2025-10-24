@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flyhub/Login/splashscreen.dart';
+import 'package:flyhub/services/role_manager.dart';
+import 'package:flyhub/HomeScreen/Dynamichome.dart';
+import 'package:flyhub/HomeScreen/Bottoms/BuyerProfilePage.dart';
+import 'package:flyhub/HomeScreen/Bottoms/SellerPage.dart';
+import 'package:flyhub/HomeScreen/Bottoms/GuestProfilePage.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,8 +13,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:provider/provider.dart'; // ✅ Provider import
 import 'firebase_options.dart';
 import 'CommonClass/utils.dart';
+import 'services/cart_wishlist_provider.dart'; // ✅ Global provider import
 
 /// 🔔 Local Notifications Plugin
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -23,10 +30,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
-      print("🔥 [Background] Firebase initialized successfully.");
     }
   } catch (e) {
-    // Silently ignore duplicate initialization
     if (!e.toString().contains("[core/duplicate-app]")) {
       print("❌ [Background Init Error]: $e");
     }
@@ -38,20 +43,12 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ✅ Initialize Firebase safely
   await _safeFirebaseInit();
-
-  // ✅ Print current Firebase project for confirmation
-  print("🔥 Firebase Project: ${Firebase.app().options.projectId}");
-
-  // ✅ Register background FCM handler
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  // ✅ Initialize local notifications and request permission
   await _initializeLocalNotifications();
   await _requestNotificationPermission();
 
-  // ✅ Fetch and print FCM token
   try {
     final token = await FirebaseMessaging.instance.getToken();
     print("📲 [FCM Token] $token");
@@ -59,24 +56,11 @@ Future<void> main() async {
     print("⚠️ [FCM Token Error] $e");
   }
 
-  // ✅ Foreground FCM Listener
-  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    print("📩 [Foreground FCM] ${message.notification?.title}");
-    _showLocalNotification(message);
-  });
-
-  // ✅ When user taps notification
-  FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-    print("📬 [Notification Tap] ${message.notification?.title}");
-  });
-
-  // ✅ Initialize Hive for GraphQL cache
   await initHiveForFlutter();
 
-  // ✅ GraphQL setup
   const String graphqlEndpoint = String.fromEnvironment(
     'GRAPHQL_URL',
-    defaultValue: 'http://192.168.0.178:5001/graphql',
+    defaultValue: 'http://192.168.1.178:5001/graphql',
   );
 
   final HttpLink httpLink = HttpLink(graphqlEndpoint);
@@ -85,72 +69,56 @@ Future<void> main() async {
     cache: GraphQLCache(store: HiveStore()),
   );
 
-  // ✅ Run the App
+  // ✅ Wrap with MultiProvider to handle global states
   runApp(
-    GraphQLProvider(
-      client: ValueNotifier(graphQLClient),
-      child: const MyApp(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => CartWishlistProvider()),
+      ],
+      child: GraphQLProvider(
+        client: ValueNotifier(graphQLClient),
+        child: const MyApp(),
+      ),
     ),
   );
 }
 
-/// ✅ Safe Firebase Initialization
 Future<void> _safeFirebaseInit() async {
   try {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
-      print("✅ Firebase initialized (Main Isolate)");
+      print("✅ Firebase initialized (Main)");
     } else {
       Firebase.app();
-      print("ℹ️ Firebase already initialized.");
     }
   } catch (e) {
-    if (e.toString().contains("[core/duplicate-app]")) {
-      print("⚠️ Firebase already initialized in another isolate (ignored).");
-    } else {
-      print("❌ Firebase initialization error: $e");
-    }
+    print("⚠️ Firebase init error: $e");
   }
 }
 
-/// ✅ Request notification permissions
 Future<void> _requestNotificationPermission() async {
   FirebaseMessaging messaging = FirebaseMessaging.instance;
-
   NotificationSettings settings = await messaging.requestPermission(
     alert: true,
     badge: true,
     sound: true,
   );
-
-  switch (settings.authorizationStatus) {
-    case AuthorizationStatus.authorized:
-      print('✅ [FCM] Notifications allowed');
-      break;
-    case AuthorizationStatus.provisional:
-      print('⚠️ [FCM] Provisional permission granted');
-      break;
-    default:
-      print('❌ [FCM] Notifications denied');
-  }
+  print('🔔 [FCM Permission] ${settings.authorizationStatus}');
 }
 
-/// ✅ Initialize Local Notifications
 Future<void> _initializeLocalNotifications() async {
-  const AndroidInitializationSettings androidInitSettings =
+  const AndroidInitializationSettings androidInit =
   AndroidInitializationSettings('@mipmap/ic_launcher');
-
   const InitializationSettings initSettings =
-  InitializationSettings(android: androidInitSettings);
-
+  InitializationSettings(android: androidInit);
   await flutterLocalNotificationsPlugin.initialize(initSettings);
 
   const AndroidNotificationChannel channel = AndroidNotificationChannel(
     'high_importance_channel',
     'High Importance Notifications',
-    description: 'This channel is used for important notifications.',
+    description: 'Used for important notifications.',
     importance: Importance.high,
   );
 
@@ -160,7 +128,6 @@ Future<void> _initializeLocalNotifications() async {
       ?.createNotificationChannel(channel);
 }
 
-/// ✅ Show Local Notification (Foreground)
 Future<void> _showLocalNotification(RemoteMessage message) async {
   const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
     'high_importance_channel',
@@ -171,15 +138,14 @@ Future<void> _showLocalNotification(RemoteMessage message) async {
     playSound: true,
     icon: '@mipmap/ic_launcher',
   );
-
-  const NotificationDetails platformDetails =
+  const NotificationDetails details =
   NotificationDetails(android: androidDetails);
 
   await flutterLocalNotificationsPlugin.show(
     0,
-    message.notification?.title ?? '📢 New Notification',
+    message.notification?.title ?? '📢 Notification',
     message.notification?.body ?? '',
-    platformDetails,
+    details,
   );
 }
 
@@ -191,57 +157,75 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  late SharedPreferences prefs;
+  bool _initialized = false;
+  Widget _startPage = const Splashscreen();
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(_initializeDeviceData);
+    _initializeApp();
   }
 
-  /// ✅ Collect and Save Device Info (Only Once)
+  /// ✅ Full Initialization: Firebase + Role + Device Info
+  Future<void> _initializeApp() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      await RoleManager.syncFirestoreRole();
+      final role = await RoleManager.getLocalRole();
+
+      print("🧩 [Startup Role Detected] $role");
+
+      if (user == null) {
+        _startPage = const GuestProfilePage();
+      } else if (role == "seller") {
+        _startPage = const SellerPage();
+      } else if (role == "buyer") {
+        _startPage = const BuyerProfilePage();
+      } else {
+        _startPage = const Dynamichome(selectedIndex: 0);
+      }
+
+      await _initializeDeviceData();
+    } catch (e) {
+      print("⚠️ Initialization Error: $e");
+      _startPage = const Splashscreen();
+    }
+
+    if (mounted) setState(() => _initialized = true);
+  }
+
+  /// ✅ Collect & Upload Device Info
   Future<void> _initializeDeviceData() async {
-    prefs = await SharedPreferences.getInstance();
+    final prefs = await SharedPreferences.getInstance();
     bool isFirstLaunch = prefs.getBool('firstLaunch') ?? true;
 
     if (!isFirstLaunch) return;
 
-    print('🚀 [Device] First Launch Detected');
+    try {
+      var packageInfo = await PackageInfo.fromPlatform();
+      var deviceModel = await Utils.getDeviceModel(context);
+      var deviceId = await Utils.getDeviceId();
+      var deviceVersion = await Utils.checkAndroidVersion();
+      var platform = await Utils.platform();
+      var versionCode = packageInfo.buildNumber;
 
-    bool connected = await Utils.checkInternetConnection();
-    if (connected) {
-      try {
-        var packageInfo = await PackageInfo.fromPlatform();
-        var deviceModel = await Utils.getDeviceModel(context);
-        var deviceId = await Utils.getDeviceId();
-        var deviceVersion = await Utils.checkAndroidVersion();
-        var platform = await Utils.platform();
-        var versionCode = packageInfo.buildNumber;
+      await prefs.setString("deviceModel", deviceModel);
+      await prefs.setString("deviceId", deviceId);
+      await prefs.setString("deviceVersion", deviceVersion);
+      await prefs.setString("platform", platform);
+      await prefs.setString("vCode", versionCode);
 
-        await prefs.setString("deviceModel", deviceModel);
-        await prefs.setString("deviceId", deviceId);
-        await prefs.setString("deviceVersion", deviceVersion);
-        await prefs.setString("platform", platform);
-        await prefs.setString("vCode", versionCode);
+      await FirebaseFirestore.instance.collection('devices').doc(deviceId).set({
+        'model': deviceModel,
+        'version': deviceVersion,
+        'platform': platform,
+        'vCode': versionCode,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
 
-        await FirebaseFirestore.instance
-            .collection('devices')
-            .doc(deviceId)
-            .set({
-          'model': deviceModel,
-          'version': deviceVersion,
-          'platform': platform,
-          'vCode': versionCode,
-          'timestamp': FieldValue.serverTimestamp(),
-        });
-
-        print('✅ [Device] Logged to Firestore');
-      } catch (e) {
-        print('⚠️ [Device Init Error] $e');
-      }
-    } else {
-      await prefs.setBool("FCM_Not_generated", true);
-      print('❌ [Device] No Internet — device info not uploaded');
+      print('✅ [Device Logged]');
+    } catch (e) {
+      print('⚠️ [Device Info Error] $e');
     }
 
     await prefs.setBool("firstLaunch", false);
@@ -249,6 +233,15 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_initialized) {
+      return const MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'FlyHub',
@@ -256,7 +249,7 @@ class _MyAppState extends State<MyApp> {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const Splashscreen(),
+      home: _startPage,
     );
   }
 }

@@ -15,34 +15,55 @@ class Selectlanguage extends StatefulWidget {
 
 class _SelectlanguageState extends State<Selectlanguage> {
   final ApiClass _apiClass = ApiClass();
-
-  var languageList = [];
+  List<dynamic> languageList = [];
   bool isLoading = false;
-
-  int selectedIndex = -1;
-
   bool isInternet = true;
-  var logindata;
-
+  int selectedIndex = -1;
   late SharedPreferences pref;
 
   @override
   void initState() {
     super.initState();
-    getLanguage();
+    _fetchLanguages();
   }
 
-  Future<void> getLanguage() async {
-    if (await Utils.checkInternetConnection()) {
-      isInternet = true;
-      languageList = await _apiClass.getLanguage();
+  Future<void> _fetchLanguages() async {
+    setState(() => isLoading = true);
+    final res = await _apiClass.getLanguage();
+    setState(() => isLoading = false);
+
+    if (res.status == "success" && res.data is List) {
+      setState(() {
+        languageList = res.data;
+        isInternet = true;
+      });
     } else {
       isInternet = false;
+      Utils.bottomToast(context, res.message);
+    }
+  }
+
+  Future<void> _onContinuePressed() async {
+    if (selectedIndex < 0) {
+      Utils.bottomToast(context, "Choose your language");
+      return;
     }
 
-    setState(() {});
+    pref = await SharedPreferences.getInstance();
+    pref.setInt("langId", languageList[selectedIndex]['id']);
 
-    print('languageList : $languageList');
+    setState(() => isLoading = true);
+    final res = await _apiClass.getLoginscreen();
+    setState(() => isLoading = false);
+
+    if (res.status == "success" && res.data.isNotEmpty) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => Mobilelogin(logindata: res.data)),
+      );
+    } else {
+      Utils.bottomToast(context, res.message);
+    }
   }
 
   @override
@@ -54,213 +75,104 @@ class _SelectlanguageState extends State<Selectlanguage> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: w * 0.07,
-            vertical: h * 0.05,
-          ),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Column(
-                  mainAxisSize: MainAxisSize.min, // Important for centering
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Choose Language',
-                      style: GoogleFonts.lexend(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    SizedBox(height: h * 0.005),
-                    Text(
-                      'Update of preferred language for your mobile app use',
-                      style: GoogleFonts.lexend(
-                        fontSize: 13,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    SizedBox(height: h * 0.035),
+          padding: EdgeInsets.symmetric(horizontal: w * 0.07, vertical: h * 0.05),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Choose Language",
+                  style: GoogleFonts.lexend(fontSize: 22, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Text("Select your preferred language",
+                  style: GoogleFonts.lexend(fontSize: 13, color: Colors.grey)),
+              const SizedBox(height: 20),
 
-                    SizedBox(
-                      height: h * 0.6,
-                      child: languageList.isEmpty
-                          ? Center(child: CircularProgressIndicator())
-                          : !isInternet
-                          ? Center(child: CircularProgressIndicator())
-                          : GridView.builder(
-                              shrinkWrap: true,
-                              padding: EdgeInsets.zero,
-                              physics: AlwaysScrollableScrollPhysics(),
-                              itemCount: languageList.length,
-                              gridDelegate:
-                                  SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 2,
-                                    childAspectRatio: 1.3,
-                                    crossAxisSpacing: 30,
-                                    mainAxisSpacing: 30,
-                                  ),
-                              itemBuilder: (context, i) {
-                                final lang = languageList[i];
-                                final isSel = i == selectedIndex;
-                                return GestureDetector(
-                                  onTap: () async {
-                                    pref =
-                                        await SharedPreferences.getInstance();
-                                    pref.setInt("langId", lang['id']);
+              Expanded(
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : !isInternet
+                    ? Center(
+                  child: ElevatedButton(
+                    onPressed: _fetchLanguages,
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF7049EC)),
+                    child: const Text("Retry"),
+                  ),
+                )
+                    : GridView.builder(
+                  padding: EdgeInsets.zero,
+                  itemCount: languageList.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 20,
+                    mainAxisSpacing: 20,
+                    childAspectRatio: 1.2,
+                  ),
+                  itemBuilder: (context, i) {
+                    final lang = languageList[i];
+                    final isSel = i == selectedIndex;
 
-                                    setState(() {
-                                      selectedIndex = i;
-                                    });
-                                  },
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: Utils.hexToColor(
-                                        lang['bgcolor'],
-                                      ),
-                                      borderRadius: BorderRadius.circular(
-                                        12,
-                                      ),
-                                    ),
-                                    padding: const EdgeInsets.all(8),
-                                    child: Stack(
-                                      children: [
-                                        Center(
-                                          child: Column(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-
-                                            children: [
-                                              SvgPicture.network(
-                                                lang['img'],
-                                                width: 40,
-                                                height: 40,
-                                                placeholderBuilder: (context) =>
-                                                    CircularProgressIndicator(),
-                                                fit: BoxFit.contain,
-                                                clipBehavior: Clip.antiAlias,
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                lang['name'],
-                                                style: GoogleFonts.lexend(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-
-                                        // Tick icon inside top-right corner
-                                        if (isSel)
-                                          Positioned(
-                                            top: 8,
-                                            right: 8,
-                                            child: Container(
-                                              width: 18,
-                                              height: 18,
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                color: Colors.green, // Same as your button color
-                                              ),
-                                              child: Icon(
-                                                Icons.check,
-                                                size: 14,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                  ],
-                ),
-
-                // Button stays at the bottom
-
-
-          SizedBox(
-          width: w * 0.8,
-            height: h * 0.065,
-            child: ElevatedButton(
-              onPressed: () async {
-                if (selectedIndex >= 0) {
-                  if (await Utils.checkInternetConnection()) {
-                    setState(() {
-                      isLoading = true; // Show loader
-                    });
-
-                    isInternet = true;
-                    logindata = await _apiClass.getLoginscreen();
-
-                    setState(() {
-                      isLoading = false; // Hide loader
-                    });
-
-                    if (logindata.isNotEmpty) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => Mobilelogin(logindata: logindata),
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() => selectedIndex = i);
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Utils.hexToColor(lang['bgcolor']),
+                          borderRadius: BorderRadius.circular(12),
+                          border: isSel
+                              ? Border.all(color: Colors.green, width: 2)
+                              : null,
                         ),
-                      );
-                    } else {
-                      Utils.bottomToast(context, "Server error. Try again later.");
-                    }
-                  } else {
-                    isInternet = false;
-                    Utils.bottomToast(context, "No Internet Connection");
-                  }
-                } else {
-                  Utils.bottomToast(context, "Choose Your Language");
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF7049EC),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                        child: Stack(
+                          children: [
+                            Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  SvgPicture.network(lang['img'], width: 40, height: 40),
+                                  const SizedBox(height: 8),
+                                  Text(lang['name'],
+                                      style: GoogleFonts.lexend(fontSize: 15)),
+                                ],
+                              ),
+                            ),
+                            if (isSel)
+                              const Positioned(
+                                top: 8,
+                                right: 8,
+                                child: CircleAvatar(
+                                  radius: 10,
+                                  backgroundColor: Colors.green,
+                                  child: Icon(Icons.check,
+                                      size: 12, color: Colors.white),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
-              child: isLoading
-                  ? Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Continue',
-                    style: GoogleFonts.lexend(
-                      fontSize: 18,
-                      color: Colors.white,
-                    ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: isLoading ? null : _onContinuePressed,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF7049EC),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
                   ),
-                  const SizedBox(width: 10),
-                  const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2.5,
-                    ),
-                  ),
-                ],
-              )
-                  : Text(
-                'Continue',
-                style: GoogleFonts.lexend(
-                  fontSize: 18,
-                  color: Colors.white,
+                  child: isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : Text("Continue",
+                      style: GoogleFonts.lexend(
+                          fontSize: 18, color: Colors.white)),
                 ),
               ),
-            ),
-          )
-
-          ],
-            ),
+            ],
           ),
         ),
       ),

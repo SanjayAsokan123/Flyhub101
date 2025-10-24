@@ -1,15 +1,18 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:pinput/pinput.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../CommonClass/ApiClass.dart';
 import '../CommonClass/utils.dart';
-import '../HomeScreen/Bottoms/SellerFormDialog.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/role_manager.dart'; // adjust import path if needed
+import '../HomeScreen/Dynamichome.dart';
+import '../HomeScreen/Bottoms/BuyerProfilePage.dart';
+import '../HomeScreen/Bottoms/SellerPage.dart';
+import '../HomeScreen/Bottoms/GuestProfilePage.dart';
 
 class OtpScreen extends StatefulWidget {
   final Map<String, dynamic> logindata;
-
   const OtpScreen({super.key, required this.logindata});
 
   @override
@@ -17,136 +20,89 @@ class OtpScreen extends StatefulWidget {
 }
 
 class _OtpScreenState extends State<OtpScreen> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
   final TextEditingController _otpController = TextEditingController();
-
-  String? _verificationId;
-  String? _mobileNumber;
-  bool _isLoading = false;
-  bool _resendEnabled = false;
-  int _secondsRemaining = 60;
-  Timer? _timer;
-
-  final Color primaryColor = const Color(0xFF1A0A5B);
+  final ApiClass _api = ApiClass();
+  bool _loading = false;
+  late SharedPreferences _pref;
 
   @override
   void initState() {
     super.initState();
-    _loadMobileNumber();
+    _initPrefs();
   }
 
-  Future<void> _loadMobileNumber() async {
-    final prefs = await SharedPreferences.getInstance();
-    _mobileNumber = prefs.getString("mobile_number") ?? "";
-    setState(() {});
-    _sendOtp();
+  Future<void> _initPrefs() async {
+    _pref = await SharedPreferences.getInstance();
   }
 
-  // 🔹 Send OTP
-  Future<void> _sendOtp() async {
-    if (_mobileNumber == null || _mobileNumber!.isEmpty) {
-      Utils.bottomToast(context, "No mobile number found");
-      return;
-    }
-
-    final formattedPhone = "+91${_mobileNumber!}";
-
-    setState(() {
-      _isLoading = true;
-      _resendEnabled = false;
-    });
-
-    await _auth.verifyPhoneNumber(
-      phoneNumber: formattedPhone,
-      timeout: const Duration(seconds: 60),
-
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        await _auth.signInWithCredential(credential);
-        _onOtpVerified();
-      },
-
-      verificationFailed: (FirebaseAuthException e) {
-        setState(() => _isLoading = false);
-        Utils.bottomToast(context, "❌ OTP Failed: ${e.message}");
-      },
-
-      codeSent: (String verificationId, int? resendToken) {
-        setState(() {
-          _verificationId = verificationId;
-          _isLoading = false;
-          _startTimer();
-        });
-        Utils.bottomToast(context, "📩 OTP sent to $formattedPhone");
-      },
-
-      codeAutoRetrievalTimeout: (String verificationId) {
-        _verificationId = verificationId;
-      },
-    );
-  }
-
-  // 🔹 Verify OTP entered by user
   Future<void> _verifyOtp() async {
-    if (_verificationId == null) {
-      Utils.bottomToast(context, "No verification ID. Try resending OTP.");
+    final otp = _otpController.text.trim();
+    if (otp.length < 4) {
+      Utils.bottomToast(context, "Enter a valid OTP");
       return;
     }
 
-    if (_otpController.text.trim().isEmpty) {
-      Utils.bottomToast(context, "Please enter OTP");
-      return;
-    }
+    setState(() => _loading = true);
 
-    setState(() => _isLoading = true);
+    final result = await _api.verifyOTP(otp);
 
-    try {
-      final credential = PhoneAuthProvider.credential(
-        verificationId: _verificationId!,
-        smsCode: _otpController.text.trim(),
-      );
+    setState(() => _loading = false);
 
-      await _auth.signInWithCredential(credential);
-      _onOtpVerified();
-    } catch (e) {
-      setState(() => _isLoading = false);
-      Utils.bottomToast(context, "❌ Invalid OTP");
-    }
-  }
+    if (result.status == "success" && result.data != null) {
+      final resp = result.data;
 
-  // ✅ On successful verification
-  void _onOtpVerified() {
-    setState(() => _isLoading = false);
-    Utils.bottomToast(context, "✅ OTP Verified Successfully!");
+      // Example server response shape — adjust according to your backend:
+      // resp = {"status":"success", "userid":"123", "role":"buyer", ...}
+      if (resp['status'] == "success") {
+        // Save user info locally
+        final userId = resp['userid']?.toString() ?? "";
+        await _pref.setString("userId", userId);
+        await _pref.setBool("OTP_completed", true);
 
-    // Close OTP screen
-    Navigator.pop(context);
+        // If backend returns a role, update Firestore and local cache via RoleManager
+        final serverRole = (resp['role'] ?? "").toString().toLowerCase();
 
-    // Navigate to SellerFormDialog page
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const SellerFormDialog()),
-    );
-  }
+        if (serverRole.isNotEmpty && (serverRole == 'buyer' || serverRole == 'seller')) {
+          // Update Firestore doc (also handled inside RoleManager)
+          await RoleManager.updateRole(serverRole);
+          await RoleManager.syncFirestoreRole();
+        } else {
+          // default to guest
+          await RoleManager.setLocalRole("guest");
+        }
 
-  // 🔁 Resend OTP timer
-  void _startTimer() {
-    _timer?.cancel();
-    _secondsRemaining = 60;
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_secondsRemaining <= 1) {
-        timer.cancel();
-        setState(() => _resendEnabled = true);
+        // If you want to create a Firebase Auth user (optional)
+        // If your backend uses custom token / Firebase link, handle accordingly.
+        // Here we just navigate based on role:
+
+        final localRole = await RoleManager.getLocalRole();
+
+        if (localRole == "seller") {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => SellerPage()),
+                (route) => false,
+          );
+        } else if (localRole == "buyer") {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => BuyerProfilePage()),
+                (route) => false,
+          );
+        } else {
+          // default to Dynamichome (guest)
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => Dynamichome(selectedIndex: 0)),
+                (route) => false,
+          );
+        }
       } else {
-        setState(() => _secondsRemaining--);
+        Utils.bottomToast(context, resp['message']?.toString() ?? "OTP failed");
       }
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _otpController.dispose();
-    super.dispose();
+    } else {
+      Utils.bottomToast(context, result.message.isNotEmpty ? result.message : "Verification failed");
+    }
   }
 
   @override
@@ -155,103 +111,29 @@ class _OtpScreenState extends State<OtpScreen> {
     final h = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      appBar: AppBar(title: Text("Verify OTP")),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: w * 0.06, vertical: h * 0.03),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              SizedBox(height: h * 0.05),
-
-              // OTP Illustration
-              Image.asset(
-                'assets/images/otp_screen_img.png',
-                width: w * 0.9,
+              Text(
+                widget.logindata['otp_page']?['title2'] ?? "Enter the OTP sent to your mobile",
+                style: GoogleFonts.lexend(fontSize: 16),
               ),
-
               SizedBox(height: h * 0.03),
-
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: w * 0.08),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      widget.logindata['verify_page']['title1'] ?? "Verify OTP",
-                      style: GoogleFonts.lexend(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "OTP sent to +91 ${_mobileNumber ?? ''}",
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                    SizedBox(height: h * 0.03),
-
-                    // 🔢 OTP Input
-                    Pinput(
-                      length: 6,
-                      controller: _otpController,
-                      keyboardType: TextInputType.number,
-                      defaultPinTheme: PinTheme(
-                        width: 50,
-                        height: 50,
-                        textStyle: const TextStyle(
-                          fontSize: 20,
-                          color: Colors.black,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade400),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: h * 0.04),
-
-                    // 🚀 Verify Button
-                    _isLoading
-                        ? const CircularProgressIndicator(color: Color(0xFF1A0A5B))
-                        : ElevatedButton(
-                      onPressed: _verifyOtp,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        minimumSize: Size(w * 0.8, h * 0.06),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: Text(
-                        widget.logindata['verify_page']['button_name'] ??
-                            "Verify OTP",
-                        style: GoogleFonts.lexend(
-                          fontSize: 18,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-
-                    SizedBox(height: h * 0.02),
-
-                    // 🔁 Resend OTP
-                    TextButton(
-                      onPressed: _resendEnabled ? _sendOtp : null,
-                      child: Text(
-                        _resendEnabled
-                            ? "Resend OTP"
-                            : "Resend in $_secondsRemaining sec",
-                        style: GoogleFonts.lexend(
-                          color: _resendEnabled ? primaryColor : Colors.grey,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              TextField(
+                controller: _otpController,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                decoration: InputDecoration(border: OutlineInputBorder(), hintText: "Enter OTP"),
+              ),
+              SizedBox(height: h * 0.02),
+              ElevatedButton(
+                onPressed: _loading ? null : _verifyOtp,
+                child: _loading
+                    ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : Text(widget.logindata['otp_page']?['button_name'] ?? "Verify"),
               ),
             ],
           ),

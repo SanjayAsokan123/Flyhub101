@@ -1,14 +1,16 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flyhub/Help_Support_Page.dart';
-import 'package:flyhub/PrivacyPolicy.dart';
-import 'package:flyhub/Terms_Conditions.dart';
-import 'package:flyhub/feedback_form.dart';
-import '../../BuyerDetails/DroneRentalConfirmation.dart';
+import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../HomeScreen/Dynamichome.dart';
+import '../../HomeScreen/Bottoms/SellerPage.dart';
+import '../../HomeScreen/Bottoms/GuestProfilePage.dart';
+import '../../services/role_manager.dart';
+import '../../WishlistPage.dart';
 import '../../BuyerDetails/MyCartPage.dart';
-import 'SellerFormDialog.dart';
-import 'BuyerPersonalDetail.dart';
-import '../../Regulatory.dart';
+import '../../HomeScreen/Bottoms/SellerFormDialog.dart';
+
 class BuyerProfilePage extends StatefulWidget {
   const BuyerProfilePage({super.key});
 
@@ -17,46 +19,192 @@ class BuyerProfilePage extends StatefulWidget {
 }
 
 class _BuyerProfilePageState extends State<BuyerProfilePage> {
-  Map<String, String>? userProfile;
-  bool notificationsEnabled = true;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  final Color primaryColor = const Color(0xFF1A0A5B); // 🎨 Custom Theme Color
+  User? _user;
+  Map<String, dynamic>? _buyerData;
+  bool _loading = true;
+
+  static const Color themeColor = Color(0xFF1A0A5B);
+
+  @override
+  void initState() {
+    super.initState();
+    _initBuyerPage();
+  }
+
+  Future<void> _initBuyerPage() async {
+    try {
+      _user = _auth.currentUser;
+
+      // 🧩 Not logged in → Guest
+      if (_user == null) {
+        await RoleManager.setLocalRole("guest");
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const GuestProfilePage()),
+        );
+        return;
+      }
+
+      final doc = await _firestore.collection('users').doc(_user!.uid).get();
+
+      // 🧩 No Firestore record → default buyer
+      if (!doc.exists) {
+        await RoleManager.setLocalRole("buyer");
+        if (!mounted) return;
+        setState(() => _buyerData = {
+          'name': _user?.displayName ?? 'User',
+          'email': _user?.email ?? '',
+        });
+        return;
+      }
+
+      final data = doc.data()!;
+      final role = data['role']?.toString().toLowerCase() ?? "buyer";
+
+      // 🧩 If Seller, redirect safely
+      if (role != "buyer") {
+        await RoleManager.setLocalRole("seller");
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const SellerPage()),
+        );
+        return;
+      }
+
+      await RoleManager.setLocalRole("buyer");
+      setState(() => _buyerData = data);
+    } catch (e) {
+      debugPrint("⚠️ BuyerPage init error: $e");
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// 🔄 Switch to Seller Mode (clean & safe)
+  Future<void> _switchToSeller() async {
+    HapticFeedback.selectionClick();
+    try {
+      await RoleManager.updateRole("seller");
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const SellerPage()),
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("✅ Switched to Seller Mode")),
+      );
+    } catch (e) {
+      debugPrint("⚠️ Switch to seller error: $e");
+    }
+  }
+
+  /// 🚪 Logout
+  Future<void> _logout() async {
+    HapticFeedback.lightImpact();
+    await _auth.signOut();
+    await RoleManager.clearRole();
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
+          (route) => false,
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("👋 Logged out successfully")),
+    );
+  }
+
+  /// 🔹 Reusable Tile
+  Widget _buildTile(String title, IconData icon, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon, color: themeColor),
+      title: Text(title),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+      onTap: onTap,
+    );
+  }
+
+  /// 🔹 Header Section
+  Widget _buildHeader() {
+    final name = _buyerData?['name'] ??
+        _buyerData?['firstName'] ??
+        _user?.displayName ??
+        "Buyer";
+    final email = _buyerData?['email'] ?? _user?.email ?? "";
+
+    return Column(
+      children: [
+        CircleAvatar(
+          radius: 40,
+          backgroundColor: themeColor,
+          child: Text(
+            name.isNotEmpty ? name[0].toUpperCase() : "?",
+            style: const TextStyle(color: Colors.white, fontSize: 24),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          name,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        Text(
+          email,
+          style: const TextStyle(color: Colors.grey, fontSize: 13),
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final name = userProfile?['name'] ?? 'Raj Kumar';
-    final location = userProfile?['location'] ?? 'Chennai, Tamil Nadu';
-    final role = userProfile?['role'] ?? 'Drone Buyer';
+    if (_loading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: themeColor),
+        ),
+      );
+    }
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Buyer Profile'),
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
+        title: const Text("Buyer Profile"),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
         elevation: 1,
         actions: [
-          GestureDetector(
-            onTap: () {
-              // SellerFormDialog.show(context);
-            },
+          InkWell(
+            onTap: _switchToSeller,
+            borderRadius: BorderRadius.circular(20),
             child: Container(
-              margin: const EdgeInsets.only(right: 10),
+              margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: primaryColor,
+                gradient: LinearGradient(
+                  colors: [themeColor, themeColor.withOpacity(0.8)],
+                ),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Row(
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.switch_account, color: Colors.white, size: 18),
-                  const SizedBox(width: 6),
+                  Icon(Icons.store_mall_directory_outlined,
+                      color: Colors.white, size: 18),
+                  SizedBox(width: 6),
                   Text(
-                    'Switch to Seller',
+                    "Switch to Seller",
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -65,180 +213,38 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
         ],
       ),
       body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: 15),
         child: Column(
           children: [
-            const SizedBox(height: 25),
+            _buildHeader(),
 
-            // 👤 Profile Photo with Edit Icon
-            Stack(
-              children: [
-                CircleAvatar(
-                  radius: 45,
-                  backgroundColor: primaryColor.withOpacity(0.15),
-                  backgroundImage: userProfile?['profileImage'] != null &&
-                      userProfile!['profileImage']!.isNotEmpty
-                      ? FileImage(File(userProfile!['profileImage']!))
-                      : null,
-                  child: userProfile?['profileImage'] == null ||
-                      userProfile!['profileImage']!.isEmpty
-                      ? const Icon(Icons.person, size: 45, color: Colors.white)
-                      : null,
-                ),
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: GestureDetector(
-                    onTap: () async {
-                      // Navigate to Personal Information Page
-                      final updatedData = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              PersonalInformationPage(existingData: userProfile),
-                        ),
-                      );
-                      if (updatedData != null && mounted) {
-                        setState(() => userProfile = updatedData);
-                      }
-                    },
-                    child: Container(
-                      height: 25,
-                      width: 25,
-                      decoration: BoxDecoration(
-                        color: primaryColor,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
-                      child: const Icon(
-                        Icons.edit,
-                        color: Colors.white,
-                        size: 15,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 10),
-
-            // Name and badge
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(name,
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(width: 5),
-                Icon(Icons.verified, color: primaryColor, size: 18),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text('$role · $location',
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
-
-            const SizedBox(height: 25),
-
-            // ================= Dashboard =================
-            buildDashboardRow("My Orders", Icons.shopping_bag_outlined),
-            buildDashboardRow("Wishlist", Icons.favorite_border),
-            buildDashboardRow(
-              "Cart",
-              Icons.shopping_cart_outlined,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const  RegulatoryPage ()),
-                );
-              },
-            ),
-            buildDashboardRow(
-              "Drone Rentals",
-              Icons.flight_takeoff_outlined,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => DroneRentalApprovalPage(),
-                  ),
-                );
-              },
-            ),
-            buildDashboardRow("Purchase History", Icons.history),
-
-            const SizedBox(height: 25),
-
-            // ================= Account Settings =================
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text("Account Settings",
-                    style:
-                    TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              ),
-            ),
-            const Divider(),
-
-            buildSettingsRow(
-              "Notifications",
-              icon: Icons.notifications_active_outlined,
-              trailing: Switch(
-                value: notificationsEnabled,
-                activeColor: primaryColor,
-                onChanged: (val) => setState(() => notificationsEnabled = val),
-              ),
-            ),
-            buildSettingsRow("Help & Support",
-                icon: Icons.help_outline, onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const HelpAndSupportPage()),
-                  );
-                }),
-            buildSettingsRow("Terms and Conditions",
-                icon: Icons.description_outlined, onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const TermsAndConditionsPage()),
-                  );
-                }),
-            buildSettingsRow("Privacy Policy", icon: Icons.privacy_tip_outlined, onTap: () {
+            _buildSection("My Activities"),
+            _buildTile("My Cart", Icons.shopping_cart_outlined, () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const PrivacyPolicyPage()),
+                MaterialPageRoute(builder: (_) => const MyCartPage()),
               );
             }),
-            buildSettingsRow("Send Feedback", icon: Icons.feedback_outlined, onTap: () {
+            _buildTile("My Wishlist", Icons.favorite_border, () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const FeedbackFormPage()),
+                MaterialPageRoute(builder: (_) => const WishlistPage()),
               );
             }),
+            _buildTile("My Orders", Icons.receipt_long, () {}),
+            _buildTile("My Saved Addresses", Icons.location_on_outlined, () {}),
 
-            const SizedBox(height: 25),
+            const SizedBox(height: 20),
+            _buildSection("Account Settings"),
+            _buildTile("Register as Seller", Icons.storefront, () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SellerFormDialog()),
+              );
+            }),
+            _buildTile("Logout", Icons.logout, _logout),
 
-            // Logout button
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ElevatedButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.logout, color: Colors.white),
-                label: const Text(
-                  "Logout",
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
-                  minimumSize: const Size(double.infinity, 45),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 10),
+            const SizedBox(height: 30),
             const Text("Version 1.0.0",
                 style: TextStyle(fontSize: 12, color: Colors.grey)),
             const SizedBox(height: 20),
@@ -248,21 +254,20 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
     );
   }
 
-  Widget buildDashboardRow(String label, IconData icon, {VoidCallback? onTap}) {
-    return ListTile(
-      leading: Icon(icon, color: primaryColor),
-      title: Text(label),
-      onTap: onTap,
-    );
-  }
-
-  Widget buildSettingsRow(String label,
-      {IconData? icon, Widget? trailing, VoidCallback? onTap}) {
-    return ListTile(
-      leading: Icon(icon, color: primaryColor),
-      title: Text(label),
-      trailing: trailing,
-      onTap: onTap,
+  Widget _buildSection(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: Colors.black,
+          ),
+        ),
+      ),
     );
   }
 }

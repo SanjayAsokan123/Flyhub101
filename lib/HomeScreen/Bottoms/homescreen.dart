@@ -7,10 +7,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
 
 import '../../CommonClass/ApiClass.dart';
 import '../../CommonClass/utils.dart';
 import '../../MyCartPage.dart';
+import '../../WishlistPage.dart';
 import '../Bottoms/MarketPage.dart';
 import '../Bottoms/RentalsPage.dart';
 import '../Bottoms/PilotPage.dart';
@@ -18,6 +20,7 @@ import '../../MenuPage.dart';
 import '../../Template/ProductDetailPage.dart';
 import '../../Login/LoginPage.dart';
 import '../../firebase_options.dart';
+import '../../services/cart_wishlist_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -60,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
     fetchHomeData();
   }
 
-  /// ✅ Initialize Firebase safely and fetch user info
+  /// ✅ Initialize Firebase and user
   Future<void> _initializeUser() async {
     try {
       if (Firebase.apps.isEmpty) {
@@ -68,23 +71,18 @@ class _HomeScreenState extends State<HomeScreen> {
           options: DefaultFirebaseOptions.currentPlatform,
         );
         debugPrint("✅ Firebase initialized in HomeScreen");
-      } else {
-        debugPrint("ℹ️ Firebase already initialized.");
       }
 
       _user = FirebaseAuth.instance.currentUser;
 
       if (_user != null) {
         try {
-          final db = FirebaseFirestore.instance;
-          final userDoc = await db.collection('users').doc(_user!.uid).get();
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(_user!.uid)
+              .get();
 
-          if (userDoc.exists && userDoc.data() != null) {
-            _role = userDoc.data()!['role'] ?? 'buyer';
-          } else {
-            _role = 'buyer';
-          }
-
+          _role = userDoc.data()?['role']?.toString().toLowerCase() ?? 'buyer';
           debugPrint("👤 User role: $_role");
         } catch (e) {
           debugPrint('❌ Error fetching user role: $e');
@@ -92,41 +90,53 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
     } catch (e) {
-      debugPrint("⚠️ Firebase init error: $e");
+      debugPrint("⚠ Firebase init error: $e");
     }
 
     if (mounted) setState(() => isUserLoading = false);
   }
 
-  /// ✅ Fetch marketplace data
+  // ✅ Fetch marketplace data safely using ApiResult
   Future<void> fetchHomeData() async {
-    if (!await Utils.checkInternetConnection()) {
-      Utils.bottomToast(context, "Check your Internet connection");
-      return;
-    }
-
     setState(() => isLoading = true);
+
     try {
-      marketplaceData["Drones"] =
-      await _apiClass.getMarketplaceItems("drones");
-      marketplaceData["Parts"] =
-      await _apiClass.getMarketplaceItems("parts");
-      marketplaceData["Accessories"] =
-      await _apiClass.getMarketplaceItems("accessories");
+      final drones = await _apiClass.getMarketplaceItems("drones");
+      final parts = await _apiClass.getMarketplaceItems("parts");
+      final accessories = await _apiClass.getMarketplaceItems("accessories");
 
-      marketplaceData["Rentals"] =
-          (marketplaceData["Drones"] ?? []).take(2).toList();
-      marketplaceData["Pilots"] = [];
+      debugPrint("🛸 Drones: ${drones.status} → ${drones.data?.length ?? 0}");
+      debugPrint("⚙️ Parts: ${parts.status} → ${parts.data?.length ?? 0}");
+      debugPrint("🎒 Accessories: ${accessories.status} → ${accessories.data?.length ?? 0}");
 
-      if (mounted) setState(() => isLoading = false);
+      if (!mounted) return;
+      if (drones.status == "success" ||
+          parts.status == "success" ||
+          accessories.status == "success") {
+        setState(() {
+          marketplaceData["Drones"] = drones.data ?? [];
+          marketplaceData["Parts"] = parts.data ?? [];
+          marketplaceData["Accessories"] = accessories.data ?? [];
+          marketplaceData["Rentals"] = (drones.data ?? []).take(2).toList();
+          marketplaceData["Pilots"] = [];
+          isLoading = false;
+        });
+      } else {
+        setState(() => isLoading = false);
+        Utils.bottomToast(context, "No marketplace data found.");
+      }
     } catch (e) {
-      Utils.bottomToast(context, "Failed to load data");
-      if (mounted) setState(() => isLoading = false);
+      debugPrint("❌ Error in fetchHomeData: $e");
+      setState(() => isLoading = false);
+      Utils.bottomToast(context, "Error fetching marketplace data.");
     }
   }
 
-  /// ✅ Build header with search and navigation
-  Widget buildHeader() {
+  /// 🧭 Header with search and actions
+  Widget buildHeader(BuildContext context) {
+    final cartCount = context.watch<CartWishlistProvider>().cartCount;
+    final wishlistCount = context.watch<CartWishlistProvider>().wishlistCount;
+
     return Container(
       color: const Color(0xFF1A0A5B),
       padding: const EdgeInsets.all(16),
@@ -141,15 +151,49 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               Row(
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const MyCartPage()),
-                    ),
-                    child:
-                    const Icon(Icons.shopping_cart, color: Colors.white),
+                  // 💖 Wishlist Icon with Badge
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.favorite_border, color: Colors.white),
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const WishlistPage()),
+                        ),
+                      ),
+                      if (wishlistCount > 0)
+                        Positioned(
+                          right: 6,
+                          top: 6,
+                          child: _buildBadge(wishlistCount),
+                        ),
+                    ],
                   ),
-                  const SizedBox(width: 20),
+
+                  const SizedBox(width: 8),
+
+                  // 🛒 Cart Icon with Badge
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.shopping_cart, color: Colors.white),
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const MyCartPage()),
+                        ),
+                      ),
+                      if (cartCount > 0)
+                        Positioned(
+                          right: 6,
+                          top: 6,
+                          child: _buildBadge(cartCount),
+                        ),
+                    ],
+                  ),
+
+                  const SizedBox(width: 8),
                   IconButton(
                     icon: const Icon(Icons.logout, color: Colors.white),
                     onPressed: () async {
@@ -157,8 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       if (context.mounted) {
                         Navigator.pushAndRemoveUntil(
                           context,
-                          MaterialPageRoute(
-                              builder: (_) => const LoginPage()),
+                          MaterialPageRoute(builder: (_) => const LoginPage()),
                               (route) => false,
                         );
                       }
@@ -169,8 +212,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          SvgPicture.asset('assets/images/flyhubicon.svg',
-              width: 65, height: 65),
+          SvgPicture.asset('assets/images/flyhubicon.svg', width: 65, height: 65),
           const SizedBox(height: 20),
           TextField(
             style: GoogleFonts.lexend(fontSize: 14),
@@ -192,7 +234,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// ✅ Role Banner
+  /// 🧱 Small reusable badge widget
+  Widget _buildBadge(int count) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: const BoxDecoration(
+        color: Colors.redAccent,
+        shape: BoxShape.circle,
+      ),
+      child: Text(
+        '$count',
+        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  /// 🎭 Role Banner
   Widget buildRoleBanner(String role) {
     IconData icon;
     Color color;
@@ -235,7 +292,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// ✅ Category Icons
+  /// 🧩 Category Grid
   Widget buildCategoryGrid() {
     return GridView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -259,10 +316,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (_) => MarketPage(
-                          initialTab: categoryList
-                              .indexWhere((cat) =>
-                          cat['title'] == item['title']))),
+                    builder: (_) => MarketPage(
+                      initialTab: categoryList
+                          .indexWhere((cat) => cat['title'] == item['title']),
+                    ),
+                  ),
                 );
                 break;
               case "Rentals":
@@ -307,27 +365,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// ✅ Section Header
-  Widget buildSectionHeader(String title, VoidCallback onViewAll) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title,
-              style: GoogleFonts.lexend(
-                  fontSize: 16, fontWeight: FontWeight.bold)),
-          TextButton(
-            onPressed: onViewAll,
-            child: const Text("View All →",
-                style: TextStyle(color: Color(0xff7057FF))),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// ✅ Product carousel
+  /// 🛒 Product Carousel
   Widget buildProductCarousel(
       String title, List<dynamic> products, VoidCallback onViewAll) {
     if (products.isEmpty) return const SizedBox();
@@ -335,7 +373,22 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        buildSectionHeader(title, onViewAll),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(title,
+                  style: GoogleFonts.lexend(
+                      fontSize: 16, fontWeight: FontWeight.bold)),
+              TextButton(
+                onPressed: onViewAll,
+                child: const Text("View All →",
+                    style: TextStyle(color: Color(0xff7057FF))),
+              ),
+            ],
+          ),
+        ),
         SizedBox(
           height: 230,
           child: ListView.builder(
@@ -344,24 +397,23 @@ class _HomeScreenState extends State<HomeScreen> {
             itemBuilder: (context, index) {
               final item = products[index];
               final imageUrl = (item["image"] ?? "").toString();
-              final fullImageUrl = imageUrl.startsWith("http")
+              final fullImageUrl = imageUrl.isEmpty
+                  ? "https://via.placeholder.com/300x200.png?text=No+Image"
+                  : (imageUrl.startsWith("http")
                   ? imageUrl
-                  : "http://192.168.0.178:5001/uploads/$imageUrl";
+                  : "https://flyhub-storage.s3.ap-south-1.amazonaws.com/uploads/$imageUrl");
 
               return GestureDetector(
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => ProductDetailPage(
-                      productData: item,
-                      category: title,
-                    ),
+                    builder: (_) =>
+                        ProductDetailPage(productData: item, category: title),
                   ),
                 ),
                 child: Container(
                   width: 160,
-                  margin:
-                  const EdgeInsets.only(left: 12, right: 4, bottom: 8),
+                  margin: const EdgeInsets.only(left: 12, right: 4, bottom: 8),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
                     color: Colors.white,
@@ -407,8 +459,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.lexend(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13)),
+                                    fontWeight: FontWeight.bold, fontSize: 13)),
                             const SizedBox(height: 4),
                             Text("₹${item["price"] ?? 0}",
                                 style: GoogleFonts.lexend(
@@ -428,22 +479,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget shimmerContent() {
-    return Shimmer.fromColors(
-      baseColor: Colors.grey.shade300,
-      highlightColor: Colors.grey.shade100,
-      child: Column(
-        children: List.generate(
-          3,
-              (_) => Padding(
-            padding: const EdgeInsets.all(12),
-            child: Container(
-              height: 220,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
+  /// ✨ Shimmer Loader
+  Widget shimmerContent(BuildContext context) {
+    return SizedBox(
+      height: MediaQuery.of(context).size.height,
+      child: Shimmer.fromColors(
+        baseColor: Colors.grey.shade300,
+        highlightColor: Colors.grey.shade100,
+        child: ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: 3,
+          itemBuilder: (_, __) => Container(
+            height: 220,
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
             ),
           ),
         ),
@@ -457,7 +508,6 @@ class _HomeScreenState extends State<HomeScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // 🔒 Redirect unauthenticated users
     if (_user == null) {
       Future.microtask(() {
         Navigator.pushAndRemoveUntil(
@@ -475,63 +525,72 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: isLoading
-            ? shimmerContent()
-            : ListView(
-          children: [
-            buildHeader(),
-            if (_role != null) buildRoleBanner(_role!),
-            buildCategoryGrid(),
-            buildProductCarousel(
-              "Top Drones",
-              marketplaceData["Drones"]!,
-                  () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const MarketPage(initialTab: 0),
+            ? shimmerContent(context)
+            : RefreshIndicator(
+          color: const Color(0xff7057FF),
+          onRefresh: fetchHomeData,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              buildHeader(context),
+              if (_role != null) buildRoleBanner(_role!),
+              buildCategoryGrid(),
+              buildProductCarousel(
+                "Top Drones",
+                marketplaceData["Drones"]!,
+                    () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const MarketPage(initialTab: 0),
+                  ),
                 ),
               ),
-            ),
-            buildProductCarousel(
-              "Drone Parts",
-              marketplaceData["Parts"]!,
-                  () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const MarketPage(initialTab: 1),
+              buildProductCarousel(
+                "Drone Parts",
+                marketplaceData["Parts"]!,
+                    () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const MarketPage(initialTab: 1),
+                  ),
                 ),
               ),
-            ),
-            buildProductCarousel(
-              "Accessories",
-              marketplaceData["Accessories"]!,
-                  () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const MarketPage(initialTab: 2),
+              buildProductCarousel(
+                "Accessories",
+                marketplaceData["Accessories"]!,
+                    () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const MarketPage(initialTab: 2),
+                  ),
                 ),
               ),
-            ),
-            buildProductCarousel(
-              "Drone Rentals",
-              marketplaceData["Rentals"]!,
-                  () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const RentalsPage()),
+              buildProductCarousel(
+                "Drone Rentals",
+                marketplaceData["Rentals"]!,
+                    () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const RentalsPage(),
+                  ),
+                ),
               ),
-            ),
-            buildProductCarousel(
-              "Top Pilots",
-              marketplaceData["Pilots"]!,
-                  () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const PilotPage()),
+              buildProductCarousel(
+                "Top Pilots",
+                marketplaceData["Pilots"]!,
+                    () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const PilotPage(),
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        heroTag: "home_refresh_fab", // ✅ fixes Hero tag conflict
+        heroTag: "home_refresh_fab",
         backgroundColor: const Color(0xff7057FF),
         onPressed: fetchHomeData,
         child: const Icon(Icons.refresh, color: Colors.white),

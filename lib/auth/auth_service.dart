@@ -22,7 +22,7 @@ class AuthService {
   /// ✅ Backend base URL (use --dart-define to override for prod/staging)
   static const String baseUrl = String.fromEnvironment(
     'API_URL',
-    defaultValue: 'http://192.168.0.178:5001', // fallback for local dev
+    defaultValue: 'http://192.168.1.178:5001', // fallback for local dev
   );
 
   // ─────────────────────────────

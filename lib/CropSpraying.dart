@@ -16,8 +16,10 @@ class _CropSprayingPageState extends State<CropSprayingPage>
     with TickerProviderStateMixin {
   late TabController _mainTabController;
   final ApiClass _apiClass = ApiClass();
+
   List<dynamic> sprayDrones = [];
   bool isLoading = true;
+  bool hasError = false;
 
   @override
   void initState() {
@@ -32,66 +34,86 @@ class _CropSprayingPageState extends State<CropSprayingPage>
     super.dispose();
   }
 
-  /// ✅ Fetch spraying drones from GraphQL marketplace query
+  /// ✅ Fetch spraying drones safely from APIClass
   Future<void> fetchSprayDrones() async {
-    if (await Utils.checkInternetConnection()) {
-      try {
-        setState(() => isLoading = true);
-        final data = await _apiClass.getMarketplaceItems("drones");
+    if (!await Utils.checkInternetConnection()) {
+      Utils.bottomToast(context, "Check your Internet connection");
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+      hasError = false;
+    });
+
+    try {
+      final result = await _apiClass.getMarketplaceItems("drones");
+
+      if (result.status == "success" && result.data != null) {
         setState(() {
-          sprayDrones = data;
+          sprayDrones = result.data!;
           isLoading = false;
         });
-        print("✅ Crop Spraying Drones loaded: ${sprayDrones.length}");
-      } catch (e) {
-        print("⚠️ Error fetching drones: $e");
-        setState(() => isLoading = false);
+        debugPrint("✅ Loaded ${sprayDrones.length} crop spraying drones");
+      } else {
+        setState(() {
+          isLoading = false;
+          hasError = true;
+        });
+        Utils.bottomToast(context, result.message ?? "Failed to load drones");
       }
-    } else {
-      Utils.bottomToast(context, "Check your Internet connection");
+    } catch (e) {
+      debugPrint("⚠️ Error fetching drones: $e");
+      setState(() {
+        isLoading = false;
+        hasError = true;
+      });
+      Utils.bottomToast(context, "Something went wrong. Try again later.");
     }
   }
 
+  /// 🛩️ Drone Card Builder
   Widget buildSprayCard(Map<String, dynamic> drone) {
-    double screenWidth = MediaQuery.of(context).size.width;
-    double imageHeight = screenWidth * 0.25;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final imageHeight = screenWidth * 0.25;
 
-    final imageUrl = drone["image"]?.toString() ?? "";
-    final name = drone["name"]?.toString() ?? "Unnamed Drone";
-    final price = drone["price"]?.toString() ?? "0";
-    final category = drone["category"]?.toString() ?? "Drone";
+    final imageUrl = (drone["image"] ?? "").toString();
+    final name = (drone["name"] ?? "Unnamed Drone").toString();
+    final price = (drone["price"] ?? "0").toString();
+    final category = (drone["category"] ?? "Drone").toString();
 
     final fullImageUrl = imageUrl.startsWith("http")
         ? imageUrl
-        : "http://192.168.0.180:5001/uploads/$imageUrl";
+        : "https://flyhub-storage.s3.ap-south-1.amazonaws.com/uploads/$imageUrl";
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (context) => DroneFullDetailsPage(
-                droneData: drone,
-              )),
-        );
-      },
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DroneFullDetailsPage(droneData: drone),
+        ),
+      ),
       child: Card(
         color: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
         elevation: 3,
         child: Padding(
           padding: const EdgeInsets.all(10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- Drone Image ---
+              /// --- Drone Image ---
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: CachedNetworkImage(
                   imageUrl: fullImageUrl,
-                  placeholder: (context, url) => SizedBox(
+                  height: imageHeight,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
                     height: imageHeight,
+                    color: Colors.grey[200],
                     child: const Center(child: CircularProgressIndicator()),
                   ),
                   errorWidget: (context, url, error) => Image.asset(
@@ -100,15 +122,11 @@ class _CropSprayingPageState extends State<CropSprayingPage>
                     width: double.infinity,
                     fit: BoxFit.cover,
                   ),
-                  height: imageHeight,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
                 ),
               ),
-
               const SizedBox(height: 8),
 
-              // --- Name ---
+              /// --- Name ---
               Text(
                 name,
                 maxLines: 1,
@@ -119,7 +137,7 @@ class _CropSprayingPageState extends State<CropSprayingPage>
                 ),
               ),
 
-              // --- Category ---
+              /// --- Category ---
               Text(
                 category.toUpperCase(),
                 style: GoogleFonts.lexend(
@@ -127,10 +145,9 @@ class _CropSprayingPageState extends State<CropSprayingPage>
                   color: Colors.grey[600],
                 ),
               ),
-
               const Spacer(),
 
-              // --- Price ---
+              /// --- Price + Icon ---
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -146,17 +163,15 @@ class _CropSprayingPageState extends State<CropSprayingPage>
                       size: 16, color: Colors.green),
                 ],
               ),
-
               const SizedBox(height: 8),
 
-              // --- Book Now Button ---
+              /// --- Book Button ---
               SizedBox(
                 width: double.infinity,
                 height: 30,
                 child: ElevatedButton(
-                  onPressed: () {
-                    Utils.bottomToast(context, "$name booking coming soon!");
-                  },
+                  onPressed: () =>
+                      Utils.bottomToast(context, "$name booking coming soon!"),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xff7057FF),
                     shape: RoundedRectangleBorder(
@@ -176,7 +191,7 @@ class _CropSprayingPageState extends State<CropSprayingPage>
     );
   }
 
-  // ===========================================================
+  /// ===========================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -185,30 +200,54 @@ class _CropSprayingPageState extends State<CropSprayingPage>
         title: Text('Crop Spraying', style: GoogleFonts.lexend()),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.pop(context),
         ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : sprayDrones.isEmpty
-          ? const Center(child: Text("No drones available"))
-          : Padding(
-        padding:
-        const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        child: GridView.builder(
-          itemCount: sprayDrones.length,
-          gridDelegate:
-          const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 0.72,
+
+      /// ✅ Body
+      body: RefreshIndicator(
+        onRefresh: fetchSprayDrones,
+        color: const Color(0xff7057FF),
+        child: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : hasError
+            ? Center(
+          child: TextButton.icon(
+            icon: const Icon(Icons.refresh, color: Color(0xff7057FF)),
+            label: Text(
+              "Retry",
+              style: GoogleFonts.lexend(
+                  color: const Color(0xff7057FF),
+                  fontWeight: FontWeight.w500),
+            ),
+            onPressed: fetchSprayDrones,
           ),
-          itemBuilder: (context, index) {
-            return buildSprayCard(sprayDrones[index]);
-          },
+        )
+            : sprayDrones.isEmpty
+            ? Center(
+          child: Text(
+            "No crop spraying drones available",
+            style: GoogleFonts.lexend(
+                fontSize: 15, color: Colors.grey[600]),
+          ),
+        )
+            : Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: 8, vertical: 8),
+          child: GridView.builder(
+            itemCount: sprayDrones.length,
+            gridDelegate:
+            const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 0.72,
+            ),
+            itemBuilder: (context, i) =>
+                buildSprayCard(sprayDrones[i]),
+          ),
         ),
       ),
     );

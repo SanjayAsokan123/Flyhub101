@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flyhub/Login/Otp_Screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../CommonClass/ApiClass.dart';
 import '../CommonClass/utils.dart';
 
 class Mobilelogin extends StatefulWidget {
   final Map<String, dynamic> logindata;
-
   const Mobilelogin({super.key, required this.logindata});
 
   @override
@@ -17,215 +15,111 @@ class Mobilelogin extends StatefulWidget {
 
 class _MobileloginState extends State<Mobilelogin> {
   final TextEditingController _controller = TextEditingController();
+  final ApiClass _apiClass = ApiClass();
   bool _isAgreed = false;
+  bool _loading = false;
   late SharedPreferences pref;
 
-  final ApiClass _apiClass = ApiClass();
-  bool isInternet = true;
-  @override
-  void initState() {
-    super.initState();
+  Future<void> _sendOtp() async {
+    final mobile = _controller.text.trim();
+    if (mobile.isEmpty || mobile.length != 10) {
+      Utils.bottomToast(context, "Enter a valid mobile number");
+      return;
+    }
+    if (!_isAgreed) {
+      Utils.bottomToast(context, "Agree to continue");
+      return;
+    }
+
+    pref = await SharedPreferences.getInstance();
+    pref.setString("mobile_number", mobile);
+
+    setState(() => _loading = true);
+    final res = await _apiClass.getOtp(mobile);
+    setState(() => _loading = false);
+
+    if (res.status == "success" && res.data["status"] == "success") {
+      pref.setString("userId", res.data["userid"].toString());
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => OtpScreen(logindata: widget.logindata)),
+      );
+    } else {
+      Utils.bottomToast(context, res.message);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
+    final w = MediaQuery.of(context).size.width;
+    final h = MediaQuery.of(context).size.height;
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: w * 0.07),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: screenHeight * 0.04),
-
-              // Image at the top
+              SizedBox(height: h * 0.05),
               Center(
-                child: Image.asset(
-                  'assets/images/mobileLoginscreen_img.png',
-                  width: screenWidth * 0.97,
-                  fit: BoxFit.contain,
+                child: Image.asset('assets/images/mobileLoginscreen_img.png',
+                    width: w * 0.9),
+              ),
+              SizedBox(height: h * 0.03),
+              Text(widget.logindata['otp_page']['title1'] ?? "Login",
+                  style: GoogleFonts.lexend(
+                      fontSize: 22, fontWeight: FontWeight.w600)),
+              SizedBox(height: 5),
+              Text(widget.logindata['otp_page']['title2'] ?? "Enter your phone number",
+                  style: GoogleFonts.lexend(fontSize: 14, color: Colors.grey)),
+              SizedBox(height: h * 0.03),
+              TextField(
+                controller: _controller,
+                keyboardType: TextInputType.number,
+                maxLength: 10,
+                decoration: InputDecoration(
+                  labelText: "Mobile Number",
+                  hintText: "e.g. 9876543210",
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
-
-              SizedBox(height: screenHeight * 0.03),
-
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.07),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Login Title
-                    Text(
-                      '${widget.logindata['otp_page']['title1']}',
+              Row(
+                children: [
+                  Checkbox(
+                    value: _isAgreed,
+                    onChanged: (v) => setState(() => _isAgreed = v ?? false),
+                  ),
+                  Expanded(
+                    child: Text(widget.logindata['otp_page']['title4'] ??
+                        "I agree to Terms & Conditions",
+                        style: GoogleFonts.lexend(fontSize: 13)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Center(
+                child: SizedBox(
+                  width: w * 0.6,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: _loading ? null : _sendOtp,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF7057FF),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: _loading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : Text(
+                      widget.logindata['otp_page']['button_name'] ??
+                          "Continue",
                       style: GoogleFonts.lexend(
-                        fontSize: screenWidth * 0.05,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black,
-                      ),
+                          fontSize: 18, color: Colors.white),
                     ),
-
-                    SizedBox(height: screenHeight * 0.01),
-
-                    Text(
-                      '${widget.logindata['otp_page']['title2']}',
-                      style: GoogleFonts.lexend(
-                        fontSize: screenWidth * 0.035,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-
-                    SizedBox(height: screenHeight * 0.03),
-
-                    // Mobile Input Field
-                    TextField(
-                      controller: _controller,
-                      autofocus: true,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: '${widget.logindata['otp_page']['title3']}',
-                        labelStyle: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black, // Unfocused label color
-                        ),
-
-                        hintText: 'eg.8973862353',
-                        hintStyle: TextStyle(color: Color(0xFFC2C2C2)),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: Color(0xFFC2C2C2), // Focused border color
-                            width: 1,
-                          ),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        counterText: "",
-                      ),
-                      maxLines: 1,
-                      maxLength: 10,
-                    ),
-
-
-                    SizedBox(height: screenHeight * 0.01),
-
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      // aligns top of both checkbox and text
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      // aligns row to the left
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          // aligns checkbox slightly lower
-                          child: Checkbox(
-                            value: _isAgreed,
-                            onChanged: (value) {
-                              setState(() {
-                                _isAgreed = value ?? false;
-                              });
-                            },
-                            activeColor: Color(0xFF7057FF),
-                          ),
-                        ),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 12),
-                            // aligns text vertically with checkbox
-                            child: Text.rich(
-                              TextSpan(
-                                text: '${widget.logindata['otp_page']['title4']}',
-                                style: GoogleFonts.lexend(
-                                  fontSize: screenWidth * 0.03,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    SizedBox(height: screenHeight * 0.03),
-
-                    // Continue Button
-                    Center(
-                      child: SizedBox(
-                        width: screenWidth * 0.6,
-                        height: screenHeight * 0.06,
-                        child: ElevatedButton(
-                          onPressed: _isAgreed
-                              ? () async {
-                            pref = await SharedPreferences.getInstance();
-                            var response;
-                            if (_controller.text.trim().isEmpty) {
-                              Utils.bottomToast(
-                                context,
-                                "Enter the Mobile Number",
-                              );
-                            } else if (_controller.text.trim().length <
-                                10) {
-                              Utils.bottomToast(
-                                context,
-                                "Enter the Valid Mobile Number",
-                              );
-                            } else {
-                              pref.setString(
-                                "mobile_number",
-                                _controller.text,
-                              );
-
-                              if (await Utils.checkInternetConnection()) {
-                                response = await _apiClass.getOtp(
-                                  _controller.text,
-                                );
-
-                                if (response["status"] == "success") {
-                                  pref.setString(
-                                    "userId",
-                                    response["userid"].toString(),
-                                  );
-
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => OtpScreen(logindata:widget.logindata),
-                                    ),
-                                  );
-                                } else {
-                                  print('Response Not Success');
-                                }
-                              } else {
-                                Utils.bottomToast(
-                                  context,
-                                  "Check Your Internet Connection",
-                                );
-                              }
-                            }
-                          }
-                              : null,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Color(0xFF7057FF),
-                            disabledBackgroundColor: Colors.grey[400],
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(
-                            '${widget.logindata['otp_page']['button_name']}',
-                            style: GoogleFonts.lexend(
-                              fontSize: screenWidth * 0.045,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    SizedBox(height: screenHeight * 0.03),
-                  ],
+                  ),
                 ),
               ),
             ],
