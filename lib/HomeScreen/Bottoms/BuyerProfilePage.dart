@@ -37,7 +37,7 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
         actions: [
           GestureDetector(
             onTap: () {
-              SellerFormDialog.show(context);
+              // SellerFormDialog.show(context);
             },
             child: Container(
               margin: const EdgeInsets.only(right: 10),
