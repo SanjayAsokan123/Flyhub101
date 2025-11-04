@@ -1,14 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
-
 import '../../CommonClass/ApiClass.dart';
 import '../../CommonClass/utils.dart';
 import '../../DroneDetailPage.dart';
@@ -75,18 +72,22 @@ class _MarketPageState extends State<MarketPage>
     }
   }
 
+  // ✅ Fetch drones, parts, accessories in parallel
   Future<void> fetchMarketplaceData() async {
     setState(() => isLoading = true);
     try {
-      final droneRes = await _apiClass.getMarketplaceItems("drones");
-      final partRes = await _apiClass.getMarketplaceItems("parts");
-      final accRes = await _apiClass.getMarketplaceItems("accessories");
+      final results = await Future.wait([
+        _apiClass.getDrones(),
+        _apiClass.getParts(),
+        _apiClass.getAccessories(),
+      ]);
 
       if (!mounted) return;
+
       setState(() {
-        drones = droneRes.data ?? [];
-        parts = partRes.data ?? [];
-        accessories = accRes.data ?? [];
+        drones = results[0].data ?? [];
+        parts = results[1].data ?? [];
+        accessories = results[2].data ?? [];
 
         filteredDrones = List.from(drones);
         filteredParts = List.from(parts);
@@ -94,7 +95,7 @@ class _MarketPageState extends State<MarketPage>
         isLoading = false;
       });
     } catch (e) {
-      Utils.bottomToast(context, "Error fetching marketplace items");
+      Utils.bottomToast(context, "Error fetching data: $e");
       setState(() => isLoading = false);
     }
   }
@@ -117,10 +118,14 @@ class _MarketPageState extends State<MarketPage>
     }).toList();
   }
 
-  /// 💖 Add/remove wishlist (sync with provider)
+  /// 💖 Add/remove wishlist
   Future<void> _toggleWishlist(Map<String, dynamic> item) async {
     final provider = context.read<CartWishlistProvider>();
-    final id = item['id']?.toString() ?? item['name'];
+    final id = item['droneId'] ??
+        item['partId'] ??
+        item['accessoryId'] ??
+        item['id'] ??
+        item['name'];
     final name = item['name'] ?? 'Unnamed';
 
     final isAdded = await provider.toggleWishlist(item);
@@ -128,10 +133,14 @@ class _MarketPageState extends State<MarketPage>
         isAdded ? "$name added to wishlist" : "$name removed from wishlist");
   }
 
-  /// 🛒 Add to cart (sync with provider)
+  /// 🛒 Add to cart
   Future<void> _addToCart(Map<String, dynamic> item) async {
     final provider = context.read<CartWishlistProvider>();
-    final id = item['id']?.toString() ?? item['name'];
+    final id = item['droneId'] ??
+        item['partId'] ??
+        item['accessoryId'] ??
+        item['id'] ??
+        item['name'];
     final name = item['name'] ?? 'Unnamed';
 
     final added = await provider.addToCart(item);
@@ -144,25 +153,29 @@ class _MarketPageState extends State<MarketPage>
       itemCount: 6,
       padding: const EdgeInsets.all(8),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.75,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10),
+        crossAxisCount: 2,
+        childAspectRatio: 0.75,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+      ),
       itemBuilder: (_, __) => Shimmer.fromColors(
         baseColor: Colors.grey.shade300,
         highlightColor: Colors.grey.shade100,
         child: Container(
           decoration: BoxDecoration(
-              color: Colors.white, borderRadius: BorderRadius.circular(12)),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildBadge(
-      {required IconData icon,
-        required int count,
-        required VoidCallback onTap}) {
+  Widget _buildBadge({
+    required IconData icon,
+    required int count,
+    required VoidCallback onTap,
+  }) {
     return Stack(
       children: [
         IconButton(
@@ -176,15 +189,18 @@ class _MarketPageState extends State<MarketPage>
             child: Container(
               height: 15,
               width: 15,
-              decoration:
-              const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
               child: Center(
                 child: Text(
                   "$count",
                   style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold),
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -204,8 +220,10 @@ class _MarketPageState extends State<MarketPage>
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text('Marketplace',
-            style: GoogleFonts.lexend(fontWeight: FontWeight.w600)),
+        title: Text(
+          'Marketplace',
+          style: GoogleFonts.lexend(fontWeight: FontWeight.w600),
+        ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0.5,
@@ -213,15 +231,19 @@ class _MarketPageState extends State<MarketPage>
           _buildBadge(
             icon: Icons.favorite_border,
             count: wishlistCount,
-            onTap: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const WishlistPage())),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const WishlistPage()),
+            ),
           ),
           _buildBadge(
             icon: Icons.shopping_cart_outlined,
             count: cartCount,
             onTap: () async {
               await Navigator.push(
-                  context, MaterialPageRoute(builder: (_) => const MyCartPage()));
+                context,
+                MaterialPageRoute(builder: (_) => const MyCartPage()),
+              );
             },
           ),
         ],
@@ -236,8 +258,9 @@ class _MarketPageState extends State<MarketPage>
                   hintText: "Search by name or brand...",
                   prefixIcon: Icon(Icons.search, color: primaryColor),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none),
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
                   filled: true,
                   fillColor: Colors.grey[200],
                 ),
@@ -260,32 +283,41 @@ class _MarketPageState extends State<MarketPage>
       body: TabBarView(
         controller: _tabController,
         children: [
-          buildTabView(drones, filteredDrones, wishlistIds, cartIds),
-          buildTabView(parts, filteredParts, wishlistIds, cartIds),
-          buildTabView(accessories, filteredAccessories, wishlistIds, cartIds),
+          buildTabView(drones, filteredDrones, wishlistIds, cartIds, "Drones"),
+          buildTabView(parts, filteredParts, wishlistIds, cartIds, "Parts"),
+          buildTabView(accessories, filteredAccessories, wishlistIds, cartIds, "Accessories"),
         ],
       ),
     );
   }
 
   Widget buildTabView(List<dynamic> items, List<dynamic> filteredItems,
-      Set<String> wishlistIds, Set<String> cartIds) {
+      Set<String> wishlistIds, Set<String> cartIds, String label) {
     if (isLoading) return shimmerLoader();
     final data = searchQuery.isEmpty ? items : filteredItems;
-    if (data.isEmpty) return const Center(child: Text("No approved items 😶"));
+    if (data.isEmpty) {
+      return Center(
+        child: Text("No $label found 😶",
+            style: const TextStyle(color: Colors.grey)),
+      );
+    }
 
     return RefreshIndicator(
       onRefresh: fetchMarketplaceData,
       child: GridView.builder(
         padding: const EdgeInsets.all(8),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.78,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10),
+          crossAxisCount: 2,
+          childAspectRatio: 0.78,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+        ),
         itemCount: data.length,
-        itemBuilder: (context, index) =>
-            buildMarketCard(Map<String, dynamic>.from(data[index]), wishlistIds, cartIds),
+        itemBuilder: (context, index) => buildMarketCard(
+          Map<String, dynamic>.from(data[index]),
+          wishlistIds,
+          cartIds,
+        ),
       ),
     );
   }
@@ -293,11 +325,11 @@ class _MarketPageState extends State<MarketPage>
   Widget buildMarketCard(Map<String, dynamic> item, Set<String> wishlistIds,
       Set<String> cartIds) {
     final imageUrl = (item['image'] ?? '').toString();
-    final fullUrl = imageUrl.startsWith('http')
-        ? imageUrl
-        : "https://flyhub-storage.s3.ap-south-1.amazonaws.com/uploads/$imageUrl";
+    final fullImageUrl = imageUrl.isEmpty
+        ? "https://via.placeholder.com/300x200.png?text=No+Image"
+        : imageUrl;
 
-    final id = item['id']?.toString() ?? '';
+    final id = item['droneId'] ?? item['partId'] ?? item['accessoryId'] ?? '';
     final isFav = wishlistIds.contains(id);
     final inCart = cartIds.contains(id);
 
@@ -309,7 +341,8 @@ class _MarketPageState extends State<MarketPage>
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
-              builder: (_) => DroneDetailPage(drone: item, Drone: null)),
+            builder: (_) => DroneDetailPage(drone: item, Drone: null),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -319,7 +352,7 @@ class _MarketPageState extends State<MarketPage>
                 borderRadius:
                 const BorderRadius.vertical(top: Radius.circular(12)),
                 child: CachedNetworkImage(
-                  imageUrl: fullUrl,
+                  imageUrl: fullImageUrl,
                   height: 130,
                   width: double.infinity,
                   fit: BoxFit.cover,

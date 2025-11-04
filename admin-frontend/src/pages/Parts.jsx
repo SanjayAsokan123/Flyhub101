@@ -1,35 +1,55 @@
+
 import React, { useState, useEffect } from "react";
-import "../styles/Page.css";
+import "../styles/Parts.css";
 
 const GRAPHQL_URL = "http://127.0.0.1:5001/graphql";
 
-function PartsApproval() {
+function Parts() {
   const [parts, setParts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedStatus, setSelectedStatus] = useState("pending");
 
+  // Fetch parts
   const fetchParts = async () => {
     setLoading(true);
+    setError(null);
+
     const query = `
-      query {
+      query GetParts {
         parts {
-          id name brand price description image status
+          partId
+          name
+          brand
+          price
+          description
+          image
+          quantity
+          status
         }
       }
     `;
+
     try {
       const res = await fetch(GRAPHQL_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query }),
       });
+
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const result = await res.json();
-      const rejected = JSON.parse(localStorage.getItem("rejectedParts")) || [];
-      const filtered = result.data.parts.filter(
-        (p) => !rejected.some((r) => r.id === p.id)
-      );
-      setParts(filtered);
-    } catch (e) {
-      console.error(e);
+
+      if (result.errors) {
+        setError(result.errors[0].message);
+        setParts([]);
+        return;
+      }
+
+      setParts(result.data.parts);
+    } catch (err) {
+      setError("Network error: " + err.message);
+      setParts([]);
     } finally {
       setLoading(false);
     }
@@ -39,71 +59,129 @@ function PartsApproval() {
     fetchParts();
   }, []);
 
-  const handleApproval = async (id, status) => {
+  // Approve or reject part
+  const handleApproval = async (partId, newStatus) => {
     const mutation = `
-      mutation {
-        updatePartStatus(id: "${id}", status: "${status}") { id status }
+      mutation UpdatePartStatus($partId: String!, $status: String!) {
+        updatePartStatus(partId: $partId, status: $status) {
+          partId
+          status
+        }
       }
     `;
-    await fetch(GRAPHQL_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: mutation }),
-    });
-    if (status === "rejected") {
-      const store = JSON.parse(localStorage.getItem("rejectedParts")) || [];
-      store.push({ id });
-      localStorage.setItem("rejectedParts", JSON.stringify(store));
+
+    try {
+      const res = await fetch(GRAPHQL_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: mutation,
+          variables: { partId, status: newStatus },
+        }),
+      });
+
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      const result = await res.json();
+
+      if (result.errors) {
+        alert(`Error updating part: ${result.errors[0].message}`);
+        return;
+      }
+
+      const updatedPart = result.data.updatePartStatus;
+      setParts((prev) =>
+        prev.map((p) =>
+          p.partId === updatedPart.partId ? { ...p, status: updatedPart.status } : p
+        )
+      );
+
+      alert(`Part ${newStatus} successfully!`);
+    } catch (err) {
+      alert(`Network error: ${err.message}`);
     }
-    fetchParts();
   };
 
-  const handleApproveAll = async () => {
-    const mutation = `
-      mutation {
-        approveAllPending(type: "parts") { success count message }
-      }
-    `;
-    const res = await fetch(GRAPHQL_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: mutation }),
-    });
-    const result = await res.json();
-    alert(result.data.approveAllPending.message);
-    fetchParts();
-  };
+  if (loading) return <p className="loading">Loading parts...</p>;
+  if (error) return <p className="error">Error: {error}</p>;
 
-  if (loading) return <p>Loading parts...</p>;
+  const filteredParts = parts.filter(
+    (p) => p.status.toLowerCase() === selectedStatus
+  );
 
   return (
-    <div className="page">
-      <h2>⚙️ Parts Approval Dashboard</h2>
-      <div className="bulk-actions">
-        <button className="approve-all-btn" onClick={handleApproveAll}>
-          ✅ Approve All Pending Parts
-        </button>
-      </div>
-      <div className="drone-cards">
-        {parts.map((p) => (
-          <div key={p.id} className="drone-card">
-            <img src={p.image} alt={p.name} className="drone-image" />
-            <h3>{p.name}</h3>
-            <p><strong>Brand:</strong> {p.brand}</p>
-            <p><strong>Price:</strong> ${p.price}</p>
-            <p><strong>Description:</strong> {p.description}</p>
-            <p><strong>Status:</strong> {p.status}</p>
-            {p.status === "pending" && (
-              <div className="actions">
-                <button onClick={() => handleApproval(p.id, "approved")}>✅ Approve</button>
-                <button onClick={() => handleApproval(p.id, "rejected")}>❌ Reject</button>
-              </div>
-            )}
-          </div>
+    <div className="parts-container">
+      <h2 className="page-title">🛠 Parts Management Dashboard</h2>
+
+      {/* Tabs */}
+      <div className="status-tabs">
+        {["pending", "approved", "rejected"].map((status) => (
+          <button
+            key={status}
+            className={`status-tab ${selectedStatus === status ? "active" : ""}`}
+            onClick={() => setSelectedStatus(status)}
+          >
+            {status === "pending" && "⏳ Pending"}
+            {status === "approved" && "✅ Approved"}
+            {status === "rejected" && "❌ Rejected"}
+          </button>
         ))}
+      </div>
+
+      {/* Parts Grid */}
+      <div className="parts-grid">
+        {filteredParts.length === 0 ? (
+          <p className="empty-text">No {selectedStatus} parts.</p>
+        ) : (
+          filteredParts.map((part) => (
+            <div key={part.partId} className="part-card">
+              {/* Status Badge on top-right */}
+              <div
+                className={`status-badge-top ${part.status.toLowerCase()}`}
+              >
+                {part.status}
+              </div>
+
+              {/* Image */}
+              <div className="part-image-wrapper">
+                {part.image ? (
+                  <img src={part.image} alt={part.name} className="part-image" />
+                ) : (
+                  <div className="part-image placeholder">No Image</div>
+                )}
+              </div>
+
+              {/* Details */}
+              <div className="part-details">
+                <h3>{part.name}</h3>
+                <p><strong>ID:</strong> {part.partId}</p>
+                <p><strong>Brand:</strong> {part.brand}</p>
+                <p><strong>Price:</strong> ₹{part.price}</p>
+                <p><strong>Quantity:</strong> {part.quantity}</p>
+                <p><strong>Description:</strong> {part.description}</p>
+
+                {part.status.toLowerCase() === "pending" && (
+                  <div className="actions">
+                    <button
+                      onClick={() => handleApproval(part.partId, "approved")}
+                      className="approve-btn"
+                    >
+                      ✅ Approve
+                    </button>
+                    <button
+                      onClick={() => handleApproval(part.partId, "rejected")}
+                      className="reject-btn"
+                    >
+                      ❌ Reject
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
 }
 
-export default PartsApproval;
+export default Parts;

@@ -1,27 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:flyhub/AddDrone.dart';
 import 'package:google_fonts/google_fonts.dart';
-
+import 'AddDrone.dart'; // ✅ GraphQL-based AddDronePage
 import 'NewJobPostPage.dart';
 
 class RegisterPage extends StatelessWidget {
   final List registerList;
-  final String appBar_title;
-  final String form_title;
+  final String appBarTitle;
+  final String formTitle;
 
-  RegisterPage({
+  const RegisterPage({
+    super.key,
     required this.registerList,
-    required this.appBar_title,
-    required this.form_title,
+    required this.appBarTitle,
+    required this.formTitle,
   });
-
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: PreferredSize(
-        preferredSize: Size.fromHeight(56),
+        preferredSize: const Size.fromHeight(56),
         child: SafeArea(
           child: Material(
             elevation: 3,
@@ -31,12 +30,12 @@ class RegisterPage extends StatelessWidget {
               child: Row(
                 children: [
                   IconButton(
-                    icon: Icon(Icons.arrow_back, color: Colors.black),
+                    icon: const Icon(Icons.arrow_back, color: Colors.black),
                     onPressed: () => Navigator.pop(context),
                   ),
                   Expanded(
                     child: Text(
-                      appBar_title,
+                      appBarTitle,
                       style: GoogleFonts.lexend(
                         fontSize: 18,
                         fontWeight: FontWeight.w500,
@@ -44,8 +43,8 @@ class RegisterPage extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12.0),
                     child: Icon(Icons.favorite_border),
                   ),
                 ],
@@ -60,57 +59,27 @@ class RegisterPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              form_title,
+              formTitle,
               style: GoogleFonts.lexend(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
+
+            // ✅ Render dynamic register options
             ...registerList.map((item) {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 14.0),
                 child: InkWell(
-                  onTap: () {
-                    if (item["status"] == "success") {
-                      if (item["click_url"] == "add_drone_sell") {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => Adddrone(
-                              clickUrl: item["click_url"],
-                              type: "1",
-                            ),
-                          ),
-                        );
-                      } else if (item["click_url"] == "add_drone_rent") {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => Adddrone(
-                              clickUrl: item["click_url"],
-                              type: "2",
-                            ),
-                          ),
-                        );
-                      }
-                      else if (item["click_url"] == "add_jobs") {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => NewJobPostPage()
-                          ),
-                        );
-                      }
-                    } else {}
-                  },
+                  onTap: () => _handleItemClick(context, item),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       vertical: 12,
                       horizontal: 10,
                     ),
                     decoration: BoxDecoration(
-                      border: Border.all(color: Color(0xffC2C2C2)),
+                      border: Border.all(color: const Color(0xffC2C2C2)),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -123,41 +92,15 @@ class RegisterPage extends StatelessWidget {
                             ),
                           ),
                         ),
-
                         GestureDetector(
-                          onTap: () {
-                            if (item["status"] == "success") {
-                              if (item["click_url"] == "add_drone_sell") {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => Adddrone(
-                                      clickUrl: item["click_url"],
-                                      type: "1",
-                                    ),
-                                  ),
-                                );
-                              } else if (item["click_url"] ==
-                                  "add_drone_rent") {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => Adddrone(
-                                      clickUrl: item["click_url"],
-                                      type: "2",
-                                    ),
-                                  ),
-                                );
-                              }
-                            } else {}
-                          },
+                          onTap: () => _handleItemClick(context, item),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               vertical: 5,
                               horizontal: 10,
                             ),
                             decoration: BoxDecoration(
-                              color: Color(0xffF7F7F8),
+                              color: const Color(0xffF7F7F8),
                               borderRadius: BorderRadius.circular(15),
                             ),
                             child: Row(
@@ -169,10 +112,16 @@ class RegisterPage extends StatelessWidget {
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                SizedBox(width: 8),
+                                const SizedBox(width: 8),
                                 Image.network(
                                   item['right_img'],
                                   fit: BoxFit.contain,
+                                  height: 20,
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.image_not_supported_outlined,
+                                    size: 18,
+                                    color: Colors.grey,
+                                  ),
                                 ),
                               ],
                             ),
@@ -180,49 +129,6 @@ class RegisterPage extends StatelessWidget {
                         ),
                       ],
                     ),
-
-                    /*ListTile(
-                      title: Text(item['title'],style: GoogleFonts.lexend()),
-                      trailing: ElevatedButton.icon(
-                        icon: Image.network(
-                          item['right_img'],
-                          fit: BoxFit.contain,
-                        ),
-                        label: Text(item['right_text'],style: GoogleFonts.lexend(),),
-                        onPressed: () {
-                          if (item["status"] == "success") {
-                            if (item["click_url"] == "add_drone_sell") {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => Adddrone(
-                                    clickUrl: item["click_url"],
-                                    type: "1",
-                                  ),
-                                ),
-                              );
-                            } else if (item["click_url"] == "add_drone_rent") {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => Adddrone(
-                                    clickUrl: item["click_url"],
-                                    type: "2",
-                                  ),
-                                ),
-                              );
-                            }
-                          } else {}
-                        },
-                        style: ElevatedButton.styleFrom(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          shape: StadiumBorder(),
-                        ),
-                      ),
-                    )*/
                   ),
                 ),
               );
@@ -231,5 +137,55 @@ class RegisterPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// ✅ Navigation logic for each register item
+  void _handleItemClick(BuildContext context, Map item) {
+    if (item["status"] != "success") {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("⚠️ This feature is not active.")),
+      );
+      return;
+    }
+
+    final String clickUrl = item["click_url"] ?? "";
+
+    switch (clickUrl) {
+      case "add_drone_sell":
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AddDronePage(
+              sellerId: "SELLER_001", // 🧩 Replace dynamically later
+            ),
+          ),
+        );
+        break;
+
+      case "add_drone_rent":
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AddDronePage(
+              sellerId: "RENT_001", // 🧩 Replace dynamically later
+            ),
+          ),
+        );
+        break;
+
+      case "add_jobs":
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const NewJobPostPage(),
+          ),
+        );
+        break;
+
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("🚧 Feature coming soon!")),
+        );
+    }
   }
 }

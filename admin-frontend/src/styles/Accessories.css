@@ -1,0 +1,185 @@
+/* === Overall Layout === */
+.accessories-container {
+  background-color: #f8fafc;
+  min-height: 100vh;
+  padding: 30px;
+  font-family: "Poppins", sans-serif;
+}
+
+/* === Title === */
+.accessories-title {
+  text-align: center;
+  color: #1e293b;
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 25px;
+}
+
+/* === Status Tabs / Navbar === */
+.accessories-status-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 25px;
+}
+
+.accessories-tab {
+  padding: 8px 18px;
+  border: 1px solid #cbd5e1;
+  border-radius: 25px;
+  background-color: #ffffff;
+  color: #374151;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.accessories-tab:hover {
+  background-color: #e2e8f0;
+}
+
+.accessories-tab.active {
+  background-color: #2563eb;
+  color: white;
+  border-color: #2563eb;
+}
+
+/* === Grid Layout === */
+.accessories-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 18px;
+  justify-content: center;
+}
+
+/* === Card Styling === */
+.accessories-card {
+  position: relative;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  padding: 15px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.accessories-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* === Badge === */
+.accessories-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #fff;
+  text-transform: capitalize;
+}
+
+.accessories-badge.pending {
+  background-color: #f59e0b;
+}
+
+.accessories-badge.approved {
+  background-color: #22c55e;
+}
+
+.accessories-badge.rejected {
+  background-color: #ef4444;
+}
+
+/* === Image Section === */
+.accessories-image-wrapper {
+  width: 100%;
+  height: 140px;
+  border-radius: 10px;
+  overflow: hidden;
+  background-color: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.accessories-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.accessories-no-image {
+  color: #9ca3af;
+  font-size: 13px;
+}
+
+/* === Details Section === */
+.accessories-details {
+  text-align: left;
+  color: #374151;
+}
+
+.accessories-details h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+.accessories-details p {
+  margin: 4px 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.accessories-details strong {
+  color: #1f2937;
+}
+
+/* === Actions (Approve / Reject Buttons) === */
+.accessories-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+.accessories-approve-btn,
+.accessories-reject-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: 0.3s;
+  color: white;
+}
+
+.accessories-approve-btn {
+  background-color: #16a34a;
+}
+
+.accessories-approve-btn:hover {
+  background-color: #15803d;
+}
+
+.accessories-reject-btn {
+  background-color: #dc2626;
+}
+
+.accessories-reject-btn:hover {
+  background-color: #b91c1c;
+}
+
+/* === Empty, Loading, Error Messages === */
+.accessories-loading,
+.accessories-error,
+.accessories-empty-text {
+  text-align: center;
+  font-size: 14px;
+  color: #6b7280;
+  margin-top: 20px;
+}

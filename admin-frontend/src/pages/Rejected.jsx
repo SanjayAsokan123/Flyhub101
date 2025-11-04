@@ -4,17 +4,15 @@ import "../styles/Rejected.css";
 const GRAPHQL_URL = "http://127.0.0.1:5001/graphql";
 
 function Rejected() {
-  const [activeType, setActiveType] = useState("drone"); // drone / accessory / part
+  const [activeType, setActiveType] = useState("drone");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch rejected items based on type
   const fetchRejectedItems = async (type) => {
     setLoading(true);
     setError(null);
 
-    // Map type to GraphQL query name
     let queryName;
     switch (type) {
       case "drone":
@@ -26,29 +24,35 @@ function Rejected() {
       case "part":
         queryName = "parts";
         break;
+      case "service":
+        queryName = "services";
+        break;
+      case "rental":
+        queryName = "rentals";
+        break;
       default:
         queryName = "drones";
     }
 
-  const queryFields = `
-  id
-  name
-  brand
-  ${type === "drone" ? "uin" : ""}
-  price
-  description
-  image
-  status
-`;
+    const queryFields = `
+      name
+      ${type === "drone" || type === "rental" ? "brand" : ""}
+      ${type === "drone" ? "uin" : ""}
+      ${type === "rental" ? "location pricePerHour pricePerDay" : ""}
+      ${type === "service" ? "specificDrone experience location price" : ""}
+      ${type !== "rental" && type !== "service" ? "price" : ""}
+      description
+      image
+      status
+    `;
 
-const query = `
-  query {
-    ${queryName} {
-      ${queryFields}
-    }
-  }
-`;
-
+    const query = `
+      query {
+        ${queryName} {
+          ${queryFields}
+        }
+      }
+    `;
 
     try {
       const response = await fetch(GRAPHQL_URL, {
@@ -56,32 +60,49 @@ const query = `
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query }),
       });
+
       const result = await response.json();
+      console.log("GraphQL response:", result);
+
       if (result.errors) {
         setError(result.errors[0].message);
-      } else {
+        setItems([]);
+        return;
+      }
+
+      // ✅ Safe check before filtering
+      if (result.data && Array.isArray(result.data[queryName])) {
         const rejectedItems = result.data[queryName].filter(
-          (item) => item.status.toLowerCase() === "rejected"
+          (item) =>
+            item.status &&
+            item.status.toLowerCase() === "rejected"
         );
         setItems(rejectedItems);
+      } else {
+        // No data found
+        setItems([]);
       }
     } catch (err) {
       setError("Network error: " + err.message);
+      setItems([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch items whenever type changes
   useEffect(() => {
     fetchRejectedItems(activeType);
   }, [activeType]);
 
-  // Delete item
   const handleDelete = async (id) => {
-    const mutationName = activeType === "drone" ? "deleteDrone" :
-                         activeType === "accessory" ? "deleteAccessory" :
-                         "deletePart";
+    const mutationMap = {
+      drone: "deleteDrone",
+      accessory: "deleteAccessory",
+      part: "deletePart",
+      service: "deleteService",
+      rental: "deleteRental",
+    };
+    const mutationName = mutationMap[activeType];
 
     const mutation = `
       mutation {
@@ -114,25 +135,55 @@ const query = `
       <h2>🚫 Rejected Items</h2>
 
       <div className="type-buttons">
-        <button onClick={() => setActiveType("drone")} className={activeType==="drone" ? "active" : ""}>Drones</button>
-        <button onClick={() => setActiveType("part")} className={activeType==="part" ? "active" : ""}>Parts</button>
-        <button onClick={() => setActiveType("accessory")} className={activeType==="accessory" ? "active" : ""}>Accessories</button>
+        {["drone", "part", "accessory", "service", "rental"].map((type) => (
+          <button
+            key={type}
+            onClick={() => setActiveType(type)}
+            className={activeType === type ? "active" : ""}
+          >
+            {type.charAt(0).toUpperCase() + type.slice(1)}s
+          </button>
+        ))}
       </div>
 
       <div className="cards-container">
         {items.length === 0 && <p>No rejected {activeType}s yet.</p>}
-        {items.map((item) => (
-          <div key={item.id} className="card">
-            <img src={item.image} alt={item.name} className="card-image" />
+        {items.map((item, index) => (
+          <div key={index} className="card">
+            {item.image && (
+              <img src={item.image} alt={item.name} className="card-image" />
+            )}
             <h3>{item.name}</h3>
-            <p><strong>Brand:</strong> {item.brand}</p>
-           {activeType === "drone" && item?.uin && (
-  <p><strong>UIN:</strong> {item.uin}</p>
-)}
 
-            <p><strong>Price:</strong> ${item.price}</p>
-            <p><strong>Description:</strong> {item.description}</p>
+            {(activeType === "drone" || activeType === "rental") &&
+              item.brand && <p><strong>Brand:</strong> {item.brand}</p>}
+            {activeType === "drone" && item.uin && (
+              <p><strong>UIN:</strong> {item.uin}</p>
+            )}
+
+            {activeType === "service" && (
+              <>
+                <p><strong>Specific Drone:</strong> {item.specificDrone}</p>
+                <p><strong>Experience:</strong> {item.experience} years</p>
+                <p><strong>Location:</strong> {item.location}</p>
+                <p><strong>Price:</strong> ₹{item.price}</p>
+              </>
+            )}
+
+            {activeType === "rental" && (
+              <>
+                <p><strong>Location:</strong> {item.location}</p>
+                <p>
+                  <strong>Price:</strong> ₹{item.pricePerHour}/hr • ₹{item.pricePerDay}/day
+                </p>
+              </>
+            )}
+
+            {item.description && (
+              <p><strong>Description:</strong> {item.description}</p>
+            )}
             <p><strong>Status:</strong> ❌ Rejected</p>
+
             <button className="delete-btn" onClick={() => handleDelete(item.id)}>🗑</button>
           </div>
         ))}

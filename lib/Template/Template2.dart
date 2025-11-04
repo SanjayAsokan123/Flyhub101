@@ -1,24 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../RegisterPage.dart';
 import '../../CommonClass/utils.dart';
 
 class Template2 extends StatefulWidget {
   final String title;
-  final String appBar_title;
-  final String form_title;
+  final String appBarTitle;
+  final String formTitle;
   final String rightImg;
   final String leftImg;
   final List items;
 
   const Template2({
+    super.key,
     required this.title,
-    required this.appBar_title,
-    required this.form_title,
+    required this.appBarTitle,
+    required this.formTitle,
     required this.rightImg,
     required this.leftImg,
     required this.items,
-    super.key,
   });
 
   @override
@@ -37,14 +38,16 @@ class _Template2State extends State<Template2> {
     return Padding(
       padding: const EdgeInsets.only(left: 18.0, right: 18, bottom: 14),
       child: InkWell(
+        borderRadius: BorderRadius.circular(12),
         onTap: () {
+          HapticFeedback.lightImpact(); // ✅ better UX
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => RegisterPage(
                 registerList: widget.items,
-                appBar_title: widget.appBar_title,
-                form_title: widget.form_title,
+                appBarTitle: widget.appBarTitle,
+                formTitle: widget.formTitle,
               ),
             ),
           );
@@ -54,27 +57,43 @@ class _Template2State extends State<Template2> {
           decoration: BoxDecoration(
             color: const Color(0xFF7057FF),
             borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 6,
+                offset: const Offset(0, 3),
+              )
+            ],
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Utils.safeNetworkImage(leftImgUrl, width: 30, height: 30),
+              Utils.safeNetworkImage(
+                leftImgUrl,
+                width: 35,
+                height: 35,
+              ),
               SizedBox(
-                width: width * 0.65,
+                width: width * 0.6,
                 child: Text(
                   title,
                   style: GoogleFonts.lexend(
                     fontSize: 14,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                     color: Colors.white,
-                    textStyle: const TextStyle(overflow: TextOverflow.ellipsis),
+                    textStyle:
+                    const TextStyle(overflow: TextOverflow.ellipsis),
                   ),
                   maxLines: 2,
                 ),
               ),
-              Utils.safeNetworkImage(rightImgUrl, width: 25, height: 25),
+              Utils.safeNetworkImage(
+                rightImgUrl,
+                width: 25,
+                height: 25,
+              ),
             ],
           ),
         ),

@@ -26,7 +26,10 @@ dependencies:
   firebase_messaging: ^15.1.3
   firebase_analytics: ^11.3.3
   firebase_crashlytics: ^4.1.3
+
+  # 🔔 Local notifications
   flutter_local_notifications: ^17.2.1
+  timezone: ^0.9.3
 
   # 🧰 Utility & Core Packages
   flutter_lints: ^5.0.0
@@ -72,8 +75,8 @@ flutter:
     - assets/images/
     - assets/jsonFiles/Fly.json
     - assets/jsonFiles/spalshScreenJson.json
-    # - assets/sounds/success.mp3  # Optional: Add sounds later
-
+#    - assets/sounds/success.mp3
+    - assets/google_logo.png
 flutter_icons:
   android: true
   ios: true

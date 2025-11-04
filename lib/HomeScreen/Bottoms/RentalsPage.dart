@@ -17,8 +17,7 @@ class RentalsPage extends StatefulWidget {
   State<RentalsPage> createState() => _RentalsPageState();
 }
 
-class _RentalsPageState extends State<RentalsPage>
-    with TickerProviderStateMixin {
+class _RentalsPageState extends State<RentalsPage> with TickerProviderStateMixin {
   late final TabController _mainTabController;
   final ApiClass _apiClass = ApiClass();
 
@@ -33,13 +32,7 @@ class _RentalsPageState extends State<RentalsPage>
   String selectedFilter = 'All';
   final Color primaryColor = const Color(0xFF1A0A5B);
 
-  final List<String> subFilters = [
-    'All',
-    'Today',
-    'Professional',
-    'With Pilot',
-    'Insured',
-  ];
+  final List<String> subFilters = ['All', 'Today', 'Professional', 'With Pilot', 'Insured'];
 
   @override
   void initState() {
@@ -56,19 +49,22 @@ class _RentalsPageState extends State<RentalsPage>
     super.dispose();
   }
 
-  /// ✅ Fetch Rentals using ApiClass (with ApiResult)
+  /// ✅ Fetch Rentals using GraphQL via ApiClass
   Future<void> fetchRentals() async {
     HapticFeedback.selectionClick();
 
-    if (!await Utils.checkInternetConnection()) {
-      Utils.bottomToast(context, "Please check your internet connection");
-      return;
-    }
+    // if (!await Utils.checkInternetConnection()) {
+    //   Utils.bottomToast(context, "Please check your internet connection");
+    //   return;
+    // }
 
     setState(() => isLoading = true);
 
     try {
-      final result = await _apiClass.getMarketplaceItems("drones");
+      // ✅ Fetch rentals instead of drones
+      final result = await _apiClass.getRentals();
+
+
 
       if (result.status == "success" && result.data is List) {
         setState(() {
@@ -78,8 +74,8 @@ class _RentalsPageState extends State<RentalsPage>
         });
       } else {
         setState(() => isLoading = false);
-        Utils.bottomToast(context,
-            result.message.isNotEmpty ? result.message : "No rentals found");
+        Utils.bottomToast(
+            context, result.message.isNotEmpty ? result.message : "No rentals found");
       }
     } catch (e) {
       setState(() => isLoading = false);
@@ -87,7 +83,6 @@ class _RentalsPageState extends State<RentalsPage>
     }
   }
 
-  /// 🛒 Load Cart Count
   Future<void> _loadCartCount() async {
     final prefs = await SharedPreferences.getInstance();
     try {
@@ -101,7 +96,6 @@ class _RentalsPageState extends State<RentalsPage>
     }
   }
 
-  /// ❤️ Load Favorites
   Future<void> _loadFavorites() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString('wishlist');
@@ -125,7 +119,6 @@ class _RentalsPageState extends State<RentalsPage>
     await prefs.setString('wishlist', jsonEncode(favoriteData.values.toList()));
   }
 
-  /// 🎛 Apply Filters
   void applyFilter(String filter) {
     HapticFeedback.selectionClick();
     if (!mounted) return;
@@ -139,8 +132,7 @@ class _RentalsPageState extends State<RentalsPage>
           case 'Insured':
             return (d['insurance'] ?? false) == true;
           case 'With Pilot':
-            return (d['with_pilot'] ?? false) == true ||
-                (d['pilot']?.toString().toLowerCase() == 'yes');
+            return (d['with_pilot'] ?? false) == true;
           case 'Professional':
             return (d['type']?.toString().toLowerCase() ?? '') == 'professional';
           case 'Today':
@@ -152,7 +144,6 @@ class _RentalsPageState extends State<RentalsPage>
     });
   }
 
-  /// 🔍 Search Rentals
   void _searchRentals(String query) {
     if (!mounted) return;
 
@@ -166,22 +157,17 @@ class _RentalsPageState extends State<RentalsPage>
     });
   }
 
-  /// 🛩️ Build Rental Card
   Widget buildRentalCard(Map<String, dynamic> drone) {
-    final id = drone['id'].toString();
+    final id = drone['id']?.toString() ?? '';
     final isFav = favoriteItems.contains(id);
     final imageUrl = (drone['image'] ?? '').toString();
-    final fullImageUrl = imageUrl.startsWith('http')
-        ? imageUrl
-        : 'https://flyhub-storage.s3.ap-south-1.amazonaws.com/uploads/$imageUrl';
+    final price = drone['pricePerDay'] ?? drone['price'] ?? 0;
 
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         color: Colors.white,
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))
-        ],
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,7 +176,9 @@ class _RentalsPageState extends State<RentalsPage>
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
               child: CachedNetworkImage(
-                imageUrl: fullImageUrl,
+                imageUrl: imageUrl.isNotEmpty
+                    ? imageUrl
+                    : "https://via.placeholder.com/300x200.png?text=No+Image",
                 fit: BoxFit.cover,
                 width: double.infinity,
                 height: 140,
@@ -242,10 +230,8 @@ class _RentalsPageState extends State<RentalsPage>
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.lexend(fontWeight: FontWeight.bold)),
-                Text((drone['category'] ?? '').toString().toUpperCase(),
-                    style: GoogleFonts.lexend(color: Colors.grey[600], fontSize: 12)),
                 const SizedBox(height: 6),
-                Text("₹${drone['price'] ?? 0}/day",
+                Text("₹$price/day",
                     style: GoogleFonts.lexend(
                         fontWeight: FontWeight.bold, color: primaryColor)),
                 const SizedBox(height: 8),
@@ -272,7 +258,6 @@ class _RentalsPageState extends State<RentalsPage>
     );
   }
 
-  /// 🧭 Build Sub Filters
   Widget buildSubFilterTabs() {
     return SizedBox(
       height: 40,
@@ -305,7 +290,6 @@ class _RentalsPageState extends State<RentalsPage>
     );
   }
 
-  /// MAIN UI
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -324,7 +308,9 @@ class _RentalsPageState extends State<RentalsPage>
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         actions: [
-          IconButton(icon: const Icon(Icons.favorite_border, color: Color(0xFF1A0A5B)), onPressed: () {}),
+          IconButton(
+              icon: const Icon(Icons.favorite_border, color: Color(0xFF1A0A5B)),
+              onPressed: () {}),
           Stack(
             children: [
               IconButton(
@@ -344,8 +330,7 @@ class _RentalsPageState extends State<RentalsPage>
                     decoration: BoxDecoration(
                         color: Colors.redAccent,
                         borderRadius: BorderRadius.circular(10)),
-                    constraints:
-                    const BoxConstraints(minWidth: 16, minHeight: 16),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                     child: Text('$cartCount',
                         style: const TextStyle(
                             color: Colors.white,
@@ -389,8 +374,7 @@ class _RentalsPageState extends State<RentalsPage>
                           borderSide: BorderSide.none),
                       filled: true,
                       fillColor: Colors.grey[200],
-                      contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                     ),
                   ),
                 ),
@@ -432,8 +416,8 @@ class _RentalsPageState extends State<RentalsPage>
         heroTag: "rental_add_fab",
         backgroundColor: primaryColor,
         onPressed: () {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => MyDroneListPage()));
+          Navigator.push(
+              context, MaterialPageRoute(builder: (context) => MyDroneListPage()));
         },
         child: const Icon(Icons.add, color: Colors.white, size: 30),
       ),

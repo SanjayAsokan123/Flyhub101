@@ -184,3 +184,37 @@ function Users() {
 }
 
 export default Users;
+
+
+//
+// import React from "react";
+// import "../styles/User.css";
+// import { useNavigate } from "react-router-dom"; // If using react-router
+// import SellerApprovalPanel from "./SellerApprovalPanel";
+// function Users() {
+//   const navigate = useNavigate(); // For navigation
+//
+//   return (
+//     <div className="page">
+//       <h2>👤 Choose User Type</h2>
+//       <div className="user-selection">
+//         <div
+//           className="user-box buyer"
+//           onClick={() => navigate("/buyer")} // Replace with your buyer route
+//         >
+//           <h3>Buyer</h3>
+//           <p>Explore and purchase products</p>
+//         </div>
+//         <div
+//           className="user-box seller"
+//           onClick={() => navigate("/seller")} // Replace with your seller route
+//         >
+//           <h3>Seller</h3>
+//           <p>List products and manage sales</p>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
+//
+// export default Users;

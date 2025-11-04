@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter/services.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../HomeScreen/Dynamichome.dart';
 import '../HomeScreen/Bottoms/SellerFormDialog.dart';
 import '../services/role_manager.dart';
 import 'RegisterPage.dart';
-import 'forgot_password_page.dart'; // 👈 We'll add this small helper page next
+import 'forgot_password_page.dart';
 
 class LoginPage extends StatefulWidget {
   final String? logoPath;
@@ -43,10 +43,12 @@ class _LoginPageState extends State<LoginPage> {
     debugPrint("🔹 Login initialized with role: $_role");
   }
 
-  /// 🔑 Handle Login Logic
+  /// 🔑 Handle Email / Phone / CustomID Login Logic
   Future<void> _loginUser() async {
-    if (_emailController.text.trim().isEmpty ||
-        _passwordController.text.trim().isEmpty) {
+    final input = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (input.isEmpty || password.isEmpty) {
       setState(() => _errorMessage = "Please fill all fields");
       return;
     }
@@ -57,9 +59,32 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      final email = _emailController.text.trim();
-      final password = _passwordController.text.trim();
+      String email = input;
 
+      // 🔍 Detect if not an email → try phone or customId lookup
+      if (!input.contains('@')) {
+        QuerySnapshot query = await _firestore
+            .collection('users')
+            .where('phone', isEqualTo: input)
+            .limit(1)
+            .get();
+
+        if (query.docs.isEmpty) {
+          query = await _firestore
+              .collection('users')
+              .where('customId', isEqualTo: input)
+              .limit(1)
+              .get();
+        }
+
+        if (query.docs.isEmpty) {
+          throw Exception("No user found for this ID or phone.");
+        }
+
+        email = query.docs.first['email'];
+      }
+
+      // 🔐 Firebase email/password login
       final userCred = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
@@ -68,7 +93,7 @@ class _LoginPageState extends State<LoginPage> {
       final user = userCred.user;
       if (user == null) throw Exception("Login failed. Try again.");
 
-      // ✅ Sync Firestore role
+      // ✅ Update Firestore user data
       await _firestore.collection('users').doc(user.uid).set({
         'email': email,
         'role': _role,
@@ -93,40 +118,95 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("✅ Welcome back, ${_role.toUpperCase()}!")),
+        const SnackBar(content: Text("✅ Welcome back!")),
       );
     } on FirebaseAuthException catch (e) {
-      String message;
-      switch (e.code) {
-        case 'user-not-found':
-          message = "No user found for this email.";
-          break;
-        case 'wrong-password':
-          message = "Incorrect password.";
-          break;
-        case 'invalid-email':
-          message = "Invalid email format.";
-          break;
-        case 'network-request-failed':
-          message = "Check your internet connection.";
-          break;
-        default:
-          message = "Login failed. Try again.";
-      }
-      setState(() => _errorMessage = message);
+      setState(() => _errorMessage = _getAuthErrorMessage(e.code));
     } catch (e) {
-      setState(() => _errorMessage = "⚠️ Unexpected error: $e");
+      setState(() => _errorMessage = "⚠️ Login failed: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  /// 🧠 Forgot Password Logic
+  /// 🌐 Google Sign-In
+  Future<void> _signInWithGoogle() async {
+    try {
+      setState(() => _isLoading = true);
+
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final GoogleSignInAuthentication googleAuth =
+      await googleUser.authentication;
+
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final userCredential =
+      await FirebaseAuth.instance.signInWithCredential(credential);
+      final user = userCredential.user;
+
+      if (user == null) throw Exception("Google login failed");
+
+      // ✅ Save or update user in Firestore
+      await _firestore.collection('users').doc(user.uid).set({
+        'name': user.displayName ?? '',
+        'email': user.email,
+        'photoUrl': user.photoURL ?? '',
+        'role': _role,
+        'signInMethod': 'google',
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      await RoleManager.setLocalRole(_role);
+
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("✅ Logged in with Google!")),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("⚠️ Google sign-in failed: $e")),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// 🧠 Forgot Password
   void _openForgotPassword() {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const ForgotPasswordPage()),
     );
+  }
+
+  /// 🔍 Friendly error messages
+  String _getAuthErrorMessage(String code) {
+    switch (code) {
+      case 'user-not-found':
+        return "No user found for this email, ID, or phone.";
+      case 'wrong-password':
+        return "Incorrect password.";
+      case 'invalid-email':
+        return "Invalid email format.";
+      case 'network-request-failed':
+        return "Check your internet connection.";
+      default:
+        return "Login failed. Try again.";
+    }
   }
 
   @override
@@ -162,12 +242,12 @@ class _LoginPageState extends State<LoginPage> {
               ),
               const SizedBox(height: 40),
 
-              // Email Field
+              // Universal Login Field
               TextField(
                 controller: _emailController,
                 decoration: InputDecoration(
-                  hintText: "Email",
-                  prefixIcon: const Icon(Icons.email_outlined),
+                  hintText: "Email / Phone / Seller ID",
+                  prefixIcon: const Icon(Icons.person_outline),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -248,6 +328,43 @@ class _LoginPageState extends State<LoginPage> {
               ),
 
               const SizedBox(height: 20),
+
+              // Divider
+              Row(
+                children: const [
+                  Expanded(child: Divider(thickness: 1)),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Text("or", style: TextStyle(color: Colors.grey)),
+                  ),
+                  Expanded(child: Divider(thickness: 1)),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Google Sign-In Button
+              ElevatedButton.icon(
+                onPressed: _signInWithGoogle,
+                icon: Image.asset('assets/google_logo.png', height: 24),
+                label: const Text(
+                  "Continue with Google",
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: const BorderSide(color: Colors.grey),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 25),
 
               // Register Redirect
               Row(

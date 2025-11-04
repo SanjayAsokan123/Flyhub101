@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:flyhub/Login/splashscreen.dart';
 import 'package:flyhub/services/role_manager.dart';
 import 'package:flyhub/HomeScreen/Dynamichome.dart';
 import 'package:flyhub/HomeScreen/Bottoms/BuyerProfilePage.dart';
 import 'package:flyhub/HomeScreen/Bottoms/SellerPage.dart';
 import 'package:flyhub/HomeScreen/Bottoms/GuestProfilePage.dart';
-import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -13,10 +13,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:provider/provider.dart'; // ✅ Provider import
+import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'CommonClass/utils.dart';
-import 'services/cart_wishlist_provider.dart'; // ✅ Global provider import
+import 'services/cart_wishlist_provider.dart';
 
 /// 🔔 Local Notifications Plugin
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -38,17 +38,30 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
 
   print("📩 [Background FCM] ${message.notification?.title}");
+  await _showLocalNotification(message);
 }
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await _safeFirebaseInit();
+  try {
+    await _safeFirebaseInit();
+  } catch (e) {
+    print("⚠️ Firebase init failed: $e");
+  }
+
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   await _initializeLocalNotifications();
   await _requestNotificationPermission();
 
+  // ✅ Foreground Notification Handler
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    print("📩 [Foreground FCM] ${message.notification?.title}");
+    _showLocalNotification(message);
+  });
+
+  // ✅ Print FCM Token
   try {
     final token = await FirebaseMessaging.instance.getToken();
     print("📲 [FCM Token] $token");
@@ -58,18 +71,50 @@ Future<void> main() async {
 
   await initHiveForFlutter();
 
+  // ✅ GraphQL Setup (with WebSocket for subscriptions)
   const String graphqlEndpoint = String.fromEnvironment(
     'GRAPHQL_URL',
-    defaultValue: 'http://192.168.1.178:5001/graphql',
+    defaultValue: 'http://192.168.0.180:5001/graphql', // 👈 Update for production
   );
 
   final HttpLink httpLink = HttpLink(graphqlEndpoint);
-  final GraphQLClient graphQLClient = GraphQLClient(
-    link: httpLink,
-    cache: GraphQLCache(store: HiveStore()),
+
+  final AuthLink authLink = AuthLink(
+    getToken: () async {
+      final user = FirebaseAuth.instance.currentUser;
+      final token = user != null ? await user.getIdToken() : null;
+      return token != null ? 'Bearer $token' : '';
+    },
   );
 
-  // ✅ Wrap with MultiProvider to handle global states
+  final WebSocketLink wsLink = WebSocketLink(
+    graphqlEndpoint.replaceFirst("http", "ws"),
+    config: SocketClientConfig(
+      autoReconnect: true,
+      inactivityTimeout: const Duration(seconds: 30),
+      initialPayload: () async {
+        final user = FirebaseAuth.instance.currentUser;
+        final token = user != null ? await user.getIdToken() : null;
+        return {'Authorization': 'Bearer $token'};
+      },
+    ),
+  );
+
+  final Link link = Link.split(
+        (request) => request.isSubscription,
+    wsLink,
+    authLink.concat(httpLink),
+  );
+
+  final GraphQLClient graphQLClient = GraphQLClient(
+    link: link,
+    cache: GraphQLCache(store: HiveStore()),
+    defaultPolicies: DefaultPolicies(
+      query: Policies(fetch: FetchPolicy.cacheAndNetwork),
+    ),
+  );
+
+  // ✅ Wrap app with Providers & GraphQL Client
   runApp(
     MultiProvider(
       providers: [
@@ -83,6 +128,7 @@ Future<void> main() async {
   );
 }
 
+/// ✅ Firebase Initialization with Safety
 Future<void> _safeFirebaseInit() async {
   try {
     if (Firebase.apps.isEmpty) {
@@ -98,6 +144,7 @@ Future<void> _safeFirebaseInit() async {
   }
 }
 
+/// ✅ Request Notification Permission
 Future<void> _requestNotificationPermission() async {
   FirebaseMessaging messaging = FirebaseMessaging.instance;
   NotificationSettings settings = await messaging.requestPermission(
@@ -105,9 +152,17 @@ Future<void> _requestNotificationPermission() async {
     badge: true,
     sound: true,
   );
-  print('🔔 [FCM Permission] ${settings.authorizationStatus}');
+
+  if (settings.authorizationStatus == AuthorizationStatus.denied) {
+    print("❌ User denied notification permission.");
+  } else if (settings.authorizationStatus ==
+      AuthorizationStatus.authorized ||
+      settings.authorizationStatus == AuthorizationStatus.provisional) {
+    print("✅ Notification permission granted.");
+  }
 }
 
+/// ✅ Initialize Local Notifications
 Future<void> _initializeLocalNotifications() async {
   const AndroidInitializationSettings androidInit =
   AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -128,6 +183,7 @@ Future<void> _initializeLocalNotifications() async {
       ?.createNotificationChannel(channel);
 }
 
+/// ✅ Display Local Notification
 Future<void> _showLocalNotification(RemoteMessage message) async {
   const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
     'high_importance_channel',
@@ -138,8 +194,7 @@ Future<void> _showLocalNotification(RemoteMessage message) async {
     playSound: true,
     icon: '@mipmap/ic_launcher',
   );
-  const NotificationDetails details =
-  NotificationDetails(android: androidDetails);
+  const NotificationDetails details = NotificationDetails(android: androidDetails);
 
   await flutterLocalNotificationsPlugin.show(
     0,
@@ -149,7 +204,7 @@ Future<void> _showLocalNotification(RemoteMessage message) async {
   );
 }
 
-/// 🧩 App Entry
+/// 🧩 Main Application
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
   @override
@@ -166,7 +221,7 @@ class _MyAppState extends State<MyApp> {
     _initializeApp();
   }
 
-  /// ✅ Full Initialization: Firebase + Role + Device Info
+  /// ✅ Initialize Firebase, Role, and Device Info
   Future<void> _initializeApp() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -194,7 +249,7 @@ class _MyAppState extends State<MyApp> {
     if (mounted) setState(() => _initialized = true);
   }
 
-  /// ✅ Collect & Upload Device Info
+  /// ✅ Collect & Upload Device Info (only once)
   Future<void> _initializeDeviceData() async {
     final prefs = await SharedPreferences.getInstance();
     bool isFirstLaunch = prefs.getBool('firstLaunch') ?? true;

@@ -1,51 +1,33 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flyhub/PilotRegistration.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../Dynamichome.dart';
+import '../../CommonClass/ApiClass.dart';
 import '../../BuyerDetails/MyCartPage.dart';
+import '../Dynamichome.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class PilotPage extends StatefulWidget {
   const PilotPage({super.key});
+
   @override
   State<PilotPage> createState() => _PilotPageState();
 }
 
 class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
   late TabController _mainTabController;
+  final ApiClass _apiClass = ApiClass();
+
   static const Color themeColor = Color(0xFF1A0A5B);
 
   int cartCount = 0;
+  bool isLoading = true;
+  bool isError = false;
   String selectedFilter = '';
-  List<Map<String, String>> cartItems = [];
 
-  final List<Map<String, String>> pilots = [
-    {
-      "name": "Arjun Singh",
-      "role": "Certified DGCA Pilot\nSpecializes in Wedding Photography",
-      "specialty": "Photography",
-      "image": "assets/images/pilot1.png"
-    },
-    {
-      "name": "Maya Krishnan",
-      "role": "Agricultural Survey Expert\nAvailable for Crop Monitoring",
-      "specialty": "Agriculture",
-      "image": "assets/images/pilot2.png"
-    },
-    {
-      "name": "Ravi Kumar",
-      "role": "Drone Survey Specialist\nAvailable for Mapping",
-      "specialty": "Survey",
-      "image": "assets/images/pilot3.png"
-    },
-    {
-      "name": "Ananya Sen",
-      "role": "Freelance Drone Photographer\nAvailable Today",
-      "specialty": "Available Today",
-      "image": "assets/images/pilot4.png"
-    },
-  ];
+  List<dynamic> pilotList = [];
+  List<dynamic> filteredList = [];
+  List<Map<String, String>> cartItems = [];
 
   final List<String> filters = [
     'Photography',
@@ -59,6 +41,37 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
     super.initState();
     _mainTabController = TabController(length: 3, vsync: this);
     _loadCartCount();
+    fetchPilots();
+  }
+
+  /// ✅ Fetch Pilots from GraphQL
+  Future<void> fetchPilots() async {
+    setState(() {
+      isLoading = true;
+      isError = false;
+    });
+
+    try {
+      final result = await _apiClass.getHirePilots();
+
+      if (result.status == "success") {
+        setState(() {
+          pilotList = result.data ?? [];
+          filteredList = List.from(pilotList);
+          isLoading = false;
+        });
+      } else {
+        setState(() {
+          isError = true;
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        isError = true;
+        isLoading = false;
+      });
+    }
   }
 
   Future<void> _loadCartCount() async {
@@ -74,10 +87,14 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
     }
   }
 
-  Future<void> _addToCart(Map<String, String> pilot) async {
+  Future<void> _addToCart(Map<String, dynamic> pilot) async {
     HapticFeedback.selectionClick();
     final prefs = await SharedPreferences.getInstance();
-    cartItems.add(pilot);
+    cartItems.add({
+      "pilotName": pilot['pilotName'] ?? "Unknown",
+      "location": pilot['location'] ?? "N/A",
+      "pilotCompany": pilot['pilotCompany'] ?? "",
+    });
     await prefs.setString('pilotCart', jsonEncode(cartItems));
     if (!mounted) return;
     setState(() => cartCount = cartItems.length);
@@ -85,7 +102,7 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: themeColor,
-        content: Text("${pilot['name']} added to bookings",
+        content: Text("${pilot['pilotName']} added to bookings",
             style: const TextStyle(color: Colors.white)),
       ),
     );
@@ -97,19 +114,26 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  void _applyFilter(String filter) {
+    setState(() {
+      selectedFilter = selectedFilter == filter ? '' : filter;
+      if (selectedFilter.isEmpty) {
+        filteredList = List.from(pilotList);
+      } else {
+        filteredList = pilotList.where((p) {
+          final spec = (p['specification'] ?? '').toString().toLowerCase();
+          return spec.contains(selectedFilter.toLowerCase());
+        }).toList();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final filteredPilots = selectedFilter.isEmpty
-        ? pilots
-        : pilots.where((p) => p["specialty"] == selectedFilter).toList();
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text(
-          "Certified Pilots",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: Text("Certified Pilots", style: GoogleFonts.lexend(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 1,
@@ -129,15 +153,14 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
             icon: const Icon(Icons.favorite_border, color: themeColor),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Wishlist clicked")),
+                const SnackBar(content: Text("Wishlist feature coming soon")),
               );
             },
           ),
           Stack(
             children: [
               IconButton(
-                icon: const Icon(Icons.shopping_cart_outlined,
-                    color: themeColor),
+                icon: const Icon(Icons.shopping_cart_outlined, color: themeColor),
                 onPressed: () async {
                   await Navigator.push(
                     context,
@@ -156,8 +179,7 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
                       color: Colors.redAccent,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    constraints:
-                    const BoxConstraints(minWidth: 16, minHeight: 16),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                     child: Text(
                       '$cartCount',
                       style: const TextStyle(
@@ -188,41 +210,43 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
           ],
         ),
       ),
-      body: Column(
-        children: [
-          const SizedBox(height: 10),
-          _buildFilterChips(),
-          const SizedBox(height: 6),
-          Expanded(
-            child: TabBarView(
-              controller: _mainTabController,
-              children: [
-                _buildPilotList(filteredPilots),
-                _buildPilotList(filteredPilots),
-                _buildPilotList(filteredPilots),
-              ],
+      body: RefreshIndicator(
+        color: themeColor,
+        onRefresh: fetchPilots,
+        child: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : isError
+            ? const Center(child: Text("Failed to load pilots 😞"))
+            : Column(
+          children: [
+            const SizedBox(height: 10),
+            _buildFilterChips(),
+            const SizedBox(height: 6),
+            Expanded(
+              child: TabBarView(
+                controller: _mainTabController,
+                children: [
+                  _buildPilotList(filteredList),
+                  _buildPilotList(filteredList),
+                  _buildPilotList(filteredList),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
-        heroTag: "pilot_register_fab", // ✅ unique tag avoids Hero conflict
+        heroTag: "pilot_register_fab",
         backgroundColor: themeColor,
         shape: const CircleBorder(),
         onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const Pilotregistration(),
-            ),
-          );
+          Navigator.pushNamed(context, '/Pilotregistration');
         },
         child: const Icon(Icons.add, color: Colors.white, size: 30),
       ),
     );
   }
 
-  // ✅ Filter Chips
   Widget _buildFilterChips() {
     return SizedBox(
       height: 40,
@@ -233,9 +257,7 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
         itemBuilder: (context, index) {
           final selected = selectedFilter == filters[index];
           return GestureDetector(
-            onTap: () => setState(() {
-              selectedFilter = selected ? '' : filters[index];
-            }),
+            onTap: () => _applyFilter(filters[index]),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               margin: const EdgeInsets.only(right: 10),
@@ -259,28 +281,28 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
     );
   }
 
-  // ✅ Pilot List
-  Widget _buildPilotList(List<Map<String, String>> filteredPilots) {
-    if (filteredPilots.isEmpty) {
+  Widget _buildPilotList(List<dynamic> pilots) {
+    if (pilots.isEmpty) {
       return const Center(
-        child: Text("No pilots available",
-            style: TextStyle(color: Colors.grey)),
+        child: Text("No pilots available", style: TextStyle(color: Colors.grey)),
       );
     }
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      itemCount: filteredPilots.length,
+      itemCount: pilots.length,
       itemBuilder: (context, index) {
-        final pilot = filteredPilots[index];
+        final pilot = pilots[index];
         return _buildPilotCard(pilot);
       },
     );
   }
 
-  // ✅ Pilot Card
-  Widget _buildPilotCard(Map<String, String> pilot) {
+  Widget _buildPilotCard(Map<String, dynamic> pilot) {
     const double rating = 4.5;
+    final imageUrl = pilot['resume']?['url'] ??
+        "https://via.placeholder.com/150?text=Pilot";
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       margin: const EdgeInsets.only(bottom: 16),
@@ -298,18 +320,17 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-              radius: 28, backgroundImage: AssetImage(pilot["image"]!)),
+          CircleAvatar(radius: 28, backgroundImage: NetworkImage(imageUrl)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(pilot["name"]!,
+                Text(pilot["pilotName"] ?? "Unnamed Pilot",
                     style: const TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
                 Text(
-                  pilot["role"]!,
+                  pilot["specification"] ?? "No specialization",
                   style: const TextStyle(fontSize: 12, color: Colors.black87),
                 ),
                 const SizedBox(height: 6),
@@ -340,18 +361,15 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
             onPressed: () => _addToCart(pilot),
             style: ElevatedButton.styleFrom(
               backgroundColor: themeColor,
-              shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            child:
-            const Text("Book Now", style: TextStyle(color: Colors.white)),
+            child: const Text("Book Now", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
   }
 
-  // ✅ Filter Sheet
   void _showFilterSheet() {
     showModalBottomSheet(
       context: context,
@@ -414,9 +432,7 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
                     fontWeight: FontWeight.w600,
                   ),
                   onSelected: (val) {
-                    setState(() {
-                      selectedFilter = val ? filter : '';
-                    });
+                    _applyFilter(filter);
                     Navigator.pop(context);
                   },
                 ))
@@ -430,13 +446,14 @@ class _PilotPageState extends State<PilotPage> with TickerProviderStateMixin {
                         color: Colors.white, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: themeColor,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 32, vertical: 14),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16)),
                 ),
                 onPressed: () {
                   setState(() => selectedFilter = '');
+                  filteredList = List.from(pilotList);
                   Navigator.pop(context);
                 },
               ),

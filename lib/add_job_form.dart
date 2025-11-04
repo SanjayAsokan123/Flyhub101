@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AddJobForm extends StatefulWidget {
-  const AddJobForm({super.key});
+  final String sellerId; // ✅ Link job post to seller
+  const AddJobForm({required this.sellerId, super.key});
 
   @override
   State<AddJobForm> createState() => _AddJobFormState();
@@ -10,58 +13,114 @@ class AddJobForm extends StatefulWidget {
 class _AddJobFormState extends State<AddJobForm> {
   final _formKey = GlobalKey<FormState>();
 
-  final TextEditingController jobTitleController = TextEditingController();
+  final TextEditingController jobNameController = TextEditingController();
   final TextEditingController companyNameController = TextEditingController();
   final TextEditingController locationController = TextEditingController();
   final TextEditingController salaryController = TextEditingController();
-  final TextEditingController jobDescriptionController = TextEditingController();
-  final TextEditingController requirementsController = TextEditingController();
-  final TextEditingController contactEmailController = TextEditingController();
-  final TextEditingController contactNumberController = TextEditingController();
+  final TextEditingController descriptionController = TextEditingController();
+  final TextEditingController requirementController = TextEditingController();
 
   String jobType = 'Full-time';
-  String experienceLevel = 'Fresher';
+  String experience = 'Fresher';
   bool _isSubmitting = false;
 
   final Color themeColor = const Color(0xFF1A0A5B);
+  final String graphqlUrl = "http://192.168.0.180:5001/graphql";
 
   @override
   void dispose() {
-    jobTitleController.dispose();
+    jobNameController.dispose();
     companyNameController.dispose();
     locationController.dispose();
     salaryController.dispose();
-    jobDescriptionController.dispose();
-    requirementsController.dispose();
-    contactEmailController.dispose();
-    contactNumberController.dispose();
+    descriptionController.dispose();
+    requirementController.dispose();
     super.dispose();
   }
 
-  void _submitForm() {
+  /// 🔐 Ensure Firebase authentication
+  Future<void> _ensureFirebaseAuth() async {
+    final auth = FirebaseAuth.instance;
+    if (auth.currentUser == null) {
+      await auth.signInAnonymously();
+    }
+  }
+
+  /// 🚀 Submit Job Post (matches backend)
+  Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _isSubmitting = true);
+    await _ensureFirebaseAuth();
 
-    Future.delayed(const Duration(seconds: 2), () {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text("✅ Job posted successfully!"),
-          backgroundColor: Colors.green,
-        ),
+    try {
+      final client = GraphQLClient(
+        link: HttpLink(graphqlUrl),
+        cache: GraphQLCache(store: InMemoryStore()),
       );
-      _formKey.currentState!.reset();
+
+      final mutation = gql("""
+        mutation AddJob(\$input: JobInput!) {
+          addJob(input: \$input) {
+            jobId
+            jobName
+            companyName
+            jobType
+            experience
+            location
+            salary
+            description
+            requirement
+            status
+            sellerId
+          }
+        }
+      """);
+
+      final variables = {
+        "input": {
+          "jobName": jobNameController.text,
+          "companyName": companyNameController.text,
+          "jobType": jobType,
+          "experience": experience,
+          "location": locationController.text,
+          "salary": salaryController.text,
+          "description": descriptionController.text,
+          "requirement": requirementController.text,
+          "sellerId": widget.sellerId,
+        }
+      };
+
+      final result = await client.mutate(MutationOptions(document: mutation, variables: variables));
+
+      if (result.hasException) {
+        final err = result.exception!.graphqlErrors.isNotEmpty
+            ? result.exception!.graphqlErrors.first.message
+            : result.exception!.linkException.toString();
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("❌ Error: $err"), backgroundColor: Colors.red));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("✅ Job posted successfully!"), backgroundColor: Colors.green),
+        );
+        _formKey.currentState!.reset();
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("⚠️ Unexpected error: $e"), backgroundColor: Colors.red));
+    } finally {
       setState(() => _isSubmitting = false);
-    });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text("Add Job Post", style: TextStyle(color: themeColor)),
+        title: Text("Add Job / Gig", style: TextStyle(color: themeColor)),
         backgroundColor: Colors.white,
         foregroundColor: themeColor,
+        elevation: 1,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -69,16 +128,8 @@ class _AddJobFormState extends State<AddJobForm> {
           key: _formKey,
           child: Column(
             children: [
-              _buildTextField(
-                "Job Title",
-                icon: Icons.work,
-                controller: jobTitleController,
-              ),
-              _buildTextField(
-                "Company Name",
-                icon: Icons.business,
-                controller: companyNameController,
-              ),
+              _buildTextField("Job Name", icon: Icons.work, controller: jobNameController),
+              _buildTextField("Company Name", icon: Icons.business, controller: companyNameController),
 
               _buildDropdown(
                 label: "Job Type",
@@ -89,56 +140,19 @@ class _AddJobFormState extends State<AddJobForm> {
 
               _buildDropdown(
                 label: "Experience Level",
-                value: experienceLevel,
+                value: experience,
                 items: ['Fresher', '1-2 years', '3-5 years', '5+ years'],
-                onChanged: (v) => setState(() => experienceLevel = v!),
+                onChanged: (v) => setState(() => experience = v!),
               ),
 
-              _buildTextField(
-                "Job Location",
-                icon: Icons.location_on,
-                controller: locationController,
-              ),
-              _buildTextField(
-                "Salary Range (₹25,000 - ₹40,000)",
-                icon: Icons.currency_rupee,
-                controller: salaryController,
-              ),
-              _buildTextField(
-                "Job Description",
-                icon: Icons.description,
-                controller: jobDescriptionController,
-                maxLines: 3,
-              ),
-              _buildTextField(
-                "Requirements (skills, tools, etc.)",
-                icon: Icons.check_circle,
-                controller: requirementsController,
-                maxLines: 3,
-              ),
-              _buildTextField(
-                "Contact Email",
-                icon: Icons.email,
-                controller: contactEmailController,
-                validator: (v) {
-                  if (v == null || v.isEmpty) return "Please enter email";
-                  if (!v.contains('@')) return "Enter a valid email address";
-                  return null;
-                },
-              ),
-              _buildTextField(
-                "Contact Number",
-                icon: Icons.phone,
-                controller: contactNumberController,
-                keyboardType: TextInputType.phone,
-                validator: (v) {
-                  if (v == null || v.isEmpty) return "Enter contact number";
-                  if (v.length < 10) return "Enter valid 10-digit number";
-                  return null;
-                },
-              ),
+              _buildTextField("Location", icon: Icons.location_on, controller: locationController),
+              _buildTextField("Salary Range (₹)", icon: Icons.currency_rupee, controller: salaryController),
+              _buildTextField("Job Description",
+                  icon: Icons.description, controller: descriptionController, maxLines: 3),
+              _buildTextField("Requirements / Skills",
+                  icon: Icons.check_circle, controller: requirementController, maxLines: 3),
+
               const SizedBox(height: 25),
-
               ElevatedButton.icon(
                 onPressed: _isSubmitting ? null : _submitForm,
                 icon: _isSubmitting
@@ -155,10 +169,14 @@ class _AddJobFormState extends State<AddJobForm> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: themeColor,
                   padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                "Your job post will be visible to pilots and technicians after admin approval.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
             ],
           ),
@@ -167,12 +185,11 @@ class _AddJobFormState extends State<AddJobForm> {
     );
   }
 
-  // ✳ Custom Field Builder
+  // ✳ Custom TextField
   Widget _buildTextField(
       String label, {
         required IconData icon,
         required TextEditingController controller,
-        String? Function(String?)? validator,
         TextInputType keyboardType = TextInputType.text,
         int maxLines = 1,
       }) {
@@ -181,8 +198,7 @@ class _AddJobFormState extends State<AddJobForm> {
       child: TextFormField(
         controller: controller,
         keyboardType: keyboardType,
-        validator: validator ??
-                (v) => v == null || v.isEmpty ? "Please enter $label" : null,
+        validator: (v) => v == null || v.isEmpty ? "Please enter $label" : null,
         maxLines: maxLines,
         decoration: InputDecoration(
           prefixIcon: Icon(icon, color: themeColor),
@@ -213,12 +229,7 @@ class _AddJobFormState extends State<AddJobForm> {
       child: DropdownButtonFormField<String>(
         value: value,
         onChanged: onChanged,
-        items: items
-            .map((item) => DropdownMenuItem(
-          value: item,
-          child: Text(item),
-        ))
-            .toList(),
+        items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
         decoration: InputDecoration(
           prefixIcon: Icon(Icons.arrow_drop_down_circle, color: themeColor),
           labelText: label,

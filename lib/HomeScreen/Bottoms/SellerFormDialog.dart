@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../services/role_manager.dart';
@@ -22,10 +23,16 @@ class _SellerFormDialogState extends State<SellerFormDialog> {
   final TextEditingController _gstController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _panController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _bankNameController = TextEditingController();
+  final TextEditingController _ifscController = TextEditingController();
+  final TextEditingController _accountController = TextEditingController();
 
   bool _isLoading = false;
-
   static const Color themeColor = Color(0xFF1A0A5B);
+
+  final String graphqlUrl = "http://192.168.0.180:5001/graphql";
 
   Future<void> _submitSellerForm() async {
     if (!_formKey.currentState!.validate()) return;
@@ -49,15 +56,16 @@ class _SellerFormDialogState extends State<SellerFormDialog> {
         },
       }, SetOptions(merge: true));
 
+      // ✅ Save seller to MongoDB via GraphQL
+      await _createSellerInMongo(user);
+
       // ✅ Save role locally
       await RoleManager.setLocalRole('seller');
 
       if (!mounted) return;
-
-      // ✅ Navigate to home
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
+        MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 3)),
             (route) => false,
       );
 
@@ -74,6 +82,60 @@ class _SellerFormDialogState extends State<SellerFormDialog> {
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// 🧩 Create Seller Record in MongoDB via GraphQL
+  Future<void> _createSellerInMongo(User user) async {
+    final HttpLink link = HttpLink(graphqlUrl);
+    final client = GraphQLClient(link: link, cache: GraphQLCache());
+
+    const String mutation = r'''
+      mutation CreateSeller($input: SellerInput!) {
+        createSeller(input: $input) {
+          customId
+          companyName
+          email
+          status
+        }
+      }
+    ''';
+
+    final options = MutationOptions(
+      document: gql(mutation),
+      variables: {
+        "input": {
+          "name": user.displayName ?? "New Seller",
+          "companyName": _storeNameController.text.trim(),
+          "PANnumber": _panController.text.trim().isEmpty
+              ? "NOT_PROVIDED"
+              : _panController.text.trim(),
+          "gstNumber": _gstController.text.trim(),
+          "address": _addressController.text.trim(),
+          "bankIFCnumber": _ifscController.text.trim(),
+          "bankAccountNumber": _accountController.text.trim(),
+          "authorized": user.displayName ?? "Seller",
+          "email": user.email,
+          "phoneNumber": _phoneController.text.trim(),
+          "shippingAddresses": [_addressController.text.trim()],
+          "pickupAddresses": [_addressController.text.trim()],
+          "companyPan": _panController.text.trim().isEmpty
+              ? "NOT_PROVIDED"
+              : _panController.text.trim(),
+          "bankName": _bankNameController.text.trim().isEmpty
+              ? "Unknown Bank"
+              : _bankNameController.text.trim(),
+        },
+      },
+    );
+
+    final result = await client.mutate(options);
+
+    if (result.hasException) {
+      debugPrint("❌ GraphQL Error: ${result.exception.toString()}");
+      throw Exception("MongoDB seller creation failed");
+    } else {
+      debugPrint("✅ Seller created in MongoDB: ${result.data}");
     }
   }
 
@@ -113,45 +175,19 @@ class _SellerFormDialogState extends State<SellerFormDialog> {
                 ),
                 const SizedBox(height: 25),
 
-                // Store Name
-                _buildTextField(
-                  controller: _storeNameController,
-                  label: "Store Name",
-                  icon: Icons.storefront,
-                  validator: (v) => v!.isEmpty ? "Enter store name" : null,
-                ),
-                const SizedBox(height: 15),
+                _buildTextField(_storeNameController, "Store Name", Icons.storefront),
+                _buildTextField(_gstController, "GST Number", Icons.receipt_long),
+                _buildTextField(_panController, "PAN Number", Icons.badge_outlined),
+                _buildTextField(_addressController, "Address", Icons.location_on_outlined),
+                _buildTextField(_bankNameController, "Bank Name", Icons.account_balance),
+                _buildTextField(_ifscController, "IFSC Code", Icons.qr_code),
+                _buildTextField(_accountController, "Account Number", Icons.numbers),
+                _buildTextField(_phoneController, "Contact Number", Icons.phone_android,
+                    keyboardType: TextInputType.phone),
+                _buildTextField(_descriptionController, "Store Description",
+                    Icons.description_outlined, maxLines: 3),
 
-                // GST Number
-                _buildTextField(
-                  controller: _gstController,
-                  label: "GST Number",
-                  icon: Icons.receipt_long,
-                  validator: (v) => v!.isEmpty ? "Enter GST number" : null,
-                ),
-                const SizedBox(height: 15),
-
-                // Description
-                _buildTextField(
-                  controller: _descriptionController,
-                  label: "Store Description",
-                  icon: Icons.description_outlined,
-                  maxLines: 3,
-                  validator: (v) => v!.isEmpty ? "Enter description" : null,
-                ),
-                const SizedBox(height: 15),
-
-                // Phone number
-                _buildTextField(
-                  controller: _phoneController,
-                  label: "Contact Number",
-                  icon: Icons.phone_android,
-                  keyboardType: TextInputType.phone,
-                  validator: (v) => v!.isEmpty ? "Enter phone number" : null,
-                ),
                 const SizedBox(height: 30),
-
-                // Submit Button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -172,8 +208,7 @@ class _SellerFormDialogState extends State<SellerFormDialog> {
                         strokeWidth: 2,
                       ),
                     )
-                        : const Icon(Icons.check_circle_outline,
-                        color: Colors.white),
+                        : const Icon(Icons.check_circle_outline, color: Colors.white),
                     label: Text(
                       _isLoading ? "Saving..." : "Submit & Continue",
                       style: GoogleFonts.lexend(
@@ -193,26 +228,30 @@ class _SellerFormDialogState extends State<SellerFormDialog> {
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    String? Function(String?)? validator,
-    int maxLines = 1,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
-    return TextFormField(
-      controller: controller,
-      validator: validator,
-      maxLines: maxLines,
-      keyboardType: keyboardType,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, color: themeColor),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: themeColor),
+  Widget _buildTextField(
+      TextEditingController controller,
+      String label,
+      IconData icon, {
+        String? Function(String?)? validator,
+        int maxLines = 1,
+        TextInputType keyboardType = TextInputType.text,
+      }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 15.0),
+      child: TextFormField(
+        controller: controller,
+        validator: validator ??
+                (v) => v!.isEmpty ? "Please enter $label" : null,
+        maxLines: maxLines,
+        keyboardType: keyboardType,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon, color: themeColor),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: themeColor),
+          ),
         ),
       ),
     );

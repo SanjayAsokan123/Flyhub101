@@ -1,441 +1,248 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:flyhub/CommonClass/utils.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_cropper/image_cropper.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'CommonClass/ApiClass.dart';
-import 'HomeScreen/Dynamichome.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class Adddrone extends StatefulWidget {
-  final String clickUrl;
-  final String type;
-
-  const Adddrone({super.key, required this.clickUrl, required this.type});
+class AddDronePage extends StatefulWidget {
+  final String sellerId;
+  const AddDronePage({super.key, required this.sellerId});
 
   @override
-  State<Adddrone> createState() => _AdddroneState();
+  State<AddDronePage> createState() => _AddDronePageState();
 }
 
-class _AdddroneState extends State<Adddrone> {
-  final ApiClass _apiClass = ApiClass();
+class _AddDronePageState extends State<AddDronePage> {
   final _formKey = GlobalKey<FormState>();
-
-  bool isLoading = false;
-  String dgcaApproval = '';
-  List<dynamic> dronePurposeList = [];
-  String selectedPurposeName = '';
-  int? selectedPurposeId;
-
   final picker = ImagePicker();
-  final Map<String, File?> images = {
-    'top': null,
-    'right': null,
-    'left': null,
-    'full': null,
-  };
 
-  String selectedUnit = 'Kgs';
-  final List<String> units = ['Kgs', 'Grams'];
+  String name = '';
+  String brand = '';
+  String uin = '';
+  String description = '';
+  double? price;
+  File? imageFile;
+  bool _isSubmitting = false;
 
-  final TextEditingController uinController = TextEditingController();
-  final TextEditingController priceController = TextEditingController();
-  final TextEditingController batteryController = TextEditingController();
-  final TextEditingController weightController = TextEditingController();
-  final TextEditingController modelController = TextEditingController();
-  final TextEditingController fHoursController = TextEditingController();
-  final TextEditingController fMinsController = TextEditingController();
-  final TextEditingController cHoursController = TextEditingController();
-  final TextEditingController cMinsController = TextEditingController();
-  final TextEditingController descriptionController = TextEditingController();
+  final String graphqlUrl = "http://192.168.0.180:5001/graphql";
 
-  @override
-  void initState() {
-    super.initState();
-    _fetchDronePurposes();
+  Future<void> _pickImage() async {
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() => imageFile = File(pickedFile.path));
+      debugPrint("📸 Selected image: ${pickedFile.path}");
+    }
   }
 
-  Future<void> _fetchDronePurposes() async {
-    setState(() => isLoading = true);
-
-    final result = await _apiClass.getPurpose();
-
-    if (result.status == "success" && result.data != null) {
-      dronePurposeList = result.data!;
+  /// ✅ Ensure Firebase Authentication
+  Future<void> _ensureFirebaseAuth() async {
+    final auth = FirebaseAuth.instance;
+    if (auth.currentUser == null) {
+      debugPrint("👤 No Firebase user, signing in anonymously...");
+      await auth.signInAnonymously();
     } else {
-      Utils.bottomToast(context, result.message ?? "Failed to fetch purposes");
+      debugPrint("✅ Firebase user: ${auth.currentUser!.uid}");
     }
-
-    setState(() => isLoading = false);
   }
 
-  Future<void> _submitDrone() async {
-    if (!_validateInputs()) return;
-
-    setState(() => isLoading = true);
-
+  /// ✅ Check Firestore Role
+  Future<bool> _isSeller() async {
     try {
-      final Map<String, File?> fileImages = {
-        for (var key in images.keys)
-          key: images[key] != null ? File(images[key]!.path) : null,
-      };
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return false;
 
-      final result = await _apiClass.addDrone(
-        dgcaApproval,
-        selectedPurposeId.toString(),
-        priceController.text,
-        batteryController.text,
-        weightController.text,
-        modelController.text,
-        fHoursController.text,
-        fMinsController.text,
-        cHoursController.text,
-        cMinsController.text,
-        descriptionController.text,
-        widget.type,
-        fileImages,
-      );
+      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final role = doc.data()?['role']?.toString().toLowerCase();
 
-      if (result.status == "success") {
-        Utils.bottomToast(context, "Drone added successfully!");
-        _navigateAfterSuccess();
-      } else {
-        Utils.bottomToast(context, result.message ?? "Something went wrong!");
-      }
+      debugPrint("🔍 Firestore role check: $role");
+      return role == "seller";
     } catch (e) {
-      Utils.bottomToast(context, "Error: ${e.toString()}");
-    } finally {
-      setState(() => isLoading = false);
-    }
-  }
-
-  bool _validateInputs() {
-    if (dgcaApproval.isEmpty ||
-        selectedPurposeId == null ||
-        uinController.text.isEmpty ||
-        priceController.text.isEmpty ||
-        batteryController.text.isEmpty ||
-        weightController.text.isEmpty ||
-        modelController.text.isEmpty ||
-        images['top'] == null) {
-      Utils.bottomToast(context, "Please fill all required fields.");
+      debugPrint("⚠️ Role check error: $e");
       return false;
     }
-    return true;
   }
 
-  void _navigateAfterSuccess() {
-    final targetIndex = widget.type == "1" ? 1 : 3;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (_) => Dynamichome(selectedIndex: targetIndex),
-      ),
-          (route) => false,
-    );
+  /// ✅ Upload Image to Firebase Storage
+  Future<String> _uploadImageToFirebase(File file) async {
+    await _ensureFirebaseAuth();
+
+    // Check if seller is allowed before upload
+    if (!await _isSeller()) {
+      throw Exception("Unauthorized: Only verified sellers can upload drones.");
+    }
+
+    try {
+      final fileName =
+          "drones/${DateTime.now().millisecondsSinceEpoch}_${file.path.split('/').last}";
+      final ref = FirebaseStorage.instance.ref().child(fileName);
+
+      debugPrint("🚀 Uploading drone image: $fileName");
+
+      final uploadTask = await ref.putFile(file);
+      final downloadUrl = await uploadTask.ref.getDownloadURL();
+
+      debugPrint("✅ Firebase upload complete: $downloadUrl");
+      return downloadUrl;
+    } catch (e) {
+      debugPrint("❌ Upload failed: $e");
+      rethrow;
+    }
+  }
+
+  /// ✅ Submit Drone Form
+  Future<void> _submitForm() async {
+    if (!_formKey.currentState!.validate()) return;
+    _formKey.currentState!.save();
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      await _ensureFirebaseAuth();
+
+      if (!await _isSeller()) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("❌ Only verified sellers can upload drones."),
+          backgroundColor: Colors.red,
+        ));
+        setState(() => _isSubmitting = false);
+        return;
+      }
+
+      String imageUrl = "";
+      if (imageFile != null) {
+        imageUrl = await _uploadImageToFirebase(imageFile!);
+      } else {
+        imageUrl =
+        "https://via.placeholder.com/400x300.png?text=${Uri.encodeComponent(name)}";
+      }
+
+      final HttpLink httpLink = HttpLink(graphqlUrl);
+      final GraphQLClient client = GraphQLClient(
+        link: httpLink,
+        cache: GraphQLCache(store: InMemoryStore()),
+      );
+
+      final mutation = gql("""
+        mutation CreateDrone(\$input: DroneInput!) {
+          createDrone(input: \$input) {
+            droneId
+            name
+            brand
+            price
+            status
+            image
+          }
+        }
+      """);
+
+      final variables = {
+        "input": {
+          "name": name,
+          "brand": brand,
+          "uin": uin,
+          "price": price,
+          "description": description,
+          "image": imageUrl,
+          "status": "pending",
+          "sellerId": widget.sellerId,
+        }
+      };
+
+      final result = await client.mutate(
+        MutationOptions(document: mutation, variables: variables),
+      );
+
+      if (result.hasException) {
+        final err = result.exception!.graphqlErrors.isNotEmpty
+            ? result.exception!.graphqlErrors.first.message
+            : result.exception!.linkException.toString();
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("❌ Error: $err")));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("✅ Drone submitted successfully!"),
+          backgroundColor: Colors.green,
+        ));
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      debugPrint("⚠️ Submit error: $e");
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("Error: $e")));
+    } finally {
+      setState(() => _isSubmitting = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(
-          'Add My Drone',
-          style: GoogleFonts.lexend(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 2,
+        title: const Text("Add Drone"),
+        backgroundColor: const Color(0xFF7F1DBA),
+        foregroundColor: Colors.white,
       ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(16),
-        child: ElevatedButton(
-          onPressed: isLoading ? null : _submitDrone,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xff7057FF),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          child: isLoading
-              ? const CircularProgressIndicator(color: Colors.white)
-              : Text(
-            "Continue",
-            style: GoogleFonts.lexend(
-              fontSize: 16,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _buildFormContent(),
-    );
-  }
-
-  Widget _buildFormContent() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildDGCASection(),
-          const SizedBox(height: 10),
-          _buildTextField("Drone UIN Number *", uinController,
-              hint: "eg. ABCDEFGH1234IJKLMNOP", maxLength: 20),
-          const SizedBox(height: 15),
-          _buildPurposeSelector(),
-          const SizedBox(height: 15),
-          _buildTextField("Price *", priceController,
-              hint: "eg. 900000 ₹", suffix: "₹"),
-          const SizedBox(height: 15),
-          _buildTextField("Battery Capacity *", batteryController,
-              hint: "eg. 22000 mAh", suffix: "mAh"),
-          const SizedBox(height: 15),
-          _buildWeightInput(),
-          const SizedBox(height: 15),
-          _buildTextField("Drone Model Name *", modelController,
-              hint: "eg. DJI Mini 4 Pro"),
-          const SizedBox(height: 20),
-          _buildTimeInput("Flying Time *", fHoursController, fMinsController),
-          const SizedBox(height: 20),
-          _buildTimeInput("Charging Time *", cHoursController, cMinsController),
-          const SizedBox(height: 20),
-          _buildTextField("Description", descriptionController,
-              hint: "Write about your drone...", maxLines: 4, maxLength: 250),
-          const SizedBox(height: 15),
-          _buildImageSection(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDGCASection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Do you have DGCA Approval *",
-          style: GoogleFonts.lexend(fontWeight: FontWeight.bold),
-        ),
-        Row(
-          children: [
-            Radio<String>(
-              value: '1',
-              groupValue: dgcaApproval,
-              onChanged: (String? val) {
-                setState(() => dgcaApproval = val ?? '');
-              },
-            ),
-            const Text("Yes"),
-            Radio<String>(
-              value: '0',
-              groupValue: dgcaApproval,
-              onChanged: (String? val) {
-                setState(() => dgcaApproval = val ?? '');
-              },
-            ),
-            const Text("No"),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPurposeSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Drone Purpose *",
-          style: GoogleFonts.lexend(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 6),
-        ...dronePurposeList.map((item) {
-          final int id = int.tryParse(item['id'].toString()) ?? 0;
-          final String name = item['cname'] ?? '';
-
-          return Row(
-            children: [
-              Radio<int>(
-                value: id,
-                groupValue: selectedPurposeId,
-                onChanged: (int? val) {
-                  setState(() {
-                    selectedPurposeId = val;
-                    selectedPurposeName = name;
-                  });
-                },
-              ),
-              Text(
-                name,
-                style: GoogleFonts.lexend(
-                  fontWeight: selectedPurposeId == id
-                      ? FontWeight.bold
-                      : FontWeight.normal,
-                ),
-              ),
-            ],
-          );
-        }).toList(),
-      ],
-    );
-  }
-
-  Widget _buildTextField(String label, TextEditingController controller,
-      {String? hint, String? suffix, int maxLines = 1, int? maxLength}) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      maxLength: maxLength,
-      keyboardType:
-      label.contains("Price") || label.contains("Battery") || label.contains("Weight")
-          ? TextInputType.number
-          : TextInputType.text,
-      inputFormatters: label.contains("Price") || label.contains("Battery")
-          ? [FilteringTextInputFormatter.digitsOnly]
-          : null,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        suffixText: suffix,
-        labelStyle: GoogleFonts.lexend(color: Colors.black),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        counterText: "",
-      ),
-    );
-  }
-
-  Widget _buildWeightInput() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFBBBBBB)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: weightController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Drone Weight *',
-                border: InputBorder.none,
-              ),
-            ),
-          ),
-          DropdownButton<String>(
-            value: selectedUnit,
-            underline: const SizedBox(),
-            items: units.map((unit) {
-              return DropdownMenuItem(value: unit, child: Text(unit));
-            }).toList(),
-            onChanged: (value) => setState(() => selectedUnit = value!),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimeInput(String title, TextEditingController hourCtrl,
-      TextEditingController minCtrl) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title,
-            style: GoogleFonts.lexend(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 6),
-        Row(
-          children: [
-            SizedBox(
-              width: 50,
-              child: TextField(
-                controller: hourCtrl,
-                keyboardType: TextInputType.number,
-                maxLength: 2,
-                decoration: const InputDecoration(
-                  hintText: "00",
-                  counterText: "",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Text("hrs"),
-            const SizedBox(width: 20),
-            SizedBox(
-              width: 50,
-              child: TextField(
-                controller: minCtrl,
-                keyboardType: TextInputType.number,
-                maxLength: 2,
-                decoration: const InputDecoration(
-                  hintText: "00",
-                  counterText: "",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Text("mins"),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildImageSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("Add Drone Photo *",
-            style: GoogleFonts.lexend(fontWeight: FontWeight.bold)),
-        Text("Upload Drone Photos from all sides",
-            style: GoogleFonts.lexend(fontSize: 12)),
-        const SizedBox(height: 12),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          children: [
-            _buildImageBox('top', 'Full Image'),
-            _buildImageBox('right', 'Top Angle'),
-            _buildImageBox('left', 'Right Angle'),
-            _buildImageBox('full', 'Left Angle'),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildImageBox(String key, String label) {
-    return InkWell(
-      onTap: () => _selectImageSource(key),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade400),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: images[key] != null
-            ? Image.file(images[key]!, fit: BoxFit.cover)
-            : Center(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(18),
+        child: Form(
+          key: _formKey,
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.cloud_upload_outlined,
-                  size: 34, color: Color(0xffBBBBBB)),
-              const SizedBox(height: 8),
-              Text(label,
-                  style: GoogleFonts.lexend(
-                      fontSize: 13, color: Color(0xffBBBBBB))),
+              GestureDetector(
+                onTap: _pickImage,
+                child: Container(
+                  height: 200,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade300, width: 1.5),
+                  ),
+                  child: imageFile == null
+                      ? const Center(
+                    child: Icon(Icons.image,
+                        size: 60, color: Color(0xFF7F1DBA)),
+                  )
+                      : ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.file(imageFile!, fit: BoxFit.cover),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              _buildTextField("Drone Name", (v) => name = v!),
+              _buildTextField("Brand", (v) => brand = v!),
+              _buildTextField("UIN (optional)", (v) => uin = v!),
+              _buildTextField("Price (₹)", (v) => price = double.tryParse(v!) ?? 0,
+                  keyboardType: TextInputType.number),
+              _buildTextField("Description", (v) => description = v!, maxLines: 3),
+              const SizedBox(height: 30),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isSubmitting ? null : _submitForm,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF7F1DBA),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: _isSubmitting
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : Text(
+                    "Submit Drone",
+                    style: GoogleFonts.lexend(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -443,87 +250,29 @@ class _AdddroneState extends State<Adddrone> {
     );
   }
 
-  void _selectImageSource(String key) {
-    showDialog(
-      context: context,
-      builder: (_) => Dialog(
-        child: Padding(
-          padding: const EdgeInsets.all(25),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildIconOption(Icons.camera_alt, "Camera", () {
-                Navigator.pop(context);
-                _pickImage(key, ImageSource.camera);
-              }),
-              _buildIconOption(Icons.photo_library, "Gallery", () {
-                Navigator.pop(context);
-                _pickImage(key, ImageSource.gallery);
-              }),
-            ],
-          ),
+  Widget _buildTextField(
+      String label,
+      FormFieldSetter<String> onSaved, {
+        TextInputType keyboardType = TextInputType.text,
+        int maxLines = 1,
+      }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: TextFormField(
+        decoration: InputDecoration(
+          labelText: label,
+          filled: true,
+          fillColor: Colors.grey[100],
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         ),
+        keyboardType: keyboardType,
+        maxLines: maxLines,
+        validator: (v) =>
+        (v == null || v.isEmpty) && !label.contains("optional")
+            ? "Please enter $label"
+            : null,
+        onSaved: onSaved,
       ),
     );
-  }
-
-  Widget _buildIconOption(IconData icon, String label, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.grey),
-            ),
-            padding: const EdgeInsets.all(12),
-            child: Icon(icon, size: 45),
-          ),
-          const SizedBox(height: 10),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _pickImage(String key, ImageSource source) async {
-    final XFile? pickedFile = await picker.pickImage(source: source);
-    if (pickedFile == null) return;
-
-    File? cropped = await _cropImage(pickedFile.path);
-    if (cropped != null) {
-      File? compressed = await _compressImage(cropped);
-      if (compressed != null) {
-        setState(() => images[key] = compressed);
-      }
-    }
-  }
-
-  Future<File?> _cropImage(String path) async {
-    CroppedFile? cropped = await ImageCropper().cropImage(
-      sourcePath: path,
-      maxWidth: 1080,
-      maxHeight: 1080,
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Crop Image',
-          toolbarColor: Colors.deepPurple,
-          toolbarWidgetColor: Colors.white,
-        ),
-        IOSUiSettings(title: 'Crop Image'),
-      ],
-    );
-    return cropped != null ? File(cropped.path) : null;
-  }
-
-  Future<File?> _compressImage(File file) async {
-    final outPath = '${file.path}_compressed.jpg';
-    final XFile? result = await FlutterImageCompress.compressAndGetFile(
-      file.path,
-      outPath,
-      quality: 60,
-    );
-    return result != null ? File(result.path) : null;
   }
 }

@@ -1,16 +1,18 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'utils.dart';
+import '../services/graphql_client.dart';
 
-/// ✅ Unified API Result (for consistent responses)
+/// ✅ Unified API Result
 class ApiResult {
-  final String status; // "success" | "error"
+  final String status;
   final dynamic data;
   final String message;
 
@@ -23,7 +25,7 @@ class ApiResult {
       ApiResult(status: "error", data: null, message: msg);
 }
 
-/// ✅ Retry helper (to prevent transient network issues)
+/// ✅ Retry helper (safe wrapper)
 Future<T?> _retry<T>(
     Future<T> Function() action, {
       int retries = 2,
@@ -43,218 +45,360 @@ Future<T?> _retry<T>(
   return null;
 }
 
-/// 🧩 ApiClass – All API Services (FlyHub)
+/// 🧩 ApiClass – All FlyHub GraphQL Services
 class ApiClass {
   late SharedPreferences pref;
 
   // ============================================================
-  // 🌍 GET LANGUAGE
+  // 🛍 MARKETPLACE: DRONES / PARTS / ACCESSORIES
   // ============================================================
-  Future<ApiResult> getLanguage() async {
-    var body = {"action": "getLang"};
-    debugPrint("🌍 [getLang] Request: $body");
 
-    try {
-      final resp = await _retry(() =>
-          http.post(Uri.parse(Utils.graphqlUrl), body: body));
-
-      if (resp == null) return ApiResult.error("Network timeout");
-
-      if (resp.statusCode == 200) {
-        final langList = json.decode(resp.body);
-        debugPrint("✅ [getLang] Response: $langList");
-        return ApiResult.success(langList);
-      }
-      return ApiResult.error("Server ${resp.statusCode}");
-    } catch (e) {
-      debugPrint("⚠️ Exception in getLanguage: $e");
-      return ApiResult.error(e.toString());
-    }
-  }
-
-  // ============================================================
-  // 🔑 GET LOGIN SCREEN (Dynamic)
-  // ============================================================
-  Future<ApiResult> getLoginscreen() async {
-    pref = await SharedPreferences.getInstance();
-    var lanId = pref.getInt("langId") ?? 0;
-    var body = {"action": "getLoginscreen", "lang": "$lanId"};
-    debugPrint("🧩 [getLoginscreen] Request: $body");
-
-    try {
-      final resp = await _retry(() =>
-          http.post(Uri.parse(Utils.graphqlUrl), body: body));
-      if (resp == null) return ApiResult.error("Timeout");
-
-      if (resp.statusCode == 200) {
-        final langMap = json.decode(resp.body);
-        debugPrint("✅ [getLoginscreen] Response: $langMap");
-        return ApiResult.success(langMap);
-      }
-      return ApiResult.error("Server ${resp.statusCode}");
-    } catch (e) {
-      debugPrint("⚠️ Exception in getLoginscreen: $e");
-      return ApiResult.error(e.toString());
-    }
-  }
-
-  // ============================================================
-  // 📲 SEND OTP
-  // ============================================================
-  Future<ApiResult> getOtp(String mobileNo) async {
-    pref = await SharedPreferences.getInstance();
-
-    var deviceId = pref.getString("deviceId") ?? "";
-    var deviceVersion = pref.getString("deviceVersion") ?? "";
-    var platform = pref.getString("platform") ?? "";
-    var deviceModel = pref.getString("deviceModel") ?? "";
-    var versionCode = pref.getString("vCode") ?? "";
-
-    var body = {
-      "action": "checkUser",
-      "mobile": mobileNo,
-      "deviceId": deviceId,
-      "device_version": deviceVersion,
-      "platform": platform,
-      "device_Model": deviceModel,
-      "vcode": versionCode,
-      "fcmId": "",
-    };
-
-    debugPrint("📲 [getOtp] Request: $body");
-
-    try {
-      final resp = await _retry(() =>
-          http.post(Uri.parse(Utils.graphqlUrl), body: body));
-      if (resp == null) return ApiResult.error("Timeout");
-
-      if (resp.statusCode == 200) {
-        final data = json.decode(resp.body);
-        debugPrint("✅ [getOtp] Response: $data");
-        return ApiResult.success(data);
-      }
-      return ApiResult.error("Server ${resp.statusCode}");
-    } catch (e) {
-      debugPrint("⚠️ Exception in getOtp: $e");
-      return ApiResult.error(e.toString());
-    }
-  }
-
-  // ============================================================
-  // 🔐 VERIFY OTP
-  // ============================================================
-  Future<ApiResult> verifyOTP(String otp) async {
-    pref = await SharedPreferences.getInstance();
-    var mobileNumber = pref.getString("mobile_number") ?? "";
-    var userId = pref.getString("userId") ?? "";
-
-    var body = {
-      "action": "verifyOtp",
-      "mobile": mobileNumber,
-      "otp": otp,
-      "user_id": userId,
-    };
-
-    debugPrint("🧾 [verifyOtp] Request: $body");
-
-    try {
-      final resp = await _retry(() =>
-          http.post(Uri.parse(Utils.graphqlUrl), body: body));
-      if (resp == null) return ApiResult.error("Timeout");
-
-      if (resp.statusCode == 200) {
-        final data = json.decode(resp.body);
-        debugPrint("✅ [verifyOtp] Response: $data");
-        return ApiResult.success(data);
-      }
-      return ApiResult.error("Server ${resp.statusCode}");
-    } catch (e) {
-      debugPrint("⚠️ Exception in verifyOTP: $e");
-      return ApiResult.error(e.toString());
-    }
-  }
-
-  // ============================================================
-  // 🛍 MARKETPLACE (GraphQL)
-  // ============================================================
-  Future<ApiResult> getMarketplaceItems(String type) async {
-    final query = '''
+  Future<ApiResult> getDrones() async {
+    const String query = r'''
     query {
-      marketplace(type: "$type") {
-        id
+      drones {
+        droneId
         name
         brand
         price
         description
         image
-        category
         status
       }
     }
   ''';
 
     try {
-      final response = await http.post(
-        Uri.parse(Utils.graphqlUrl),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"query": query}),
+      final client = await GraphQLService.initClient();
+      final result = await client.query(QueryOptions(document: gql(query)));
+
+      if (result.hasException) {
+        debugPrint("❌ [getDrones] Error: ${result.exception}");
+        return ApiResult.error(result.exception.toString());
+      }
+
+      final data = result.data?['drones'] ?? [];
+      debugPrint("✅ [getDrones] Loaded ${data.length} drones");
+      return ApiResult.success(data);
+    } catch (e) {
+      debugPrint("⚠️ [getDrones] Exception: $e");
+      return ApiResult.error(e.toString());
+    }
+  }
+
+  Future<ApiResult> getParts() async {
+    const String query = r'''
+    query {
+      parts {
+        partId
+        name
+        brand
+        price
+        description
+        image
+        status
+      }
+    }
+  ''';
+
+    try {
+      final client = await GraphQLService.initClient();
+      final result = await client.query(QueryOptions(document: gql(query)));
+
+      if (result.hasException) {
+        debugPrint("❌ [getParts] Error: ${result.exception}");
+        return ApiResult.error(result.exception.toString());
+      }
+
+      final data = result.data?['parts'] ?? [];
+      debugPrint("✅ [getParts] Loaded ${data.length} parts");
+      return ApiResult.success(data);
+    } catch (e) {
+      debugPrint("⚠️ [getParts] Exception: $e");
+      return ApiResult.error(e.toString());
+    }
+  }
+
+  Future<ApiResult> getAccessories() async {
+    const String query = r'''
+    query {
+      accessories {
+        accessoryId
+        name
+        brand
+        price
+        description
+        image
+        status
+      }
+    }
+  ''';
+
+    try {
+      final client = await GraphQLService.initClient();
+      final result = await client.query(QueryOptions(document: gql(query)));
+
+      if (result.hasException) {
+        debugPrint("❌ [getAccessories] Error: ${result.exception}");
+        return ApiResult.error(result.exception.toString());
+      }
+
+      final data = result.data?['accessories'] ?? [];
+      debugPrint("✅ [getAccessories] Loaded ${data.length} accessories");
+      return ApiResult.success(data);
+    } catch (e) {
+      debugPrint("⚠️ [getAccessories] Exception: $e");
+      return ApiResult.error(e.toString());
+    }
+  }
+
+  // ============================================================
+// 👨‍✈️ HIRE PILOTS
+// ============================================================
+// ============================================================
+// 👨‍✈️ HIRE PILOTS
+// ============================================================
+  Future<ApiResult> getHirePilots() async {
+    const String query = r'''
+    query {
+      hirePilots {
+        pilotId
+        pilotName
+        pilotCompany
+        location
+        sellerId
+        availability
+        specification
+        description
+        email
+        phoneNumber
+        status
+        price {
+          perHour
+          perDay
+        }
+        certifications {
+          url
+        }
+        resume {
+          url
+        }
+        seller {
+          name
+          email
+          phoneNumber
+        }
+      }
+    }
+  ''';
+
+    try {
+      final client = await GraphQLService.initClient();
+      final result = await client.query(QueryOptions(document: gql(query)));
+
+      if (result.hasException) {
+        debugPrint("❌ [getHirePilots] Error: ${result.exception}");
+        return ApiResult.error(result.exception.toString());
+      }
+
+      final data = result.data?['hirePilots'] ?? [];
+      debugPrint("✅ [getHirePilots] Loaded ${data.length} pilots");
+      return ApiResult.success(data);
+    } catch (e) {
+      debugPrint("⚠️ [getHirePilots] Exception: $e");
+      return ApiResult.error(e.toString());
+    }
+  }
+
+  Future<ApiResult> addHirePilot({
+    required String pilotName,
+    required String pilotCompany,
+    required String location,
+    required String email,
+    required String phoneNumber,
+    required String sellerId,
+    required bool availability,
+    required String specification,
+    required double perHour,
+    required double perDay,
+    List<String>? certificationUrls,
+    String? resumeUrl,
+    String? description,
+  }) async {
+    const String mutation = r'''
+    mutation AddHirePilot($input: HirePilotInput!) {
+      addHirePilot(input: $input) {
+        pilotId
+        pilotName
+        pilotCompany
+        location
+        email
+        phoneNumber
+        status
+      }
+    }
+  ''';
+
+    try {
+      final client = await GraphQLService.initClient();
+      final certInputs = (certificationUrls ?? []).map((url) => {"url": url}).toList();
+
+      final variables = {
+        "input": {
+          "pilotName": pilotName,
+          "pilotCompany": pilotCompany,
+          "location": location,
+          "email": email,
+          "phoneNumber": phoneNumber,
+          "sellerId": sellerId,
+          "availability": availability,
+          "specification": specification,
+          "price": {"perHour": perHour, "perDay": perDay},
+          "certifications": certInputs,
+          "resume": resumeUrl != null ? {"url": resumeUrl} : null,
+          "description": description ?? "",
+        }
+      };
+
+      final result = await client.mutate(
+        MutationOptions(document: gql(mutation), variables: variables),
       );
 
-      debugPrint("🛰️ [Marketplace] Query Sent for $type");
-      debugPrint("📦 Status: ${response.statusCode}");
-      debugPrint("📦 Body: ${response.body}");
-
-      if (response.statusCode == 200) {
-        final decoded = json.decode(response.body);
-
-        if (decoded["data"] != null && decoded["data"]["marketplace"] != null) {
-          final List<dynamic> items = decoded["data"]["marketplace"];
-
-          debugPrint("✅ [Marketplace] Loaded ${items.length} items for $type");
-          return ApiResult.success(items);
-        } else {
-          debugPrint("⚠️ [Marketplace] Empty data for type: $type");
-          return ApiResult.error("No items found for $type");
-        }
-      } else {
-        return ApiResult.error("Server returned ${response.statusCode}");
+      if (result.hasException) {
+        debugPrint("❌ [addHirePilot] Error: ${result.exception}");
+        return ApiResult.error(result.exception.toString());
       }
+
+      final data = result.data?['addHirePilot'];
+      debugPrint("✅ [addHirePilot] Added: ${data?['pilotName']}");
+      return ApiResult.success(data);
     } catch (e) {
-      debugPrint("❌ Exception in getMarketplaceItems($type): $e");
+      debugPrint("⚠️ [addHirePilot] Exception: $e");
       return ApiResult.error(e.toString());
     }
   }
 
 
-
   // ============================================================
-  // 🎯 GET PURPOSE LIST
+  // 💼 JOBS
   // ============================================================
-  Future<ApiResult> getPurpose() async {
-    debugPrint("🎯 [getPurpose] Fetching drone purposes...");
+  Future<ApiResult> getJobs() async {
+    const String query = r'''
+    query {
+      jobs {
+        jobId
+        jobName
+        companyName
+        jobType
+        experience
+        location
+        salary
+        description
+        requirement
+        email
+        phoneNumber
+        status
+        sellerId
+      }
+    }
+  ''';
 
     try {
-      final resp = await _retry(() => http.post(
-        Uri.parse(Utils.graphqlUrl),
-        body: {"action": "getPurpose"},
-      ));
+      final client = await GraphQLService.initClient();
+      final result = await client.query(QueryOptions(document: gql(query)));
 
-      if (resp == null) return ApiResult.error("Network timeout");
-
-      if (resp.statusCode == 200) {
-        final data = json.decode(resp.body);
-        debugPrint("✅ [getPurpose] Response: $data");
-
-        if (data["status"] == "success" && data["purpose_master"] != null) {
-          return ApiResult.success(data["purpose_master"], "Fetched successfully");
-        } else {
-          return ApiResult.error(data["message"] ?? "No purpose data found");
-        }
-      } else {
-        return ApiResult.error("Server ${resp.statusCode}");
+      if (result.hasException) {
+        debugPrint("❌ [getJobs] Error: ${result.exception}");
+        return ApiResult.error(result.exception.toString());
       }
+
+      final data = result.data?['jobs'] ?? [];
+      debugPrint("✅ [getJobs] Loaded ${data.length} jobs");
+      return ApiResult.success(data);
     } catch (e) {
-      debugPrint("⚠️ Exception in getPurpose: $e");
+      debugPrint("⚠️ [getJobs] Exception: $e");
+      return ApiResult.error(e.toString());
+    }
+  }
+
+  // ============================================================
+  // 🛠 SERVICES
+  // ============================================================
+  Future<ApiResult> getServices() async {
+    const String query = r'''
+    query {
+      services {
+        serviceId
+        name
+        specificDrone
+        experience
+        location
+        description
+        price
+        image
+        status
+        sellerId
+        sellerInfo {
+          email
+          phoneNumber
+        }
+      }
+    }
+  ''';
+
+    try {
+      final client = await GraphQLService.initClient();
+      final result = await client.query(QueryOptions(document: gql(query)));
+
+      if (result.hasException) {
+        debugPrint("❌ [getServices] Error: ${result.exception}");
+        return ApiResult.error(result.exception.toString());
+      }
+
+      final data = result.data?['services'] ?? [];
+      debugPrint("✅ [getServices] Loaded ${data.length} services");
+      return ApiResult.success(data);
+    } catch (e) {
+      debugPrint("⚠️ [getServices] Exception: $e");
+      return ApiResult.error(e.toString());
+    }
+  }
+
+  // ============================================================
+  // 🏠 RENTALS
+  // ============================================================
+  Future<ApiResult> getRentals() async {
+    const String query = r'''
+    query {
+      rentals {
+        rentalId
+        name
+        brand
+        pricePerDay
+        description
+        image
+        location
+        insurance
+        with_pilot
+        available_today
+      }
+    }
+  ''';
+
+    try {
+      final client = await GraphQLService.initClient();
+      final result = await client.query(QueryOptions(document: gql(query)));
+
+      if (result.hasException) {
+        debugPrint("❌ [Rentals] ${result.exception}");
+        return ApiResult.error(result.exception.toString());
+      }
+
+      final data = result.data?['rentals'] ?? [];
+      debugPrint("✅ [Rentals] Loaded ${data.length} rentals");
+      return ApiResult.success(data);
+    } catch (e) {
+      debugPrint("⚠️ [Rentals] Error: $e");
       return ApiResult.error(e.toString());
     }
   }
@@ -262,81 +406,122 @@ class ApiClass {
   // ============================================================
   // ✈️ ADD DRONE (Multipart Upload)
   // ============================================================
-  Future<ApiResult> addDrone(
-      String dgcaApproval,
-      String selectedPurposeId,
-      String amount,
-      String batteryCapacity,
-      String weight,
-      String model,
-      String f_hours,
-      String f_minutes,
-      String c_hours,
-      String c_minutes,
-      String description,
-      String type,
-      Map<String, File?> images,
-      ) async {
-    pref = await SharedPreferences.getInstance();
-    var userId = pref.getString("userId") ?? "";
+  Future<ApiResult> addDrone({
+    required String dgcaApproval,
+    required String purpose,
+    required String price,
+    required String batteryCapacity,
+    required String weight,
+    required String model,
+    required String flyingHours,
+    required String chargingHours,
+    required String description,
+    required String type,
+    required Map<String, File?> images,
+  }) async {
+    try {
+      final client = await GraphQLService.initClient();
+      final user = FirebaseAuth.instance.currentUser;
 
-    var request = http.MultipartRequest('POST', Uri.parse(Utils.graphqlUrl));
+      if (user == null) return ApiResult.error("User not logged in");
 
-    request.fields.addAll({
-      "action": "addDrone",
-      "user_id": userId,
-      "DGCA_approval": dgcaApproval,
-      "model": model,
-      "type": type,
-      "purpose": selectedPurposeId,
-      "charging_time": "${c_hours}h : ${c_minutes}m",
-      "flying_time": "${f_hours}h : ${f_minutes}m",
-      "rental_terms": description,
-      "price": amount,
-      "drone_weight": weight,
-      "battery_capacity": "${batteryCapacity}mAh",
-    });
-
-    // ✅ Map image keys for backend
-    Map<String, String> imageFieldMap = {
-      'top': 'image1',
-      'right': 'image2',
-      'left': 'image3',
-      'full': 'image4',
-    };
-
-    for (String key in images.keys) {
-      final imageFile = images[key];
-      final fieldKey = imageFieldMap[key];
-      if (imageFile != null && fieldKey != null) {
-        final mimeType = lookupMimeType(imageFile.path)?.split('/');
-        if (mimeType != null && mimeType.length == 2) {
-          request.files.add(await http.MultipartFile.fromPath(
-            fieldKey,
-            imageFile.path,
-            contentType: MediaType(mimeType[0], mimeType[1]),
-          ));
+      // Convert images to Base64 strings
+      final imageMap = <String, String>{};
+      for (final entry in images.entries) {
+        if (entry.value != null) {
+          final bytes = await entry.value!.readAsBytes();
+          imageMap[entry.key] =
+          "data:${lookupMimeType(entry.value!.path)};base64,${base64Encode(bytes)}";
         }
       }
-    }
 
-    debugPrint("📤 [addDrone] Uploading data: ${request.fields}");
+      const String mutation = r'''
+        mutation AddDrone($input: AddDroneInput!) {
+          addDrone(input: $input) {
+            success
+            message
+            drone {
+              id
+              name
+              price
+            }
+          }
+        }
+      ''';
 
-    try {
-      final response = await request.send();
-      final responseBody = await response.stream.bytesToString();
+      final variables = {
+        "input": {
+          "DGCA_approval": dgcaApproval,
+          "purpose": purpose,
+          "price": price,
+          "batteryCapacity": batteryCapacity,
+          "droneWeight": weight,
+          "model": model,
+          "flyingTime": flyingHours,
+          "chargingTime": chargingHours,
+          "rentalTerms": description,
+          "type": type,
+          "images": imageMap,
+        }
+      };
 
-      if (response.statusCode == 200) {
-        final data = json.decode(responseBody);
-        debugPrint("✅ [addDrone] Success: $data");
-        return ApiResult.success(data);
-      } else {
-        debugPrint("❌ [addDrone] Failed: ${response.statusCode}");
-        return ApiResult.error("Server ${response.statusCode}");
+      final result =
+      await client.mutate(MutationOptions(document: gql(mutation), variables: variables));
+
+      if (result.hasException) {
+        debugPrint("❌ [addDrone] ${result.exception}");
+        return ApiResult.error(result.exception.toString());
       }
+
+      final data = result.data?['addDrone'];
+      debugPrint("✅ [addDrone] Success: $data");
+      return ApiResult.success(data);
     } catch (e) {
       debugPrint("⚠️ [addDrone] Exception: $e");
       return ApiResult.error(e.toString());
     }
   }
+
+  // ============================================================
+  // 📲 OTP MOCKS
+  // ============================================================
+  Future<ApiResult> getOtp(String mobileNo) async {
+    debugPrint("📲 [getOtp] Simulated OTP for $mobileNo");
+    await Future.delayed(const Duration(seconds: 1));
+    return ApiResult.success({"otpSent": true}, "OTP sent to $mobileNo");
+  }
+
+  Future<ApiResult> verifyOTP(String otp) async {
+    debugPrint("🧾 [verifyOtp] Verifying $otp");
+    await Future.delayed(const Duration(seconds: 1));
+    if (otp == "1234") {
+      return ApiResult.success({"verified": true}, "OTP verified successfully");
+    }
+    return ApiResult.error("Invalid OTP");
+  }
+
+  // ============================================================
+  // 🎯 PURPOSE LIST (Mock)
+  // ============================================================
+  Future<ApiResult> getPurpose() async {
+    debugPrint("🎯 [getPurpose] Loading purposes");
+    await Future.delayed(const Duration(milliseconds: 800));
+    final purposes = [
+      {"id": "1", "name": "Agriculture"},
+      {"id": "2", "name": "Mapping"},
+      {"id": "3", "name": "FPV"},
+    ];
+    return ApiResult.success(purposes);
+  }
+
+  // ============================================================
+  // 🌐 STATIC APP CONTENT
+  // ============================================================
+  Future<ApiResult> getLanguage() async =>
+      ApiResult.success(["English", "Hindi"]);
+
+  Future<ApiResult> getLoginscreen() async => ApiResult.success({
+    "title": "Welcome to FlyHub",
+    "description": "Your one-stop drone marketplace"
+  });
 }

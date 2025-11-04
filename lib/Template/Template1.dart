@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flyhub/add_drone_form.dart';
 import 'package:flyhub/FindJobs.dart';
 import 'package:flyhub/MaintenancePage.dart';
 import 'package:flyhub/Training.dart';
@@ -8,20 +7,30 @@ import 'package:flyhub/JobsPage.dart';
 import '../HomeScreen/Dynamichome.dart';
 import '../category_tile.dart';
 import '../../CommonClass/utils.dart';
+import 'package:flyhub/AddDrone.dart';
+import 'package:flyhub/add_spare_parts.dart';
+import 'package:flyhub/add_accessories_form.dart';
+import 'package:flyhub/add_hire_pilots_form.dart';
+import 'package:flyhub/add_service_form.dart';
+import 'package:flyhub/add_drone_rental_form.dart';
+import 'package:flyhub/add_job_form.dart';
 
 class Template1 extends StatefulWidget {
   final List items;
-  const Template1({required this.items});
+  final String? sellerId; // ✅ optional sellerId
+  const Template1({required this.items, this.sellerId, super.key});
 
   @override
   State<Template1> createState() => _Template1State();
 }
 
 class _Template1State extends State<Template1> {
+  String? get _sellerId => widget.sellerId;
+
   @override
   Widget build(BuildContext context) {
     return GridView.count(
-      padding: const EdgeInsets.only(left: 20, right: 20, top: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       crossAxisCount: 4,
       childAspectRatio: 0.7,
       shrinkWrap: true,
@@ -37,34 +46,37 @@ class _Template1State extends State<Template1> {
           onTap: () {
             switch (clickUrl) {
               case "add_drone":
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AddDroneForm()),
-                );
+                _navigateIfSeller(context, () => AddDronePage(sellerId: _sellerId!));
                 break;
 
               case "parts_accessories":
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                    builder: (context) =>
-                    const Dynamichome(selectedIndex: 1),
-                  ),
-                      (Route<dynamic> route) => false,
-                );
+                _navigateIfSeller(context, () => AddSparePartForm(sellerId: _sellerId!));
+                break;
+
+              case "add_accessory":
+                _navigateIfSeller(context, () => AddAccessoryForm(sellerId: _sellerId!));
+                break;
+
+              case "add_rental_drone":
+                _navigateIfSeller(context, () => AddDroneRentalForm(sellerId: _sellerId!));
+                break;
+
+              case "add_drone_services":
+                _navigateIfSeller(context, () => AddServiceForm(sellerId: _sellerId!));
+                break;
+
+              case "add_job":
+                _navigateIfSeller(context, () => AddJobForm(sellerId: _sellerId!));
                 break;
 
               case "hire_pilots":
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => JobsPage()),
-                );
+                _navigateIfSeller(context, () => AddHirePilotForm(sellerId: _sellerId!));
                 break;
 
               case "drone_services":
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (context) => DroneServicesPage()),
+                  MaterialPageRoute(builder: (context) =>  DroneServicesPage()),
                 );
                 break;
 
@@ -85,8 +97,7 @@ class _Template1State extends State<Template1> {
               case "maintenance":
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (context) => const Maintenancepage()),
+                  MaterialPageRoute(builder: (context) => const Maintenancepage()),
                 );
                 break;
 
@@ -97,6 +108,19 @@ class _Template1State extends State<Template1> {
           },
         );
       }).toList(),
+    );
+  }
+
+  /// 🧩 Helper — Navigate only if sellerId is available
+  void _navigateIfSeller(BuildContext context, Widget Function() pageBuilder) {
+    if (_sellerId == null || _sellerId!.isEmpty) {
+      Utils.bottomToast(context, "⚠️ Seller ID not found. Please log in as a seller.");
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => pageBuilder()),
     );
   }
 }

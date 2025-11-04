@@ -47,7 +47,7 @@ class _CropSprayingPageState extends State<CropSprayingPage>
     });
 
     try {
-      final result = await _apiClass.getMarketplaceItems("drones");
+      final result = await _apiClass.getDrones();
 
       if (result.status == "success" && result.data != null) {
         setState(() {

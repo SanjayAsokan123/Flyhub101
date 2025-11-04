@@ -1,143 +1,176 @@
 import React, { useState, useEffect } from "react";
-import "../styles/Page.css";
+import "../styles/Reports.css"; // ✅ New CSS file
 
-const GRAPHQL_URL = "http://127.0.0.1:5001/graphql"; // Your Apollo GraphQL endpoint
+const GRAPHQL_URL = "http://127.0.0.1:5001/graphql";
 
-function Users() {
-  const [drones, setDrones] = useState([]);
+function Reports() {
+  const [reports, setReports] = useState([]);
+  const [filteredReports, setFilteredReports] = useState([]);
+  const [statusFilter, setStatusFilter] = useState("pending");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch drones from backend GraphQL API
   useEffect(() => {
-    const fetchDrones = async () => {
+    const fetchReports = async () => {
       setLoading(true);
       setError(null);
 
       const query = `
         query {
           drones {
-            id
+            uin
             name
             brand
-            uin
             price
             description
             image
             status
+            sellerInfo { email phoneNumber }
           }
         }
       `;
 
       try {
-        const response = await fetch(GRAPHQL_URL, {
+        const res = await fetch(GRAPHQL_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ query }),
         });
 
-        const result = await response.json();
-
+        const result = await res.json();
         if (result.errors) {
           setError(result.errors[0].message);
-          console.error("GraphQL errors:", result.errors);
         } else {
-          // Filter out rejected drones so they only appear in Rejected page
-          const rejectedDrones = JSON.parse(localStorage.getItem("rejectedDrones")) || [];
-          const filteredDrones = result.data.drones.filter(
-            (drone) => !rejectedDrones.some((d) => d.id === drone.id)
+          const allReports = result.data.drones || [];
+          setReports(allReports);
+          setFilteredReports(
+            allReports.filter((r) => r.status.toLowerCase() === "pending")
           );
-
-          setDrones(filteredDrones);
         }
       } catch (err) {
         setError("Network error: " + err.message);
-        console.error("Fetch error:", err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDrones();
+    fetchReports();
   }, []);
 
-  // Approve or reject drone via GraphQL mutation
-  const handleApproval = async (id, status) => {
+  // Filter reports by status
+  const handleFilterChange = (status) => {
+    setStatusFilter(status);
+    setFilteredReports(
+      reports.filter((r) => r.status.toLowerCase() === status.toLowerCase())
+    );
+  };
+
+  // Approve / Reject handler
+  const handleStatusUpdate = async (uin, status) => {
     const mutation = `
       mutation {
-        updateDroneStatus(id: "${id}", status: "${status}") {
-          id
-          name
-          brand
+        updateDroneStatus(uin: "${uin}", status: "${status}") {
           uin
-          price
-          description
-          image
           status
         }
       }
     `;
 
     try {
-      const response = await fetch(GRAPHQL_URL, {
+      await fetch(GRAPHQL_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: mutation }),
       });
 
-      const result = await response.json();
-
-      if (result.errors) {
-        console.error("GraphQL errors:", result.errors);
-      } else {
-        const updatedDrone = result.data.updateDroneStatus;
-
-        // Update drones in state
-        setDrones((prev) =>
-          prev.map((drone) =>
-            drone.id === id ? { ...drone, status: updatedDrone.status } : drone
-          ).filter(drone => drone.status !== "rejected") // remove rejected from dashboard
-        );
-
-        // If rejected, store in localStorage
-        if (status === "rejected") {
-          const storedRejected = JSON.parse(localStorage.getItem("rejectedDrones")) || [];
-          // Avoid duplicates
-          if (!storedRejected.find((d) => d.id === updatedDrone.id)) {
-            storedRejected.push(updatedDrone);
-            localStorage.setItem("rejectedDrones", JSON.stringify(storedRejected));
-          }
-        }
-      }
+      // Update UI locally
+      setReports((prev) =>
+        prev.map((r) => (r.uin === uin ? { ...r, status } : r))
+      );
+      setFilteredReports((prev) => prev.filter((r) => r.uin !== uin));
     } catch (err) {
-      console.error("Error updating drone status:", err);
+      console.error("Error updating status:", err);
     }
   };
 
-  if (loading) return <p>Loading drones...</p>;
-  if (error) return <p style={{ color: "red" }}>Error: {error}</p>;
+  if (loading) return <p>Loading reports...</p>;
+  if (error) return <p style={{ color: "red" }}>{error}</p>;
 
   return (
-    <div className="page">
-      <h2>🛸 Drone Approval Dashboard</h2>
-      <div className="drone-cards">
-        {drones.length === 0 && <p>No drones to approve.</p>}
-        {drones.map((drone) => (
-          <div key={drone.id} className="drone-card">
-            <img src={drone.image} alt={drone.name} className="drone-image" />
-            <h3>{drone.name}</h3>
-            <p><strong>Brand:</strong> {drone.brand}</p>
-            <p><strong>UIN Number:</strong> {drone.uin}</p>
-            <p><strong>Price:</strong> ${drone.price}</p>
-            <p><strong>Description:</strong> {drone.description}</p>
-            <p><strong>Status:</strong> {drone.status}</p>
+    <div className="reports">
+      <h2>📊 Reports Dashboard</h2>
 
-            {drone.status.toLowerCase() === "pending" && (
+      {/* ===== Filter Buttons ===== */}
+      <div className="filter-buttons">
+        <button
+          className={statusFilter === "approved" ? "active" : ""}
+          onClick={() => handleFilterChange("approved")}
+        >
+          ✅ Approved
+        </button>
+        <button
+          className={statusFilter === "pending" ? "active" : ""}
+          onClick={() => handleFilterChange("pending")}
+        >
+          🕒 Pending
+        </button>
+        <button
+          className={statusFilter === "rejected" ? "active" : ""}
+          onClick={() => handleFilterChange("rejected")}
+        >
+          ❌ Rejected
+        </button>
+      </div>
+
+      {/* ===== Reports Cards ===== */}
+      <div className="reports-cards">
+        {filteredReports.length === 0 && <p>No reports in this category.</p>}
+        {filteredReports.map((report) => (
+          <div key={report.uin} className="report-card">
+            <img
+              src={report.image}
+              alt={report.name}
+              className="report-image"
+            />
+            <h3>{report.name}</h3>
+            <p>
+              <strong>Brand:</strong> {report.brand}
+            </p>
+            <p>
+              <strong>Price:</strong> ₹{report.price}
+            </p>
+            <p>
+              <strong>Description:</strong> {report.description}
+            </p>
+            <p>
+              <strong>Status:</strong> {report.status}
+            </p>
+
+            {report.sellerInfo ? (
+              <>
+                <p>
+                  <strong>Email:</strong> {report.sellerInfo.email}
+                </p>
+                <p>
+                  <strong>Phone:</strong> {report.sellerInfo.phoneNumber}
+                </p>
+              </>
+            ) : (
+              <p>
+                <strong>Seller:</strong> Not available
+              </p>
+            )}
+
+            {report.status.toLowerCase() === "pending" && (
               <div className="actions">
-                <button onClick={() => handleApproval(drone.id, "approved")}>
+                <button
+                  onClick={() => handleStatusUpdate(report.uin, "approved")}
+                >
                   ✅ Approve
                 </button>
-                <button onClick={() => handleApproval(drone.id, "rejected")}>
+                <button
+                  onClick={() => handleStatusUpdate(report.uin, "rejected")}
+                >
                   ❌ Reject
                 </button>
               </div>
@@ -149,4 +182,4 @@ function Users() {
   );
 }
 
-export default Users;
+export default Reports;

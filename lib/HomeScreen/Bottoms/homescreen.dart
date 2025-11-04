@@ -9,18 +9,23 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
+import '../../services/graphql_client.dart';
 import '../../CommonClass/ApiClass.dart';
 import '../../CommonClass/utils.dart';
-import '../../MyCartPage.dart';
+import '../../BuyerDetails/MyCartPage.dart';
 import '../../WishlistPage.dart';
 import '../Bottoms/MarketPage.dart';
-import '../Bottoms/RentalsPage.dart';
-import '../Bottoms/PilotPage.dart';
 import '../../MenuPage.dart';
 import '../../Template/ProductDetailPage.dart';
 import '../../Login/LoginPage.dart';
 import '../../firebase_options.dart';
 import '../../services/cart_wishlist_provider.dart';
+
+// ✅ Additional pages
+import '../Bottoms/JobPage.dart';
+import '../Bottoms/ServicesPage.dart';
+import '../Bottoms/RentalsPage.dart';
+import '../Bottoms/PilotPage.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -36,7 +41,6 @@ class _HomeScreenState extends State<HomeScreen> {
   bool isLoading = true;
   bool isUserLoading = true;
 
-  late SharedPreferences pref;
   User? _user;
   String? _role;
 
@@ -44,16 +48,18 @@ class _HomeScreenState extends State<HomeScreen> {
     "Drones": [],
     "Parts": [],
     "Accessories": [],
+    "Jobs": [],
+    "Services": [],
     "Rentals": [],
-    "Pilots": [],
+    "Pilot": [],
   };
 
   final List<Map<String, dynamic>> categoryList = [
     {"title": "Drones", "icon": Icons.flight},
     {"title": "Parts", "icon": Icons.settings},
     {"title": "Accessories", "icon": Icons.shopping_bag},
-    {"title": "Rentals", "icon": Icons.shopping_cart_checkout},
-    {"title": "Pilots", "icon": Icons.person},
+    {"title": "Jobs", "icon": Icons.work_outline},
+    {"title": "Services", "icon": Icons.build_circle},
   ];
 
   @override
@@ -63,76 +69,85 @@ class _HomeScreenState extends State<HomeScreen> {
     fetchHomeData();
   }
 
-  /// ✅ Initialize Firebase and user
   Future<void> _initializeUser() async {
     try {
       if (Firebase.apps.isEmpty) {
         await Firebase.initializeApp(
           options: DefaultFirebaseOptions.currentPlatform,
         );
-        debugPrint("✅ Firebase initialized in HomeScreen");
+        debugPrint("✅ Firebase initialized");
       }
 
       _user = FirebaseAuth.instance.currentUser;
-
       if (_user != null) {
         try {
           final userDoc = await FirebaseFirestore.instance
               .collection('users')
               .doc(_user!.uid)
               .get();
-
           _role = userDoc.data()?['role']?.toString().toLowerCase() ?? 'buyer';
-          debugPrint("👤 User role: $_role");
         } catch (e) {
-          debugPrint('❌ Error fetching user role: $e');
+          debugPrint('⚠️ Error fetching user role: $e');
           _role = 'buyer';
         }
       }
     } catch (e) {
-      debugPrint("⚠ Firebase init error: $e");
+      debugPrint("⚠️ Firebase init error: $e");
     }
 
     if (mounted) setState(() => isUserLoading = false);
   }
 
-  // ✅ Fetch marketplace data safely using ApiResult
+  // ✅ Fetch all data in parallel using new API structure
   Future<void> fetchHomeData() async {
     setState(() => isLoading = true);
-
     try {
-      final drones = await _apiClass.getMarketplaceItems("drones");
-      final parts = await _apiClass.getMarketplaceItems("parts");
-      final accessories = await _apiClass.getMarketplaceItems("accessories");
-
-      debugPrint("🛸 Drones: ${drones.status} → ${drones.data?.length ?? 0}");
-      debugPrint("⚙️ Parts: ${parts.status} → ${parts.data?.length ?? 0}");
-      debugPrint("🎒 Accessories: ${accessories.status} → ${accessories.data?.length ?? 0}");
+      final results = await Future.wait([
+        _apiClass.getDrones(),
+        _apiClass.getParts(),
+        _apiClass.getAccessories(),
+        _apiClass.getJobs(),
+        _apiClass.getServices(),
+        // _apiClass.getRentals(),
+        // _apiClass.getPilots(),
+      ]);
 
       if (!mounted) return;
-      if (drones.status == "success" ||
-          parts.status == "success" ||
-          accessories.status == "success") {
-        setState(() {
-          marketplaceData["Drones"] = drones.data ?? [];
-          marketplaceData["Parts"] = parts.data ?? [];
-          marketplaceData["Accessories"] = accessories.data ?? [];
-          marketplaceData["Rentals"] = (drones.data ?? []).take(2).toList();
-          marketplaceData["Pilots"] = [];
-          isLoading = false;
-        });
-      } else {
-        setState(() => isLoading = false);
-        Utils.bottomToast(context, "No marketplace data found.");
-      }
+
+      setState(() {
+        marketplaceData["Drones"] = results[0].data ?? [];
+        marketplaceData["Parts"] = results[1].data ?? [];
+        marketplaceData["Accessories"] = results[2].data ?? [];
+        marketplaceData["Jobs"] = results[3].data ?? [];
+        marketplaceData["Services"] = results[4].data ?? [];
+        marketplaceData["Rentals"] = results[5].data ?? [];
+        marketplaceData["Pilot"] = results[6].data ?? [];
+        isLoading = false;
+      });
     } catch (e) {
-      debugPrint("❌ Error in fetchHomeData: $e");
+      debugPrint("❌ fetchHomeData Error: $e");
       setState(() => isLoading = false);
-      Utils.bottomToast(context, "Error fetching marketplace data.");
+      Utils.bottomToast(context, "Error loading data.");
     }
   }
 
-  /// 🧭 Header with search and actions
+
+  Widget _buildBadge(int count) => Container(
+    padding: const EdgeInsets.all(4),
+    decoration: const BoxDecoration(
+      color: Colors.redAccent,
+      shape: BoxShape.circle,
+    ),
+    child: Text(
+      '$count',
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 10,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  );
+
   Widget buildHeader(BuildContext context) {
     final cartCount = context.watch<CartWishlistProvider>().cartCount;
     final wishlistCount = context.watch<CartWishlistProvider>().wishlistCount;
@@ -151,7 +166,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               Row(
                 children: [
-                  // 💖 Wishlist Icon with Badge
                   Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -163,17 +177,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       if (wishlistCount > 0)
-                        Positioned(
-                          right: 6,
-                          top: 6,
-                          child: _buildBadge(wishlistCount),
-                        ),
+                        Positioned(right: 6, top: 6, child: _buildBadge(wishlistCount)),
                     ],
                   ),
-
-                  const SizedBox(width: 8),
-
-                  // 🛒 Cart Icon with Badge
                   Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -185,15 +191,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       if (cartCount > 0)
-                        Positioned(
-                          right: 6,
-                          top: 6,
-                          child: _buildBadge(cartCount),
-                        ),
+                        Positioned(right: 6, top: 6, child: _buildBadge(cartCount)),
                     ],
                   ),
-
-                  const SizedBox(width: 8),
                   IconButton(
                     icon: const Icon(Icons.logout, color: Colors.white),
                     onPressed: () async {
@@ -220,7 +220,7 @@ class _HomeScreenState extends State<HomeScreen> {
               filled: true,
               fillColor: Colors.white,
               prefixIcon: const Icon(Icons.search, size: 20),
-              hintText: "Search drones, rentals, parts...",
+              hintText: "Search drones, jobs, or services...",
               hintStyle: GoogleFonts.lexend(fontSize: 14),
               suffixIcon: const Icon(Icons.mic, size: 20),
               border: OutlineInputBorder(
@@ -234,22 +234,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// 🧱 Small reusable badge widget
-  Widget _buildBadge(int count) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: const BoxDecoration(
-        color: Colors.redAccent,
-        shape: BoxShape.circle,
-      ),
-      child: Text(
-        '$count',
-        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  /// 🎭 Role Banner
   Widget buildRoleBanner(String role) {
     IconData icon;
     Color color;
@@ -292,7 +276,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// 🧩 Category Grid
   Widget buildCategoryGrid() {
     return GridView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -317,23 +300,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (_) => MarketPage(
-                      initialTab: categoryList
-                          .indexWhere((cat) => cat['title'] == item['title']),
+                      initialTab: categoryList.indexWhere((cat) => cat['title'] == item['title']),
                     ),
                   ),
                 );
                 break;
-              case "Rentals":
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const RentalsPage()),
-                );
+              case "Jobs":
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const JobsPage()));
                 break;
-              case "Pilots":
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PilotPage()),
-                );
+              case "Services":
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const ServicesPage()));
                 break;
               default:
                 Utils.bottomToast(context, "${item['title']} clicked!");
@@ -353,10 +329,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 4),
               Text(
                 item['title'],
-                style: GoogleFonts.lexend(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: GoogleFonts.lexend(fontSize: 11, fontWeight: FontWeight.w500),
               ),
             ],
           ),
@@ -365,11 +338,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// 🛒 Product Carousel
-  Widget buildProductCarousel(
-      String title, List<dynamic> products, VoidCallback onViewAll) {
+  Widget buildProductCarousel(String title, List<dynamic> products, VoidCallback onViewAll) {
     if (products.isEmpty) return const SizedBox();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -378,13 +348,10 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title,
-                  style: GoogleFonts.lexend(
-                      fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(title, style: GoogleFonts.lexend(fontSize: 16, fontWeight: FontWeight.bold)),
               TextButton(
                 onPressed: onViewAll,
-                child: const Text("View All →",
-                    style: TextStyle(color: Color(0xff7057FF))),
+                child: const Text("View All →", style: TextStyle(color: Color(0xff7057FF))),
               ),
             ],
           ),
@@ -399,16 +366,13 @@ class _HomeScreenState extends State<HomeScreen> {
               final imageUrl = (item["image"] ?? "").toString();
               final fullImageUrl = imageUrl.isEmpty
                   ? "https://via.placeholder.com/300x200.png?text=No+Image"
-                  : (imageUrl.startsWith("http")
-                  ? imageUrl
-                  : "https://flyhub-storage.s3.ap-south-1.amazonaws.com/uploads/$imageUrl");
+                  : imageUrl;
 
               return GestureDetector(
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) =>
-                        ProductDetailPage(productData: item, category: title),
+                    builder: (_) => ProductDetailPage(productData: item, category: title),
                   ),
                 ),
                 child: Container(
@@ -430,24 +394,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(12)),
+                        borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(12)),
                         child: CachedNetworkImage(
                           imageUrl: fullImageUrl,
                           height: 120,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          placeholder: (_, __) => Container(
-                            height: 120,
-                            color: Colors.grey[200],
-                            child: const Center(
-                                child: CircularProgressIndicator()),
-                          ),
-                          errorWidget: (_, __, ___) => Container(
-                            height: 120,
-                            color: Colors.grey[300],
-                            child: const Icon(Icons.broken_image),
-                          ),
+                          placeholder: (_, __) =>
+                              Container(height: 120, color: Colors.grey[200]),
+                          errorWidget: (_, __, ___) =>
+                          const Icon(Icons.broken_image, size: 50),
                         ),
                       ),
                       Padding(
@@ -479,43 +436,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// ✨ Shimmer Loader
-  Widget shimmerContent(BuildContext context) {
-    return SizedBox(
-      height: MediaQuery.of(context).size.height,
-      child: Shimmer.fromColors(
-        baseColor: Colors.grey.shade300,
-        highlightColor: Colors.grey.shade100,
-        child: ListView.builder(
-          padding: const EdgeInsets.all(12),
-          itemCount: 3,
-          itemBuilder: (_, __) => Container(
-            height: 220,
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (isUserLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
+    if (isUserLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     if (_user == null) {
-      Future.microtask(() {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const LoginPage()),
-              (route) => false,
-        );
-      });
+      Future.microtask(() => Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+            (route) => false,
+      ));
       return const SizedBox();
     }
 
@@ -535,56 +464,37 @@ class _HomeScreenState extends State<HomeScreen> {
               buildHeader(context),
               if (_role != null) buildRoleBanner(_role!),
               buildCategoryGrid(),
-              buildProductCarousel(
-                "Top Drones",
-                marketplaceData["Drones"]!,
-                    () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const MarketPage(initialTab: 0),
-                  ),
-                ),
-              ),
-              buildProductCarousel(
-                "Drone Parts",
-                marketplaceData["Parts"]!,
-                    () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const MarketPage(initialTab: 1),
-                  ),
-                ),
-              ),
-              buildProductCarousel(
-                "Accessories",
-                marketplaceData["Accessories"]!,
-                    () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const MarketPage(initialTab: 2),
-                  ),
-                ),
-              ),
-              buildProductCarousel(
-                "Drone Rentals",
-                marketplaceData["Rentals"]!,
-                    () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const RentalsPage(),
-                  ),
-                ),
-              ),
-              buildProductCarousel(
-                "Top Pilots",
-                marketplaceData["Pilots"]!,
-                    () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const PilotPage(),
-                  ),
-                ),
-              ),
+              buildProductCarousel("Top Drones", marketplaceData["Drones"]!,
+                      () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const MarketPage(initialTab: 0)))),
+              buildProductCarousel("Drone Parts", marketplaceData["Parts"]!,
+                      () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const MarketPage(initialTab: 1)))),
+              buildProductCarousel("Accessories", marketplaceData["Accessories"]!,
+                      () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const MarketPage(initialTab: 2)))),
+              buildProductCarousel("Job Opportunities", marketplaceData["Jobs"]!,
+                      () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const JobsPage()))),
+              buildProductCarousel("Drone Services", marketplaceData["Services"]!,
+                      () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ServicesPage()))),
+              buildProductCarousel("Drone Rentals", marketplaceData["Rentals"]!,
+                      () => Navigator.push(
+                      context, MaterialPageRoute(builder: (_) => const RentalsPage()))),
+
+              buildProductCarousel("Available Pilots", marketplaceData["Pilot"]!,
+                      () => Navigator.push(
+                      context, MaterialPageRoute(builder: (_) => const PilotPage()))),
+
             ],
           ),
         ),
@@ -594,6 +504,28 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: const Color(0xff7057FF),
         onPressed: fetchHomeData,
         child: const Icon(Icons.refresh, color: Colors.white),
+      ),
+    );
+  }
+
+  Widget shimmerContent(BuildContext context) {
+    return SizedBox(
+      height: MediaQuery.of(context).size.height,
+      child: Shimmer.fromColors(
+        baseColor: Colors.grey.shade300,
+        highlightColor: Colors.grey.shade100,
+        child: ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: 3,
+          itemBuilder: (_, __) => Container(
+            height: 220,
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
       ),
     );
   }

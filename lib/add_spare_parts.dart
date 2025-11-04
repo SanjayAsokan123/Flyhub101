@@ -1,171 +1,265 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AddSparePartForm extends StatefulWidget {
-  const AddSparePartForm({super.key});
+  final String sellerId;
+  const AddSparePartForm({required this.sellerId, super.key});
 
   @override
-  State<AddSparePartForm> createState() => _AddSparePartFormState();
+  _AddSparePartFormState createState() => _AddSparePartFormState();
 }
 
 class _AddSparePartFormState extends State<AddSparePartForm> {
   final _formKey = GlobalKey<FormState>();
-  final Color themeColor = const Color(0xFF1A0A5B);
-
-  final picker = ImagePicker();
-  File? imageFile;
-  bool _isSubmitting = false;
 
   String name = '';
   String brand = '';
   String description = '';
   double? price;
+  int? quantity;
+  File? imageFile;
+  bool _isSubmitting = false;
 
-  final String graphqlUrl = "http://192.168.1.45:5001/graphql";
+  final picker = ImagePicker();
+  final String graphqlUrl = "http://192.168.0.180:5001/graphql";
 
+  // 📸 Pick image
   Future<void> _pickImage() async {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
-      setState(() {
-        imageFile = File(pickedFile.path);
-      });
+      setState(() => imageFile = File(pickedFile.path));
+      debugPrint("📸 Picked spare part image: ${pickedFile.path}");
     }
   }
 
+  /// ✅ Ensure Firebase user exists
+  Future<void> _ensureFirebaseAuth() async {
+    final auth = FirebaseAuth.instance;
+    if (auth.currentUser == null) {
+      debugPrint("👤 No Firebase user, signing in anonymously...");
+      await auth.signInAnonymously();
+    } else {
+      debugPrint("✅ Firebase user: ${auth.currentUser!.uid}");
+    }
+  }
+
+  /// ✅ Check Firestore role before upload
+  Future<bool> _isSeller() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return false;
+
+      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final role = doc.data()?['role']?.toString().toLowerCase();
+
+      debugPrint("🔍 Firestore role: $role");
+      return role == "seller";
+    } catch (e) {
+      debugPrint("⚠️ Role check failed: $e");
+      return false;
+    }
+  }
+
+  /// ✅ Upload image to Firebase
+  Future<String> _uploadImageToFirebase(File file) async {
+    await _ensureFirebaseAuth();
+    if (!await _isSeller()) {
+      throw Exception("Unauthorized: Only sellers can upload spare parts.");
+    }
+
+    try {
+      final fileName =
+          "spare_parts/${DateTime.now().millisecondsSinceEpoch}_${file.path.split('/').last}";
+      final ref = FirebaseStorage.instance.ref().child(fileName);
+
+      debugPrint("🚀 Uploading image: $fileName");
+
+      final uploadTask = await ref.putFile(file);
+      final downloadUrl = await uploadTask.ref.getDownloadURL();
+
+      debugPrint("✅ Uploaded: $downloadUrl");
+      return downloadUrl;
+    } catch (e) {
+      debugPrint("❌ Upload failed: $e");
+      rethrow;
+    }
+  }
+
+  // 🚀 Submit the form
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
     _formKey.currentState!.save();
+
     setState(() => _isSubmitting = true);
 
-    final client = GraphQLClient(
-      link: HttpLink(graphqlUrl),
-      cache: GraphQLCache(store: InMemoryStore()),
-    );
+    try {
+      await _ensureFirebaseAuth();
 
-    final String imageUrl =
-        "https://via.placeholder.com/300x200.png?text=${Uri.encodeComponent(name)}";
-
-    final mutation = gql("""
-      mutation CreatePart(\$input: PartInput!) {
-        createPart(input: \$input) {
-          id
-          name
-          brand
-          price
-          description
-          image
-        }
+      if (!await _isSeller()) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("❌ Only verified sellers can add spare parts."),
+          backgroundColor: Colors.red,
+        ));
+        setState(() => _isSubmitting = false);
+        return;
       }
-    """);
 
-    final options = MutationOptions(
-      document: mutation,
-      variables: {
+      String imageUrl;
+      if (imageFile != null) {
+        imageUrl = await _uploadImageToFirebase(imageFile!);
+      } else {
+        imageUrl =
+        "https://via.placeholder.com/300x200.png?text=${Uri.encodeComponent(name)}";
+      }
+
+      final HttpLink link = HttpLink(graphqlUrl);
+      final client = GraphQLClient(
+        link: link,
+        cache: GraphQLCache(store: InMemoryStore()),
+      );
+
+      // 🔹 GraphQL Mutation
+      final mutation = gql("""
+        mutation CreatePart(\$input: PartInput!) {
+          createPart(input: \$input) {
+            partId
+            name
+            brand
+            price
+            quantity
+            description
+            status
+            image
+            sellerId
+          }
+        }
+      """);
+
+      // 🔹 Variables
+      final variables = {
         'input': {
           'name': name,
           'brand': brand,
           'price': price,
           'description': description,
           'image': imageUrl,
+          'quantity': quantity ?? 1,
+          'sellerId': widget.sellerId,
+          'status': "pending",
         },
-      },
-    );
+      };
 
-    try {
-      final result = await client.mutate(options);
+      final result = await client.mutate(
+        MutationOptions(document: mutation, variables: variables),
+      );
 
       if (result.hasException) {
-        final errorMsg = result.exception!.graphqlErrors.isNotEmpty
+        final err = result.exception!.graphqlErrors.isNotEmpty
             ? result.exception!.graphqlErrors.first.message
-            : "Network error";
+            : result.exception!.linkException.toString();
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $errorMsg"), backgroundColor: Colors.red),
+          SnackBar(content: Text("❌ Error: $err")),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("✅ Spare part submitted successfully!"),
-            backgroundColor: Colors.green,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("✅ Spare part added successfully!"),
+          backgroundColor: Color(0xFF7F1DBA),
+        ));
         Navigator.pop(context);
       }
     } catch (e) {
+      debugPrint("⚠️ Error submitting part: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Unexpected Error: $e"), backgroundColor: Colors.red),
+        SnackBar(content: Text("Error: $e")),
       );
     } finally {
       setState(() => _isSubmitting = false);
     }
   }
 
+  // 🧱 Build UI
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Add Spare Part", style: TextStyle(color: themeColor)),
-        backgroundColor: Colors.white,
-        foregroundColor: themeColor,
-        centerTitle: true,
+        title: const Text("Add Spare Part"),
+        backgroundColor: const Color(0xFF7F1DBA),
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         child: Form(
           key: _formKey,
           child: Column(
             children: [
-              // Image Picker
+              // 🖼 Image Picker
               GestureDetector(
                 onTap: _pickImage,
                 child: Container(
-                  height: 160,
-                  width: double.infinity,
+                  height: 180,
                   decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade300, width: 1.5),
                   ),
                   child: imageFile == null
-                      ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.image, size: 50, color: themeColor),
-                        SizedBox(height: 8),
-                        Text("Tap to upload image"),
-                      ],
-                    ),
+                      ? const Center(
+                    child: Icon(Icons.image,
+                        size: 60, color: Color(0xFF7F1DBA)),
                   )
                       : ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
                     child: Image.file(imageFile!, fit: BoxFit.cover),
                   ),
                 ),
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 20),
 
-              _buildTextField("Spare Part Name", icon: Icons.category, onSaved: (v) => name = v!),
-              _buildTextField("Brand", icon: Icons.business, onSaved: (v) => brand = v!),
-              _buildTextField("Price (₹)", icon: Icons.attach_money, keyboardType: TextInputType.number, onSaved: (v) => price = double.tryParse(v!)),
-              _buildTextField("Description", icon: Icons.description, onSaved: (v) => description = v!, maxLines: 3),
-              SizedBox(height: 20),
+              _buildTextField("Name", onSaved: (v) => name = v!),
+              _buildTextField("Brand", onSaved: (v) => brand = v!),
+              _buildTextField(
+                "Price (₹)",
+                keyboardType: TextInputType.number,
+                onSaved: (v) => price = double.tryParse(v!),
+              ),
+              _buildTextField(
+                "Quantity",
+                keyboardType: TextInputType.number,
+                onSaved: (v) => quantity = int.tryParse(v!),
+              ),
+              _buildTextField(
+                "Description",
+                onSaved: (v) => description = v!,
+                maxLines: 3,
+              ),
 
-              ElevatedButton(
-                onPressed: _isSubmitting ? null : _submitForm,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: themeColor,
-                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+              const SizedBox(height: 30),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isSubmitting ? null : _submitForm,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF7F1DBA),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
-                ),
-                child: _isSubmitting
-                    ? CircularProgressIndicator(color: Colors.white)
-                    : Text(
-                  "Submit",
-                  style: TextStyle(fontSize: 16, color: Colors.white),
+                  child: _isSubmitting
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : Text(
+                    "Submit Part",
+                    style: GoogleFonts.lexend(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -175,28 +269,21 @@ class _AddSparePartFormState extends State<AddSparePartForm> {
     );
   }
 
+  // 🧩 Reusable field builder
   Widget _buildTextField(
       String label, {
-        required IconData icon,
-        FormFieldSetter<String>? onSaved,
+        required FormFieldSetter<String> onSaved,
         TextInputType keyboardType = TextInputType.text,
         int maxLines = 1,
       }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: TextFormField(
         decoration: InputDecoration(
-          prefixIcon: Icon(icon, color: themeColor),
           labelText: label,
-          labelStyle: TextStyle(color: themeColor),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: themeColor),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: themeColor.withOpacity(0.5)),
-          ),
+          filled: true,
+          fillColor: Colors.grey[100],
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         ),
         validator: (v) => v == null || v.isEmpty ? 'Please enter $label' : null,
         onSaved: onSaved,
