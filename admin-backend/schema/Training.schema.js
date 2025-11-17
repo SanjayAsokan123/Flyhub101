@@ -9,23 +9,13 @@ export const trainingTypeDefs = gql`
     gst: Float!
     days: Int!
     totalAmount: Float!
-    imagePath: String
+    imagePath: String       # Firebase Storage URL
     shortDescription: String
     fullDescription: String
     createdAt: String
     updatedAt: String
   }
 
-  """ Real-time training update type (for subscriptions) """
-  type TrainingNotification {
-    action: String!          # e.g. "added", "updated", "deleted"
-    training: Training!
-    timestamp: String!
-  }
-
-  # ======================================================
-  # 🧾 TRAINING ENROLLMENT TYPES
-  # ======================================================
   """ Represents a student's enrollment in a training """
   type TrainingEnroll {
     id: ID!
@@ -57,23 +47,18 @@ export const trainingTypeDefs = gql`
     isAbove18: Boolean
   }
 
-  # ======================================================
-  # 📘 QUERY OPERATIONS
-  # ======================================================
+  # =======================
+  # QUERIES
+  # =======================
   type Query {
-    """ Fetch all training programs (search + sort) """
     getTrainings(search: String, sortOrder: String): [Training]
-
-    """ Fetch single training by ID """
     getTrainingById(id: ID!): Training
-
-    """ (Admin) Fetch all training enrollments """
     getEnrollments: [TrainingEnroll]
   }
 
-  # ======================================================
-  # ✏️ MUTATION OPERATIONS
-  # ======================================================
+  # =======================
+  # MUTATIONS
+  # =======================
   type Mutation {
     """ Add a new training program """
     addTraining(
@@ -81,7 +66,7 @@ export const trainingTypeDefs = gql`
       amount: Float!
       gst: Float!
       days: Int!
-      imagePath: String
+      imagePath: String         # Firebase URL
       shortDescription: String
       fullDescription: String
     ): Training
@@ -93,7 +78,7 @@ export const trainingTypeDefs = gql`
       amount: Float
       gst: Float
       days: Int
-      imagePath: String
+      imagePath: String         # Firebase URL
       shortDescription: String
       fullDescription: String
     ): Training
@@ -105,11 +90,17 @@ export const trainingTypeDefs = gql`
     enrollTraining(input: TrainingEnrollInput!): TrainingEnroll
   }
 
-  # ======================================================
-  # 🔔 SUBSCRIPTIONS (REAL-TIME UPDATES)
-  # ======================================================
+  # =======================
+  # SUBSCRIPTIONS (optional)
+  # =======================
   type Subscription {
-    """ Listen for new, updated, or deleted trainings """
     trainingUpdated: TrainingNotification
+  }
+
+  """ Real-time training update type """
+  type TrainingNotification {
+    action: String!
+    training: Training!
+    timestamp: String!
   }
 `;

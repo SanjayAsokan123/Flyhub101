@@ -12,7 +12,7 @@ class Training extends StatefulWidget {
 }
 
 class _TrainingState extends State<Training> {
-  final String graphqlUrl = "http://192.168.1.207:5002/graphql";
+  final String graphqlUrl = "http://192.168.1.178:5001/graphql";
 
   List<Map<String, dynamic>> trainings = [];
   bool isLoading = true;
@@ -124,15 +124,17 @@ class CourseCard extends StatelessWidget {
   final Map<String, dynamic> course;
 
   static const Color themeColor = Color(0xFF1A0A5B);
-  static const Color themeColors= Color(0xFF1A0A5B);
 
   const CourseCard({super.key, required this.course});
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = course['imagePath'] != null &&
-        course['imagePath'].toString().isNotEmpty
-        ? "http://127.0.0.1:5002${course['imagePath']}"
+    // ==============================
+    //  FIREBASE STORAGE IMAGE URL FIX
+    // ==============================
+    final String imageUrl = (course['imagePath'] != null &&
+        course['imagePath'].toString().isNotEmpty)
+        ? course['imagePath'] // DIRECT FIREBASE URL
         : "https://via.placeholder.com/512x256.png?text=No+Image";
 
     final screenWidth = MediaQuery.of(context).size.width;
@@ -161,7 +163,9 @@ class CourseCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // 🖼 Centered Image
+            // =====================
+            //  FIREBASE IMAGE
+            // =====================
             ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: Image.network(
@@ -178,6 +182,7 @@ class CourseCard extends StatelessWidget {
                 ),
               ),
             ),
+
             const SizedBox(height: 16),
 
             // 📘 Title
@@ -210,7 +215,7 @@ class CourseCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.access_time, size: 16, color: themeColors),
+                const Icon(Icons.access_time, size: 16, color: themeColor),
                 const SizedBox(width: 5),
                 Text(
                   "${course['days'] ?? 0} Days",
@@ -229,7 +234,7 @@ class CourseCard extends StatelessWidget {
               style: GoogleFonts.lexend(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
-                color: themeColors,
+                color: themeColor,
               ),
             ),
             const SizedBox(height: 14),

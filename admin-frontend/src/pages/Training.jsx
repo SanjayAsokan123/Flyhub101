@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from "react";
 import "../styles/Training.css";
 
-const GRAPHQL_URL = "http://127.0.0.1:5001/graphql"; // Backend GraphQL endpoint
-const UPLOAD_URL = "http://127.0.0.1:5001/upload"; // Firebase upload REST API route
+const GRAPHQL_URL = "http://127.0.0.1:5001/graphql";
+const UPLOAD_URL = "http://127.0.0.1:5001/upload";  // Backend that uploads to Firebase
 
 function TrainingPage() {
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [gst, setGst] = useState("");
   const [days, setDays] = useState("");
-  const [imagePath, setImagePath] = useState("");
+  const [imagePath, setImagePath] = useState(""); // stores Firebase URL
   const [shortDescription, setShortDescription] = useState("");
   const [fullDescription, setFullDescription] = useState("");
   const [submissions, setSubmissions] = useState([]);
@@ -21,7 +21,7 @@ function TrainingPage() {
   const [showSummary, setShowSummary] = useState(false);
   const [search, setSearch] = useState("");
 
-  // ✅ Fetch all trainings on mount
+  // Fetch all trainings on mount
   useEffect(() => {
     fetchTrainings();
   }, []);
@@ -44,14 +44,17 @@ function TrainingPage() {
         }
       }
     `;
+
     try {
       const res = await fetch(GRAPHQL_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query }),
       });
+
       const result = await res.json();
       if (result.errors) throw new Error(result.errors[0].message);
+
       setSubmissions(result.data.getTrainings || []);
     } catch (err) {
       setError("❌ " + err.message);
@@ -60,7 +63,7 @@ function TrainingPage() {
     }
   };
 
-  // ✅ Auto hide toast after 3 sec
+  // Hide toast automatically
   useEffect(() => {
     if (toast) {
       const timer = setTimeout(() => setToast(null), 3000);
@@ -68,26 +71,24 @@ function TrainingPage() {
     }
   }, [toast]);
 
-  // ✅ Firebase File Upload
+  // Firebase Upload Handler
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("folder", "trainings"); // store under /trainings in Firebase
+    formData.append("folder", "training"); // Upload folder in firebase
 
     try {
       const res = await fetch(UPLOAD_URL, {
         method: "POST",
-        headers: {
-          // ⚠️ If your /upload route requires Firebase Auth, include token:
-          // Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
         body: formData,
       });
+
       const data = await res.json();
       if (data.success && data.url) {
-        setImagePath(data.url); // ✅ use returned Firebase URL (not filePath)
+        setImagePath(data.url); // Firebase download URL
         setToast("✅ Image uploaded successfully!");
       } else {
         setToast("❌ Upload failed!");
@@ -97,52 +98,49 @@ function TrainingPage() {
     }
   };
 
-  // ✅ Prevent GraphQL injection by escaping strings
+  // Escape GraphQL strings safely
   const escapeGraphQLString = (str = "") =>
     str.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
 
-  // ✅ Add or update training
+  // Submit training (add / update)
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title.trim()) return alert("Please enter a title!");
 
     setActionLoading(true);
-    const safeTitle = escapeGraphQLString(title);
-    const safeShort = escapeGraphQLString(shortDescription);
-    const safeFull = escapeGraphQLString(fullDescription);
 
     const mutation = editMode
       ? `
-        mutation {
-          updateTraining(
-            id: "${editMode}",
-            title: "${safeTitle}",
-            amount: ${parseFloat(amount)},
-            gst: ${parseFloat(gst)},
-            days: ${parseInt(days)},
-            imagePath: "${imagePath}",
-            shortDescription: "${safeShort}",
-            fullDescription: "${safeFull}"
-          ) {
-            id title amount gst days totalAmount imagePath shortDescription fullDescription
-          }
+      mutation {
+        updateTraining(
+          id: "${editMode}",
+          title: "${escapeGraphQLString(title)}",
+          amount: ${parseFloat(amount)},
+          gst: ${parseFloat(gst)},
+          days: ${parseInt(days)},
+          imagePath: "${imagePath}",
+          shortDescription: "${escapeGraphQLString(shortDescription)}",
+          fullDescription: "${escapeGraphQLString(fullDescription)}"
+        ) {
+          id title amount gst days totalAmount imagePath shortDescription fullDescription
         }
-      `
+      }
+    `
       : `
-        mutation {
-          addTraining(
-            title: "${safeTitle}",
-            amount: ${parseFloat(amount)},
-            gst: ${parseFloat(gst)},
-            days: ${parseInt(days)},
-            imagePath: "${imagePath}",
-            shortDescription: "${safeShort}",
-            fullDescription: "${safeFull}"
-          ) {
-            id title amount gst days totalAmount imagePath shortDescription fullDescription
-          }
+      mutation {
+        addTraining(
+          title: "${escapeGraphQLString(title)}",
+          amount: ${parseFloat(amount)},
+          gst: ${parseFloat(gst)},
+          days: ${parseInt(days)},
+          imagePath: "${imagePath}",
+          shortDescription: "${escapeGraphQLString(shortDescription)}",
+          fullDescription: "${escapeGraphQLString(fullDescription)}"
+        ) {
+          id title amount gst days totalAmount imagePath shortDescription fullDescription
         }
-      `;
+      }
+    `;
 
     try {
       const res = await fetch(GRAPHQL_URL, {
@@ -150,6 +148,7 @@ function TrainingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: mutation }),
       });
+
       const result = await res.json();
       if (result.errors) throw new Error(result.errors[0].message);
 
@@ -172,6 +171,7 @@ function TrainingPage() {
     }
   };
 
+  // Reset form fields
   const resetForm = () => {
     setTitle("");
     setAmount("");
@@ -183,6 +183,7 @@ function TrainingPage() {
     setEditMode(null);
   };
 
+  // Edit selected training
   const handleEdit = (t) => {
     setEditMode(t.id);
     setTitle(t.title);
@@ -195,20 +196,24 @@ function TrainingPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  // Delete training
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this training?")) return;
+
     setActionLoading(true);
     const mutation = `
       mutation {
         deleteTraining(id: "${id}")
       }
     `;
+
     try {
       const res = await fetch(GRAPHQL_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: mutation }),
       });
+
       const result = await res.json();
       if (result.errors) throw new Error(result.errors[0].message);
 
@@ -231,9 +236,10 @@ function TrainingPage() {
   return (
     <div className="training-page">
       <h2>🎓 Training Management</h2>
+
       {toast && <div className="toast">{toast}</div>}
 
-      {/* 🔍 Search Bar */}
+      {/* Search Bar */}
       <div className="search-section">
         <input
           type="text"
@@ -246,7 +252,6 @@ function TrainingPage() {
         </button>
       </div>
 
-      {/* 📋 Summary List */}
       {showSummary && (
         <div className="training-summary">
           {filteredList.length === 0 ? (
@@ -254,17 +259,25 @@ function TrainingPage() {
           ) : (
             filteredList.map((t) => (
               <div key={t.id} className="summary-card">
-                {t.imagePath && <img src={t.imagePath} alt={t.title} />}
+                <img src={t.imagePath} alt={t.title} />
                 <div className="summary-info">
                   <h4>{t.title}</h4>
-                  <p><b>Days:</b> {t.days}</p>
-                  <p><b>Amount:</b> ₹{t.amount}</p>
-                  <p><b>GST:</b> {t.gst}%</p>
-                  <p><b>Total:</b> ₹{t.totalAmount}</p>
+                  <p>Days: {t.days}</p>
+                  <p>Amount: ₹{t.amount}</p>
+                  <p>GST: {t.gst}%</p>
+                  <p>Total: ₹{t.totalAmount}</p>
                   <p>{t.shortDescription}</p>
+
                   <div className="actions">
-                    <button className="edit-btn" onClick={() => handleEdit(t)}>✏ Edit</button>
-                    <button className="delete-btn" onClick={() => handleDelete(t.id)}>🗑 Delete</button>
+                    <button className="edit-btn" onClick={() => handleEdit(t)}>
+                      ✏ Edit
+                    </button>
+                    <button
+                      className="delete-btn"
+                      onClick={() => handleDelete(t.id)}
+                    >
+                      🗑 Delete
+                    </button>
                   </div>
                 </div>
               </div>
@@ -273,7 +286,7 @@ function TrainingPage() {
         </div>
       )}
 
-      {/* 🧾 Form */}
+      {/* Form */}
       <form className="training-form" onSubmit={handleSubmit}>
         <div className="form-group">
           <label>Title *</label>
@@ -296,6 +309,7 @@ function TrainingPage() {
               required
             />
           </div>
+
           <div className="form-group">
             <label>GST (%)</label>
             <input
@@ -305,6 +319,7 @@ function TrainingPage() {
               required
             />
           </div>
+
           <div className="form-group">
             <label>Days</label>
             <input
@@ -319,6 +334,7 @@ function TrainingPage() {
         <div className="form-group">
           <label>Upload Image</label>
           <input type="file" accept="image/*" onChange={handleFileUpload} />
+
           {imagePath && (
             <div className="image-preview">
               <img src={imagePath} alt="preview" />
@@ -344,7 +360,7 @@ function TrainingPage() {
           />
         </div>
 
-        <button type="submit" className="submit-btn" disabled={actionLoading}>
+        <button className="submit-btn" type="submit" disabled={actionLoading}>
           {actionLoading
             ? "Saving..."
             : editMode

@@ -42,7 +42,7 @@ class ApiClass {
 
       final token = await user.getIdToken();
       final uri = Uri.parse(
-          "http://192.168.31.179:5001/upload"); // ✅ Use /upload
+          "http://192.168.1.178:5001/upload"); // ✅ Use /upload
 
       final request = http.MultipartRequest("POST", uri)
         ..headers["Authorization"] = "Bearer $token"

@@ -122,18 +122,18 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
 
       // Navigate according to role
-      if (role == "seller") {
-        // Send seller to seller area (SellerFormDialog may be initial setup)
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const SellerFormDialog()),
-        );
-      } else {
+      // if (role == "seller") {
+      //   // Send seller to seller area (SellerFormDialog may be initial setup)
+      //   Navigator.pushReplacement(
+      //     context,
+      //     MaterialPageRoute(builder: (_) => const SellerFormDialog()),
+      //   );
+      // }
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
         );
-      }
 
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✅ Welcome back!")));
     } on FirebaseAuthException catch (e) {
