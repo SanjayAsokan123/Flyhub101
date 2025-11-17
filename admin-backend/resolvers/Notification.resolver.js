@@ -2,16 +2,23 @@ import { Notification } from "../models/Notification.model.js";
 import GraphQLJSON from "graphql-type-json";
 import { NOTIFICATION_TOPIC } from "../utils/createSellerNotification.js";
 
+/**
+ * ✅ Notification Resolvers
+ * Provides real-time + historical notifications for sellers/admins
+ */
 export const notificationResolvers = {
   JSON: GraphQLJSON,
 
   Query: {
     /**
-     * 🟢 Get notifications for a seller or admin
+     * 🟢 Fetch notifications by sellerId (supports pagination & filters)
      */
-    notificationsBySeller: async (_, { sellerId, status = "all", limit = 50, skip = 0 }) => {
+    notificationsBySeller: async (
+      _,
+      { sellerId, status = "all", limit = 50, skip = 0 }
+    ) => {
       try {
-        if (!sellerId) throw new Error("sellerId required");
+        if (!sellerId) throw new Error("sellerId is required");
 
         const query = { sellerId };
         if (status === "unread") query.read = false;
@@ -25,7 +32,7 @@ export const notificationResolvers = {
         return notifications.map((n) => ({
           ...n.toObject(),
           data: n.data || {},
-          createdAt: n.createdAt.toISOString(),
+          createdAt: n.createdAt?.toISOString() || new Date().toISOString(),
         }));
       } catch (err) {
         console.error("❌ Error fetching notifications:", err);
@@ -34,41 +41,52 @@ export const notificationResolvers = {
     },
 
     /**
-     * 🟣 Count unread notifications (for badge counters)
+     * 🟣 Get count of unread notifications for badge UI
      */
     unreadNotificationCount: async (_, { sellerId }) => {
       try {
-        if (!sellerId) throw new Error("sellerId required");
+        if (!sellerId) throw new Error("sellerId is required");
         return await Notification.countDocuments({ sellerId, read: false });
       } catch (err) {
-        console.error("❌ Error counting notifications:", err);
+        console.error("❌ Error counting unread notifications:", err);
         throw new Error("Failed to count notifications: " + err.message);
       }
     },
   },
 
   Mutation: {
+    /**
+     * 🧪 Create a test notification (for UI / system validation)
+     */
+    createTestNotification: async (
+      _,
+      { sellerId, title, message, type = "test", url },
+      { pubsub }
+    ) => {
+      try {
+        const { createSellerNotification } = await import(
+          "../utils/createSellerNotification.js"
+        );
 
+        const newNotif = await createSellerNotification({
+          sellerId,
+          title,
+          message,
+          type,
+          url,
+          data: { triggeredBy: "manual_test" },
+          pubsub,
+        });
 
-  // Testing the notification
-  createTestNotification: async (_, { sellerId, title, message, type = "test", url }, { pubsub }) => {
-    try {
-      const { createSellerNotification } = await import("../utils/createSellerNotification.js");
-      const newNotif = await createSellerNotification({
-        sellerId,
-        title,
-        message,
-        type,
-        url,
-        data: { triggeredBy: "manual_test" },
-        pubsub,
-      });
-      return newNotif;
-    } catch (err) {
-      console.error("❌ Error creating test notification:", err);
-      throw new Error("Failed to create test notification: " + err.message);
-    }
-  },
+        return {
+          ...newNotif.toObject(),
+          createdAt: newNotif.createdAt?.toISOString() || new Date().toISOString(),
+        };
+      } catch (err) {
+        console.error("❌ Error creating test notification:", err);
+        throw new Error("Failed to create test notification: " + err.message);
+      }
+    },
 
     /**
      * ✅ Mark a single notification as read
@@ -81,7 +99,11 @@ export const notificationResolvers = {
           { new: true }
         );
         if (!updated) throw new Error("Notification not found");
-        return updated;
+
+        return {
+          ...updated.toObject(),
+          createdAt: updated.createdAt?.toISOString() || new Date().toISOString(),
+        };
       } catch (err) {
         console.error("❌ Error marking notification read:", err);
         throw new Error("Failed to mark notification as read: " + err.message);
@@ -94,10 +116,12 @@ export const notificationResolvers = {
     markAllNotificationsRead: async (_, { sellerId }) => {
       try {
         if (!sellerId) throw new Error("sellerId required");
+
         await Notification.updateMany(
           { sellerId, read: false },
           { $set: { read: true } }
         );
+
         return true;
       } catch (err) {
         console.error("❌ Error marking all notifications read:", err);
@@ -106,11 +130,12 @@ export const notificationResolvers = {
     },
 
     /**
-     * 🗑️ Delete all notifications (admin or seller cleanup)
+     * 🗑️ Delete all notifications for a seller (cleanup)
      */
     deleteNotifications: async (_, { sellerId }) => {
       try {
         if (!sellerId) throw new Error("sellerId required");
+
         const result = await Notification.deleteMany({ sellerId });
         return result.deletedCount > 0;
       } catch (err) {
@@ -122,28 +147,25 @@ export const notificationResolvers = {
 
   Subscription: {
     /**
-     * 🔔 Real-time notification subscription
+     * 🔔 Real-time notifications for sellers and admin
      */
     notificationAdded: {
       subscribe: async (_, { sellerId }, { pubsub }) => {
-        if (!pubsub) throw new Error("PubSub not available in context");
+        if (!pubsub) throw new Error("PubSub not initialized");
 
-        console.log(`📡 Subscribed to notifications for seller: ${sellerId}`);
+        console.log(`📡 Subscribed to notifications for sellerId: ${sellerId}`);
         return pubsub.asyncIterator(NOTIFICATION_TOPIC);
       },
 
       /**
-       * 🧩 Filter and deliver only relevant notifications
+       * 🎯 Filters & delivers only relevant notifications
        */
       resolve: (payload, args) => {
         const notification = payload.notificationAdded;
 
-        // Deliver to specific seller/admin only
-        if (args.sellerId && notification.sellerId !== args.sellerId) {
-          return null;
-        }
+        // Only deliver to intended recipient
+        if (!notification || notification.sellerId !== args.sellerId) return null;
 
-        // Clean up payload for client
         return {
           notificationId: notification.notificationId,
           sellerId: notification.sellerId,
@@ -152,7 +174,8 @@ export const notificationResolvers = {
           type: notification.type,
           read: notification.read,
           data: notification.data || {},
-          createdAt: notification.createdAt.toISOString(),
+          url: notification.url || null,
+          createdAt: notification.createdAt?.toISOString() || new Date().toISOString(),
         };
       },
     },

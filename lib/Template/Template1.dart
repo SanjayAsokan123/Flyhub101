@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flyhub/FindJobs.dart';
 import 'package:flyhub/MaintenancePage.dart';
-import 'package:flyhub/Training.dart';
+import 'package:flyhub/Training_Enroll_Form.dart';
 import 'package:flyhub/DroneServicesPage.dart';
-import 'package:flyhub/JobsPage.dart';
 import '../HomeScreen/Dynamichome.dart';
 import '../category_tile.dart';
 import '../../CommonClass/utils.dart';
@@ -90,7 +89,7 @@ class _Template1State extends State<Template1> {
               case "training":
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const Training()),
+                  MaterialPageRoute(builder: (context) => const TrainingEnrollForm(courseId: '',)),
                 );
                 break;
 

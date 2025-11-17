@@ -28,7 +28,7 @@ class _AddServiceFormState extends State<AddServiceForm> {
   String description = '';
   double? price;
 
-  final String graphqlUrl = "http://192.168.0.180:5001/graphql";
+  final String graphqlUrl = "http://192.168.1.178:5001/graphql";
 
   /// 🖼 Pick Image
   Future<void> _pickImage() async {

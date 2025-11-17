@@ -27,7 +27,7 @@ class _AddAccessoryFormState extends State<AddAccessoryForm> {
   double _uploadProgress = 0.0;
 
   final picker = ImagePicker();
-  final String graphqlUrl = "http://192.168.0.180:5001/graphql";
+  final String graphqlUrl = "http://192.168.1.178:5001/graphql";
   final Color themeColor = const Color(0xFF1A0A5B);
 
   /// 📸 Pick image from gallery

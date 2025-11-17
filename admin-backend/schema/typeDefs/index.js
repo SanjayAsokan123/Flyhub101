@@ -14,7 +14,9 @@ import { regulatoryTypeDefs } from "../Regulatory.schema.js";
 import { buyerTypeDefs } from "../Buyer.schema.js";
 import { sellerTypeDefs } from "../Seller.schema.js";
 import { notificationTypeDefs } from "../Notification.schema.js";
-
+import { trainingTypeDefs } from "../Training.schema.js"; // ✅ Added Training schema
+import { taxTypeDefs } from "../Tax.schema.js";
+// ✅ Export all typeDefs for Apollo Server
 export const typeDefs = [
   baseTypeDefs,
   droneTypeDefs,
@@ -29,5 +31,7 @@ export const typeDefs = [
   regulatoryTypeDefs,
   buyerTypeDefs,
   sellerTypeDefs,
+  taxTypeDefs,
   notificationTypeDefs,
+  trainingTypeDefs, // ✅ Include here
 ];

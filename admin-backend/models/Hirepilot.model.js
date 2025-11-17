@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
-import { Seller } from "./Seller.model.js";
+import { Seller } from "./Seller.model.js"; // ✅ Use PascalCase for consistency
 
+// 🔗 Subschemas
 const certificationSchema = new mongoose.Schema({
   url: { type: String, required: true },
 });
@@ -9,6 +10,7 @@ const fileSchema = new mongoose.Schema({
   url: { type: String, required: true },
 });
 
+// 🧩 Main HirePilot Schema
 const hirePilotSchema = new mongoose.Schema(
   {
     pilotId: { type: String, unique: true },
@@ -24,15 +26,29 @@ const hirePilotSchema = new mongoose.Schema(
     certifications: [certificationSchema],
     resume: fileSchema,
     description: { type: String },
-    email: { type: String, required: true },
-    phoneNumber: { type: String, required: true },
-    status: { type: String, default: "pending" },
+
+    // ✅ Keep same field names as GraphQL schema
+    newemail: { type: String, required: true },
+    newphoneNumber: { type: String, required: true },
+
+    // ✅ Dual status structure
+    adminStatus: {
+      type: String,
+      default: "pending",
+      enum: ["pending", "approved", "rejected"],
+    },
+    buyerStatus: {
+      type: String,
+      default: "pending",
+      enum: ["pending", "confirmed", "cancelled", "completed"],
+    },
+
     sellerId: { type: String, required: true }, // store Seller.customId
   },
   { timestamps: true }
 );
 
-// Auto-generate pilotId per seller
+// 🔢 Auto-generate pilotId per seller
 hirePilotSchema.pre("save", async function (next) {
   if (this.isNew && !this.pilotId && this.sellerId) {
     const seller = await Seller.findOne({ customId: this.sellerId });
@@ -42,14 +58,15 @@ hirePilotSchema.pre("save", async function (next) {
       sellerId: this.sellerId,
     });
     const number = String(count + 1).padStart(3, "0");
-    this.pilotId = `${seller.customId}P${number}`;
+    this.pilotId = `${seller.customId}P${number}`; // ✅ Correct backtick syntax
 
-    // Assign seller email & phone automatically
-    this.email = seller.email;
-    this.phoneNumber = seller.phoneNumber;
+    // Auto-fill seller contact details if not manually entered
+    if (!this.newemail) this.newemail = seller.email;
+    if (!this.newphoneNumber) this.newphoneNumber = seller.phoneNumber;
   }
   next();
 });
 
+// ✅ Named export for consistency with other models
 export const HirePilot =
   mongoose.models.HirePilot || mongoose.model("HirePilot", hirePilotSchema);

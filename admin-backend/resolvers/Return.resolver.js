@@ -3,6 +3,10 @@ import { Seller } from "../models/Seller.model.js";
 import { Order } from "../models/Order.model.js";
 import { createSellerNotification } from "../utils/createSellerNotification.js";
 import { sendSellerStatusMail } from "../utils/emailService.js";
+import {
+  uploadSingleFile,
+  deleteFirebaseFile,
+} from "../utils/uploadToFirebase.js";
 
 // Helper: Generate unique return ID
 async function generateReturnId() {
@@ -62,16 +66,20 @@ export const returnResolvers = {
     returnRequestsByStatus: async (_, { status }) => {
       const validStatuses = ["requested", "approved", "rejected", "completed"];
       if (!validStatuses.includes(status))
-        throw new Error(`Invalid status. Must be one of: ${validStatuses.join(", ")}`);
+        throw new Error(
+          `Invalid status. Must be one of: ${validStatuses.join(", ")}`
+        );
 
-      const returns = await ReturnRequest.find({ status }).sort({ createdAt: -1 });
+      const returns = await ReturnRequest.find({ status }).sort({
+        createdAt: -1,
+      });
       return returns;
     },
   },
 
   Mutation: {
     /**
-     * 🟡 Buyer creates a return request
+     * 🟡 Buyer creates a return request (with Firebase file upload)
      */
     requestReturn: async (_, { data }, { pubsub }) => {
       try {
@@ -85,9 +93,16 @@ export const returnResolvers = {
         const buyerId = order.buyer?.buyerId || null;
         const returnId = await generateReturnId();
 
+        // ✅ Upload proof image or PDF (optional)
+        let proofUrl = data.proofUrl || null;
+        if (data.proofFile?.file) {
+          proofUrl = await uploadSingleFile(data.proofFile.file, "return-proofs");
+        }
+
         const newReturn = await ReturnRequest.create({
           returnId,
           ...data,
+          proofUrl,
           sellerId,
           buyerId,
           status: "requested",
@@ -128,13 +143,67 @@ export const returnResolvers = {
     },
 
     /**
-     * ✏️ Update return request status (by admin or seller)
+     * ✏️ Update return request (status or proof)
+     */
+    updateReturnRequest: async (_, { returnId, data }, { pubsub }) => {
+      try {
+        const existing = await ReturnRequest.findOne({ returnId });
+        if (!existing) throw new Error("Return request not found");
+
+        // ✅ If a new proof file is uploaded, delete the old one
+        if (data.proofFile?.file) {
+          if (existing.proofUrl) {
+            await deleteFirebaseFile(existing.proofUrl);
+          }
+          data.proofUrl = await uploadSingleFile(
+            data.proofFile.file,
+            "return-proofs"
+          );
+        }
+
+        Object.assign(existing, data);
+        const updated = await existing.save();
+
+        const seller = await Seller.findOne({ customId: updated.sellerId });
+
+        await createSellerNotification({
+          sellerId: updated.sellerId,
+          title: "♻️ Return Updated",
+          message: `Return request ${updated.returnId} has been updated.`,
+          type: "return_update",
+          data: { returnId: updated.returnId },
+          url: `/seller/returns/${updated.returnId}`,
+          pubsub,
+        });
+
+        return {
+          ...updated.toObject(),
+          seller: seller
+            ? {
+                sellerId: seller.customId,
+                name: seller.name,
+                phone: seller.phoneNumber,
+                email: seller.email,
+                address: seller.address,
+              }
+            : null,
+        };
+      } catch (err) {
+        console.error("❌ Error updating return request:", err);
+        throw new Error("Failed to update return request: " + err.message);
+      }
+    },
+
+    /**
+     * 🔄 Update return request status (Admin or Seller)
      */
     updateReturnStatus: async (_, { returnId, status }, { pubsub }) => {
       try {
         const validStatuses = ["requested", "approved", "rejected", "completed"];
         if (!validStatuses.includes(status))
-          throw new Error(`Invalid status. Must be one of: ${validStatuses.join(", ")}`);
+          throw new Error(
+            `Invalid status. Must be one of: ${validStatuses.join(", ")}`
+          );
 
         const updated = await ReturnRequest.findOneAndUpdate(
           { returnId },
@@ -145,7 +214,7 @@ export const returnResolvers = {
 
         const seller = await Seller.findOne({ customId: updated.sellerId });
 
-        // 📨 Send email to seller if available
+        // 📨 Email to seller
         if (seller?.email) {
           await sendSellerStatusMail({
             to: seller.email,
@@ -155,7 +224,7 @@ export const returnResolvers = {
           });
         }
 
-        // 🔔 Create notification for seller
+        // 🔔 Seller notification
         await createSellerNotification({
           sellerId: updated.sellerId,
           title:
@@ -181,14 +250,18 @@ export const returnResolvers = {
     },
 
     /**
-     * 🗑 Delete return request
+     * 🗑 Delete return request (Firebase cleanup)
      */
     deleteReturn: async (_, { returnId }, { pubsub }) => {
       try {
         const deleted = await ReturnRequest.findOneAndDelete({ returnId });
         if (!deleted) throw new Error("Return request not found");
 
-        // 🔔 Notify seller about deletion
+        // ✅ Delete proof from Firebase if exists
+        if (deleted.proofUrl) {
+          await deleteFirebaseFile(deleted.proofUrl);
+        }
+
         await createSellerNotification({
           sellerId: deleted.sellerId,
           title: "🗑️ Return Deleted",

@@ -2,6 +2,12 @@ import { Part } from "../models/Parts.model.js";
 import { Seller } from "../models/Seller.model.js";
 import { sendSellerStatusMail } from "../utils/emailService.js";
 import { createSellerNotification } from "../utils/createSellerNotification.js";
+import {calculateFinalPrice} from "../utils/TaxCalculator.js";
+import {
+  uploadSingleFile,
+  deleteFirebaseFile,
+} from "../utils/uploadToFirebase.js";
+
 
 export const partResolvers = {
   Query: {
@@ -11,8 +17,12 @@ export const partResolvers = {
         const allParts = await Part.find();
         const sellerIds = [...new Set(allParts.map((p) => p.sellerId))];
         const sellers = await Seller.find({ customId: { $in: sellerIds } });
+
         const sellerMap = Object.fromEntries(
-          sellers.map((s) => [s.customId, { email: s.email, phoneNumber: s.phoneNumber }])
+          sellers.map((s) => [
+            s.customId,
+            { email: s.email, phoneNumber: s.phoneNumber },
+          ])
         );
 
         return allParts.map((part) => ({
@@ -25,15 +35,11 @@ export const partResolvers = {
       }
     },
 
-    // ✅ Approved parts for a seller
+    // ✅ Filtered queries
     approvedParts: async (_, { sellerId }) =>
       Part.find({ sellerId, status: "approved" }),
-
-    // ✅ Pending parts for a seller
     pendingParts: async (_, { sellerId }) =>
       Part.find({ sellerId, status: "pending" }),
-
-    // ✅ Rejected parts for a seller
     rejectedParts: async (_, { sellerId }) =>
       Part.find({ sellerId, status: "rejected" }),
 
@@ -58,33 +64,35 @@ export const partResolvers = {
   },
 
   Mutation: {
-    // 🟢 Create a new part
+    /**
+     * 🟢 Create a new part with Firebase upload
+     */
     createPart: async (_, { input }, { pubsub }) => {
       try {
         const seller = await Seller.findOne({ customId: input.sellerId });
         if (!seller) throw new Error("Seller not found");
+        const { finalPrice } = await calculateFinalPrice(input.price);
+        input.price = finalPrice;
+        const newPartData = { ...input, status: "pending" };
 
-        const newPart = new Part({
-          ...input,
-          status: "pending",
-        });
+        // ✅ Upload image if file provided
+        if (input.imageFile?.file) {
+          newPartData.image = await uploadSingleFile(input.imageFile.file, "parts");
+        }
 
+        const newPart = new Part(newPartData);
         const saved = await newPart.save();
 
-        // 🔔 Optional: Notify seller
-        try {
-          await createSellerNotification({
-            sellerId: input.sellerId,
-            title: "🧩 New Part Submitted",
-            message: `Your part "${input.name}" has been submitted for admin approval.`,
-            type: "part_submission",
-            data: { partId: saved.partId },
-            url: `/seller/parts/${saved.partId}`,
-            pubsub,
-          });
-        } catch (notifErr) {
-          console.error("⚠️ Notification error:", notifErr);
-        }
+        // 🔔 Notify seller
+        await createSellerNotification({
+          sellerId: input.sellerId,
+          title: "🧩 New Part Submitted",
+          message: `Your part "${input.name}" has been submitted for admin approval.`,
+          type: "part_submission",
+          data: { partId: saved.partId },
+          url: `/seller/parts/${saved.partId}`,
+          pubsub,
+        });
 
         return {
           ...saved.toObject(),
@@ -99,13 +107,31 @@ export const partResolvers = {
       }
     },
 
-    // ✏️ Update part details
+    /**
+     * ✏️ Update part details (with Firebase cleanup)
+     */
     updatePart: async (_, { partId, input }) => {
       try {
-        const updated = await Part.findOneAndUpdate({ partId }, input, { new: true });
-        if (!updated) throw new Error("Part not found");
+        const existing = await Part.findOne({ partId });
+        if (!existing) throw new Error("Part not found");
+
+        const updateData = { ...input };
+
+        // ✅ Replace old image in Firebase if new one uploaded
+        if (input.imageFile?.file) {
+          if (existing.image) {
+            await deleteFirebaseFile(existing.image);
+          }
+          updateData.image = await uploadSingleFile(input.imageFile.file, "parts");
+        }
+
+        const updated = await Part.findOneAndUpdate({ partId }, updateData, {
+          new: true,
+        });
+        if (!updated) throw new Error("Part not found after update");
 
         const seller = await Seller.findOne({ customId: updated.sellerId });
+
         return {
           ...updated.toObject(),
           sellerInfo: seller
@@ -118,7 +144,9 @@ export const partResolvers = {
       }
     },
 
-    // ✅ Update Part Status + Notifications
+    /**
+     * ✅ Update Part Status + Notifications
+     */
     updatePartStatus: async (_, { partId, status }, { pubsub }) => {
       try {
         const updated = await Part.findOneAndUpdate(
@@ -129,6 +157,8 @@ export const partResolvers = {
         if (!updated) throw new Error("Part not found");
 
         const seller = await Seller.findOne({ customId: updated.sellerId });
+
+        // 📨 Email
         if (seller?.email) {
           await sendSellerStatusMail({
             to: seller.email,
@@ -138,23 +168,21 @@ export const partResolvers = {
           });
         }
 
-        // 🔔 Create real-time + in-app notification
-        try {
-          await createSellerNotification({
-            sellerId: updated.sellerId,
-            title: `🧩 Part ${status === "approved" ? "Approved" : "Status Updated"}`,
-            message:
-              status === "approved"
-                ? `Your part "${updated.name}" has been approved and listed on Flyhub.`
-                : `Your part "${updated.name}" status changed to "${status}".`,
-            type: "part_status",
-            data: { partId, status },
-            url: `/seller/parts/${partId}`,
-            pubsub,
-          });
-        } catch (notifErr) {
-          console.error("⚠️ Notification creation failed:", notifErr);
-        }
+        // 🔔 In-app notification
+        await createSellerNotification({
+          sellerId: updated.sellerId,
+          title: `🧩 Part ${
+            status === "approved" ? "Approved" : "Status Updated"
+          }`,
+          message:
+            status === "approved"
+              ? `Your part "${updated.name}" has been approved and listed on Flyhub.`
+              : `Your part "${updated.name}" status changed to "${status}".`,
+          type: "part_status",
+          data: { partId, status },
+          url: `/seller/parts/${partId}`,
+          pubsub,
+        });
 
         return {
           ...updated.toObject(),
@@ -168,28 +196,30 @@ export const partResolvers = {
       }
     },
 
-    // 🗑 Delete part
+    /**
+     * 🗑 Delete part (with Firebase cleanup)
+     */
     deletePart: async (_, { partId }, { pubsub }) => {
       try {
         const deleted = await Part.findOneAndDelete({ partId });
         if (!deleted) throw new Error("Part not found");
 
+        // ✅ Delete Firebase file if exists
+        if (deleted.image) {
+          await deleteFirebaseFile(deleted.image);
+        }
+
         const seller = await Seller.findOne({ customId: deleted.sellerId });
 
-        // 🔔 Notify seller
-        try {
-          await createSellerNotification({
-            sellerId: deleted.sellerId,
-            title: "🗑️ Part Deleted",
-            message: `Your part "${deleted.name}" has been removed from the marketplace.`,
-            type: "part_deleted",
-            data: { partId },
-            url: `/seller/parts`,
-            pubsub,
-          });
-        } catch (notifErr) {
-          console.error("⚠️ Delete notification error:", notifErr);
-        }
+        await createSellerNotification({
+          sellerId: deleted.sellerId,
+          title: "🗑️ Part Deleted",
+          message: `Your part "${deleted.name}" has been removed from the marketplace.`,
+          type: "part_deleted",
+          data: { partId },
+          url: `/seller/parts`,
+          pubsub,
+        });
 
         return {
           ...deleted.toObject(),

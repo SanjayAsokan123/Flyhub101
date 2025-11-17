@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'package:flyhub/Login/SelectLanguage.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
@@ -36,12 +35,12 @@ class _SplashscreenState extends State<Splashscreen> {
     pref = await SharedPreferences.getInstance();
     bool otpCompleted = pref.getBool('OTP_completed') ?? false;
 
-    if (!otpCompleted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => Selectlanguage()),
-      );
-    } else {
+    // if (!otpCompleted) {
+      // Navigator.pushReplacement(
+        // context,
+        // MaterialPageRoute(builder: (context) => Selectlanguage()),
+      // );
+ {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => Dynamichome(selectedIndex: 0)),

@@ -17,12 +17,11 @@ function HirePilotsDashboard() {
 
       let query;
 
-      // ✅ SELECT QUERY BASED ON TAB - NOW INCLUDING URL FIELDS
+      // ✅ SELECT QUERY BASED ON TAB
       if (activeTab === "all") {
         query = `
           query {
             hirePilots {
-
               pilotId
               pilotName
               pilotCompany
@@ -30,19 +29,12 @@ function HirePilotsDashboard() {
               availability
               specification
               description
-              status
-              email
-              phoneNumber
-              price {
-                perHour
-                perDay
-              }
-              certifications {
-                url
-              }
-              resume {
-                url
-              }
+              adminStatus
+              newemail
+              newphoneNumber
+              price { perHour perDay }
+              certifications { url }
+              resume { url }
               sellerId
               seller {
                 customId
@@ -56,8 +48,7 @@ function HirePilotsDashboard() {
       } else if (activeTab === "pending") {
         query = `
           query {
-            pendingHirePilots {
-
+            hirePilotsByStatus(adminStatus: "pending") {
               pilotId
               pilotName
               pilotCompany
@@ -65,19 +56,12 @@ function HirePilotsDashboard() {
               availability
               specification
               description
-              status
-              email
-              phoneNumber
-              price {
-                perHour
-                perDay
-              }
-              certifications {
-                url
-              }
-              resume {
-                url
-              }
+              adminStatus
+              newemail
+              newphoneNumber
+              price { perHour perDay }
+              certifications { url }
+              resume { url }
               sellerId
               seller {
                 customId
@@ -91,8 +75,7 @@ function HirePilotsDashboard() {
       } else if (activeTab === "approved") {
         query = `
           query {
-            approvedHirePilots {
-
+            hirePilotsByStatus(adminStatus: "approved") {
               pilotId
               pilotName
               pilotCompany
@@ -100,19 +83,12 @@ function HirePilotsDashboard() {
               availability
               specification
               description
-              status
-              email
-              phoneNumber
-              price {
-                perHour
-                perDay
-              }
-              certifications {
-                url
-              }
-              resume {
-                url
-              }
+              adminStatus
+              newemail
+              newphoneNumber
+              price { perHour perDay }
+              certifications { url }
+              resume { url }
               sellerId
               seller {
                 customId
@@ -126,8 +102,7 @@ function HirePilotsDashboard() {
       } else if (activeTab === "rejected") {
         query = `
           query {
-            rejectedHirePilots {
-
+            hirePilotsByStatus(adminStatus: "rejected") {
               pilotId
               pilotName
               pilotCompany
@@ -135,19 +110,12 @@ function HirePilotsDashboard() {
               availability
               specification
               description
-              status
-              email
-              phoneNumber
-              price {
-                perHour
-                perDay
-              }
-              certifications {
-                url
-              }
-              resume {
-                url
-              }
+              adminStatus
+              newemail
+              newphoneNumber
+              price { perHour perDay }
+              certifications { url }
+              resume { url }
               sellerId
               seller {
                 customId
@@ -172,12 +140,9 @@ function HirePilotsDashboard() {
         if (result.errors) {
           setError(result.errors[0].message);
         } else {
-          // Get pilots array from appropriate query result
           let pilotData = [];
           if (activeTab === "all") pilotData = result.data.hirePilots;
-          else if (activeTab === "pending") pilotData = result.data.pendingHirePilots;
-          else if (activeTab === "approved") pilotData = result.data.approvedHirePilots;
-          else if (activeTab === "rejected") pilotData = result.data.rejectedHirePilots;
+          else pilotData = result.data.hirePilotsByStatus;
 
           setPilots(pilotData);
         }
@@ -189,18 +154,18 @@ function HirePilotsDashboard() {
     };
 
     fetchPilots();
-  }, [activeTab]); // ✅ Re-fetch when tab changes
+  }, [activeTab]);
 
   // 📝 Handle pilot approval/rejection
   const handleApproval = async (pilotId, status) => {
     const mutation = `
       mutation {
-        updateHirePilotStatus(
+        adminUpdateHirePilotStatus(
           pilotId: "${pilotId}"
-          status: "${status}"
+          adminStatus: "${status}"
         ) {
           pilotId
-          status
+          adminStatus
         }
       }
     `;
@@ -217,9 +182,9 @@ function HirePilotsDashboard() {
       if (result.errors) {
         alert("Error updating pilot: " + result.errors[0].message);
       } else {
-        // Refresh pilots after status change
-        setActiveTab("all"); // Go back to all pilots
-        alert(`Pilot ${status}!`);
+        // ✅ Use safe concatenation (no backticks)
+        alert("Pilot " + status + " successfully!");
+        setActiveTab("all"); // Refresh data
       }
     } catch (err) {
       console.error("Error updating pilot status:", err);
@@ -235,30 +200,15 @@ function HirePilotsDashboard() {
 
       {/* ✅ TAB NAVIGATION */}
       <div className="tab-navigation">
-        <button
-          className={`tab-btn ${activeTab === "all" ? "active" : ""}`}
-          onClick={() => setActiveTab("all")}
-        >
-          All Pilots
-        </button>
-        <button
-          className={`tab-btn ${activeTab === "pending" ? "active" : ""}`}
-          onClick={() => setActiveTab("pending")}
-        >
-          Pending
-        </button>
-        <button
-          className={`tab-btn ${activeTab === "approved" ? "active" : ""}`}
-          onClick={() => setActiveTab("approved")}
-        >
-          Approved
-        </button>
-        <button
-          className={`tab-btn ${activeTab === "rejected" ? "active" : ""}`}
-          onClick={() => setActiveTab("rejected")}
-        >
-          Rejected
-        </button>
+        {["all", "pending", "approved", "rejected"].map((tab) => (
+          <button
+            key={tab}
+            className={`tab-btn ${activeTab === tab ? "active" : ""}`}
+            onClick={() => setActiveTab(tab)}
+          >
+            {tab.toUpperCase()}
+          </button>
+        ))}
       </div>
 
       {/* ✅ PILOTS LIST */}
@@ -267,19 +217,19 @@ function HirePilotsDashboard() {
       ) : (
         <div className="pilots-grid">
           {pilots.map((pilot) => (
-            <div key={pilot.id} className="pilot-card">
+            <div key={pilot.pilotId} className="pilot-card">
               <div className="pilot-header">
                 <h2>{pilot.pilotName}</h2>
-                <span className={`status status-${pilot.status?.toLowerCase()}`}>
-                  {pilot.status}
+                <span className={`status status-${pilot.adminStatus?.toLowerCase()}`}>
+                  {pilot.adminStatus}
                 </span>
               </div>
 
               <div className="pilot-details">
                 <p><strong>Pilot ID:</strong> {pilot.pilotId}</p>
                 {pilot.pilotCompany && <p><strong>Company:</strong> {pilot.pilotCompany}</p>}
-                <p><strong>Email:</strong> {pilot.email}</p>
-                <p><strong>Phone:</strong> {pilot.phoneNumber}</p>
+                <p><strong>Email:</strong> {pilot.newemail}</p>
+                <p><strong>Phone:</strong> {pilot.newphoneNumber}</p>
                 {pilot.location && <p><strong>Location:</strong> {pilot.location}</p>}
                 <p><strong>Available:</strong> {pilot.availability ? "Yes" : "No"}</p>
                 {pilot.specification && <p><strong>Specification:</strong> {pilot.specification}</p>}
@@ -291,7 +241,7 @@ function HirePilotsDashboard() {
                   </p>
                 )}
 
-                {/* ✅ DISPLAY CERTIFICATION PDF LINKS */}
+                {/* ✅ Certifications */}
                 {pilot.certifications && pilot.certifications.length > 0 && (
                   <div className="documents-section">
                     <p><strong>Certifications:</strong></p>
@@ -312,7 +262,7 @@ function HirePilotsDashboard() {
                   </div>
                 )}
 
-                {/* ✅ DISPLAY RESUME PDF LINK */}
+                {/* ✅ Resume */}
                 {pilot.resume && pilot.resume.url && (
                   <div className="documents-section">
                     <p><strong>Resume:</strong></p>
@@ -327,6 +277,7 @@ function HirePilotsDashboard() {
                   </div>
                 )}
 
+                {/* ✅ Seller Info */}
                 {pilot.seller && (
                   <div className="seller-info">
                     <p><strong>Seller:</strong> {pilot.seller.name}</p>
@@ -336,8 +287,8 @@ function HirePilotsDashboard() {
                 )}
               </div>
 
-              {/* ✅ SHOW ACTION BUTTONS ONLY FOR PENDING */}
-              {pilot.status?.toLowerCase() === "pending" && (
+              {/* ✅ Actions for pending pilots */}
+              {pilot.adminStatus?.toLowerCase() === "pending" && (
                 <div className="pilot-actions">
                   <button
                     className="btn-approve"

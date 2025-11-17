@@ -1,9 +1,15 @@
 import { HirePilot } from "../models/Hirepilot.model.js";
 import { Seller } from "../models/Seller.model.js";
+import { PilotBooking } from "../models/Pilot_Booking.model.js";
 import { sendSellerStatusMail } from "../utils/emailService.js";
 import { createSellerNotification } from "../utils/createSellerNotification.js";
+import {
+  uploadSingleFile,
+  uploadMultipleFiles,
+  deleteFirebaseFile,
+} from "../utils/uploadToFirebase.js";
 
-// 🔗 Common lookup for seller info
+// ✅ MongoDB aggregation for pilot + seller info
 const baseLookup = [
   {
     $lookup: {
@@ -19,17 +25,18 @@ const baseLookup = [
       _id: 1,
       pilotId: 1,
       pilotName: 1,
-      companyName: 1,
+      pilotCompany: 1,
       location: 1,
-      salary: 1,
-      experience: 1,
-      licenseNumber: 1,
-      skills: 1,
-      employmentType: 1,
-      droneType: 1,
-      contactEmail: 1,
-      contactNumber: 1,
-      status: 1,
+      availability: 1,
+      specification: 1,
+      price: 1,
+      certifications: 1,
+      resume: 1,
+      description: 1,
+      newemail: 1,
+      newphoneNumber: 1,
+      adminStatus: 1,
+      buyerStatus: 1,
       sellerId: 1,
       seller: {
         name: "$sellerDetails.name",
@@ -41,11 +48,12 @@ const baseLookup = [
 ];
 
 export const hirePilotResolvers = {
+  // ============================================================
+  // 📊 QUERIES
+  // ============================================================
   Query: {
-    // ✅ All pilots
     hirePilots: async () => HirePilot.aggregate(baseLookup),
 
-    // ✅ Pilot by ID
     hirePilot: async (_, { pilotId }) => {
       const result = await HirePilot.aggregate([
         { $match: { pilotId } },
@@ -54,167 +62,302 @@ export const hirePilotResolvers = {
       return result[0] || null;
     },
 
-    // ✅ Pilots by seller
     hirePilotsBySeller: async (_, { sellerId }) =>
       HirePilot.aggregate([{ $match: { sellerId } }, ...baseLookup]),
 
-    // ✅ Filter by status
-    hirePilotsByStatus: async (_, { status }) => {
+    hirePilotsByStatus: async (_, { adminStatus }) => {
       const validStatuses = ["pending", "approved", "rejected"];
-      if (!validStatuses.includes(status.toLowerCase())) {
-        throw new Error(`Invalid status. Must be one of: ${validStatuses.join(", ")}`);
+      if (!validStatuses.includes(adminStatus.toLowerCase())) {
+        throw new Error(
+          `Invalid status. Must be one of: ${validStatuses.join(", ")}`
+        );
       }
       return HirePilot.aggregate([
-        { $match: { status: status.toLowerCase() } },
+        { $match: { adminStatus: { $regex: new RegExp(`^${adminStatus}$`, "i") } } },
         ...baseLookup,
       ]);
     },
+
+    approvedHirePilotsByStatus: async () =>
+      HirePilot.aggregate([{ $match: { adminStatus: /^approved$/i } }, ...baseLookup]),
+
+    myPilotBookings: async (_, { buyerEmail }) =>
+      PilotBooking.find({ buyerEmail }).sort({ createdAt: -1 }),
+
+    pilotBookings: async (_, { pilotId }) =>
+      PilotBooking.find({ pilotId }).sort({ createdAt: -1 }),
   },
 
+  // ============================================================
+  // ⚙️ MUTATIONS
+  // ============================================================
   Mutation: {
-    // ✅ Create new pilot (with notification)
+    /**
+     * 🧑‍✈️ Add a new Hire Pilot listing
+     */
     addHirePilot: async (_, { input }, { pubsub }) => {
       try {
         const seller = await Seller.findOne({ customId: input.sellerId });
         if (!seller) throw new Error("Seller not found");
 
+        // ✅ Upload certifications
+        if (input.certifications?.length) {
+          const certFiles = input.certifications.filter((c) => c.file);
+          const certUrls = certFiles.length
+            ? await uploadMultipleFiles(certFiles.map((c) => c.file), "certifications")
+            : [];
+          input.certifications = input.certifications.map((c, i) =>
+            c.url ? c : { url: certUrls[i] }
+          );
+        }
+
+        // ✅ Upload resume
+        if (input.resume?.file) {
+          const resumeUrl = await uploadSingleFile(input.resume.file, "resumes");
+          input.resume = { url: resumeUrl };
+        }
+
         const newPilot = new HirePilot({
           ...input,
-          status: "pending",
+          adminStatus: "pending",
+          buyerStatus: "pending",
         });
 
         await newPilot.save();
 
-        // 🔔 Notify seller of pending approval
-        try {
-          await createSellerNotification({
-            sellerId: input.sellerId,
-            title: "New Pilot Submitted",
-            message: `Your pilot "${input.pilotName}" has been submitted and is pending approval.`,
-            type: "hire_pilot_listing",
-            data: { pilotId: newPilot.pilotId, status: "pending" },
-            url: `/seller/pilots/${newPilot.pilotId}`,
-            pubsub,
-          });
-        } catch (notifErr) {
-          console.error("⚠️ createSellerNotification failed:", notifErr);
-        }
+        // 🔔 Notify seller
+        await createSellerNotification({
+          sellerId: input.sellerId,
+          title: "🧑‍✈️ New Pilot Submitted",
+          message: `Your pilot "${input.pilotName}" has been submitted and is pending approval.`,
+          type: "hire_pilot_listing",
+          data: { pilotId: newPilot.pilotId },
+          url: `/seller/pilots/${newPilot.pilotId}`,
+          pubsub,
+        });
 
         const result = await HirePilot.aggregate([
           { $match: { _id: newPilot._id } },
           ...baseLookup,
         ]);
         return result[0];
-      } catch (error) {
-        console.error("❌ Error creating pilot:", error);
-        throw new Error("Failed to create pilot: " + error.message);
+      } catch (err) {
+        console.error("❌ Error adding hire pilot:", err);
+        throw new Error("Failed to add hire pilot: " + err.message);
       }
     },
 
-    // ✅ Update pilot info
-    updateHirePilot: async (_, { pilotId, input }) => {
-      try {
-        const updated = await HirePilot.findOneAndUpdate(
-          { pilotId },
-          input,
-          { new: true }
-        );
-        if (!updated) throw new Error("Pilot not found");
+    /**
+     * 📅 Book a pilot
+     */
+    bookPilot: async (_, { input }, { pubsub }) => {
+      const { pilotId, buyerName, buyerEmail, contact, location, date, startTime, endTime } = input;
+      const pilot = await HirePilot.findOne({ pilotId });
+      if (!pilot) throw new Error("Pilot not found");
 
-        const result = await HirePilot.aggregate([
-          { $match: { pilotId } },
-          ...baseLookup,
-        ]);
-        return result[0];
-      } catch (error) {
-        console.error("❌ Error updating pilot:", error);
-        throw new Error("Failed to update pilot: " + error.message);
+      const bookingDoc = new PilotBooking({
+        pilotId,
+        pilotRef: pilot._id,
+        buyerName,
+        buyerEmail,
+        contact,
+        location,
+        date,
+        startTime,
+        endTime,
+        status: "pending",
+      });
+      await bookingDoc.save();
+
+      pilot.bookings = pilot.bookings || [];
+      pilot.bookings.push({
+        buyerName,
+        buyerEmail,
+        contact,
+        location,
+        date,
+        startTime,
+        endTime,
+        bookingId: bookingDoc._id.toString(),
+        createdAt: new Date(),
+      });
+      await pilot.save();
+
+      // 🔔 Notify seller
+      await createSellerNotification({
+        sellerId: pilot.sellerId,
+        title: `📅 New Booking for ${pilot.pilotName}`,
+        message: `${buyerName} booked your pilot for ${date} (${startTime} - ${endTime}).`,
+        type: "hire_pilot_booking",
+        data: { pilotId, bookingId: bookingDoc._id.toString() },
+        url: `/seller/pilots/${pilot.pilotId}/bookings/${bookingDoc._id.toString()}`,
+        pubsub,
+      });
+
+      // 📧 Email seller
+      const seller = await Seller.findOne({ customId: pilot.sellerId });
+      if (seller?.email) {
+        await sendSellerStatusMail({
+          to: seller.email,
+          productType: "Hire Pilot Booking",
+          productName: `${pilot.pilotName} — Booking by ${buyerName}`,
+          status: "booked",
+        });
       }
+
+      if (pubsub) {
+        await pubsub.publish("NEW_PILOT_BOOKING", {
+          newPilotBooking: {
+            bookingId: bookingDoc._id.toString(),
+            pilotId,
+            buyerName,
+            date,
+            startTime,
+            endTime,
+          },
+        });
+      }
+
+      return {
+        success: true,
+        message: `Pilot ${pilot.pilotName} booked successfully!`,
+        booking: bookingDoc,
+      };
     },
 
-    // ✅ Delete pilot
+    /**
+     * 🗑 Delete a pilot and clean up files
+     */
     deleteHirePilot: async (_, { pilotId }, { pubsub }) => {
       try {
         const deleted = await HirePilot.findOneAndDelete({ pilotId });
         if (!deleted) throw new Error("Pilot not found");
 
-        // 🔔 Notify seller
-        try {
-          await createSellerNotification({
-            sellerId: deleted.sellerId,
-            title: "Pilot Listing Deleted",
-            message: `Your pilot "${deleted.pilotName}" has been deleted from Flyhub.`,
-            type: "hire_pilot_deleted",
-            data: { pilotId },
-            url: `/seller/pilots`,
-            pubsub,
-          });
-        } catch (notifErr) {
-          console.error("⚠️ createSellerNotification failed:", notifErr);
+        // 🧹 Delete uploaded files
+        if (deleted.certifications?.length) {
+          for (const cert of deleted.certifications) {
+            if (cert.url) await deleteFirebaseFile(cert.url);
+          }
+        }
+        if (deleted.resume?.url) {
+          await deleteFirebaseFile(deleted.resume.url);
         }
 
-        return { id: deleted._id.toString(), ...deleted.toObject() };
-      } catch (error) {
-        console.error("❌ Error deleting pilot:", error);
-        throw new Error("Failed to delete pilot: " + error.message);
+        // 🔔 Notify seller
+        await createSellerNotification({
+          sellerId: deleted.sellerId,
+          title: "🗑️ Pilot Listing Deleted",
+          message: `Your pilot "${deleted.pilotName}" has been removed.`,
+          type: "hire_pilot_deleted",
+          data: { pilotId },
+          url: `/seller/pilots`,
+          pubsub,
+        });
+
+        return { success: true, message: "Pilot and files deleted successfully" };
+      } catch (err) {
+        console.error("❌ Error deleting pilot:", err);
+        throw new Error("Failed to delete pilot: " + err.message);
       }
     },
 
-    // ✅ Update pilot status (email + notifications)
-    updateHirePilotStatus: async (_, { pilotId, status }, { pubsub }) => {
-      try {
-        const updated = await HirePilot.findOneAndUpdate(
-          { pilotId },
-          { status },
-          { new: true }
-        );
-        if (!updated) throw new Error("Pilot not found");
+    /**
+     * ✅ Admin updates pilot status
+     */
+    adminUpdateHirePilotStatus: async (_, { pilotId, adminStatus }, { pubsub }) => {
+      const updated = await HirePilot.findOneAndUpdate(
+        { pilotId },
+        { adminStatus },
+        { new: true }
+      );
+      if (!updated) throw new Error("Pilot not found");
 
-        const seller = await Seller.findOne({ customId: updated.sellerId });
-
-        // ✉️ Email Notification
-        if (seller?.email) {
-          try {
-            await sendSellerStatusMail({
-              to: seller.email,
-              productType: "Hire Pilot",
-              productName: updated.pilotName,
-              status,
-            });
-          } catch (mailErr) {
-            console.error("⚠️ sendSellerStatusMail failed:", mailErr);
-          }
-        }
-
-        // 🔔 In-App + Push + Subscription Notification
-        try {
-          await createSellerNotification({
-            sellerId: updated.sellerId,
-            title: `Pilot ${status.toUpperCase()}: ${updated.pilotName}`,
-            message:
-              status.toLowerCase() === "approved"
-                ? `Your pilot "${updated.pilotName}" has been approved and is now visible.`
-                : status.toLowerCase() === "rejected"
-                ? `Your pilot "${updated.pilotName}" was rejected. Please review and resubmit.`
-                : `Pilot status updated to ${status} for "${updated.pilotName}".`,
-            type: "hire_pilot_status",
-            data: { pilotId, status },
-            url: `/seller/pilots/${updated.pilotId}`,
-            pubsub,
-          });
-        } catch (notifErr) {
-          console.error("⚠️ createSellerNotification failed:", notifErr);
-        }
-
-        const result = await HirePilot.aggregate([
-          { $match: { _id: updated._id } },
-          ...baseLookup,
-        ]);
-        return result[0];
-      } catch (err) {
-        console.error("❌ Error updating pilot status:", err);
-        throw new Error("Failed to update pilot status: " + err.message);
+      const seller = await Seller.findOne({ customId: updated.sellerId });
+      if (seller?.email) {
+        await sendSellerStatusMail({
+          to: seller.email,
+          productType: "Hire Pilot",
+          productName: updated.pilotName,
+          status: adminStatus,
+        });
       }
+
+      await createSellerNotification({
+        sellerId: updated.sellerId,
+        title: `Pilot ${adminStatus.toUpperCase()}: ${updated.pilotName}`,
+        message:
+          adminStatus === "approved"
+            ? `Your pilot "${updated.pilotName}" is now live.`
+            : adminStatus === "rejected"
+            ? `Your pilot "${updated.pilotName}" was rejected. Please review.`
+            : `Pilot status updated to ${adminStatus}.`,
+        type: "hire_pilot_status",
+        data: { pilotId, adminStatus },
+        url: `/seller/pilots/${updated.pilotId}`,
+        pubsub,
+      });
+
+      if (pubsub) {
+        await pubsub.publish("HIRE_PILOT_STATUS_CHANGED", {
+          hirePilotStatusChanged: {
+            pilotId,
+            pilotName: updated.pilotName,
+            adminStatus,
+            sellerId: updated.sellerId,
+          },
+        });
+      }
+
+      const result = await HirePilot.aggregate([{ $match: { _id: updated._id } }, ...baseLookup]);
+      return result[0];
+    },
+
+    /**
+     * ✅ Buyer updates pilot status
+     */
+    buyerUpdateHirePilotStatus: async (_, { pilotId, buyerStatus }, { pubsub }) => {
+      const updated = await HirePilot.findOneAndUpdate(
+        { pilotId },
+        { buyerStatus },
+        { new: true }
+      );
+      if (!updated) throw new Error("Pilot not found");
+
+      const seller = await Seller.findOne({ customId: updated.sellerId });
+      if (seller?.email) {
+        await sendSellerStatusMail({
+          to: seller.email,
+          productType: "Hire Pilot (Buyer Action)",
+          productName: updated.pilotName,
+          status: buyerStatus,
+        });
+      }
+
+      await createSellerNotification({
+        sellerId: updated.sellerId,
+        title: `Buyer ${buyerStatus.toUpperCase()} for ${updated.pilotName}`,
+        message: `A buyer has ${buyerStatus} your pilot post.`,
+        type: "buyer_hire_pilot_status",
+        data: { pilotId, buyerStatus },
+        url: `/seller/pilots/${updated.pilotId}`,
+        pubsub,
+      });
+
+      const result = await HirePilot.aggregate([{ $match: { _id: updated._id } }, ...baseLookup]);
+      return result[0];
+    },
+  },
+
+  // ============================================================
+  // 🔔 SUBSCRIPTIONS
+  // ============================================================
+  Subscription: {
+    newPilotBooking: {
+      subscribe: (_, __, { pubsub }) => pubsub.asyncIterator("NEW_PILOT_BOOKING"),
+    },
+    hirePilotStatusChanged: {
+      subscribe: (_, __, { pubsub }) =>
+        pubsub.asyncIterator("HIRE_PILOT_STATUS_CHANGED"),
     },
   },
 };

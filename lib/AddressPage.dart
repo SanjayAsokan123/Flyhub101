@@ -1,0 +1,480 @@
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'Checkout_page.dart';
+
+class AddressPage extends StatefulWidget {
+  final double total;
+  const AddressPage({super.key, required this.total});
+
+  @override
+  State<AddressPage> createState() => _AddressPageState();
+}
+
+class _AddressPageState extends State<AddressPage> {
+  final _formKey = GlobalKey<FormState>();
+
+  String firstName = "",
+      lastName = "",
+      address = "",
+      city = "",
+      state = "",
+      zip = "",
+      phone = "",
+      country = "India";
+
+  /// Updated theme color
+  final Color themeColor = const Color(0xFF1A0A5B);
+
+  List<Map<String, String>> savedAddresses = [];
+  int? selectedAddressIndex;
+  bool showForm = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAddresses();
+  }
+
+  Future<void> _loadAddresses() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getStringList('savedAddresses') ?? [];
+    setState(() {
+      savedAddresses =
+          data.map((e) => Map<String, String>.from(jsonDecode(e))).toList();
+    });
+  }
+
+  Future<void> _saveAddresses() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = savedAddresses.map((e) => jsonEncode(e)).toList();
+    await prefs.setStringList('savedAddresses', data);
+  }
+
+  Future<void> _deleteAddress(int index) async {
+    setState(() {
+      savedAddresses.removeAt(index);
+      if (selectedAddressIndex == index) selectedAddressIndex = null;
+    });
+    await _saveAddresses();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool showCheckoutButton =
+        !showForm && selectedAddressIndex != null && savedAddresses.isNotEmpty;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          "Delivery Information",
+          style: TextStyle(color: themeColor, fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.white,
+        elevation: 2,
+        iconTheme: IconThemeData(color: themeColor),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            _navigationBar(currentStep: 2),
+            const SizedBox(height: 20),
+            Expanded(
+              child: showForm ? _buildAddressForm() : _buildAddressList(),
+            ),
+            if (showCheckoutButton)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: themeColor,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () {
+                      final addr = savedAddresses[selectedAddressIndex!];
+                      String fullName =
+                          "${addr['firstName']} ${addr['lastName']}";
+                      String fullAddress =
+                          "${addr['address']}, ${addr['city']}, ${addr['state']}, ${addr['zip']}, ${addr['country']}";
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CheckoutPage(
+                            drone: {
+                              'name': fullName,
+                              'image':
+                              'https://cdn-icons-png.flaticon.com/512/4320/4320341.png',
+                              'price': widget.total,
+                              'quantity': 1,
+                              'address': fullAddress,
+                              'phone': addr['phone'],
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                    child: const Text(
+                      "Continue to Checkout",
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+      floatingActionButton: !showForm
+          ? Padding(
+        padding: EdgeInsets.only(bottom: showCheckoutButton ? 70 : 0),
+        child: FloatingActionButton.extended(
+          backgroundColor: themeColor,
+          icon: const Icon(Icons.add, color: Colors.white),
+          label: const Text(
+            "Add Address",
+            style: TextStyle(color: Colors.white),
+          ),
+          onPressed: () {
+            setState(() {
+              _formKey.currentState?.reset();
+              showForm = true;
+              selectedAddressIndex = null;
+              firstName = "";
+              lastName = "";
+              address = "";
+              city = "";
+              state = "";
+              zip = "";
+              phone = "";
+              country = "India";
+            });
+          },
+        ),
+      )
+          : null,
+    );
+  }
+
+  Widget _buildAddressList() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("Saved Addresses",
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: themeColor)),
+        const SizedBox(height: 10),
+        if (savedAddresses.isEmpty)
+          const Center(
+              child: Padding(
+                padding: EdgeInsets.only(top: 50),
+                child: Text("No saved addresses. Add one to continue.",
+                    style: TextStyle(color: Colors.grey)),
+              ))
+        else
+          Expanded(
+            child: ListView.builder(
+              itemCount: savedAddresses.length,
+              itemBuilder: (context, index) {
+                final addr = savedAddresses[index];
+                return Card(
+                  elevation: 3,
+                  shadowColor: themeColor.withOpacity(0.2),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  child: ListTile(
+                    leading: Radio<int>(
+                      value: index,
+                      groupValue: selectedAddressIndex,
+                      activeColor: themeColor,
+                      onChanged: (val) =>
+                          setState(() => selectedAddressIndex = val),
+                    ),
+                    title: Text(
+                      "${addr['firstName']} ${addr['lastName']}",
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600, color: themeColor),
+                    ),
+                    subtitle: Text(
+                      "${addr['address']}, ${addr['city']}, ${addr['state']} - ${addr['zip']}, ${addr['country']}\nPhone: ${addr['phone']}",
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    isThreeLine: true,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.edit, color: themeColor),
+                          onPressed: () {
+                            setState(() {
+                              firstName = addr['firstName']!;
+                              lastName = addr['lastName']!;
+                              address = addr['address']!;
+                              city = addr['city']!;
+                              state = addr['state']!;
+                              zip = addr['zip']!;
+                              phone = addr['phone']!;
+                              country = addr['country']!;
+                              selectedAddressIndex = index;
+                              showForm = true;
+                            });
+                          },
+                        ),
+                        IconButton(
+                          icon:
+                          const Icon(Icons.delete, color: Colors.redAccent),
+                          onPressed: () => _deleteAddress(index),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildAddressForm() {
+    return SingleChildScrollView(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Add / Edit Address",
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: themeColor)),
+            const SizedBox(height: 20),
+
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    initialValue: firstName,
+                    decoration: const InputDecoration(
+                        labelText: "First Name", border: OutlineInputBorder()),
+                    validator: (val) =>
+                    val == null || val.isEmpty ? "Enter first name" : null,
+                    onSaved: (val) => firstName = val!,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextFormField(
+                    initialValue: lastName,
+                    decoration: const InputDecoration(
+                        labelText: "Last Name", border: OutlineInputBorder()),
+                    validator: (val) =>
+                    val == null || val.isEmpty ? "Enter last name" : null,
+                    onSaved: (val) => lastName = val!,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 15),
+            TextFormField(
+              initialValue: address,
+              decoration: const InputDecoration(
+                labelText: "Street Address",
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.location_on_outlined),
+              ),
+              validator: (val) =>
+              val == null || val.isEmpty ? "Enter address" : null,
+              onSaved: (val) => address = val!,
+            ),
+
+            const SizedBox(height: 15),
+            TextFormField(
+              initialValue: city,
+              decoration: const InputDecoration(
+                labelText: "City",
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.location_city_outlined),
+              ),
+              validator: (val) => val == null || val.isEmpty ? "Enter city" : null,
+              onSaved: (val) => city = val!,
+            ),
+
+            const SizedBox(height: 15),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    initialValue: state,
+                    decoration: const InputDecoration(
+                        labelText: "State", border: OutlineInputBorder()),
+                    validator: (val) =>
+                    val == null || val.isEmpty ? "Enter state" : null,
+                    onSaved: (val) => state = val!,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextFormField(
+                    initialValue: zip,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                        labelText: "ZIP Code", border: OutlineInputBorder()),
+                    validator: (val) =>
+                    val == null || val.isEmpty ? "Enter ZIP" : null,
+                    onSaved: (val) => zip = val!,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 15),
+            DropdownButtonFormField<String>(
+              decoration: const InputDecoration(
+                  labelText: "Country",
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.flag_outlined)),
+              value: country,
+              items: const [
+                DropdownMenuItem(value: "India", child: Text("India")),
+                DropdownMenuItem(
+                    value: "United States", child: Text("United States")),
+                DropdownMenuItem(
+                    value: "United Kingdom", child: Text("United Kingdom")),
+                DropdownMenuItem(value: "Canada", child: Text("Canada")),
+              ],
+              onChanged: (val) => setState(() => country = val!),
+            ),
+
+            const SizedBox(height: 15),
+            TextFormField(
+              initialValue: phone,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                  labelText: "Phone Number",
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.phone_outlined)),
+              validator: (val) =>
+              val == null || val.length < 10 ? "Enter valid phone" : null,
+              onSaved: (val) => phone = val!,
+            ),
+
+            const SizedBox(height: 25),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: themeColor,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () async {
+                      if (_formKey.currentState!.validate()) {
+                        _formKey.currentState!.save();
+                        final newAddress = {
+                          'firstName': firstName,
+                          'lastName': lastName,
+                          'address': address,
+                          'city': city,
+                          'state': state,
+                          'zip': zip,
+                          'country': country,
+                          'phone': phone,
+                        };
+
+                        setState(() {
+                          if (selectedAddressIndex != null) {
+                            savedAddresses[selectedAddressIndex!] = newAddress;
+                          } else {
+                            savedAddresses.add(newAddress);
+                          }
+                          showForm = false;
+                        });
+
+                        await _saveAddresses();
+                      }
+                    },
+                    child: const Text(
+                      "Save Address",
+                      style:
+                      TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: themeColor, width: 1.8),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      backgroundColor: themeColor,
+                    ),
+                    onPressed: () => setState(() => showForm = false),
+                    child: const Text(
+                      "Cancel",
+                      style:
+                      TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _navigationBar({required int currentStep}) {
+    const steps = ["Cart", "Address", "Checkout"];
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: List.generate(steps.length, (index) {
+        bool isActive = index + 1 == currentStep;
+        bool isCompleted = index + 1 < currentStep;
+        return Row(
+          children: [
+            CircleAvatar(
+              radius: 14,
+              backgroundColor: isCompleted
+                  ? themeColor
+                  : (isActive ? Colors.orange : Colors.grey.shade300),
+              child: Text("${index + 1}",
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              steps[index],
+              style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: isActive ? themeColor : Colors.black54),
+            ),
+            if (index != steps.length - 1)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Icon(Icons.arrow_forward_ios,
+                    size: 14, color: Colors.grey),
+              ),
+          ],
+        );
+      }),
+    );
+  }
+}

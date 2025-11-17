@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flyhub/Help_Support_Page.dart';
+import 'package:flyhub/PrivacyPolicy.dart';
+import 'package:flyhub/Terms_Conditions.dart';
+import 'package:flyhub/feedback_form.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 
 import '../../HomeScreen/Dynamichome.dart';
@@ -34,7 +38,8 @@ class _SellerPageState extends State<SellerPage> {
   String? _sellerId;
 
   static const Color themeColor = Color(0xFF1A0A5B);
-  final String graphqlUrl = "http://192.168.0.180:5001/graphql";
+  // final String graphqlUrl = "http://192.168.1.45:5001/graphql";
+  final String graphqlUrl = "http://192.168.1.178:5001/graphql";
 
   @override
   void initState() {
@@ -65,7 +70,7 @@ class _SellerPageState extends State<SellerPage> {
       debugPrint("❌ SellerPage init error: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("⚠️ Error loading seller data: $e")),
+          SnackBar(content: Text("⚠ Error loading seller data: $e")),
         );
       }
     } finally {
@@ -96,7 +101,7 @@ class _SellerPageState extends State<SellerPage> {
       );
 
       if (result.hasException) {
-        debugPrint("⚠️ GraphQL Fetch Error: ${result.exception}");
+        debugPrint("⚠ GraphQL Fetch Error: ${result.exception}");
         return;
       }
 
@@ -112,7 +117,7 @@ class _SellerPageState extends State<SellerPage> {
       }
 
       // Auto-create new seller
-      debugPrint("⚙️ Creating seller for $email");
+      debugPrint("⚙ Creating seller for $email");
 
       const String mutation = r'''
         mutation CreateSeller($input: SellerInput!) {
@@ -163,7 +168,7 @@ class _SellerPageState extends State<SellerPage> {
         debugPrint("✅ Seller auto-created in MongoDB: $_sellerId");
       }
     } catch (e) {
-      debugPrint("⚠️ Fetch/Create Seller Error: $e");
+      debugPrint("⚠ Fetch/Create Seller Error: $e");
     }
   }
 
@@ -180,7 +185,7 @@ class _SellerPageState extends State<SellerPage> {
         const SnackBar(content: Text("✅ Switched to Buyer Mode")),
       );
     } catch (e) {
-      debugPrint("⚠️ Error switching to buyer: $e");
+      debugPrint("⚠ Error switching to buyer: $e");
     }
   }
 
@@ -203,7 +208,7 @@ class _SellerPageState extends State<SellerPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content:
-        Text("⚠️ Seller ID not found. Please re-login or register again."),
+        Text("⚠ Seller ID not found. Please re-login or register again."),
       ),
     );
   }
@@ -385,15 +390,39 @@ class _SellerPageState extends State<SellerPage> {
 
             const SizedBox(height: 20),
             _buildSection("Account Settings"),
-            _buildTile("Admin Login", Icons.admin_panel_settings_outlined, () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) =>  AdminLoginPage()),
-              );
-            }),
+
             _buildTile("Logout", Icons.logout, _logout),
 
-            const SizedBox(height: 30),
+            const SizedBox(height: 20),
+            _buildSection("Legal & Support"),
+
+            _buildTile("Terms & Conditions", Icons.description_outlined, () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TermsAndConditionsPage()),
+              );
+            }),
+
+            _buildTile("Privacy Policy", Icons.privacy_tip_outlined, () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const Privacypolicy()),
+              );
+            }),
+
+            _buildTile("Help & Support", Icons.help_outline, () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const HelpAndSupportPage()),
+              );
+            }),
+
+            _buildTile("Send Feedback", Icons.feedback_outlined, () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FeedbackFormPage()),
+              );
+            }),
             const Text("Version 1.0.0",
                 style: TextStyle(fontSize: 12, color: Colors.grey)),
             const SizedBox(height: 20),

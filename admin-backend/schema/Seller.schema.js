@@ -1,12 +1,14 @@
-import { gql } from 'apollo-server-express';
+import { gql } from "apollo-server-express";
 
 export const sellerTypeDefs = gql`
   """
   🧾 Seller Type
-  Represents a registered or pending seller in the FlyHub system.
+  Represents a registered or pending seller in FlyHub.
+  Works with Firebase UID + loginIndex (email / phone / sellerId)
   """
   type Seller {
     customId: ID
+    firebaseUid: String
     name: String
     companyName: String
     PANnumber: String
@@ -15,35 +17,49 @@ export const sellerTypeDefs = gql`
     bankIFCnumber: String
     bankAccountNumber: String
     authorized: String
-    email: String!
+    email: String
     phoneNumber: String
-    status: String
+    status: SellerStatus
     shippingAddresses: [String!]
     pickupAddresses: [String!]
     companyPan: String
     bankName: String
+
+    # Multi-device FCM support
+    fcmTokens: [String!]
+    fcmToken: String
+
     Drones: [Drone!]
   }
 
   """
-  ✏️ Seller Input
-  Used when creating or updating seller details manually.
+  🔄 Seller account status enum
+  """
+  enum SellerStatus {
+    pending
+    approved
+    rejected
+  }
+
+  """
+  ✏️ Seller Input (Registration / Update)
+  Fields made optional because Firebase auto-creates minimal sellers
   """
   input SellerInput {
-    name: String!
-    companyName: String!
-    PANnumber: String!
+    name: String
+    companyName: String
+    PANnumber: String
     gstNumber: String
-    address: String!
-    bankIFCnumber: String!
-    bankAccountNumber: String!
-    authorized: String!
-    email: String!
-    phoneNumber: String!
+    address: String
+    bankIFCnumber: String
+    bankAccountNumber: String
+    authorized: String
+    email: String
+    phoneNumber: String
     shippingAddresses: [String!]
     pickupAddresses: [String!]
-    companyPan: String!
-    bankName: String!
+    companyPan: String
+    bankName: String
   }
 
   """
@@ -58,38 +74,47 @@ export const sellerTypeDefs = gql`
   """
   🔍 Query Definitions
   """
-type Query {
-  getSellersByStatus(status: String!): [Seller!]!
-  getSellers: [Seller!]!
-  getSeller(customId: ID!): Seller
+  type Query {
+    getSellersByStatus(status: SellerStatus!): [Seller!]!
+    getSellers: [Seller!]!
+    getSeller(customId: ID!): Seller
 
-  # 🔍 Unified seller lookup for Firebase/Auth login
-  sellerByEmail(
-    email: String
-    username: String
-    phone: String
-    customId: String
-  ): Seller
-}
+    """
+    Firebase/Auth unified lookup:
+    email / username / phone / sellerId
+    Auto-creates pending seller if not found
+    """
+    sellerByEmail(
+      email: String
+      username: String
+      phone: String
+      customId: String
+    ): Seller
 
+    """
+    Lookup by ANY login key (email, phone, sellerId)
+    Used by your unified login logic
+    """
+    getSellerByLoginKey(key: String!): Seller
+  }
 
   """
   🔧 Mutation Definitions
   """
   type Mutation {
-    # 🟢 Create a new seller manually (admin or registration form)
+    # 🟢 Create seller (registration form / admin)
     createSeller(input: SellerInput!): Seller!
 
-    # ✏️ Update existing seller details
+    # ✏️ Update seller details
     updateSeller(customId: ID!, input: SellerInput!): Seller!
 
-    # 🔄 Change seller status (pending → approved / rejected)
-    changeSellerStatus(customId: ID!, status: String!): Seller!
+    # 🔄 Change seller status
+    changeSellerStatus(customId: ID!, status: SellerStatus!): Seller!
 
     # 🗑️ Delete a seller
     deleteSeller(customId: ID!): Seller
 
-    # 📲 Register or update FCM token
+    # 📲 Register FCM token
     updateSellerFcmToken(customId: String!, token: String!): UpdateTokenResponse!
   }
 `;

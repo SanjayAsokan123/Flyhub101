@@ -1,49 +1,49 @@
-// ================================
-// 📧 Email Service (Flyhub)
-// ================================
+// ==========================================
+// 📧 Flyhub Email Service (Seller + Student)
+// ==========================================
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 
-// ✅ Load .env from project root (one level above /utils)
-dotenv.config({ path: "../.env" });
+dotenv.config({ path: "./.env" });
 
 let transporter;
 
-/**
- * ✅ Initialize or reuse transporter
- */
+// ============================================================
+// 🔗 Create or reuse mail transporter (supports Gmail + custom SMTP)
+// ============================================================
 const getTransporter = () => {
   if (!transporter) {
-    console.log("===================================");
-    console.log("Attempting to create transporter with:");
-    console.log("USER:", process.env.EMAIL_USER || "❌ NOT SET");
-    console.log(
-      "PASS:",
-      process.env.EMAIL_PASS
-        ? "********" + process.env.EMAIL_PASS.slice(-4)
-        : "❌ NOT SET"
-    );
-    console.log("===================================");
+    const isGmail =
+      process.env.EMAIL_SERVICE?.toLowerCase() === "gmail" ||
+      process.env.SMTP_HOST?.includes("gmail");
 
     transporter = nodemailer.createTransport({
-      service: "gmail",
+      host: isGmail ? "smtp.gmail.com" : process.env.SMTP_HOST,
+      port: isGmail ? 587 : process.env.SMTP_PORT || 587,
+      secure: false, // STARTTLS (recommended)
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
+      tls: {
+        rejectUnauthorized: false,
+      },
+    });
+
+    transporter.verify((error) => {
+      if (error) {
+        console.error("❌ Mail transporter error:", error.message);
+      } else {
+        console.log("✅ Gmail Mail transporter ready.");
+      }
     });
   }
   return transporter;
 };
 
-/**
- * ✅ Sends status update mail to sellers
- * @param {Object} params - Email data
- * @param {string} params.to - Receiver email address
- * @param {string} params.productType - Type of product (Drone, Part, etc.)
- * @param {string} params.productName - Name of the product
- * @param {string} params.status - Status (approved, rejected, etc.)
- */
+// ============================================================
+// 📨 Seller Status Notification
+// ============================================================
 export async function sendSellerStatusMail({
   to,
   productType,
@@ -52,14 +52,14 @@ export async function sendSellerStatusMail({
 }) {
   const subject = `Your ${productType} "${productName}" was ${status}`;
   const html = `
-    <div style="font-family:Arial, sans-serif; padding:20px; border-radius:10px; background:#f9f9f9;">
-      <h2 style="color:#1a73e8;">FlyHub Notification</h2>
+    <div style="font-family:Arial,sans-serif;padding:20px;background:#f8f9fb;border-radius:10px;">
+      <h2 style="color:#1a73e8;">Flyhub Seller Notification</h2>
       <p>Hello Seller,</p>
       <p>Your <strong>${productType}</strong> "<strong>${productName}</strong>" has been
-      <span style="color:${status === "approved" ? "green" : "red"}; font-weight:bold;">${status}</span> by the admin.</p>
-      <p>Please log in to your <a href="https://flyhub.in/seller-dashboard" target="_blank">Seller Dashboard</a> for more details.</p>
-      <hr style="margin:20px 0;"/>
-      <p style="font-size:12px; color:#555;">Thank you,<br/>FlyHub Admin Team</p>
+      <span style="color:${status === "approved" ? "green" : "red"};font-weight:bold;">${status}</span>.</p>
+      <p>Visit your <a href="https://flyhub.in/seller-dashboard" target="_blank">Seller Dashboard</a> for more details.</p>
+      <hr/>
+      <p style="font-size:12px;color:#666;">Team Flyhub</p>
     </div>
   `;
 
@@ -70,34 +70,73 @@ export async function sendSellerStatusMail({
       subject,
       html,
     });
-    console.log(`✅ Seller status email sent to ${to}`);
+    console.log(`✅ Seller email sent to ${to}`);
   } catch (err) {
-    console.error("❌ Error sending mail:", err);
-    throw new Error("Failed to send status email.");
+    console.error("❌ Error sending seller email:", err.message);
   }
 }
 
-// ================================
-// 🧪 TEST MODE (run manually)
-// ================================
-if (import.meta.url === `file://${process.argv[1]}`) {
-  console.log("🧪 Running test email...");
-  const transporter = getTransporter();
-  transporter.verify(async (error, success) => {
-    if (error) {
-      console.error("❌ Mail transporter error:", error);
-    } else {
-      console.log("✅ Mail server ready to send!");
-      try {
-        await sendSellerStatusMail({
-          to: process.env.EMAIL_USER, // send test mail to yourself
-          productType: "Drone",
-          productName: "Greenmist Agri X1",
-          status: "approved",
-        });
-      } catch (e) {
-        console.error("❌ Test email failed:", e.message);
-      }
-    }
-  });
+// ============================================================
+// 🎓 Student Training Enrollment Emails
+// ============================================================
+export async function sendEnrollmentEmails({
+  studentName,
+  studentEmail,
+  courseTitle,
+  courseDays,
+  totalAmount,
+}) {
+  const adminEmail = process.env.ADMIN_EMAIL || "flytutor.in@gmail.com";
+  const transport = getTransporter();
+
+  const studentSubject = `🎓 Enrollment Confirmation - ${courseTitle}`;
+  const studentHtml = `
+    <div style="font-family:Arial,sans-serif;padding:20px;background:#f3f6ff;border-radius:10px;">
+      <h2 style="color:#4b3eff;">🎉 Enrollment Successful!</h2>
+      <p>Hi <strong>${studentName}</strong>,</p>
+      <p>Thank you for enrolling in <strong>${courseTitle}</strong>.</p>
+      <p><b>Duration:</b> ${courseDays} Days<br/>
+         <b>Total Fee:</b> ₹${totalAmount}</p>
+      <p>We’ll contact you soon with your training schedule.</p>
+      <hr/>
+      <p style="font-size:12px;color:#555;">Team Flyhub</p>
+    </div>
+  `;
+
+  const adminSubject = `📥 New Training Enrollment - ${studentName}`;
+  const adminHtml = `
+    <div style="font-family:Arial,sans-serif;padding:20px;background:#fff7e6;border-radius:10px;">
+      <h3 style="color:#d35400;">📢 New Training Enrollment</h3>
+      <p><b>Name:</b> ${studentName}<br/>
+         <b>Email:</b> ${studentEmail}<br/>
+         <b>Course:</b> ${courseTitle}<br/>
+         <b>Duration:</b> ${courseDays} Days<br/>
+         <b>Amount:</b> ₹${totalAmount}</p>
+      <p>Please check the <a href="https://flyhub.in/admin" target="_blank">Admin Dashboard</a> for full details.</p>
+    </div>
+  `;
+
+  try {
+    await transport.sendMail({
+      from: `"Flyhub Training" <${process.env.EMAIL_USER}>`,
+      to: studentEmail,
+      subject: studentSubject,
+      html: studentHtml,
+    });
+    console.log(`✅ Enrollment confirmation sent to student: ${studentEmail}`);
+  } catch (err) {
+    console.error("❌ Failed to send student confirmation email:", err.message);
+  }
+
+  try {
+    await transport.sendMail({
+      from: `"Flyhub System" <${process.env.EMAIL_USER}>`,
+      to: adminEmail,
+      subject: adminSubject,
+      html: adminHtml,
+    });
+    console.log(`✅ Admin notified of enrollment (${studentName}).`);
+  } catch (err) {
+    console.error("❌ Failed to notify admin:", err.message);
+  }
 }

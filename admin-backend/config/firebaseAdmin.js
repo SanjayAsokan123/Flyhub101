@@ -5,19 +5,28 @@ import fs from "fs";
 
 dotenv.config();
 
+let app = null;
+let bucket = null;
+let auth = null;
+let firestore = null;
+
 if (!admin.apps.length) {
   try {
     let credentials;
-
     const serviceAccountPath = process.env.FIREBASE_ADMIN_CREDENTIALS;
 
-    // ✅ Option 1: Load from JSON file path (local dev)
+    // -----------------------------------------
+    // 🔑 Option 1: Local JSON service account
+    // -----------------------------------------
     if (serviceAccountPath && fs.existsSync(serviceAccountPath)) {
       console.log(`🔑 Using Firebase Admin credentials from: ${serviceAccountPath}`);
       const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, "utf8"));
       credentials = admin.credential.cert(serviceAccount);
     }
-    // ✅ Option 2: Use environment variables (for cloud)
+
+    // -----------------------------------------
+    // 🔑 Option 2: Environment variables (production)
+    // -----------------------------------------
     else if (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
       console.log("🌍 Using Firebase credentials from environment variables");
       credentials = admin.credential.cert({
@@ -28,9 +37,19 @@ if (!admin.apps.length) {
     }
 
     if (!credentials) {
-      console.warn("⚠️ Firebase Admin credentials missing — push notifications won't work.");
+      console.warn("⚠️ Firebase Admin credentials missing — ⚠️ No Auth, Storage or Firestore");
     } else {
-      admin.initializeApp({ credential: credentials });
+      app = admin.initializeApp({
+        credential: credentials,
+        storageBucket:
+          process.env.FIREBASE_STORAGE_BUCKET ||
+          `${process.env.FIREBASE_PROJECT_ID}.appspot.com`,
+      });
+
+      bucket = admin.storage().bucket();
+      auth = admin.auth();
+      firestore = admin.firestore();
+
       console.log("🔥 Firebase Admin initialized successfully");
     }
   } catch (error) {
@@ -38,6 +57,14 @@ if (!admin.apps.length) {
   }
 } else {
   console.log("ℹ️ Firebase Admin already initialized");
+  app = admin.app();
+  bucket = admin.storage().bucket();
+  auth = admin.auth();
+  firestore = admin.firestore();
 }
 
+// -----------------------------------------
+// ✅ EXPORTS
+// -----------------------------------------
+export { admin, app, bucket, auth, firestore };
 export default admin;

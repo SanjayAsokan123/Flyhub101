@@ -5,6 +5,7 @@
   color: white;
   display: flex;
   flex-direction: column;
+  height: 100vh;
 }
 
 .sidebar-header {
@@ -12,6 +13,8 @@
   font-size: 22px;
   font-weight: bold;
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  text-align: center;
+  letter-spacing: 0.5px;
 }
 
 .sidebar-nav ul {
@@ -21,7 +24,7 @@
 }
 
 .sidebar-nav li {
-  padding: 15px 20px;
+  padding: 12px 20px;
 }
 
 .sidebar-nav a {
@@ -30,12 +33,20 @@
   gap: 10px;
   color: white;
   border-radius: 6px;
-  transition: background 0.3s ease;
+  transition: all 0.3s ease;
   font-size: 16px;
+  text-decoration: none;
 }
 
 .sidebar-nav a:hover {
   background: rgba(255, 255, 255, 0.2);
+  transform: translateX(5px);
+}
+
+.sidebar-nav a.active {
+  background: rgba(255, 255, 255, 0.3);
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 #fff;
 }
 
 /* Mobile: collapse sidebar */
@@ -48,6 +59,7 @@
     z-index: 1000;
     transition: left 0.3s ease;
   }
+
   .sidebar.open {
     left: 0;
   }

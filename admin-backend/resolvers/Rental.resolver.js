@@ -2,10 +2,16 @@ import { Rental } from "../models/Rental.model.js";
 import { Seller } from "../models/Seller.model.js";
 import { sendSellerStatusMail } from "../utils/emailService.js";
 import { createSellerNotification } from "../utils/createSellerNotification.js";
+import {
+  uploadSingleFile,
+  deleteFirebaseFile,
+} from "../utils/uploadToFirebase.js";
 
 export const rentalResolvers = {
   Query: {
-    // 🟢 Fetch all rentals with seller info
+    /**
+     * 🟢 Fetch all rentals with seller info
+     */
     rentals: async () => {
       try {
         return await Rental.getWithSellerInfo();
@@ -15,7 +21,9 @@ export const rentalResolvers = {
       }
     },
 
-    // 🟢 Fetch rental by ID
+    /**
+     * 🟢 Fetch rental by ID
+     */
     rental: async (_, { rentalId }) => {
       try {
         const rental = await Rental.findOne({ rentalId });
@@ -35,7 +43,9 @@ export const rentalResolvers = {
       }
     },
 
-    // 🟡 Rentals filtered by status
+    /**
+     * 🟡 Rentals filtered by status
+     */
     approvedRentals: async (_, { sellerId }) =>
       Rental.find({ sellerId, status: "approved" }),
     pendingRentals: async (_, { sellerId }) =>
@@ -46,7 +56,7 @@ export const rentalResolvers = {
 
   Mutation: {
     /**
-     * 🟢 Create new rental listing
+     * 🟢 Create new rental listing with Firebase upload
      */
     createRental: async (_, { input }, { pubsub }) => {
       try {
@@ -58,6 +68,7 @@ export const rentalResolvers = {
           pricePerDay,
           description,
           image,
+          imageFile,
           quantity,
           sellerId,
         } = input;
@@ -68,6 +79,12 @@ export const rentalResolvers = {
         const seller = await Seller.findOne({ customId: sellerId });
         if (!seller) throw new Error(`Seller with ID ${sellerId} not found`);
 
+        // ✅ Upload image if file provided
+        let finalImage = image || null;
+        if (imageFile?.file) {
+          finalImage = await uploadSingleFile(imageFile.file, "rentals");
+        }
+
         const newRental = new Rental({
           name,
           brand,
@@ -75,7 +92,7 @@ export const rentalResolvers = {
           pricePerHour,
           pricePerDay,
           description,
-          image,
+          image: finalImage,
           quantity: quantity || 1,
           status: "pending",
           sellerId,
@@ -108,14 +125,27 @@ export const rentalResolvers = {
     },
 
     /**
-     * ✏️ Update rental listing
+     * ✏️ Update rental listing (with Firebase cleanup)
      */
     updateRental: async (_, { rentalId, input }) => {
       try {
+        const existing = await Rental.findOne({ rentalId });
+        if (!existing) throw new Error("Rental not found");
+
+        // ✅ Handle image update
+        if (input.imageFile?.file) {
+          // Delete old image if present
+          if (existing.image) {
+            await deleteFirebaseFile(existing.image);
+          }
+          // Upload new image
+          input.image = await uploadSingleFile(input.imageFile.file, "rentals");
+        }
+
         const updated = await Rental.findOneAndUpdate({ rentalId }, input, {
           new: true,
         });
-        if (!updated) throw new Error("Rental not found");
+        if (!updated) throw new Error("Rental not found after update");
 
         const seller = await Seller.findOne({ customId: updated.sellerId });
 
@@ -134,7 +164,6 @@ export const rentalResolvers = {
 
     /**
      * 🟡 Update rental approval status
-     * Sends email + in-app notification
      */
     updateRentalStatus: async (_, { rentalId, status }, { pubsub }) => {
       try {
@@ -157,7 +186,7 @@ export const rentalResolvers = {
           });
         }
 
-        // 🔔 In-app / pubsub notification
+        // 🔔 In-app notification
         await createSellerNotification({
           sellerId: updated.sellerId,
           title:
@@ -192,16 +221,20 @@ export const rentalResolvers = {
     },
 
     /**
-     * 🗑 Delete rental listing
+     * 🗑 Delete rental (Firebase cleanup)
      */
     deleteRental: async (_, { rentalId }, { pubsub }) => {
       try {
         const deleted = await Rental.findOneAndDelete({ rentalId });
         if (!deleted) throw new Error("Rental not found");
 
+        // ✅ Delete Firebase image if exists
+        if (deleted.image) {
+          await deleteFirebaseFile(deleted.image);
+        }
+
         const seller = await Seller.findOne({ customId: deleted.sellerId });
 
-        // 🔔 Notify seller
         await createSellerNotification({
           sellerId: deleted.sellerId,
           title: "🗑️ Rental Deleted",

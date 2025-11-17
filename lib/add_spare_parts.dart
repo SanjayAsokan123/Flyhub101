@@ -27,7 +27,7 @@ class _AddSparePartFormState extends State<AddSparePartForm> {
   bool _isSubmitting = false;
 
   final picker = ImagePicker();
-  final String graphqlUrl = "http://192.168.0.180:5001/graphql";
+  final String graphqlUrl = "http://192.168.1.178:5001/graphql";
 
   // 📸 Pick image
   Future<void> _pickImage() async {

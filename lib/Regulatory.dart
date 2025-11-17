@@ -79,7 +79,7 @@ class _RegulatoryPageState extends State<RegulatoryPage> {
   List<RegulatoryInfo> regulatoryList = [];
   bool isLoading = true;
 
-  final String backendUrl = 'http://192.168.1.207:5001/graphql';
+  final String backendUrl = 'http://192.168.1.207:5002/graphql';
 
   final String getRegulatoryQuery = '''
     query {

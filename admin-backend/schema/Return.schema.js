@@ -28,17 +28,19 @@ export const returnTypeDefs = gql`
     reason: String
     deliveryDate: String
     status: String
+    proofUrl: String
     seller: SellerDetails
     buyer: BuyerDetails
   }
 
-  """ Input for creating a new return request """
+  """ Input for creating or updating a return request """
   input ReturnRequestInput {
-    orderId: String!
-    productId: String!
-    type: String!
-    reason: String!
-    deliveryDate: String!
+    orderId: String
+    productId: String
+    type: String
+    reason: String
+    deliveryDate: String
+    proofUrl: String
   }
 
   extend type Query {
@@ -46,15 +48,18 @@ export const returnTypeDefs = gql`
     returnRequests: [ReturnRequest]
 
     """ Fetch return requests filtered by status """
-    returnRequestsByStatus(status: String!): [ReturnRequest] # ✅ Added
+    returnRequestsByStatus(status: String!): [ReturnRequest]
   }
 
   extend type Mutation {
     """ Buyer requests a product return """
     requestReturn(data: ReturnRequestInput!): ReturnRequest
 
-    """ Update status of a return request """
-    updateReturnStatus(returnId: String!, status: String!): ReturnRequest # ✅ Added
+    """ Update existing return request details (reason, proof, etc.) """
+    updateReturnRequest(returnId: String!, data: ReturnRequestInput): ReturnRequest  # ✅ Added
+
+    """ Update return status (admin or seller approval) """
+    updateReturnStatus(returnId: String!, status: String!): ReturnRequest
 
     """ Delete a return request """
     deleteReturn(returnId: String!): ReturnRequest

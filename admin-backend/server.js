@@ -12,51 +12,92 @@ import { useServer } from "graphql-ws/lib/use/ws";
 import connectDB from "./config/db.js";
 import { verifyFirebaseToken } from "./middleware/firebaseAuth.js";
 import { pubsub } from "./pubsub.js";
-import admin from "./config/firebaseAdmin.js";
+import multer from "multer";
+import { uploadToFirebase } from "./utils/uploadToFirebase.js";
+import sellerAuthRouter from "./routes/sellerAuth.js";
 
-// 🧩 Import merged typeDefs array & resolvers
+// ✅ Import GraphQL Schemas & Resolvers
 import { typeDefs } from "./schema/typeDefs/index.js";
-import {
-  droneResolvers,
-  partResolvers,
-  accessoryResolvers,
-  rentalResolvers,
-  hirePilotResolvers,
-  jobResolvers,
-  orderResolvers,
-  returnResolvers,
-  serviceResolvers,
-  regulatoryResolvers,
-  buyerResolvers,
-  sellerResolvers,
-  notificationResolvers,
-} from "./resolvers/index.js";
+import { resolves } from "./resolvers/resolves/index.js";
 
 dotenv.config();
-const PORT = process.env.PORT || 5002;
+const PORT = process.env.PORT || 5001;
 
-// 🚀 Start Server
 const startServer = async () => {
   try {
     const app = express();
 
-    // ========================
-    // ✅ Middleware
-    // ========================
+    // =======================================================
+    // ✅ Core Middleware
+    // =======================================================
     app.use(cors());
     app.use(express.json());
     app.use("/uploads", express.static("uploads"));
+
+
+app.use("/auth", sellerAuthRouter);
+
+    // =======================================================
+    // ✅ Multer Config (for /upload)
+    // =======================================================
+    const storage = multer.memoryStorage();
+    const upload = multer({ storage });
+
+    // =======================================================
+    // ✅ Health Check
+    // =======================================================
+    app.get("/healthz", (_req, res) => res.json({ ok: true }));
+
+    // =======================================================
+    // ✅ Firebase File Upload Route (REST endpoint)
+    // =======================================================
+    app.post(
+      "/upload",
+      verifyFirebaseToken,
+      upload.single("file"),
+      async (req, res) => {
+        try {
+          if (!req.file) {
+            return res.status(400).json({ success: false, message: "No file uploaded" });
+          }
+
+          const folder = req.body.folder || "hire-pilots";
+          const firebaseUser = req.firebaseUser;
+          const publicUrl = await uploadToFirebase(req.file, folder);
+
+          console.log(`📤 ${firebaseUser?.email || "anonymous"} uploaded to ${folder}`);
+
+          res.json({
+            success: true,
+            url: publicUrl,
+            uploader: firebaseUser?.email,
+            message: "✅ File uploaded successfully",
+          });
+        } catch (err) {
+          console.error("❌ Upload Error:", err);
+          res.status(500).json({ success: false, message: err.message });
+        }
+      }
+    );
+
+    // =======================================================
+    // ✅ graphql-upload Middleware (for GraphQL file fields)
+    // =======================================================
     app.use(graphqlUploadExpress({ maxFileSize: 10_000_000, maxFiles: 10 }));
+
+    // =======================================================
+    // ✅ Firebase Protection
+    // =======================================================
     app.use(verifyFirebaseToken);
 
-    // ========================
+    // =======================================================
     // ✅ Connect MongoDB
-    // ========================
+    // =======================================================
     await connectDB();
 
-    // ========================
+    // =======================================================
     // ✅ Merge TypeDefs & Resolvers
-    // ========================
+    // =======================================================
     const baseTypeDefs = `
       type Query
       type Mutation
@@ -64,31 +105,17 @@ const startServer = async () => {
     `;
 
     const mergedTypeDefs = mergeTypeDefs([baseTypeDefs, ...typeDefs]);
-    const mergedResolvers = mergeResolvers([
-      droneResolvers,
-      partResolvers,
-      accessoryResolvers,
-      rentalResolvers,
-      hirePilotResolvers,
-      jobResolvers,
-      orderResolvers,
-      returnResolvers,
-      serviceResolvers,
-      regulatoryResolvers,
-      buyerResolvers,
-      sellerResolvers,
-      notificationResolvers,
-    ]);
+const mergedResolvers = mergeResolvers([...resolves]);
 
-    // ✅ Build Executable Schema
+
     const schema = makeExecutableSchema({
       typeDefs: mergedTypeDefs,
       resolvers: mergedResolvers,
     });
 
-    // ========================
+    // =======================================================
     // ✅ Apollo Server Setup
-    // ========================
+    // =======================================================
     const server = new ApolloServer({
       schema,
       context: ({ req }) => {
@@ -134,26 +161,26 @@ const startServer = async () => {
     await server.start();
     server.applyMiddleware({ app, path: "/graphql" });
 
-    // ========================
-    // ✅ HTTP + WebSocket Setup
-    // ========================
+    // =======================================================
+    // ✅ WebSocket Subscriptions
+    // =======================================================
     const httpServer = createServer(app);
     const wsServer = new WebSocketServer({
       server: httpServer,
       path: "/graphql",
     });
 
-    // Attach GraphQL Subscriptions
     useServer({ schema, context: () => ({ pubsub }) }, wsServer);
 
-    // ========================
-    // ✅ Start Server
-    // ========================
+    // =======================================================
+    // ✅ Start the Server
+    // =======================================================
     httpServer.listen(PORT, "0.0.0.0", () => {
       console.log("==================================================");
       console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
       console.log(`🚀 GraphQL Endpoint: http://127.0.0.1:${PORT}/graphql`);
       console.log(`📡 Subscriptions: ws://127.0.0.1:${PORT}/graphql`);
+      console.log(`📥 Upload endpoint: http://127.0.0.1:${PORT}/upload`);
       console.log(`🔥 Firebase Admin: Initialized`);
       console.log("==================================================");
     });

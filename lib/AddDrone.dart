@@ -27,7 +27,7 @@ class _AddDronePageState extends State<AddDronePage> {
   File? imageFile;
   bool _isSubmitting = false;
 
-  final String graphqlUrl = "http://192.168.0.180:5001/graphql";
+  final String graphqlUrl = "http://192.168.1.178:5001/graphql";
 
   Future<void> _pickImage() async {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);

@@ -1,136 +1,226 @@
+// backend/resolvers/buyerResolvers.js
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import Buyer from "../models/Buyer.model.js";
+import { Buyer } from "../models/Buyer.model.js";
 import { createSellerNotification } from "../utils/createSellerNotification.js";
+import { auth } from "../config/firebaseAdmin.js";
+import { createLoginIndex, findLoginIndex } from "../utils/loginIndex.js";
+
+/**
+ * BUYER GraphQL RESOLVERS (FINAL)
+ * Features:
+ * - Email/Phone/BuyerID login
+ * - OTP login via Firebase UID
+ * - Auto loginIndex creation
+ * - Full JWT support
+ */
 
 export const buyerResolvers = {
+  // ============================================================
+  // 📊 QUERIES
+  // ============================================================
   Query: {
-    // ✅ Fetch all buyers
-    buyers: async () => await Buyer.find(),
+    buyers: async () => await Buyer.find().sort({ createdAt: -1 }),
 
-    // ✅ Fetch single buyer by ID
-    buyer: async (_, { id }) => await Buyer.findById(id),
+    buyer: async (_, { id }) => {
+      const buyer = await Buyer.findById(id);
+      if (!buyer) throw new Error(`Buyer ${id} not found`);
+      return buyer;
+    },
   },
 
+  // ============================================================
+  // ⚙ MUTATIONS
+  // ============================================================
   Mutation: {
-    // 🟢 Signup / Create Buyer Account
-    signup: async (_, { name, email, password }, { pubsub }) => {
-      const existingBuyer = await Buyer.findOne({ email });
-      if (existingBuyer) throw new Error("Buyer already exists with this email.");
-
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const newBuyer = new Buyer({
-        name,
-        email,
-        password: hashedPassword,
-      });
-      await newBuyer.save();
-
-      // ✅ Generate JWT Token
-      const token = jwt.sign(
-        { buyerId: newBuyer.id, email: newBuyer.email },
-        process.env.JWT_SECRET,
-        { expiresIn: "1d" }
-      );
-
-      // 🔔 Optional: Notify admin (or system log) about new buyer registration
+    // ------------------------------------------------------------
+    // 🟢 BUYER SIGNUP (Email + Password + Phone + OTP)
+    // ------------------------------------------------------------
+    signupBuyer: async (
+      _,
+      { name, email, phone, password, firebaseUid },
+      { pubsub }
+    ) => {
       try {
-        await createSellerNotification({
-          sellerId: "SYSTEM", // Optional system ID
-          title: "New Buyer Registered",
-          message: `Buyer "${name}" just signed up on Flyhub.`,
-          type: "buyer_signup",
-          data: { buyerId: newBuyer.id, email },
-          url: `/admin/buyers/${newBuyer.id}`,
-          pubsub,
+        // Prevent duplicate email
+        const existing = await Buyer.findOne({ email });
+        if (existing) throw new Error("Buyer with this email already exists.");
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Create buyer in MongoDB
+        const buyer = await Buyer.create({
+          name,
+          email,
+          phoneNumber: phone,
+          password: hashedPassword,
+          firebaseUid,
         });
-      } catch (err) {
-        console.error("⚠️ createSellerNotification failed:", err);
-      }
 
-      return {
-        id: newBuyer.id,
-        name: newBuyer.name,
-        email: newBuyer.email,
-        token,
-      };
-    },
+        // Create loginIndex mapping for email, phone, buyerId
+        await createLoginIndex({
+          uid: firebaseUid,
+          email,
+          phone,
+          customId: buyer.buyerId, // FLYHUBB0001
+        });
 
-    // 🔵 Login Buyer
-    login: async (_, { email, password }, { pubsub }) => {
-      const buyer = await Buyer.findOne({ email });
-      if (!buyer) throw new Error("Buyer not found.");
+        // JWT Token
+        const token = jwt.sign(
+          { buyerId: buyer.id, email: buyer.email },
+          process.env.JWT_SECRET,
+          { expiresIn: "1d" }
+        );
 
-      const isPasswordValid = await bcrypt.compare(password, buyer.password);
-      if (!isPasswordValid) throw new Error("Invalid password.");
-
-      const token = jwt.sign(
-        { buyerId: buyer.id, email: buyer.email },
-        process.env.JWT_SECRET,
-        { expiresIn: "1d" }
-      );
-
-      // 🔔 Optional: Notify (for analytics or admin monitoring)
-      try {
+        // System notification
         await createSellerNotification({
           sellerId: "SYSTEM",
-          title: "Buyer Login",
-          message: `Buyer "${buyer.name}" has logged in.`,
-          type: "buyer_login",
-          data: { buyerId: buyer.id, email },
+          title: "🆕 New Buyer Registered",
+          message: `Buyer "${buyer.name}" created an account.`,
+          type: "buyer_signup",
+          data: { buyerId: buyer.buyerId, email },
           url: `/admin/buyers/${buyer.id}`,
           pubsub,
         });
+
+        return {
+          id: buyer.id,
+          buyerId: buyer.buyerId,
+          name: buyer.name,
+          email: buyer.email,
+          phone: buyer.phoneNumber,
+          token,
+        };
       } catch (err) {
-        console.error("⚠️ createSellerNotification failed:", err);
+        console.error("❌ Buyer signup failed:", err);
+        throw new Error("Signup failed: " + err.message);
       }
-
-      return {
-        id: buyer.id,
-        name: buyer.name,
-        email: buyer.email,
-        token,
-      };
     },
 
-    // ✏️ Update Buyer
-    updateBuyer: async (_, { buyerId, name, email, password }) => {
-      const updateData = {};
-      if (name) updateData.name = name;
-      if (email) updateData.email = email;
-      if (password) updateData.password = await bcrypt.hash(password, 10);
-
-      const updatedBuyer = await Buyer.findOneAndUpdate(
-        { _id: buyerId },
-        updateData,
-        { new: true }
-      );
-
-      if (!updatedBuyer) throw new Error(`Buyer with ID ${buyerId} not found.`);
-      return updatedBuyer;
-    },
-
-    // 🗑 Delete Buyer
-    deleteBuyer: async (_, { buyerId }, { pubsub }) => {
-      const deletedBuyer = await Buyer.findOneAndDelete({ _id: buyerId });
-      if (!deletedBuyer) throw new Error(`Buyer with ID ${buyerId} not found.`);
-
-      // 🔔 Notify admin/system about account deletion
+    // ------------------------------------------------------------
+    // 🔵 BUYER LOGIN (Email / Phone / BuyerID)
+    // ------------------------------------------------------------
+    loginBuyer: async (_, { input, password }) => {
       try {
+        let buyer = null;
+
+        // 1️⃣ Try loginIndex lookup (fastest + cross-platform)
+        const loginMatch = await findLoginIndex(input);
+        if (loginMatch && loginMatch.uid) {
+          buyer = await Buyer.findOne({ firebaseUid: loginMatch.uid });
+        }
+
+        // 2️⃣ Fallback: direct DB search
+        if (!buyer) {
+          if (input.includes("@")) {
+            buyer = await Buyer.findOne({ email: input });
+          } else if (/^\d{10}$/.test(input)) {
+            buyer = await Buyer.findOne({ phoneNumber: input });
+          } else {
+            buyer = await Buyer.findOne({ buyerId: input });
+          }
+        }
+
+        if (!buyer) throw new Error("Buyer not found");
+
+        // Validate password
+        const valid = await bcrypt.compare(password, buyer.password || "");
+        if (!valid) throw new Error("Incorrect password");
+
+        const token = jwt.sign(
+          { buyerId: buyer.id, email: buyer.email },
+          process.env.JWT_SECRET,
+          { expiresIn: "1d" }
+        );
+
+        return {
+          id: buyer.id,
+          buyerId: buyer.buyerId,
+          name: buyer.name,
+          email: buyer.email,
+          phone: buyer.phoneNumber,
+          token,
+        };
+      } catch (err) {
+        console.error("❌ Login failed:", err);
+        throw new Error("Login failed: " + err.message);
+      }
+    },
+
+    // ------------------------------------------------------------
+    // 🔵 OTP LOGIN (Phone Only + Firebase UID)
+    // ------------------------------------------------------------
+    loginBuyerOtp: async (_, { firebaseUid }) => {
+      try {
+        const buyer = await Buyer.findOne({ firebaseUid });
+        if (!buyer)
+          throw new Error("Phone number not registered. Please sign up first.");
+
+        const token = jwt.sign(
+          { buyerId: buyer.id, email: buyer.email },
+          process.env.JWT_SECRET,
+          { expiresIn: "1d" }
+        );
+
+        return {
+          id: buyer.id,
+          buyerId: buyer.buyerId,
+          name: buyer.name,
+          email: buyer.email,
+          phone: buyer.phoneNumber,
+          token,
+        };
+      } catch (err) {
+        console.error("❌ OTP login failed:", err);
+        throw new Error("OTP login failed: " + err.message);
+      }
+    },
+
+    // ------------------------------------------------------------
+    // ✏ UPDATE BUYER PROFILE
+    // ------------------------------------------------------------
+    updateBuyer: async (_, { buyerId, name, email, phone, password }) => {
+      try {
+        const data = {};
+        if (name) data.name = name;
+        if (email) data.email = email;
+        if (phone) data.phoneNumber = phone;
+        if (password) data.password = await bcrypt.hash(password, 10);
+
+        const updated = await Buyer.findByIdAndUpdate(buyerId, data, {
+          new: true,
+          runValidators: true,
+        });
+
+        if (!updated) throw new Error("Buyer not found");
+
+        return updated;
+      } catch (err) {
+        throw new Error("Update failed: " + err.message);
+      }
+    },
+
+    // ------------------------------------------------------------
+    // 🗑 DELETE BUYER
+    // ------------------------------------------------------------
+    deleteBuyer: async (_, { buyerId }, { pubsub }) => {
+      try {
+        const deleted = await Buyer.findByIdAndDelete(buyerId);
+        if (!deleted) throw new Error("Buyer not found");
+
         await createSellerNotification({
           sellerId: "SYSTEM",
-          title: "Buyer Account Deleted",
-          message: `Buyer "${deletedBuyer.name}" deleted their account.`,
+          title: "🗑 Buyer Deleted",
+          message: `Buyer "${deleted.name}" deleted account.`,
           type: "buyer_deleted",
           data: { buyerId },
-          url: `/admin/buyers`,
           pubsub,
         });
-      } catch (err) {
-        console.error("⚠️ createSellerNotification failed:", err);
-      }
 
-      return `Buyer with ID ${buyerId} deleted successfully.`;
+        return "Buyer deleted successfully.";
+      } catch (err) {
+        throw new Error("Delete failed: " + err.message);
+      }
     },
   },
 };

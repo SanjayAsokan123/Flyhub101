@@ -1,5 +1,9 @@
 import { Regulatory } from "../models/Regulatory.model.js";
 import { createSellerNotification } from "../utils/createSellerNotification.js";
+import {
+  uploadSingleFile,
+  deleteFirebaseFile,
+} from "../utils/uploadToFirebase.js";
 
 export const regulatoryResolvers = {
   Query: {
@@ -42,27 +46,34 @@ export const regulatoryResolvers = {
 
   Mutation: {
     /**
-     * 🟢 Create a new regulatory record
-     * Adds admin notification (real-time + in-app)
+     * 🟢 Create a new regulatory record (with Firebase upload)
      */
     createRegulatory: async (_, { input }, { pubsub }) => {
-      const sanitizedInput = {
-        title: input.title?.trim() || "Untitled Regulation",
-        date: input.date || new Date().toISOString().split("T")[0],
-        imagePath: input.imagePath?.trim() || "N/A",
-        shortDescription:
-          input.shortDescription?.trim() || "No short description provided.",
-        fullDescription:
-          input.fullDescription?.trim() || "No detailed description available.",
-      };
-
-      const newRecord = new Regulatory(sanitizedInput);
-      await newRecord.save();
-
-      // 🔔 Notify admin dashboards or content managers
       try {
+        const sanitizedInput = {
+          title: input.title?.trim() || "Untitled Regulation",
+          date: input.date || new Date().toISOString().split("T")[0],
+          imagePath: input.imagePath?.trim() || null,
+          shortDescription:
+            input.shortDescription?.trim() || "No short description provided.",
+          fullDescription:
+            input.fullDescription?.trim() || "No detailed description available.",
+        };
+
+        // ✅ Upload new image or PDF to Firebase if provided
+        if (input.imageFile?.file) {
+          sanitizedInput.imagePath = await uploadSingleFile(
+            input.imageFile.file,
+            "regulatory"
+          );
+        }
+
+        const newRecord = new Regulatory(sanitizedInput);
+        await newRecord.save();
+
+        // 🔔 Notify admin dashboards or content managers
         await createSellerNotification({
-          sellerId: "ADMIN", // pseudo-id for admin broadcast
+          sellerId: "ADMIN",
           title: "📜 New Regulation Added",
           message: `A new regulatory update "${sanitizedInput.title}" has been published.`,
           type: "regulatory_create",
@@ -70,31 +81,44 @@ export const regulatoryResolvers = {
           url: `/admin/regulatory/${newRecord._id}`,
           pubsub,
         });
-      } catch (notifErr) {
-        console.error("⚠️ Notification creation failed:", notifErr);
-      }
 
-      return {
-        ...newRecord.toObject(),
-        id: newRecord._id.toString(),
-      };
+        return {
+          ...newRecord.toObject(),
+          id: newRecord._id.toString(),
+        };
+      } catch (error) {
+        console.error("❌ Error creating regulation:", error);
+        throw new Error("Failed to create regulation: " + error.message);
+      }
     },
 
     /**
-     * ✏️ Update an existing regulatory record
-     * Triggers dashboard update notifications
+     * ✏️ Update an existing regulatory record (with Firebase cleanup)
      */
     updateRegulatory: async (_, { id, input }, { pubsub }) => {
-      const updatedRecord = await Regulatory.findByIdAndUpdate(
-        id,
-        { ...input },
-        { new: true, runValidators: true }
-      );
-
-      if (!updatedRecord) throw new Error("Regulatory record not found");
-
-      // 🔔 Notify dashboard listeners (e.g., editors, compliance team)
       try {
+        const existing = await Regulatory.findById(id);
+        if (!existing) throw new Error("Regulatory record not found");
+
+        const updateData = { ...input };
+
+        // ✅ Replace file in Firebase if a new one is uploaded
+        if (input.imageFile?.file) {
+          if (existing.imagePath) {
+            await deleteFirebaseFile(existing.imagePath);
+          }
+          updateData.imagePath = await uploadSingleFile(
+            input.imageFile.file,
+            "regulatory"
+          );
+        }
+
+        const updatedRecord = await Regulatory.findByIdAndUpdate(id, updateData, {
+          new: true,
+          runValidators: true,
+        });
+
+        // 🔔 Notify admin dashboard users
         await createSellerNotification({
           sellerId: "ADMIN",
           title: "📢 Regulation Updated",
@@ -104,25 +128,30 @@ export const regulatoryResolvers = {
           url: `/admin/regulatory/${id}`,
           pubsub,
         });
-      } catch (notifErr) {
-        console.error("⚠️ Update notification error:", notifErr);
-      }
 
-      return {
-        ...updatedRecord.toObject(),
-        id: updatedRecord._id.toString(),
-      };
+        return {
+          ...updatedRecord.toObject(),
+          id: updatedRecord._id.toString(),
+        };
+      } catch (error) {
+        console.error("❌ Error updating regulation:", error);
+        throw new Error("Failed to update regulation: " + error.message);
+      }
     },
 
     /**
-     * 🗑 Delete a regulatory record
-     * Notifies admins and compliance teams
+     * 🗑 Delete a regulatory record (with Firebase cleanup)
      */
     deleteRegulatory: async (_, { id }, { pubsub }) => {
-      const deletedRecord = await Regulatory.findByIdAndDelete(id);
-      if (!deletedRecord) throw new Error("Regulatory record not found");
-
       try {
+        const deletedRecord = await Regulatory.findByIdAndDelete(id);
+        if (!deletedRecord) throw new Error("Regulatory record not found");
+
+        // ✅ Delete file from Firebase if exists
+        if (deletedRecord.imagePath) {
+          await deleteFirebaseFile(deletedRecord.imagePath);
+        }
+
         await createSellerNotification({
           sellerId: "ADMIN",
           title: "❌ Regulation Deleted",
@@ -132,14 +161,15 @@ export const regulatoryResolvers = {
           url: `/admin/regulatory`,
           pubsub,
         });
-      } catch (notifErr) {
-        console.error("⚠️ Delete notification error:", notifErr);
-      }
 
-      return {
-        ...deletedRecord.toObject(),
-        id: deletedRecord._id.toString(),
-      };
+        return {
+          ...deletedRecord.toObject(),
+          id: deletedRecord._id.toString(),
+        };
+      } catch (error) {
+        console.error("❌ Error deleting regulation:", error);
+        throw new Error("Failed to delete regulation: " + error.message);
+      }
     },
   },
 };

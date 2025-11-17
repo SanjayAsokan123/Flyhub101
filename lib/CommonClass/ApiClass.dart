@@ -4,13 +4,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'utils.dart';
 import '../services/graphql_client.dart';
 
-/// ✅ Unified API Result
+/// ✅ Unified API Result for all network operations
 class ApiResult {
   final String status;
   final dynamic data;
@@ -18,36 +19,53 @@ class ApiResult {
 
   ApiResult({required this.status, this.data, this.message = ""});
 
-  factory ApiResult.success(dynamic d, [String msg = ""]) =>
-      ApiResult(status: "success", data: d, message: msg);
+  factory ApiResult.success(dynamic data, [String msg = ""]) =>
+      ApiResult(status: "success", data: data, message: msg);
 
   factory ApiResult.error([String msg = "Error"]) =>
       ApiResult(status: "error", data: null, message: msg);
 }
 
-/// ✅ Retry helper (safe wrapper)
-Future<T?> _retry<T>(
-    Future<T> Function() action, {
-      int retries = 2,
-      Duration timeout = const Duration(seconds: 8),
-    }) async {
-  for (int attempt = 0; attempt <= retries; attempt++) {
-    try {
-      return await action().timeout(timeout);
-    } on TimeoutException catch (e) {
-      debugPrint("⏱️ Timeout (attempt ${attempt + 1}): $e");
-      if (attempt == retries) rethrow;
-    } catch (e) {
-      debugPrint("⚠️ Error (attempt ${attempt + 1}): $e");
-      if (attempt == retries) rethrow;
-    }
-  }
-  return null;
-}
-
-/// 🧩 ApiClass – All FlyHub GraphQL Services
+/// 🧩 FlyHub GraphQL + Firebase API Manager
 class ApiClass {
   late SharedPreferences pref;
+
+  // ============================================================
+  // ☁️ Firebase File Upload via Backend REST API
+  // ============================================================
+  Future<ApiResult> uploadToFirebaseServer(File file, String folder) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        return ApiResult.error("User not authenticated with Firebase");
+      }
+
+      final token = await user.getIdToken();
+      final uri = Uri.parse(
+          "http://192.168.31.179:5001/upload"); // ✅ Use /upload
+
+      final request = http.MultipartRequest("POST", uri)
+        ..headers["Authorization"] = "Bearer $token"
+        ..fields["folder"] = folder
+        ..files.add(await http.MultipartFile.fromPath("file", file.path));
+
+      final response = await request.send();
+      final resBody = await response.stream.bytesToString();
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(resBody);
+        debugPrint("✅ Uploaded to Firebase Storage: ${data['url']}");
+        return ApiResult.success(data['url']);
+      } else {
+        debugPrint("❌ Upload failed: $resBody");
+        return ApiResult.error(resBody);
+      }
+    } catch (e) {
+      debugPrint("⚠️ Upload exception: $e");
+      return ApiResult.error(e.toString());
+    }
+  }
+
 
   // ============================================================
   // 🛍 MARKETPLACE: DRONES / PARTS / ACCESSORIES
@@ -55,167 +73,97 @@ class ApiClass {
 
   Future<ApiResult> getDrones() async {
     const String query = r'''
-    query {
-      drones {
-        droneId
-        name
-        brand
-        price
-        description
-        image
-        status
+      query {
+        drones {
+          droneId
+          name
+          brand
+          price
+          description
+          image
+          status
+        }
       }
-    }
-  ''';
-
-    try {
-      final client = await GraphQLService.initClient();
-      final result = await client.query(QueryOptions(document: gql(query)));
-
-      if (result.hasException) {
-        debugPrint("❌ [getDrones] Error: ${result.exception}");
-        return ApiResult.error(result.exception.toString());
-      }
-
-      final data = result.data?['drones'] ?? [];
-      debugPrint("✅ [getDrones] Loaded ${data.length} drones");
-      return ApiResult.success(data);
-    } catch (e) {
-      debugPrint("⚠️ [getDrones] Exception: $e");
-      return ApiResult.error(e.toString());
-    }
+    ''';
+    return _runQuery("getDrones", query, "drones");
   }
 
   Future<ApiResult> getParts() async {
     const String query = r'''
-    query {
-      parts {
-        partId
-        name
-        brand
-        price
-        description
-        image
-        status
+      query {
+        parts {
+          partId
+          name
+          brand
+          price
+          description
+          image
+          status
+        }
       }
-    }
-  ''';
-
-    try {
-      final client = await GraphQLService.initClient();
-      final result = await client.query(QueryOptions(document: gql(query)));
-
-      if (result.hasException) {
-        debugPrint("❌ [getParts] Error: ${result.exception}");
-        return ApiResult.error(result.exception.toString());
-      }
-
-      final data = result.data?['parts'] ?? [];
-      debugPrint("✅ [getParts] Loaded ${data.length} parts");
-      return ApiResult.success(data);
-    } catch (e) {
-      debugPrint("⚠️ [getParts] Exception: $e");
-      return ApiResult.error(e.toString());
-    }
+    ''';
+    return _runQuery("getParts", query, "parts");
   }
 
   Future<ApiResult> getAccessories() async {
     const String query = r'''
-    query {
-      accessories {
-        accessoryId
-        name
-        brand
-        price
-        description
-        image
-        status
+      query {
+        accessories {
+          accessoryId
+          name
+          brand
+          price
+          description
+          image
+          status
+        }
       }
-    }
-  ''';
-
-    try {
-      final client = await GraphQLService.initClient();
-      final result = await client.query(QueryOptions(document: gql(query)));
-
-      if (result.hasException) {
-        debugPrint("❌ [getAccessories] Error: ${result.exception}");
-        return ApiResult.error(result.exception.toString());
-      }
-
-      final data = result.data?['accessories'] ?? [];
-      debugPrint("✅ [getAccessories] Loaded ${data.length} accessories");
-      return ApiResult.success(data);
-    } catch (e) {
-      debugPrint("⚠️ [getAccessories] Exception: $e");
-      return ApiResult.error(e.toString());
-    }
+    ''';
+    return _runQuery("getAccessories", query, "accessories");
   }
 
   // ============================================================
-// 👨‍✈️ HIRE PILOTS
-// ============================================================
-// ============================================================
-// 👨‍✈️ HIRE PILOTS
-// ============================================================
-  Future<ApiResult> getHirePilots() async {
+  // 👨‍✈️ HIRE PILOTS
+  // ============================================================
+  Future<ApiResult> getApprovedHirePilots() async {
     const String query = r'''
-    query {
-      hirePilots {
-        pilotId
-        pilotName
-        pilotCompany
-        location
-        sellerId
-        availability
-        specification
-        description
-        email
-        phoneNumber
-        status
-        price {
-          perHour
-          perDay
-        }
-        certifications {
-          url
-        }
-        resume {
-          url
-        }
-        seller {
-          name
-          email
-          phoneNumber
+      query {
+        approvedHirePilotsByStatus {
+          pilotId
+          pilotName
+          pilotCompany
+          location
+          sellerId
+          availability
+          specification
+          description
+          newemail
+          newphoneNumber
+          adminStatus
+          price {
+            perHour
+            perDay
+          }
+          certifications { url }
+          resume { url }
+          seller {
+            name
+            email
+            phoneNumber
+          }
         }
       }
-    }
-  ''';
-
-    try {
-      final client = await GraphQLService.initClient();
-      final result = await client.query(QueryOptions(document: gql(query)));
-
-      if (result.hasException) {
-        debugPrint("❌ [getHirePilots] Error: ${result.exception}");
-        return ApiResult.error(result.exception.toString());
-      }
-
-      final data = result.data?['hirePilots'] ?? [];
-      debugPrint("✅ [getHirePilots] Loaded ${data.length} pilots");
-      return ApiResult.success(data);
-    } catch (e) {
-      debugPrint("⚠️ [getHirePilots] Exception: $e");
-      return ApiResult.error(e.toString());
-    }
+    ''';
+    return _runQuery(
+        "getApprovedHirePilots", query, "approvedHirePilotsByStatus");
   }
 
   Future<ApiResult> addHirePilot({
     required String pilotName,
     required String pilotCompany,
     required String location,
-    required String email,
-    required String phoneNumber,
+    required String newemail,
+    required String newphoneNumber,
     required String sellerId,
     required bool availability,
     required String specification,
@@ -226,30 +174,31 @@ class ApiClass {
     String? description,
   }) async {
     const String mutation = r'''
-    mutation AddHirePilot($input: HirePilotInput!) {
-      addHirePilot(input: $input) {
-        pilotId
-        pilotName
-        pilotCompany
-        location
-        email
-        phoneNumber
-        status
+      mutation AddHirePilot($input: HirePilotInput!) {
+        addHirePilot(input: $input) {
+          pilotId
+          pilotName
+          pilotCompany
+          location
+          newemail
+          newphoneNumber
+          adminStatus
+        }
       }
-    }
-  ''';
+    ''';
 
     try {
       final client = await GraphQLService.initClient();
-      final certInputs = (certificationUrls ?? []).map((url) => {"url": url}).toList();
+      final certInputs =
+      (certificationUrls ?? []).map((url) => {"url": url}).toList();
 
       final variables = {
         "input": {
           "pilotName": pilotName,
           "pilotCompany": pilotCompany,
           "location": location,
-          "email": email,
-          "phoneNumber": phoneNumber,
+          "newemail": newemail,
+          "newphoneNumber": newphoneNumber,
           "sellerId": sellerId,
           "availability": availability,
           "specification": specification,
@@ -260,17 +209,17 @@ class ApiClass {
         }
       };
 
-      final result = await client.mutate(
-        MutationOptions(document: gql(mutation), variables: variables),
-      );
+      final result =
+      await client.mutate(
+          MutationOptions(document: gql(mutation), variables: variables));
 
       if (result.hasException) {
-        debugPrint("❌ [addHirePilot] Error: ${result.exception}");
+        debugPrint("❌ [addHirePilot] ${result.exception}");
         return ApiResult.error(result.exception.toString());
       }
 
       final data = result.data?['addHirePilot'];
-      debugPrint("✅ [addHirePilot] Added: ${data?['pilotName']}");
+      debugPrint("✅ Added Pilot: ${data?['pilotName']}");
       return ApiResult.success(data);
     } catch (e) {
       debugPrint("⚠️ [addHirePilot] Exception: $e");
@@ -278,47 +227,81 @@ class ApiClass {
     }
   }
 
+  Future<ApiResult> bookPilot({
+    required String pilotId,
+    required String buyerName,
+    required String buyerEmail,
+    required String contact,
+    required String location,
+    required String date,
+    required String startTime,
+    required String endTime,
+  }) async {
+    const String mutation = r'''
+      mutation BookPilot($input: BookPilotInput!) {
+        bookPilot(input: $input) {
+          success
+          message
+        }
+      }
+    ''';
+
+    try {
+      final client = await GraphQLService.initClient();
+      final result = await client.mutate(MutationOptions(
+        document: gql(mutation),
+        variables: {
+          "input": {
+            "pilotId": pilotId,
+            "buyerName": buyerName,
+            "buyerEmail": buyerEmail,
+            "contact": contact,
+            "location": location,
+            "date": date,
+            "startTime": startTime,
+            "endTime": endTime,
+          }
+        },
+      ));
+
+      if (result.hasException) {
+        debugPrint("❌ [bookPilot] Error: ${result.exception}");
+        return ApiResult.error(result.exception.toString());
+      }
+
+      final data = result.data?['bookPilot'];
+      debugPrint("✅ Pilot booked: ${data?['message']}");
+      return ApiResult.success(data);
+    } catch (e) {
+      debugPrint("⚠️ [bookPilot] Exception: $e");
+      return ApiResult.error(e.toString());
+    }
+  }
 
   // ============================================================
   // 💼 JOBS
   // ============================================================
   Future<ApiResult> getJobs() async {
     const String query = r'''
-    query {
-      jobs {
-        jobId
-        jobName
-        companyName
-        jobType
-        experience
-        location
-        salary
-        description
-        requirement
-        email
-        phoneNumber
-        status
-        sellerId
+      query {
+        jobs {
+          jobId
+          jobName
+          companyName
+          jobType
+          experience
+          location
+          salary
+          description
+          requirement
+          email
+          phoneNumber
+          status
+          sellerId
+        }
       }
-    }
-  ''';
-
-    try {
-      final client = await GraphQLService.initClient();
-      final result = await client.query(QueryOptions(document: gql(query)));
-
-      if (result.hasException) {
-        debugPrint("❌ [getJobs] Error: ${result.exception}");
-        return ApiResult.error(result.exception.toString());
-      }
-
-      final data = result.data?['jobs'] ?? [];
-      debugPrint("✅ [getJobs] Loaded ${data.length} jobs");
-      return ApiResult.success(data);
-    } catch (e) {
-      debugPrint("⚠️ [getJobs] Exception: $e");
-      return ApiResult.error(e.toString());
-    }
+    ''';
+    return _runQuery("getJobs", query, "jobs");
   }
 
   // ============================================================
@@ -326,42 +309,26 @@ class ApiClass {
   // ============================================================
   Future<ApiResult> getServices() async {
     const String query = r'''
-    query {
-      services {
-        serviceId
-        name
-        specificDrone
-        experience
-        location
-        description
-        price
-        image
-        status
-        sellerId
-        sellerInfo {
-          email
-          phoneNumber
+      query {
+        services {
+          serviceId
+          name
+          specificDrone
+          experience
+          location
+          description
+          price
+          image
+          status
+          sellerId
+          sellerInfo {
+            email
+            phoneNumber
+          }
         }
       }
-    }
-  ''';
-
-    try {
-      final client = await GraphQLService.initClient();
-      final result = await client.query(QueryOptions(document: gql(query)));
-
-      if (result.hasException) {
-        debugPrint("❌ [getServices] Error: ${result.exception}");
-        return ApiResult.error(result.exception.toString());
-      }
-
-      final data = result.data?['services'] ?? [];
-      debugPrint("✅ [getServices] Loaded ${data.length} services");
-      return ApiResult.success(data);
-    } catch (e) {
-      debugPrint("⚠️ [getServices] Exception: $e");
-      return ApiResult.error(e.toString());
-    }
+    ''';
+    return _runQuery("getServices", query, "services");
   }
 
   // ============================================================
@@ -369,159 +336,124 @@ class ApiClass {
   // ============================================================
   Future<ApiResult> getRentals() async {
     const String query = r'''
-    query {
-      rentals {
-        rentalId
+      query {
+        rentals {
+          rentalId
+          name
+          brand
+          pricePerDay
+          description
+          image
+          location
+          insurance
+          with_pilot
+          available_today
+        }
+      }
+    ''';
+    return _runQuery("getRentals", query, "rentals");
+  }
+
+
+  Future<ApiResult> enrollTraining(Map<String, dynamic> data) async {
+    const String mutation = r'''
+    mutation EnrollTraining($input: TrainingEnrollInput!) {
+      enrollTraining(input: $input) {
+        id
         name
-        brand
-        pricePerDay
-        description
-        image
-        location
-        insurance
-        with_pilot
-        available_today
+        email
+        phone
+        address
+        status
       }
     }
   ''';
 
     try {
       final client = await GraphQLService.initClient();
-      final result = await client.query(QueryOptions(document: gql(query)));
+      final result = await client.mutate(MutationOptions(
+        document: gql(mutation),
+        variables: {"input": data},
+      ));
 
       if (result.hasException) {
-        debugPrint("❌ [Rentals] ${result.exception}");
+        debugPrint("❌ [EnrollTraining] ${result.exception}");
         return ApiResult.error(result.exception.toString());
       }
 
-      final data = result.data?['rentals'] ?? [];
-      debugPrint("✅ [Rentals] Loaded ${data.length} rentals");
-      return ApiResult.success(data);
+      return ApiResult.success(result.data?['enrollTraining']);
     } catch (e) {
-      debugPrint("⚠️ [Rentals] Error: $e");
+      debugPrint("⚠️ [EnrollTraining] Exception: $e");
       return ApiResult.error(e.toString());
     }
   }
 
+  Future<ApiResult> getCourses() async {
+    const String query = r'''
+    query {
+      courses {
+        id
+        title
+        description
+        image
+        duration
+        format
+        certificate
+        price
+      }
+    }
+  ''';
+    return _runQuery("getCourses", query, "courses");
+  }
+
+  Future<ApiResult> getTrainingById(String id) async {
+    const query = r'''
+    query($id: ID!) {
+      getTrainingById(id: $id) {
+        id
+        title
+        amount
+        gst
+        days
+        totalAmount
+        imagePath
+        shortDescription
+        fullDescription
+      }
+    }
+  ''';
+    return _runQuery(
+        "getTrainingById", query, "getTrainingById", variables: {"id": id});
+  }
+
   // ============================================================
-  // ✈️ ADD DRONE (Multipart Upload)
+  // 🧠 Helper for Queries
   // ============================================================
-  Future<ApiResult> addDrone({
-    required String dgcaApproval,
-    required String purpose,
-    required String price,
-    required String batteryCapacity,
-    required String weight,
-    required String model,
-    required String flyingHours,
-    required String chargingHours,
-    required String description,
-    required String type,
-    required Map<String, File?> images,
-  }) async {
+  Future<ApiResult> _runQuery(String tag,
+      String query,
+      String field, {
+        Map<String, dynamic>? variables,
+      }) async {
     try {
       final client = await GraphQLService.initClient();
-      final user = FirebaseAuth.instance.currentUser;
-
-      if (user == null) return ApiResult.error("User not logged in");
-
-      // Convert images to Base64 strings
-      final imageMap = <String, String>{};
-      for (final entry in images.entries) {
-        if (entry.value != null) {
-          final bytes = await entry.value!.readAsBytes();
-          imageMap[entry.key] =
-          "data:${lookupMimeType(entry.value!.path)};base64,${base64Encode(bytes)}";
-        }
-      }
-
-      const String mutation = r'''
-        mutation AddDrone($input: AddDroneInput!) {
-          addDrone(input: $input) {
-            success
-            message
-            drone {
-              id
-              name
-              price
-            }
-          }
-        }
-      ''';
-
-      final variables = {
-        "input": {
-          "DGCA_approval": dgcaApproval,
-          "purpose": purpose,
-          "price": price,
-          "batteryCapacity": batteryCapacity,
-          "droneWeight": weight,
-          "model": model,
-          "flyingTime": flyingHours,
-          "chargingTime": chargingHours,
-          "rentalTerms": description,
-          "type": type,
-          "images": imageMap,
-        }
-      };
-
-      final result =
-      await client.mutate(MutationOptions(document: gql(mutation), variables: variables));
+      final result = await client.query(
+        QueryOptions(
+          document: gql(query),
+          variables: variables ?? {},
+        ),
+      );
 
       if (result.hasException) {
-        debugPrint("❌ [addDrone] ${result.exception}");
+        debugPrint("❌ [$tag] ${result.exception}");
         return ApiResult.error(result.exception.toString());
       }
 
-      final data = result.data?['addDrone'];
-      debugPrint("✅ [addDrone] Success: $data");
+      final data = result.data?[field] ?? [];
+      debugPrint("✅ [$tag] Loaded ${data is List ? data.length : 1} items");
       return ApiResult.success(data);
     } catch (e) {
-      debugPrint("⚠️ [addDrone] Exception: $e");
+      debugPrint("⚠️ [$tag] Exception: $e");
       return ApiResult.error(e.toString());
     }
   }
-
-  // ============================================================
-  // 📲 OTP MOCKS
-  // ============================================================
-  Future<ApiResult> getOtp(String mobileNo) async {
-    debugPrint("📲 [getOtp] Simulated OTP for $mobileNo");
-    await Future.delayed(const Duration(seconds: 1));
-    return ApiResult.success({"otpSent": true}, "OTP sent to $mobileNo");
-  }
-
-  Future<ApiResult> verifyOTP(String otp) async {
-    debugPrint("🧾 [verifyOtp] Verifying $otp");
-    await Future.delayed(const Duration(seconds: 1));
-    if (otp == "1234") {
-      return ApiResult.success({"verified": true}, "OTP verified successfully");
-    }
-    return ApiResult.error("Invalid OTP");
-  }
-
-  // ============================================================
-  // 🎯 PURPOSE LIST (Mock)
-  // ============================================================
-  Future<ApiResult> getPurpose() async {
-    debugPrint("🎯 [getPurpose] Loading purposes");
-    await Future.delayed(const Duration(milliseconds: 800));
-    final purposes = [
-      {"id": "1", "name": "Agriculture"},
-      {"id": "2", "name": "Mapping"},
-      {"id": "3", "name": "FPV"},
-    ];
-    return ApiResult.success(purposes);
-  }
-
-  // ============================================================
-  // 🌐 STATIC APP CONTENT
-  // ============================================================
-  Future<ApiResult> getLanguage() async =>
-      ApiResult.success(["English", "Hindi"]);
-
-  Future<ApiResult> getLoginscreen() async => ApiResult.success({
-    "title": "Welcome to FlyHub",
-    "description": "Your one-stop drone marketplace"
-  });
 }

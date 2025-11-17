@@ -1,33 +1,82 @@
 import { gql } from "apollo-server-express";
 
 export const buyerTypeDefs = gql`
-  """ Buyer entity """
+  """
+  👤 Buyer Type
+  Represents a FlyHub marketplace buyer.
+  """
   type Buyer {
+    id: ID
     buyerId: String
     name: String
     email: String
+    phone: String
     token: String
   }
 
-  extend type Query {
-    """ Fetch all buyers """
+  # ============================================================
+  # 📌 QUERIES
+  # ============================================================
+  type Query {
+    """ Fetch all buyers (admin) """
     buyers: [Buyer]
 
-    """ Fetch single buyer by ID """
+    """ Fetch a single buyer by MongoDB ID """
     buyer(id: ID!): Buyer
   }
 
-  extend type Mutation {
-    """ Register a new buyer """
-    signup(name: String!, email: String!, password: String!): Buyer
+  # ============================================================
+  # 📌 MUTATIONS
+  # ============================================================
+  type Mutation {
+    """
+    🟢 Buyer Signup
+    Email + Password + Phone + OTP (Firebase)
+    """
+    signupBuyer(
+      name: String!
+      email: String!
+      phone: String!
+      password: String!
+      firebaseUid: String!
+    ): Buyer
 
-    """ Buyer login """
-    login(email: String!, password: String!): Buyer
+    """
+    🔵 Buyer Login
+    Unified login using:
+    - Email
+    - Phone
+    - BuyerID (FLYHUBB0001)
+    """
+    loginBuyer(
+      input: String!
+      password: String!
+    ): Buyer
 
-    """ Update buyer profile """
-    updateBuyer(buyerId: String!, name: String, email: String, password: String): Buyer
+    """
+    🔵 OTP Login (Firebase UID only)
+    Used when buyer verifies OTP in mobile app
+    """
+    loginBuyerOtp(
+      firebaseUid: String!
+    ): Buyer
 
-    """ Delete buyer account """
-    deleteBuyer(buyerId: String!): String
+    """
+    ✏️ Update Buyer Profile
+    Optional fields
+    """
+    updateBuyer(
+      buyerId: ID!
+      name: String
+      email: String
+      phone: String
+      password: String
+    ): Buyer
+
+    """
+    🗑️ Delete Buyer Account
+    Admin or self-delete
+    """
+    deleteBuyer(buyerId: ID!): String
   }
 `;

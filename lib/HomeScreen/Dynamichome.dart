@@ -1,4 +1,4 @@
-import 'dart:async';
+import  'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,8 +12,6 @@ import 'Bottoms/RentalsPage.dart';
 import 'Bottoms/BuyerProfilePage.dart';
 import 'Bottoms/SellerPage.dart';
 import 'Bottoms/GuestProfilePage.dart';
-import 'Bottoms/JobPage.dart';
-import 'Bottoms/ServicesPage.dart';
 
 import '../services/role_manager.dart';
 
@@ -51,7 +49,7 @@ class _DynamichomeState extends State<Dynamichome>
     super.dispose();
   }
 
-  /// 🔹 Initialize Firebase Auth + Firestore Role Listener
+  /// Initialize Firebase Auth + Firestore Role Listener
   Future<void> _initializeHome() async {
     _user = FirebaseAuth.instance.currentUser;
 
@@ -66,7 +64,6 @@ class _DynamichomeState extends State<Dynamichome>
     _role = await RoleManager.getLocalRole();
     setState(() {});
 
-    // Start real-time listener for role updates
     FirebaseAuth.instance.authStateChanges().listen((user) {
       setState(() => _user = user);
       if (user != null) {
@@ -80,7 +77,7 @@ class _DynamichomeState extends State<Dynamichome>
     setState(() => _loading = false);
   }
 
-  /// 🔹 Listen for real-time role changes
+  /// Listen for real-time role changes
   void _listenToRoleChanges(String uid) {
     final roleStream =
     FirebaseFirestore.instance.collection('users').doc(uid).snapshots();
@@ -107,37 +104,35 @@ class _DynamichomeState extends State<Dynamichome>
     });
   }
 
-  /// 🔹 Screens for each tab
+  /// Screens for each tab (ONLY 5 NOW)
   List<Widget> get _screens => [
     const HomeScreen(),
     const MarketPage(),
     const PilotPage(),
-    const JobsPage(),
-    const ServicesPage(),
     const RentalsPage(),
     _buildProfileTab(),
   ];
 
-  /// 🔹 Return correct profile based on user role
+  /// Return correct profile based on user role
   Widget _buildProfileTab() {
     if (_user == null || _role == "guest") return const GuestProfilePage();
     if (_role == "seller") return const SellerPage();
     return const BuyerProfilePage();
   }
 
-  /// 🔹 Handle tab tap
+  /// Handle tab tap
   void _onItemTapped(int index) {
     HapticFeedback.selectionClick();
     setState(() => _selectedIndex = index);
     _pageController.jumpToPage(index);
   }
 
-  /// 🔹 Handle swipe (syncs with bottom nav)
+  /// Sync with swipe
   void _onPageChanged(int index) {
     setState(() => _selectedIndex = index);
   }
 
-  /// 🔹 Double-tap back to exit
+  /// Double back to exit
   Future<bool> _onWillPop() async {
     HapticFeedback.lightImpact();
 
@@ -195,11 +190,12 @@ class _DynamichomeState extends State<Dynamichome>
           const TextStyle(fontWeight: FontWeight.w400, fontSize: 11),
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.shopping_bag), label: 'Market'),
-            BottomNavigationBarItem(icon: Icon(Icons.person_pin), label: 'Pilot'),
-            BottomNavigationBarItem(icon: Icon(Icons.work_outline), label: 'Jobs'),
-            BottomNavigationBarItem(icon: Icon(Icons.build_circle), label: 'Services'),
-            BottomNavigationBarItem(icon: Icon(Icons.car_rental), label: 'Rentals'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.shopping_bag), label: 'Market'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.person_pin), label: 'Pilot'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.car_rental), label: 'Rentals'),
             BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           ],
         ),

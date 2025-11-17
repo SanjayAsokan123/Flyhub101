@@ -25,7 +25,7 @@ class _AddJobFormState extends State<AddJobForm> {
   bool _isSubmitting = false;
 
   final Color themeColor = const Color(0xFF1A0A5B);
-  final String graphqlUrl = "http://192.168.0.180:5001/graphql";
+  final String graphqlUrl = "http://192.168.1.178:5001/graphql";
 
   @override
   void dispose() {
