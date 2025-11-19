@@ -449,8 +449,14 @@ class _RentalsPageState extends State<RentalsPage> with TickerProviderStateMixin
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(children: [
                     IconButton(
-                        icon: Icon(Icons.arrow_back, color: accentColor),
-                        onPressed: () => Navigator.pop(context)),
+                      icon: Icon(Icons.arrow_back, color: accentColor),
+                      onPressed: () => Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const Dynamichome(selectedIndex: 0),
+                        ),
+                      ),
+                    ),
                     Expanded(
                         child: Text("Drone Rentals",
                             style: GoogleFonts.inter(

@@ -45,6 +45,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showElevation = false;
   String _searchQuery = '';
 
+  // NEW: controls whether categories are expanded inline
+  bool _isCategoryExpanded = false;
+
   User? _user;
   String? _role;
 
@@ -520,12 +523,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget buildCategorySection() {
+    // Number of categories to show in collapsed horizontal list
+    const int collapsedCount = 6;
+
+    // When collapsed, we show only the first collapsedCount items horizontally (like before).
+    // When expanded, show a grid of all categories inline.
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.symmetric(vertical: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header with title and View All / View Less toggle
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
@@ -540,156 +549,170 @@ class _HomeScreenState extends State<HomeScreen> {
                     letterSpacing: -0.5,
                   ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            height: 100,
-            child: Row(
-              children: [
-                // Left Arrow
-                IconButton(
-                  icon: Icon(Icons.chevron_left, color: Color(0xFF4C1D95)),
-                  onPressed: () {
-                    _categoryScrollController.animateTo(
-                      _categoryScrollController.offset - 100,
-                      duration: Duration(milliseconds: 300),
-                      curve: Curves.ease,
-                    );
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _isCategoryExpanded = !_isCategoryExpanded;
+                    });
                   },
-                ),
-                // Categories List
-                Expanded(
-                  child: ListView.builder(
-                    controller: _categoryScrollController,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    scrollDirection: Axis.horizontal,
-                    itemCount: categoryList.length,
-                    itemBuilder: (context, index) {
-                      final item = categoryList[index];
-                      return GestureDetector(
-                        onTap: () {
-                          switch (item['title']) {
-                            case "Drones":
-                            case "Parts":
-                            case "Accessories":
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => MarketPage(
-                                    initialTab: categoryList.indexWhere(
-                                            (cat) => cat['title'] == item['title']),
-                                  ),
-                                ),
-                              );
-                              break;
-                            case "Jobs":
-                              Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => const JobsPage()));
-                              break;
-                            case "Services":
-                              Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => const ServicesPage()));
-                              break;
-                            case "Rentals":
-                              Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => const RentalsPage()));
-                              break;
-                            case "Pilots":
-                              Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => const PilotPage()));
-                              break;
-
-                            case "Training":
-                              Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => const Training()));
-                              break;
-
-                            case "Regulatory":
-                              Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => const RegulatoryPage()));
-                              break;
-                            default:
-                              Utils.bottomToast(context, "${item['title']} clicked!");
-                          }
-                        },
-                        child: Container(
-                          width: 80,
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Column(
-                            children: [
-                              // Glassy Grey Background with Dark Purple Icon
-                              Container(
-                                width: 64,
-                                height: 64,
-                                decoration: BoxDecoration(
-                                  color: Color(0xFFF8FAFC), // Glassy grey background
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: Color(0xFFE2E8F0), // Light border
-                                    width: 1.5,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Icon(
-                                  item['icon'],
-                                  color: Color(0xFF4C1D95), // Dark purple icon
-                                  size: 28,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                item['title'],
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.inter(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF475569),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Text(
+                      _isCategoryExpanded ? "View Less" : "View All",
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF475569),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
-                // Right Arrow
-                IconButton(
-                  icon: Icon(Icons.chevron_right, color: Color(0xFF4C1D95)),
-                  onPressed: () {
-                    _categoryScrollController.animateTo(
-                      _categoryScrollController.offset + 100,
-                      duration: Duration(milliseconds: 300),
-                      curve: Curves.ease,
-                    );
-                  },
-                ),
               ],
             ),
           ),
+
+          const SizedBox(height: 20),
+
+          // Collapsed: horizontal list (like before). Expanded: grid of all categories.
+          AnimatedCrossFade(
+            firstChild: SizedBox(
+              height: 100,
+              child: Row(
+                children: [
+                  // Categories List (horizontal) - unchanged behavior when collapsed
+                  Expanded(
+                    child: ListView.builder(
+                      controller: _categoryScrollController,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      scrollDirection: Axis.horizontal,
+                      itemCount: categoryList.length > collapsedCount ? collapsedCount : categoryList.length,
+                      itemBuilder: (context, index) {
+                        final item = categoryList[index];
+                        return _buildCategoryItem(item);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            secondChild: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: EdgeInsets.zero,
+                itemCount: categoryList.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 16,
+                  childAspectRatio: 0.8,
+                ),
+                itemBuilder: (context, index) {
+                  final item = categoryList[index];
+                  return _buildCategoryItem(item);
+
+                },
+              ),
+            ),
+            crossFadeState: _isCategoryExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 300),
+          ),
         ],
+      ),
+    );
+  }
+
+  // Extracted category item so both collapsed and expanded use the same UI
+  Widget _buildCategoryItem(Map<String, dynamic> item) {
+    return GestureDetector(
+      onTap: () {
+        switch (item['title']) {
+          case "Drones":
+          case "Parts":
+          case "Accessories":
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => MarketPage(
+                  initialTab: categoryList.indexWhere((cat) => cat['title'] == item['title']),
+                ),
+              ),
+            );
+            break;
+          case "Jobs":
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const JobsPage()));
+            break;
+          case "Services":
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const ServicesPage()));
+            break;
+          case "Rentals":
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const RentalsPage()));
+            break;
+          case "Pilots":
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const PilotPage()));
+            break;
+          case "Training":
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const Training()));
+            break;
+          case "Regulatory":
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const RegulatoryPage()));
+            break;
+          default:
+            Utils.bottomToast(context, "${item['title']} clicked!");
+        }
+      },
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.22,
+
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        child: Column(
+          children: [
+            // Glassy Grey Background with Dark Purple Icon
+            Container(
+              width: MediaQuery.of(context).size.width * 0.16,
+              height: MediaQuery.of(context).size.width * 0.16,
+
+              decoration: BoxDecoration(
+                color: Color(0xFFF8FAFC), // Glassy grey background
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Color(0xFFE2E8F0), // Light border
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(
+                item['icon'],
+                color: Color(0xFF4C1D95), // Dark purple icon
+                size: 28,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              item['title'],
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF475569),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -948,6 +971,7 @@ class _HomeScreenState extends State<HomeScreen> {
           height: 240,
           child: ListView.builder(
             padding: const EdgeInsets.only(left: 20),
+
             scrollDirection: Axis.horizontal,
             itemCount: products.length,
             itemBuilder: (context, index) {

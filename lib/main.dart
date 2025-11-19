@@ -17,6 +17,7 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'CommonClass/utils.dart';
 import 'services/cart_wishlist_provider.dart';
+import 'package:flyhub/Login/splashscreen.dart';
 
 /// 🔔 Local Notifications Plugin
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -47,7 +48,7 @@ Future<void> main() async {
   try {
     await _safeFirebaseInit();
   } catch (e) {
-    print("⚠️ Firebase init failed: $e");
+    print("⚠ Firebase init failed: $e");
   }
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
@@ -66,7 +67,7 @@ Future<void> main() async {
     final token = await FirebaseMessaging.instance.getToken();
     print("📲 [FCM Token] $token");
   } catch (e) {
-    print("⚠️ [FCM Token Error] $e");
+    print("⚠ [FCM Token Error] $e");
   }
 
   await initHiveForFlutter();
@@ -74,7 +75,8 @@ Future<void> main() async {
   // ✅ GraphQL Setup (with WebSocket for subscriptions)
   const String graphqlEndpoint = String.fromEnvironment(
     'GRAPHQL_URL',
-    defaultValue: 'http://192.168.1.178:5001/graphql', // 👈 Update for production
+    defaultValue:
+    'http://192.168.1.178:5001/graphql', // 👈 Update for production
   );
 
   final HttpLink httpLink = HttpLink(graphqlEndpoint);
@@ -140,7 +142,7 @@ Future<void> _safeFirebaseInit() async {
       Firebase.app();
     }
   } catch (e) {
-    print("⚠️ Firebase init error: $e");
+    print("⚠ Firebase init error: $e");
   }
 }
 
@@ -155,8 +157,7 @@ Future<void> _requestNotificationPermission() async {
 
   if (settings.authorizationStatus == AuthorizationStatus.denied) {
     print("❌ User denied notification permission.");
-  } else if (settings.authorizationStatus ==
-      AuthorizationStatus.authorized ||
+  } else if (settings.authorizationStatus == AuthorizationStatus.authorized ||
       settings.authorizationStatus == AuthorizationStatus.provisional) {
     print("✅ Notification permission granted.");
   }
@@ -194,7 +195,8 @@ Future<void> _showLocalNotification(RemoteMessage message) async {
     playSound: true,
     icon: '@mipmap/ic_launcher',
   );
-  const NotificationDetails details = NotificationDetails(android: androidDetails);
+  const NotificationDetails details =
+  NotificationDetails(android: androidDetails);
 
   await flutterLocalNotificationsPlugin.show(
     0,
@@ -242,7 +244,7 @@ class _MyAppState extends State<MyApp> {
 
       await _initializeDeviceData();
     } catch (e) {
-      print("⚠️ Initialization Error: $e");
+      print("⚠ Initialization Error: $e");
       _startPage = const Splashscreen();
     }
 
@@ -280,7 +282,7 @@ class _MyAppState extends State<MyApp> {
 
       print('✅ [Device Logged]');
     } catch (e) {
-      print('⚠️ [Device Info Error] $e');
+      print('⚠ [Device Info Error] $e');
     }
 
     await prefs.setBool("firstLaunch", false);
@@ -304,7 +306,7 @@ class _MyAppState extends State<MyApp> {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: _startPage,
+      home: const Splashscreen(),
     );
   }
 }

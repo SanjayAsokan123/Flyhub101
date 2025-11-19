@@ -1,6 +1,6 @@
 import { gql } from "apollo-server-express";
 
-const dronerentalBookingTypeDefs = gql`
+export const dronerentalBookingTypeDefs = gql`
   type RentalPeriod {
     startDate: String!
     endDate: String!
@@ -80,5 +80,3 @@ const dronerentalBookingTypeDefs = gql`
     deleteDroneRental(drone_rental_id: String!): DroneRental!
   }
 `;
-
-export default dronerentalBookingTypeDefs;

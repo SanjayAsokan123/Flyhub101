@@ -1,13 +1,10 @@
 // backend/resolvers/sellerResolvers.js
+
 import { Seller } from "../models/Seller.model.js";
 import { sendSellerStatusMail } from "../utils/emailService.js";
 import { createSellerNotification } from "../utils/createSellerNotification.js";
-import { createLoginIndex } from "../utils/loginIndex.js";
+import { createLoginIndex, deleteLoginIndex } from "../utils/loginIndex.js";
 import { auth } from "../config/firebaseAdmin.js";
-
-/**
- * SELLER RESOLVERS (Unified Login + Firebase UID + loginIndex)
- */
 
 export const sellerResolvers = {
   // ============================================================
@@ -21,7 +18,7 @@ export const sellerResolvers = {
       try {
         return await Seller.find().sort({ createdAt: -1 });
       } catch (err) {
-        throw new Error("Error fetching sellers: " + err.message);
+        throw new Error(`Error fetching sellers: ${err.message}`);
       }
     },
 
@@ -35,10 +32,9 @@ export const sellerResolvers = {
           (await Seller.findById(customId));
 
         if (!seller) throw new Error("Seller not found");
-
         return seller;
       } catch (err) {
-        throw new Error("Error fetching seller: " + err.message);
+        throw new Error(`Error fetching seller: ${err.message}`);
       }
     },
 
@@ -57,19 +53,20 @@ export const sellerResolvers = {
           createdAt: -1,
         });
       } catch (err) {
-        throw new Error("Error filtering sellers: " + err.message);
+        throw new Error(`Error filtering sellers: ${err.message}`);
       }
     },
 
     /**
-     * 🟣 Unified seller lookup:
-     * email / phone / username / customId
-     * If not found → auto-create minimal pending seller
+     * 🟣 Unified seller lookup (email/phone/username/customId)
+     * Auto-creates minimal pending seller if not found.
      */
     sellerByEmail: async (_, { email, username, phone, customId }) => {
       try {
         if (!email && !username && !phone && !customId)
-          throw new Error("Provide email OR phone OR username OR customId");
+          throw new Error(
+            "Provide email OR phone OR username OR customId to search"
+          );
 
         const query = {
           $or: [
@@ -83,11 +80,16 @@ export const sellerResolvers = {
         let seller = await Seller.findOne(query);
 
         // ------------------------------
-        // 🆕 Auto-create pending seller
+        // 🆕 Auto-create minimal seller
         // ------------------------------
         if (!seller) {
+          const autoEmail =
+            email ||
+            (username ? `${username}@autogen.flyhub` : null) ||
+            (phone ? `${phone}@autogen.flyhub` : null);
+
           seller = new Seller({
-            email: email || `${username || phone}@flyhub.temp`,
+            email: autoEmail,
             name: username || "New Seller",
             companyName: "Pending Store",
             PANnumber: "PENDING",
@@ -100,8 +102,8 @@ export const sellerResolvers = {
           });
 
           await seller.save();
-          console.log(`⚙️ Auto-created seller: ${seller.customId}`);
 
+          // loginIndex entry
           await createLoginIndex({
             uid: null,
             email: seller.email,
@@ -112,7 +114,7 @@ export const sellerResolvers = {
 
         return seller;
       } catch (err) {
-        throw new Error("Lookup failed: " + err.message);
+        throw new Error(`Lookup failed: ${err.message}`);
       }
     },
   },
@@ -122,7 +124,7 @@ export const sellerResolvers = {
   // ============================================================
   Mutation: {
     /**
-     * 🟢 Create seller (from registration form)
+     * 🟢 Create seller (Registration Form)
      */
     createSeller: async (_, { input }, { pubsub }) => {
       try {
@@ -138,7 +140,7 @@ export const sellerResolvers = {
 
         const savedSeller = await seller.save();
 
-        // 🔗 Create loginIndex entries
+        // 🔗 loginIndex map
         await createLoginIndex({
           uid: savedSeller.firebaseUid || null,
           email: savedSeller.email,
@@ -159,7 +161,7 @@ export const sellerResolvers = {
 
         return savedSeller;
       } catch (err) {
-        throw new Error("Create seller failed: " + err.message);
+        throw new Error(`Create seller failed: ${err.message}`);
       }
     },
 
@@ -175,15 +177,14 @@ export const sellerResolvers = {
         );
 
         if (!updated) throw new Error("Seller not found");
-
         return updated;
       } catch (err) {
-        throw new Error("Update failed: " + err.message);
+        throw new Error(`Update failed: ${err.message}`);
       }
     },
 
     /**
-     * 🔄 Update seller status (approval/rejection)
+     * 🔄 Change seller status (Approval / Rejection)
      */
     changeSellerStatus: async (_, { customId, status }, { pubsub }) => {
       try {
@@ -191,7 +192,9 @@ export const sellerResolvers = {
         const normalized = status.toLowerCase();
 
         if (!validStatuses.includes(normalized))
-          throw new Error(`Status must be ${validStatuses.join(", ")}`);
+          throw new Error(
+            `Status must be one of: ${validStatuses.join(", ")}`
+          );
 
         const seller = await Seller.findOne({ customId });
         if (!seller) throw new Error("Seller not found");
@@ -199,16 +202,16 @@ export const sellerResolvers = {
         seller.status = normalized;
         await seller.save();
 
-        // ✉ Notify seller email
-        if (seller.email) {
+        // ✉ Send email
+        try {
           await sendSellerStatusMail({
             to: seller.email,
             productType: "Seller Account",
             productName: seller.companyName,
             status: normalized,
-          }).catch((err) =>
-            console.log("⚠ Email error:", err.message)
-          );
+          });
+        } catch (err) {
+          console.log("⚠ Email error:", err.message);
         }
 
         // 🔔 Seller notification
@@ -232,11 +235,11 @@ export const sellerResolvers = {
           pubsub,
         });
 
-        // 🔔 Admin
+        // 🔔 Admin notification
         await createSellerNotification({
           sellerId: "ADMIN",
           title: "📣 Seller Status Updated",
-          message: `Seller ${seller.customId} → ${normalized}`,
+          message: `Seller ${customId} → ${normalized}`,
           type: "seller_status_admin",
           data: { customId, status: normalized },
           url: `/admin/sellers/${customId}`,
@@ -245,21 +248,35 @@ export const sellerResolvers = {
 
         return seller;
       } catch (err) {
-        throw new Error("Status update failed: " + err.message);
+        throw new Error(`Status update failed: ${err.message}`);
       }
     },
 
     /**
-     * 🗑 Delete seller
+     * 🗑 DELETE seller (also delete loginIndex + Firebase UID)
      */
     deleteSeller: async (_, { customId }, { pubsub }) => {
       try {
-        const deleted =
-          (await Seller.findOneAndDelete({ customId })) ||
-          (await Seller.findByIdAndDelete(customId));
+        const seller =
+          (await Seller.findOne({ customId })) ||
+          (await Seller.findById(customId));
 
-        if (!deleted)
-          throw new Error("Seller does not exist");
+        if (!seller) throw new Error("Seller does not exist");
+
+        // Delete loginIndex
+        await deleteLoginIndex(seller.email, seller.phoneNumber, seller.customId);
+
+        // Delete Firebase Auth user if exists
+        if (seller.firebaseUid) {
+          try {
+            await auth.deleteUser(seller.firebaseUid);
+          } catch (err) {
+            console.log("⚠ Firebase UID delete error:", err.message);
+          }
+        }
+
+        // Delete Seller record
+        await seller.deleteOne();
 
         await createSellerNotification({
           sellerId: "ADMIN",
@@ -271,14 +288,14 @@ export const sellerResolvers = {
           pubsub,
         });
 
-        return deleted;
+        return seller;
       } catch (err) {
-        throw new Error("Delete failed: " + err.message);
+        throw new Error(`Delete failed: ${err.message}`);
       }
     },
 
     /**
-     * 📲 Update FCM Token
+     * 📲 Update FCM token
      */
     updateSellerFcmToken: async (_, { customId, token }) => {
       try {
@@ -295,7 +312,7 @@ export const sellerResolvers = {
       } catch (err) {
         return {
           success: false,
-          message: "FCM error: " + err.message,
+          message: `FCM error: ${err.message}`,
         };
       }
     },

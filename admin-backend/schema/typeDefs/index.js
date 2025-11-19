@@ -5,6 +5,8 @@ import { droneTypeDefs } from "../Drone.schema.js";
 import { partTypeDefs } from "../Parts.schema.js";
 import { accessoryTypeDefs } from "../Accessories.schema.js";
 import { rentalTypeDefs } from "../Rental.schema.js";
+import { rentalBookingTypeDefs }  from "../Buyer_Booking_Pilot_Rental.schema.js";
+import { dronerentalBookingTypeDefs } from "../Buyer_Booking_Drone_Rental.schema.js";
 import { hirePilotTypeDefs } from "../Hirepilot.schema.js";
 import { jobTypeDefs } from "../Hirejob.schema.js";
 import { orderTypeDefs } from "../Order.schema.js";
@@ -34,4 +36,6 @@ export const typeDefs = [
   taxTypeDefs,
   notificationTypeDefs,
   trainingTypeDefs, // ✅ Include here
+  rentalBookingTypeDefs,
+  dronerentalBookingTypeDefs,
 ];

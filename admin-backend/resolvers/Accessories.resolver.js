@@ -63,7 +63,9 @@ export const accessoryResolvers = {
     /**
      * 📦 Status-based filters
      */
-    rejectedAccessories: async () => Accessory.find({ status: "rejected" }),
+    rejectedAccessories: async (_, { sellerId }) =>
+       Accessory.find({ sellerId, status: "rejected" }),
+
     approvedAccessories: async (_, { sellerId }) =>
       Accessory.find({ sellerId, status: "approved" }),
     pendingAccessories: async (_, { sellerId }) =>

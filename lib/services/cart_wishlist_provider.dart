@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -23,9 +25,12 @@ class CartWishlistProvider extends ChangeNotifier {
     _initializeSync();
   }
 
-  /// ✅ Initialize provider by syncing with Firestore or local storage
+  // -------------------------------------------------------
+  // 🔥 INITIAL SYNC
+  // -------------------------------------------------------
   Future<void> _initializeSync() async {
     final user = _auth.currentUser;
+
     if (user == null) {
       await _loadLocalData();
     } else {
@@ -33,12 +38,14 @@ class CartWishlistProvider extends ChangeNotifier {
     }
   }
 
-  /// 🔁 Listen to Firestore in real-time
+  // -------------------------------------------------------
+  // 🔁 REAL-TIME FIRESTORE LISTENERS
+  // -------------------------------------------------------
   void _listenFirestoreUpdates() {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    // Wishlist
+    // Wishlist listener
     _firestore
         .collection('users')
         .doc(user.uid)
@@ -50,7 +57,7 @@ class CartWishlistProvider extends ChangeNotifier {
       notifyListeners();
     });
 
-    // Cart
+    // Cart listener
     _firestore
         .collection('users')
         .doc(user.uid)
@@ -63,7 +70,9 @@ class CartWishlistProvider extends ChangeNotifier {
     });
   }
 
-  /// 💾 Load local SharedPreferences data (for guests)
+  // -------------------------------------------------------
+  // 💾 LOCAL DATA FOR GUEST USERS
+  // -------------------------------------------------------
   Future<void> _loadLocalData() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -71,7 +80,8 @@ class CartWishlistProvider extends ChangeNotifier {
     final cart = prefs.getString('cart') ?? '[]';
 
     try {
-      final wishlistList = List<Map<String, dynamic>>.from(jsonDecode(wishlist));
+      final wishlistList =
+      List<Map<String, dynamic>>.from(jsonDecode(wishlist));
       final cartList = List<Map<String, dynamic>>.from(jsonDecode(cart));
 
       _wishlistIds = wishlistList.map((e) => e['id'].toString()).toSet();
@@ -79,26 +89,29 @@ class CartWishlistProvider extends ChangeNotifier {
 
       _wishlistCount = _wishlistIds.length;
       _cartCount = _cartIds.length;
-      notifyListeners();
     } catch (_) {
       _wishlistIds = {};
       _cartIds = {};
       _wishlistCount = 0;
       _cartCount = 0;
-      notifyListeners();
     }
+
+    notifyListeners();
   }
 
-  /// 💖 Toggle wishlist (add/remove)
+  // -------------------------------------------------------
+  // 💖 TOGGLE WISHLIST
+  // -------------------------------------------------------
   Future<bool> toggleWishlist(Map<String, dynamic> item) async {
     final prefs = await SharedPreferences.getInstance();
     final id = item['id']?.toString() ?? item['name'];
     final user = _auth.currentUser;
 
     if (user == null) {
-      // Guest mode
+      // Guest user — store locally
       final saved = prefs.getString('wishlist') ?? '[]';
-      final localList = List<Map<String, dynamic>>.from(jsonDecode(saved));
+      final localList =
+      List<Map<String, dynamic>>.from(jsonDecode(saved));
       final exists = localList.any((i) => i['id'] == id);
 
       if (exists) {
@@ -108,21 +121,30 @@ class CartWishlistProvider extends ChangeNotifier {
       }
 
       await prefs.setString('wishlist', jsonEncode(localList));
+
       _wishlistIds = localList.map((e) => e['id'].toString()).toSet();
       _wishlistCount = _wishlistIds.length;
       notifyListeners();
       return !exists;
     }
 
-    // Logged-in user (Firestore)
-    final ref = _firestore.collection('users').doc(user.uid).collection('wishlist').doc(id);
+    // Logged-in user — Firestore
+    final ref = _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('wishlist')
+        .doc(id);
+
     final exists = _wishlistIds.contains(id);
 
     if (exists) {
       await ref.delete();
       _wishlistIds.remove(id);
     } else {
-      await ref.set({...item, 'createdAt': FieldValue.serverTimestamp()});
+      await ref.set({
+        ...item,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
       _wishlistIds.add(id);
     }
 
@@ -131,21 +153,22 @@ class CartWishlistProvider extends ChangeNotifier {
     return !exists;
   }
 
-  /// 🛒 Add item to cart
+  // -------------------------------------------------------
+  // 🛒 ADD TO CART
+  // -------------------------------------------------------
   Future<bool> addToCart(Map<String, dynamic> item) async {
     final prefs = await SharedPreferences.getInstance();
     final id = item['id']?.toString() ?? item['name'];
     final user = _auth.currentUser;
 
     if (user == null) {
-      // Guest
+      // Guest — local save
       final saved = prefs.getString('cart') ?? '[]';
-      final localList = List<Map<String, dynamic>>.from(jsonDecode(saved));
+      final localList =
+      List<Map<String, dynamic>>.from(jsonDecode(saved));
       final exists = localList.any((i) => i['id'] == id);
 
-      if (exists) {
-        return false;
-      }
+      if (exists) return false;
 
       localList.add({...item, 'quantity': 1});
       await prefs.setString('cart', jsonEncode(localList));
@@ -156,22 +179,44 @@ class CartWishlistProvider extends ChangeNotifier {
       return true;
     }
 
-    // Logged-in user
-    final ref = _firestore.collection('users').doc(user.uid).collection('cart').doc(id);
+    // Firebase user
+    final ref = _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('cart')
+        .doc(id);
+
     final exists = _cartIds.contains(id);
+    if (exists) return false;
 
-    if (exists) {
-      return false;
-    }
+    await ref.set({
+      ...item,
+      'quantity': 1,
+      'addedAt': FieldValue.serverTimestamp(),
+    });
 
-    await ref.set({...item, 'quantity': 1, 'addedAt': FieldValue.serverTimestamp()});
     _cartIds.add(id);
     _cartCount = _cartIds.length;
     notifyListeners();
     return true;
   }
 
-  /// 🔄 Clear all states
+  // -------------------------------------------------------
+  // 🔄 UPDATE COUNTS FROM EXTERNAL SCREENS
+  // -------------------------------------------------------
+  void updateWishlistCount(int count) {
+    _wishlistCount = count;
+    notifyListeners();
+  }
+
+  void updateCartCount(int count) {
+    _cartCount = count;
+    notifyListeners();
+  }
+
+  // -------------------------------------------------------
+  // 🧹 RESET
+  // -------------------------------------------------------
   void reset() {
     _wishlistIds.clear();
     _cartIds.clear();

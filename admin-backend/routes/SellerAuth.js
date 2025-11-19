@@ -2,7 +2,7 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
-import Seller from "../models/Seller.js";
+import Seller from "../models/Seller.model.js";
 import { auth } from "../config/firebaseAdmin.js";
 
 const router = express.Router();

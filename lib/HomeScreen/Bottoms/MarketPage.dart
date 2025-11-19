@@ -10,6 +10,7 @@ import '../../DroneDetailPage.dart';
 import '../../BuyerDetails/MyCartPage.dart';
 import '../../WishlistPage.dart';
 import '../../services/cart_wishlist_provider.dart';
+import '../Dynamichome.dart';
 
 class MarketPage extends StatefulWidget {
   final int initialTab;
@@ -45,8 +46,8 @@ class _MarketPageState extends State<MarketPage>
   List<String> availableBrands = ['All'];
 
   // Colors (matching your new UI)
-  final Color lightPurple = const Color(0xFFE8EAF6);
-  final Color lightBlue = const Color(0xFFE3F2FD);
+  final Color lightPurple = const Color(0xFFFBFBFB);
+  final Color lightBlue = const Color(0xFFFBFBFB);
   final Color accentColor = const Color(0xFF1A0A5B);
   final Color textPrimary = const Color(0xFF1F2937);
   final Color textSecondary = const Color(0xFF6B7280);
@@ -483,7 +484,7 @@ class _MarketPageState extends State<MarketPage>
     final wishlistCount = provider.wishlistCount;
 
     return Scaffold(
-      backgroundColor: lightPurple,
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Container(
           decoration: BoxDecoration(
@@ -501,7 +502,13 @@ class _MarketPageState extends State<MarketPage>
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Row(
                         children: [
-                          IconButton(icon: Icon(Icons.arrow_back, color: textSecondary), onPressed: () => Navigator.pop(context)),
+                          IconButton(icon: Icon(Icons.arrow_back, color: textSecondary),  onPressed: () => Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const Dynamichome(selectedIndex: 0),
+                            ),
+                          ),
+                          ),
                           const SizedBox(width: 8),
                           Expanded(child: Text("Marketplace", style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w600, color: accentColor))),
 
@@ -625,7 +632,7 @@ class _MarketPageState extends State<MarketPage>
         child: Container(
           height: MediaQuery.of(context).size.height * 0.7,
           decoration: BoxDecoration(
-            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [lightPurple, lightBlue]),
+
           ),
           child: Center(
             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [

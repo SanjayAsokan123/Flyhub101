@@ -1,7 +1,7 @@
 // schema/Buyer_booking_Pilot_rental.schema.js
 import { gql } from "apollo-server-express";
 
-const rentalBookingTypeDefs = gql`
+export const rentalBookingTypeDefs = gql`
   type RentalPeriod {
     startDate: String!
     endDate: String!
@@ -37,16 +37,17 @@ const rentalBookingTypeDefs = gql`
     endDate: String!
   }
 
-  type Query {
-    getAllPilotRentals: [PilotRental!]!
-    getPilotRentalsByStatus(status: String!): [PilotRental!]!
-    getPilotRentalsByPaymentStatus(paymentStatus: String!): [PilotRental!]!
-    getPilotRentalById(pilot_rental_id: String!): PilotRental
-    getPendingRentals: [PilotRental!]!
-    getConfirmedRentals: [PilotRental!]!
-    getCancelledRentals: [PilotRental!]!
-    getCompletedPaymentRentals: [PilotRental!]!
-  }
+type Query {
+  getAllPilotRentals: [PilotRental!]!
+  getPilotRentalsBySellerId(sellerId: String!): [PilotRental]
+  getPilotRentalsByStatus(status: String!): [PilotRental!]!
+  getPilotRentalsByPaymentStatus(paymentStatus: String!): [PilotRental!]!
+  getPilotRentalById(pilot_rental_id: String!): PilotRental
+  getPendingRentals: [PilotRental!]!
+  getConfirmedRentals: [PilotRental!]!
+  getCancelledRentals: [PilotRental!]!
+  getCompletedPaymentRentals: [PilotRental!]!
+}
 
   type Mutation {
     # If you want the join to work, you can set pilot_rental_id equal to the pilot's pilotId at creation time.
@@ -80,5 +81,3 @@ const rentalBookingTypeDefs = gql`
     deletePilotRental(pilot_rental_id: String!): PilotRental!
   }
 `;
-
-export default rentalBookingTypeDefs;

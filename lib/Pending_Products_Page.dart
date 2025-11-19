@@ -1,0 +1,164 @@
+import 'package:flutter/material.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+
+class PendingProductsPage extends StatefulWidget {
+  final String sellerCustomId;
+  const PendingProductsPage({required this.sellerCustomId, super.key});
+
+  @override
+  State<PendingProductsPage> createState() => _PendingProductsPageState();
+}
+
+class _PendingProductsPageState extends State<PendingProductsPage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final Color themeColor = const Color(0xFF1A0A5B);
+  final String backendUrl = "http://192.168.1.178:5001/graphql";
+
+  bool loading = true;
+
+  List<dynamic> pendingDrones = [];
+  List<dynamic> pendingParts = [];
+  List<dynamic> pendingRentals = [];
+  List<dynamic> pendingAccessories = [];
+  List<dynamic> pendingServices = [];
+  List<dynamic> pendingJobs = [];
+
+  late GraphQLClient client;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 6, vsync: this);
+
+    final HttpLink link = HttpLink(backendUrl);
+    client =
+        GraphQLClient(link: link, cache: GraphQLCache(store: InMemoryStore()));
+
+    fetchPendingProducts();
+  }
+
+  Future<void> fetchPendingProducts() async {
+    setState(() => loading = true);
+
+    const query = r'''
+      query PendingProducts($sellerId: String!) {
+        pendingDrones(sellerId: $sellerId) { droneId name price status }
+        pendingParts(sellerId: $sellerId) { partId name price status }
+        pendingRentals(sellerId: $sellerId) { rentalId name pricePerHour status }
+        pendingAccessories(sellerId: $sellerId) { accessoryId name price status }
+        pendingServices(sellerId: $sellerId) { serviceId name price status }
+        pendingJobs(sellerId: $sellerId) { jobId jobName salary status }
+      }
+    ''';
+
+    try {
+      final result = await client.query(QueryOptions(
+        document: gql(query),
+        variables: {"sellerId": widget.sellerCustomId},
+        fetchPolicy: FetchPolicy.networkOnly,
+      ));
+
+      if (result.hasException) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("❌ ${result.exception.toString()}"),
+          backgroundColor: Colors.redAccent,
+        ));
+      } else {
+        setState(() {
+          pendingDrones = result.data?['pendingDrones'] ?? [];
+          pendingParts = result.data?['pendingParts'] ?? [];
+          pendingRentals = result.data?['pendingRentals'] ?? [];
+          pendingAccessories = result.data?['pendingAccessories'] ?? [];
+          pendingServices = result.data?['pendingServices'] ?? [];
+          pendingJobs = result.data?['pendingJobs'] ?? [];
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text("❌ Error fetching products: $e"),
+        backgroundColor: Colors.redAccent,
+      ));
+    }
+
+    setState(() => loading = false);
+  }
+
+  Widget buildList(List<dynamic> items, String type) {
+    if (loading) return const Center(child: CircularProgressIndicator());
+    if (items.isEmpty) return Center(child: Text("No pending $type found"));
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        String title =
+        type == "jobs" ? item['jobName'] ?? "" : item['name'] ?? "";
+        String subtitle = type == "jobs"
+            ? "Salary: ₹${item['salary']} · Status: ${item['status']}"
+            : type == "rentals"
+            ? "Price/hr: ₹${item['pricePerHour']} · Status: ${item['status']}"
+            : "Price: ₹${item['price']} · Status: ${item['status']}";
+
+        return Card(
+          elevation: 2,
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: ListTile(
+            leading: Icon(Icons.pending, color: themeColor),
+            title: Text(title),
+            subtitle: Text(subtitle),
+            trailing: Icon(Icons.hourglass_empty, color: themeColor),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          "Pending Products",
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+        backgroundColor: themeColor,
+        bottom: TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
+          tabs: const [
+            Tab(text: "Drones"),
+            Tab(text: "Parts"),
+            Tab(text: "Rentals"),
+            Tab(text: "Accessories"),
+            Tab(text: "Services"),
+            Tab(text: "Jobs"),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          buildList(pendingDrones, "drones"),
+          buildList(pendingParts, "parts"),
+          buildList(pendingRentals, "rentals"),
+          buildList(pendingAccessories, "accessories"),
+          buildList(pendingServices, "services"),
+          buildList(pendingJobs, "jobs"),
+        ],
+      ),
+    );
+  }
+}

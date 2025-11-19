@@ -1,5 +1,5 @@
 import PilotRental from "../models/Buyer_Booking_Pilot_Rental.model.js";
-import HirePilot from "../models/Hirepilot.model.js";
+import { HirePilot } from "../models/Hirepilot.model.js";
 import { Seller } from "../models/Seller.model.js";
 import { createSellerNotification } from "../utils/createSellerNotification.js";
 import { sendSellerStatusMail } from "../utils/emailService.js";
@@ -14,13 +14,29 @@ const buildMatch = (base = {}) => {
   return match;
 };
 
-const rentalBookingResolvers = {
+export const rentalBookingResolvers = {
   // ============================================================
   // 📊 QUERIES
   // ============================================================
   Query: {
-    getAllPilotRentals: async () =>
-      PilotRental.aggregateWithPilotByRentalId({}, { createdAt: -1 }),
+
+      getAllPilotRentals: async () =>
+        PilotRental.aggregateWithPilotByRentalId({}, { createdAt: -1 }),
+
+getPilotRentalsBySellerId: async (_, { sellerId }) => {
+  if (!sellerId) throw new Error("Seller ID is required");
+
+  const pilots = await HirePilot.find({ sellerId }).select("pilotId");
+  const pilotIds = pilots.map((p) => p.pilotId);
+
+  if (pilotIds.length === 0) return [];
+
+  return PilotRental.aggregateWithPilotByRentalId({
+    pilotId: { $in: pilotIds }
+  });
+},
+
+
 
     getPilotRentalsByStatus: async (_, { status }) => {
       const valid = ["pending", "confirmed", "cancelled"];
@@ -245,4 +261,3 @@ const rentalBookingResolvers = {
   },
 };
 
-export default rentalBookingResolvers;

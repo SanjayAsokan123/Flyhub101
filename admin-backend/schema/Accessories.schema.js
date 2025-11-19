@@ -49,7 +49,7 @@ export const accessoryTypeDefs = gql`
     accessory(accessoryId: String!): Accessory
 
     """ Fetch all rejected accessories (admin filter) """
-    rejectedAccessories: [Accessory!]
+    rejectedAccessories(sellerId: String!): [Accessory]
 
     """ Fetch all approved accessories of a seller """
     approvedAccessories(sellerId: String!): [Accessory!]

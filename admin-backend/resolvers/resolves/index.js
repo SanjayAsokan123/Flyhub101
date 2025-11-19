@@ -2,6 +2,8 @@ import { droneResolvers } from "../Drone.resolver.js";
 import { partResolvers } from "../Parts.resolver.js";
 import { accessoryResolvers } from "../Accessories.resolver.js";
 import { rentalResolvers } from "../Rental.resolver.js";
+import { rentalBookingResolvers } from "../Buyer_Booking_Pilot_Rental.resolver.js";
+import { droneRentalBookingResolvers } from "../Buyer_Booking_Drone_Rental.resolver.js";
 import { hirePilotResolvers } from "../Hirepilot.resolver.js";
 import { jobResolvers } from "../Hirejob.resolver.js";
 import { orderResolvers } from "../Order.resolver.js";
@@ -15,19 +17,21 @@ import { trainingResolvers } from "../Training.resolver.js"; // ✅ Added this l
 import { taxResolvers } from "../Tax.resolver.js";
 
 export const resolves = [
-      droneResolvers,
-      partResolvers,
-      accessoryResolvers,
-      rentalResolvers,
-      hirePilotResolvers,
-      jobResolvers,
-      orderResolvers,
-      returnResolvers,
-      serviceResolvers,
-      regulatoryResolvers,
-      buyerResolvers,
-      sellerResolvers,
-      taxResolvers,
-      notificationResolvers,
-      trainingResolvers, // ✅ Added here
-    ];
+  droneResolvers,
+  partResolvers,
+  accessoryResolvers,
+  rentalResolvers,
+  hirePilotResolvers,
+  jobResolvers,
+  orderResolvers,
+  returnResolvers,
+  serviceResolvers,
+  regulatoryResolvers,
+  buyerResolvers,
+  sellerResolvers,
+  taxResolvers,
+  notificationResolvers,
+  trainingResolvers,
+  rentalBookingResolvers,  // ✅ ADD THIS (very important)
+  droneRentalBookingResolvers,
+];

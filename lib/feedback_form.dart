@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mailer/mailer.dart';
+import 'package:mailer/smtp_server.dart';
 
 class FeedbackFormPage extends StatefulWidget {
   const FeedbackFormPage({Key? key}) : super(key: key);
@@ -14,12 +16,54 @@ class _FeedbackFormPageState extends State<FeedbackFormPage> {
   final feedbackController = TextEditingController();
   double rating = 0;
 
+  // ✉ Function to send feedback mail
+  Future<void> sendMail() async {
+    const String username = 'preethis19102004@gmail.com'; // your email
+    const String appPassword = 'jcqm eubr vcdx nlvl'; // 🔒 app password
+
+    final smtpServer = gmail(username, appPassword);
+
+    final message = Message()
+      ..from = Address(username, 'Feedback Bot')
+      ..recipients.add(username) // you will receive mail here
+      ..subject = 'New Feedback Received ⭐'
+      ..text = '''
+New feedback received from your Flutter app:
+
+👤 Name: ${nameController.text}
+📧 Email: ${emailController.text}
+⭐ Rating: $rating
+💬 Feedback: ${feedbackController.text}
+
+Time: ${DateTime.now()}
+      ''';
+
+    try {
+      await send(message, smtpServer);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("✅ Feedback submitted successfully!"),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      // Wait 2 seconds and go back
+      await Future.delayed(const Duration(seconds: 2));
+      Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("⚠ Error sending feedback: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   void submitFeedback() {
     if (_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Thank you for your feedback!")),
-      );
-      Navigator.pop(context);
+      sendMail();
     }
   }
 
@@ -31,7 +75,6 @@ class _FeedbackFormPageState extends State<FeedbackFormPage> {
             (index) => IconButton(
           onPressed: () {
             setState(() {
-              // Toggle: remove rating if same star is tapped again
               if (rating == index + 1) {
                 rating = 0;
               } else {
@@ -41,7 +84,9 @@ class _FeedbackFormPageState extends State<FeedbackFormPage> {
           },
           icon: Icon(
             Icons.star,
-            color: index < rating ? const Color(0xFF1A0A5B) : Colors.grey.shade400,
+            color: index < rating
+                ? const Color(0xFF1A0A5B)
+                : Colors.grey.shade400,
             size: 30,
           ),
         ),
@@ -80,7 +125,6 @@ class _FeedbackFormPageState extends State<FeedbackFormPage> {
               ),
               const SizedBox(height: 25),
 
-              // Name
               TextFormField(
                 controller: nameController,
                 decoration: InputDecoration(
@@ -97,7 +141,6 @@ class _FeedbackFormPageState extends State<FeedbackFormPage> {
               ),
               const SizedBox(height: 15),
 
-              // Email
               TextFormField(
                 controller: emailController,
                 decoration: InputDecoration(
@@ -115,7 +158,6 @@ class _FeedbackFormPageState extends State<FeedbackFormPage> {
               ),
               const SizedBox(height: 15),
 
-              // Feedback
               TextFormField(
                 controller: feedbackController,
                 decoration: InputDecoration(
@@ -134,14 +176,15 @@ class _FeedbackFormPageState extends State<FeedbackFormPage> {
               ),
               const SizedBox(height: 25),
 
-              // Rating stars
               Center(
                 child: Column(
                   children: [
                     const Text(
                       "Rate your experience",
-                      style:
-                      TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     buildStarRating(),
                   ],
@@ -150,7 +193,6 @@ class _FeedbackFormPageState extends State<FeedbackFormPage> {
 
               const SizedBox(height: 30),
 
-              // Submit Button
               Center(
                 child: ElevatedButton(
                   onPressed: submitFeedback,

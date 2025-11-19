@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
 
-class SoldProductsPage extends StatefulWidget {
-  const SoldProductsPage({super.key});
+class ReturnedProductsPage extends StatefulWidget {
+  const ReturnedProductsPage({super.key});
 
   @override
-  State<SoldProductsPage> createState() => _SoldProductsPageState();
+  State<ReturnedProductsPage> createState() => _ReturnedProductsPageState();
 }
 
-class _SoldProductsPageState extends State<SoldProductsPage>
+class _ReturnedProductsPageState extends State<ReturnedProductsPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
-  // ✅ Theme color
-  final Color themeColor = const Color(0xFF1A0A5B);
 
   @override
   void initState() {
@@ -30,19 +27,12 @@ class _SoldProductsPageState extends State<SoldProductsPage>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          "Sold Products",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-        ),
-        backgroundColor: themeColor,
-        iconTheme: const IconThemeData(
-          color: Colors.white, // ✅ Back arrow color
-        ),
+        title: const Text("Returned Products"),
+        backgroundColor: Colors.blueAccent,
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
           labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
           indicatorColor: Colors.white,
           tabs: const [
             Tab(text: "Drones"),
@@ -56,11 +46,11 @@ class _SoldProductsPageState extends State<SoldProductsPage>
       body: TabBarView(
         controller: _tabController,
         children: const [
-          CategoryListView(title: "Sold Drones"),
-          CategoryListView(title: "Sold Spare Parts"),
-          CategoryListView(title: "Sold Accessories"),
-          CategoryListView(title: "Sold Rentals"),
-          CategoryListView(title: "Sold Services"),
+          CategoryListView(title: "Returned Drones"),
+          CategoryListView(title: "Returned Spare Parts"),
+          CategoryListView(title: "Returned Accessories"),
+          CategoryListView(title: "Returned Rentals"),
+          CategoryListView(title: "Returned Services"),
         ],
       ),
     );
@@ -71,14 +61,11 @@ class CategoryListView extends StatelessWidget {
   final String title;
   const CategoryListView({super.key, required this.title});
 
-  // ✅ Theme color
-  final Color themeColor = const Color(0xFF1A0A5B);
-
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
       padding: const EdgeInsets.all(12),
-      itemCount: 5, // placeholder
+      itemCount: 5, // sample placeholder
       itemBuilder: (context, index) {
         return Card(
           elevation: 2,
@@ -87,18 +74,19 @@ class CategoryListView extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           child: ListTile(
-            leading: Icon(Icons.shopping_cart, color: themeColor),
-            title: Text(
-              "$title ${index + 1}",
-              style: TextStyle(fontWeight: FontWeight.w600),
+            leading: const Icon(
+              Icons.assignment_return,
+              color: Colors.blueAccent,
             ),
-            subtitle: const Text("Successfully sold to the customer."),
-            trailing: Icon(Icons.info_outline, color: themeColor),
+            title: Text("$title ${index + 1}"),
+            subtitle: const Text(
+              "Returned by the customer for replacement/refund.",
+            ),
+            trailing: const Icon(Icons.info_outline),
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text("$title ${index + 1} details coming soon"),
-                  backgroundColor: themeColor,
                 ),
               );
             },
