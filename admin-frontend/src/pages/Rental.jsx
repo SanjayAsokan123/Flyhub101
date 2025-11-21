@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import "../styles/Rental.css";
 
@@ -135,10 +134,15 @@ function Rentals() {
         ) : (
           filteredRentals.map((rental) => (
             <div key={rental.rentalId} className="rental-card">
-              <div className={`rental-badge ${rental.status.toLowerCase()}`}>
+
+              {/* Status Badge */}
+              <div
+                className={`rental-badge ${rental.status.toLowerCase()}`}
+              >
                 {rental.status}
               </div>
 
+              {/* Image */}
               <div className="rental-image-wrapper">
                 {rental.image ? (
                   <img
@@ -151,6 +155,7 @@ function Rentals() {
                 )}
               </div>
 
+              {/* Details */}
               <div className="rental-details">
                 <h3>{rental.name}</h3>
                 <p><strong>ID:</strong> {rental.rentalId}</p>
@@ -171,26 +176,77 @@ function Rentals() {
                   <p><strong>Seller:</strong> Not available</p>
                 )}
 
-                {rental.status.toLowerCase() === "pending" && (
-                  <div className="rental-actions">
-                    <button
-                      onClick={() =>
-                        handleApproval(rental.rentalId, "approved")
-                      }
-                      className="rental-approve-btn"
-                    >
-                      ✅ Approve
-                    </button>
-                    <button
-                      onClick={() =>
-                        handleApproval(rental.rentalId, "rejected")
-                      }
-                      className="rental-reject-btn"
-                    >
-                      ❌ Reject
-                    </button>
-                  </div>
-                )}
+                {/* ===== FULL ACTION BUTTONS ===== */}
+                <div className="rental-actions">
+
+                  {rental.status.toLowerCase() === "pending" && (
+                    <>
+                      <button
+                        onClick={() =>
+                          handleApproval(rental.rentalId, "approved")
+                        }
+                        className="rental-approve-btn"
+                      >
+                        ✅ Approve
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          handleApproval(rental.rentalId, "rejected")
+                        }
+                        className="rental-reject-btn"
+                      >
+                        ❌ Reject
+                      </button>
+                    </>
+                  )}
+
+                  {rental.status.toLowerCase() === "approved" && (
+                    <>
+                      <button
+                        onClick={() =>
+                          handleApproval(rental.rentalId, "rejected")
+                        }
+                        className="rental-reject-btn"
+                      >
+                        ❌ Reject
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          handleApproval(rental.rentalId, "pending")
+                        }
+                        className="rental-pending-btn"
+                      >
+                        ⏳ Move to Pending
+                      </button>
+                    </>
+                  )}
+
+                  {rental.status.toLowerCase() === "rejected" && (
+                    <>
+                      <button
+                        onClick={() =>
+                          handleApproval(rental.rentalId, "approved")
+                        }
+                        className="rental-approve-btn"
+                      >
+                        ✅ Approve
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          handleApproval(rental.rentalId, "pending")
+                        }
+                        className="rental-pending-btn"
+                      >
+                        ⏳ Move to Pending
+                      </button>
+                    </>
+                  )}
+
+                </div>
+                {/* ===== END ACTION BUTTONS ===== */}
               </div>
             </div>
           ))

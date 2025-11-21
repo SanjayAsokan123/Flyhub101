@@ -59,9 +59,14 @@ class _RentalsPageState extends State<RentalsPage> with TickerProviderStateMixin
     try {
       final result = await _api.getRentals();
       if (result.status == "success" && result.data is List) {
-        rentalList = result.data;
+        // 🔥 Filter only approved rentals
+        rentalList = (result.data as List)
+            .where((r) => r["status"] == "approved")
+            .toList();
+
         _applyFiltersAndSort();
-      } else {
+      }
+ else {
         Utils.bottomToast(context, "No rentals found");
       }
     } catch (e) {

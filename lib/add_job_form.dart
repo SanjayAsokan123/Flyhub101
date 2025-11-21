@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'config/env.dart';
+
 class AddJobForm extends StatefulWidget {
   final String sellerId; // ✅ Link job post to seller
   const AddJobForm({required this.sellerId, super.key});
@@ -25,7 +27,7 @@ class _AddJobFormState extends State<AddJobForm> {
   bool _isSubmitting = false;
 
   final Color themeColor = const Color(0xFF1A0A5B);
-  final String graphqlUrl = "http://192.168.1.178:5001/graphql";
+  final String graphqlUrl = EnvConfig.baseUrl;
 
   @override
   void dispose() {

@@ -1,53 +1,70 @@
-// src/App.js
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
 import Dashboard from "./components/Dashboard";
 import Users from "./pages/Users";
-import Reports from "./pages/Reports";
+import Drones from "./pages/Drones";
 import Parts from "./pages/Parts";
 import Accessories from "./pages/Accessories";
-import Rejected from "./pages/Rejected";
+import SoldProducts from "./pages/SoldProducts";
 import Services from "./pages/Service";
 import Rentals from "./pages/Rental";
+import Orders from "./pages/OrderPage";
 import HirePilot from "./pages/HirePilot";
 import HireJob from "./pages/HireJob";
+import Regulatory from "./pages/Regulatory";
 import Settings from "./pages/Settings";
 import SellerApprovalPanel from "./pages/SellerApprovalPanel";
-import Approved from "./pages/Approved";
-import TrainingPage from "./pages/Training"; // ✅ Added Training Management Page
+import ReturnProductsForm from "./pages/ReturnProductsForm";
+import DroneRentalForm from "./pages/DroneRentalForm";
+import ManageAdmins from "./pages/ManageAdmins";
+import Login from "./pages/Login";
+
+import ProtectedRoute from "./components/ProtectedRoute";
 import "./App.css";
+import TrainingPage from "./pages/Training";
 
 export default function App() {
   return (
     <Router>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/users" element={<Users />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/parts" element={<Parts />} />
-          <Route path="/accessories" element={<Accessories />} />
-          <Route path="/services" element={<Services />} />
-          <Route path="/rentals" element={<Rentals />} />
-          <Route path="/rejected" element={<Rejected />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/pilot" element={<HirePilot />} />
-          <Route path="/job" element={<HireJob />} />
-          <Route path="/seller" element={<SellerApprovalPanel />} />
-          <Route path="/approval" element={<Approved />} />
-          <Route path="/training" element={<TrainingPage />} /> {/* ✅ New route added */}
+      <Routes>
+        {/* Public route */}
+        <Route path="/login" element={<Login />} />
 
-          {/* ✅ Optional fallback route */}
-          <Route
-            path="*"
-            element={
-              <h2 style={{ padding: "2rem", textAlign: "center", color: "#d32f2f" }}>
-                404 - Page Not Found
-              </h2>
-            }
-          />
-        </Routes>
-      </Layout>
+        {/* Protected routes */}
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/users" element={<Users />} />
+                  <Route path="/drones" element={<Drones />} />
+                  <Route path="/parts" element={<Parts />} />
+                  <Route path="/accessories" element={<Accessories />} />
+                  <Route path="/services" element={<Services />} />
+                  <Route path="/rentals" element={<Rentals />} />
+                  <Route path="/sold-product" element={<SoldProducts />} />
+                  <Route path="/regulatory" element={<Regulatory />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/pilot" element={<HirePilot />} />
+                  <Route path="/job" element={<HireJob />} />
+                     <Route path="/orders" element={<Orders/>} />
+                  <Route path="/seller" element={<SellerApprovalPanel />} />
+
+                   <Route path="/manage-admins" element={<ManageAdmins />} />
+                   <Route path="/training-page" element={<TrainingPage />} />
+                   <Route path="/drone-rental-form" element={<DroneRentalForm />} />
+                  <Route path="/return-product" element={<ReturnProductsForm />} />
+                </Routes>
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Default redirect */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
     </Router>
   );
 }

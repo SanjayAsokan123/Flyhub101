@@ -81,7 +81,7 @@ class ApiClass {
           price
           description
           image
-          status
+          status 
         }
       }
     ''';
@@ -337,18 +337,21 @@ class ApiClass {
   Future<ApiResult> getRentals() async {
     const String query = r'''
       query {
-        rentals {
-          rentalId
-          name
-          brand
-          pricePerDay
-          description
-          image
-          location
-          insurance
-          with_pilot
-          available_today
-        }
+       rentals {
+  rentalId
+  name
+  brand
+  pricePerDay
+  pricePerHour
+  description
+  image
+  location
+  insurance
+  with_pilot
+  available_today
+  status        # 👈 ADD THIS FIELD
+}
+
       }
     ''';
     return _runQuery("getRentals", query, "rentals");

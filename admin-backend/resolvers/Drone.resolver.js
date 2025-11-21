@@ -51,12 +51,19 @@ export const droneResolvers = {
     },
 
     // ✅ Approved / Pending / Rejected Drones
-    approvedDrones: async (_, { sellerId }) =>
-      Drone.find({ sellerId, status: "approved" }),
-    pendingDrones: async (_, { sellerId }) =>
-      Drone.find({ sellerId, status: "pending" }),
-    rejectedDrones: async (_, { sellerId }) =>
-      Drone.find({ sellerId, status: "rejected" }),
+    approvedDrones: async (_, { sellerId }) => {
+      return Drone.find({ sellerId, status: "approved" });
+    },
+
+    // Pending drones for a seller
+    pendingDrones: async (_, { sellerId }) => {
+      return Drone.find({ sellerId, status: "pending" });
+    },
+
+    // Rejected drones for a seller
+    rejectedDrones: async (_, { sellerId }) => {
+      return Drone.find({ sellerId, status: "rejected" });
+    },
   },
 
   // ============================================================

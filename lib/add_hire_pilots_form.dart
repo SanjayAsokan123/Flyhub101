@@ -6,6 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 
+import 'config/env.dart';
+
 class AddHirePilotForm extends StatefulWidget {
   final String sellerId;
   const AddHirePilotForm({required this.sellerId, super.key});
@@ -20,7 +22,7 @@ class _AddHirePilotFormState extends State<AddHirePilotForm> {
   bool availability = true;
 
   final Color themeColor = const Color(0xFF1A0A5B);
-  final String graphqlUrl = "http://192.168.1.178:5001/graphql";
+  final String graphqlUrl = EnvConfig.baseUrl;
   final String uploadUrl = "http://192.168.1.178:5001/upload";
 
   final FirebaseAuth _auth = FirebaseAuth.instance;

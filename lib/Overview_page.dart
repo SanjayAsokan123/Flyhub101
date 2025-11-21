@@ -166,7 +166,7 @@ class OverviewPage extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const OrderSuccessPage()),
+                  MaterialPageRoute(builder: (_) => const OrderSuccessPage(drone: {}, orderDetails: '',)),
                 );
               },
               style: ElevatedButton.styleFrom(

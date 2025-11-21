@@ -38,11 +38,18 @@ class _ServicesPageState extends State<ServicesPage> {
     if (!mounted) return;
 
     if (res.status == "success") {
+      final List<dynamic> allServices = res.data ?? [];
+
+// keep only approved services
+      final approvedServices =
+      allServices.where((s) => s["status"] == "approved").toList();
+
       setState(() {
-        serviceList = res.data ?? [];
+        serviceList = approvedServices;
         filteredList = List.from(serviceList);
         isLoading = false;
       });
+
     } else {
       Utils.bottomToast(context, "Error fetching services: ${res.message}");
       setState(() => isLoading = false);

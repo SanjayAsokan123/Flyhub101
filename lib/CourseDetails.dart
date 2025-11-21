@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'Training_Enroll_Form.dart';
+import 'config/env.dart';
 
 class Coursedetails extends StatefulWidget {
   final Map<String, dynamic> course;
@@ -18,7 +19,7 @@ class _CoursedetailsState extends State<Coursedetails> {
   String errorMessage = '';
   Map<String, dynamic>? courseDetails;
 
-  final String graphqlUrl = "http://192.168.1.178:5001/graphql";
+  final String graphqlUrl = EnvConfig.baseUrl;
 
   @override
   void initState() {

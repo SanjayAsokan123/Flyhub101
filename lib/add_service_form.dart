@@ -5,6 +5,8 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+import 'config/env.dart';
+
 class AddServiceForm extends StatefulWidget {
   final String sellerId; // ✅ sellerId from SellerPage
   const AddServiceForm({required this.sellerId, super.key});
@@ -28,7 +30,7 @@ class _AddServiceFormState extends State<AddServiceForm> {
   String description = '';
   double? price;
 
-  final String graphqlUrl = "http://192.168.1.178:5001/graphql";
+  final String graphqlUrl = EnvConfig.baseUrl;
 
   /// 🖼 Pick Image
   Future<void> _pickImage() async {

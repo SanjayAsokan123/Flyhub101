@@ -5,8 +5,9 @@ import App from "./App";
 import reportWebVitals from "./reportWebVitals";
 
 // ✅ Import Apollo setup
-import { ApolloProvider } from "@apollo/client";
 import { ApolloClient, InMemoryCache, createHttpLink } from "@apollo/client";
+import { ApolloProvider } from "@apollo/client/react";
+
 import { setContext } from "@apollo/client/link/context";
 
 // ✅ Configure GraphQL connection

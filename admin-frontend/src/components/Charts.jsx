@@ -4,12 +4,12 @@ import {
   BarChart, Bar, CartesianGrid, XAxis, YAxis, Legend,
   LineChart, Line
 } from "recharts";
-import { gql, useQuery } from "@apollo/client";
+import { gql } from "@apollo/client";
+import { useQuery } from "@apollo/client/react";
 import { useState } from "react";
 
 const COLORS = ["#9333ea", "#a855f7", "#c084fc", "#ddd"];
 
-// ✅ Combined GraphQL query for Seller + Buyer Trends
 const GET_TRENDS = gql`
   query GetTrends($days: Int) {
     getSellerTrends(days: $days) {
@@ -23,11 +23,9 @@ const GET_TRENDS = gql`
   }
 `;
 
-function Charts({ stats }) {
-  // 🔹 Range state (7, 30, or 90 days)
+export default function Charts({ stats }) {
   const [days, setDays] = useState(30);
 
-  // 🔹 Fetch trends for selected date range
   const { loading, error, data, refetch } = useQuery(GET_TRENDS, {
     variables: { days },
   });
@@ -49,12 +47,13 @@ function Charts({ stats }) {
     { category: "Buyers", count: stats.totalBuyers },
   ];
 
-  // ✅ Merge Seller + Buyer trend data
   const lineData = [];
   if (data?.getSellerTrends || data?.getBuyerTrends) {
     const sellerMap = new Map(data.getSellerTrends.map(i => [i.date, i.count]));
     const buyerMap = new Map(data.getBuyerTrends.map(i => [i.date, i.count]));
+
     const allDates = new Set([...sellerMap.keys(), ...buyerMap.keys()]);
+
     [...allDates].sort().forEach(date => {
       lineData.push({
         date,
@@ -66,7 +65,6 @@ function Charts({ stats }) {
 
   return (
     <div className="charts-grid">
-      {/* Pie Chart */}
       <div className="chart-section">
         <h2>Seller Status Distribution</h2>
         <ResponsiveContainer width="100%" height={250}>
@@ -80,7 +78,7 @@ function Charts({ stats }) {
               label
             >
               {pieData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index]} />
+                <Cell key={index} fill={COLORS[index]} />
               ))}
             </Pie>
             <Tooltip />
@@ -88,7 +86,6 @@ function Charts({ stats }) {
         </ResponsiveContainer>
       </div>
 
-      {/* Bar Chart */}
       <div className="chart-section">
         <h2>Sellers vs Buyers</h2>
         <ResponsiveContainer width="100%" height={250}>
@@ -103,10 +100,9 @@ function Charts({ stats }) {
         </ResponsiveContainer>
       </div>
 
-      {/* ✅ Dual Line Chart with Range Filter */}
       <div className="chart-section">
         <div className="chart-header">
-          <h2>📈 Seller vs Buyer Registration Trends</h2>
+          <h2>📈 Seller vs Buyer Trends</h2>
           <select value={days} onChange={handleRangeChange} className="chart-filter">
             <option value="7">Last 7 Days</option>
             <option value="30">Last 30 Days</option>
@@ -115,7 +111,7 @@ function Charts({ stats }) {
         </div>
 
         {loading ? (
-          <p>Loading trend data...</p>
+          <p>Loading trends…</p>
         ) : error ? (
           <p style={{ color: "red" }}>Error: {error.message}</p>
         ) : (
@@ -126,22 +122,9 @@ function Charts({ stats }) {
               <YAxis allowDecimals={false} />
               <Tooltip />
               <Legend />
-              <Line
-                type="monotone"
-                dataKey="sellers"
-                stroke="#9333ea"
-                strokeWidth={3}
-                dot={{ r: 4 }}
-                name="Sellers"
-              />
-              <Line
-                type="monotone"
-                dataKey="buyers"
-                stroke="#10b981"
-                strokeWidth={3}
-                dot={{ r: 4 }}
-                name="Buyers"
-              />
+
+              <Line type="monotone" dataKey="sellers" stroke="#9333ea" strokeWidth={3} dot={{ r: 4 }} />
+              <Line type="monotone" dataKey="buyers" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} />
             </LineChart>
           </ResponsiveContainer>
         )}
@@ -149,5 +132,3 @@ function Charts({ stats }) {
     </div>
   );
 }
-
-export default Charts;

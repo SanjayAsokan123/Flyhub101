@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'config/env.dart';
+
 class SellerNotificationsPage extends StatefulWidget {
   final String sellerId;
   const SellerNotificationsPage({required this.sellerId, super.key});
@@ -11,7 +13,7 @@ class SellerNotificationsPage extends StatefulWidget {
 }
 
 class _SellerNotificationsPageState extends State<SellerNotificationsPage> {
-  final String graphqlUrl = "http://192.168.0.180:5001/graphql";
+  final String graphqlUrl = EnvConfig.baseUrl;
   final Color themeColor = const Color(0xFF1A0A5B);
   late GraphQLClient client;
   bool loading = true;

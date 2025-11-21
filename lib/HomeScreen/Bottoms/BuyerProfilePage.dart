@@ -125,7 +125,7 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
     return ListTile(
       leading: Icon(icon, color: themeColor),
       title: Text(title),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+
       onTap: onTap,
     );
   }

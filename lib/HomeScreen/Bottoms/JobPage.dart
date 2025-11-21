@@ -55,12 +55,16 @@ class _JobsPageState extends State<JobsPage> {
       }
 
       debugPrint("✅ [JobsPage] Loaded ${dataList.length} jobs");
+// keep only approved jobs
+      final approvedJobs =
+      dataList.where((job) => job["status"] == "approved").toList();
 
       setState(() {
-        jobList = dataList;
+        jobList = approvedJobs;
         filteredList = List.from(jobList);
         isLoading = false;
       });
+
 
       if (dataList.isEmpty) {
         Utils.bottomToast(context, "No job listings found");

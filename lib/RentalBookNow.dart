@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 
+import 'config/env.dart';
+
 class RentalBookNowPage extends StatefulWidget {
   final Map<String, dynamic>
   rental; // the rental object from RentalsPage (must include rentalId)
@@ -31,7 +33,7 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
   final Color accentColor = const Color(0xFF00C6FF);
 
   // GraphQL client config
-  final String graphqlUrl = "http://192.168.0.183:5001/graphql";
+  final String graphqlUrl = EnvConfig.baseUrl;
   late GraphQLClient _client;
 
   bool _submitting = false;

@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
-const String GRAPHQL_URL = "http://192.168.1.178:5001/graphql";
+import 'config/env.dart';
+
+final String GRAPHQL_URL = EnvConfig.baseUrl;
 
 class PilotRentalPage extends StatefulWidget {
   final String sellerId;

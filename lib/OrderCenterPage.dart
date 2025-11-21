@@ -747,7 +747,7 @@ class _OrderCenterPageState extends State<OrderCenterPage> {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => OrderSuccessPage()),
+            MaterialPageRoute(builder: (context) => OrderSuccessPage(drone: {}, orderDetails: '',)),
           );
         },
         style: ElevatedButton.styleFrom(

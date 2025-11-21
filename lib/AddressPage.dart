@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import 'Checkout_page.dart';
+import 'checkout_page.dart';
 
 class AddressPage extends StatefulWidget {
   final double total;
-  const AddressPage({super.key, required this.total});
+  const AddressPage({super.key, required this.total, required Map<String, dynamic> drone});
 
   @override
   State<AddressPage> createState() => _AddressPageState();

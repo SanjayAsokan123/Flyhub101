@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'CourseDetails.dart';
+import 'config/env.dart';
 
 class Training extends StatefulWidget {
   const Training({super.key});
@@ -12,7 +13,7 @@ class Training extends StatefulWidget {
 }
 
 class _TrainingState extends State<Training> {
-  final String graphqlUrl = "http://192.168.1.178:5001/graphql";
+  final String graphqlUrl = EnvConfig.baseUrl;
 
   List<Map<String, dynamic>> trainings = [];
   bool isLoading = true;

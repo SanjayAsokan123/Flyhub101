@@ -46,8 +46,8 @@ class _MarketPageState extends State<MarketPage>
   List<String> availableBrands = ['All'];
 
   // Colors (matching your new UI)
-  final Color lightPurple = const Color(0xFFFBFBFB);
-  final Color lightBlue = const Color(0xFFFBFBFB);
+  final Color lightPurple = const Color(0xFFE8EAF6);
+  final Color lightBlue = const Color(0xFFE3F2FD);
   final Color accentColor = const Color(0xFF1A0A5B);
   final Color textPrimary = const Color(0xFF1F2937);
   final Color textSecondary = const Color(0xFF6B7280);
@@ -84,15 +84,19 @@ class _MarketPageState extends State<MarketPage>
 
       drones = (dronesRes.status == "success" ? List.from(dronesRes.data) : [])
           .map((d) => _normalizeItem(d, category: 'drone'))
+          .where((item) => item['status'] == "approved")  // 👈 FILTER HERE
           .toList();
 
       parts = (partsRes.status == "success" ? List.from(partsRes.data) : [])
           .map((p) => _normalizeItem(p, category: 'part'))
+          .where((item) => item['status'] == "approved")  // 👈 FILTER HERE
           .toList();
 
       accessories = (accRes.status == "success" ? List.from(accRes.data) : [])
           .map((a) => _normalizeItem(a, category: 'accessory'))
+          .where((item) => item['status'] == "approved")  // 👈 FILTER HERE
           .toList();
+
 
       // collect brands
       final brands = <String>{};
@@ -129,6 +133,7 @@ class _MarketPageState extends State<MarketPage>
       'price': price,
       'image': image,
       'description': description,
+      'status': m['status'] ?? '',
     };
   }
 
@@ -484,7 +489,7 @@ class _MarketPageState extends State<MarketPage>
     final wishlistCount = provider.wishlistCount;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: lightPurple,
       body: SafeArea(
         child: Container(
           decoration: BoxDecoration(
@@ -632,7 +637,7 @@ class _MarketPageState extends State<MarketPage>
         child: Container(
           height: MediaQuery.of(context).size.height * 0.7,
           decoration: BoxDecoration(
-
+            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [lightPurple, lightBlue]),
           ),
           child: Center(
             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [

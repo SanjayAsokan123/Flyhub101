@@ -1,109 +1,119 @@
-/* === Overall Layout === */
+/* ===========================
+   MAIN CONTAINER
+=========================== */
 .accessories-container {
-  background-color: #f8fafc;
-  min-height: 100vh;
   padding: 30px;
   font-family: "Poppins", sans-serif;
 }
 
-/* === Title === */
 .accessories-title {
-  text-align: center;
-  color: #1e293b;
-  font-size: 24px;
-  font-weight: 600;
+  font-size: 28px;
+  font-weight: 700;
   margin-bottom: 25px;
+  color: #333;
 }
 
-/* === Status Tabs / Navbar === */
+/* ===========================
+   STATUS TABS
+=========================== */
 .accessories-status-tabs {
   display: flex;
   justify-content: center;
-  gap: 12px;
+  align-items: center;
+  gap: 18px;
   margin-bottom: 25px;
 }
 
+
 .accessories-tab {
-  padding: 8px 18px;
-  border: 1px solid #cbd5e1;
-  border-radius: 25px;
-  background-color: #ffffff;
-  color: #374151;
-  font-size: 14px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  border: 1px solid #dcdcdc;
+  background: #fff;
   cursor: pointer;
-  font-weight: 500;
-  transition: all 0.3s ease;
+  font-weight: 600;
+  font-size: 14px;
+  transition: 0.25s ease;
 }
 
 .accessories-tab:hover {
-  background-color: #e2e8f0;
+  background: #f5f5f5;
 }
 
 .accessories-tab.active {
-  background-color: #2563eb;
+  background: #222;
   color: white;
-  border-color: #2563eb;
+  border-color: #222;
 }
 
-/* === Grid Layout === */
+/* ===========================
+   GRID
+=========================== */
 .accessories-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 18px;
-  justify-content: center;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 22px;
 }
 
-/* === Card Styling === */
+/* ===========================
+   CARD
+=========================== */
 .accessories-card {
+  background: #fff;
+  border: 1px solid #e7e7e7;
+  border-radius: 16px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  padding: 18px;
   position: relative;
-  background: #ffffff;
-  border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  padding: 15px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: 0.3s ease;
 }
 
 .accessories-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  transform: translateY(-4px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
 }
 
-/* === Badge === */
+/* ===========================
+   BADGE (Pending/Approved/Rejected)
+=========================== */
 .accessories-badge {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  padding: 3px 10px;
-  border-radius: 12px;
+  top: 14px;
+  right: 14px;
+  padding: 6px 12px;
+  border-radius: 10px;
   font-size: 12px;
-  font-weight: 500;
-  color: #fff;
+  font-weight: 600;
   text-transform: capitalize;
 }
 
 .accessories-badge.pending {
-  background-color: #f59e0b;
+  background: #fff4c4;
+  color: #b18a00;
 }
 
 .accessories-badge.approved {
-  background-color: #22c55e;
+  background: #d7f5e5;
+  color: #1f8c4f;
 }
 
 .accessories-badge.rejected {
-  background-color: #ef4444;
+  background: #ffd8d8;
+  color: #d03333;
 }
 
-/* === Image Section === */
+/* ===========================
+   IMAGE AREA
+=========================== */
 .accessories-image-wrapper {
   width: 100%;
-  height: 140px;
-  border-radius: 10px;
+  height: 180px;
+  border-radius: 12px;
   overflow: hidden;
-  background-color: #f3f4f6;
+  background: #f1f1f1;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 10px;
 }
 
 .accessories-image {
@@ -113,73 +123,87 @@
 }
 
 .accessories-no-image {
-  color: #9ca3af;
-  font-size: 13px;
+  color: #777;
+  font-size: 14px;
 }
 
-/* === Details Section === */
+/* ===========================
+   DETAILS TEXT
+=========================== */
 .accessories-details {
-  text-align: left;
-  color: #374151;
+  margin-top: 15px;
 }
 
 .accessories-details h3 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #111827;
+  font-size: 18px;
   margin-bottom: 8px;
+  color: #333;
 }
 
 .accessories-details p {
-  margin: 4px 0;
-  font-size: 13px;
-  line-height: 1.4;
-}
-
-.accessories-details strong {
-  color: #1f2937;
-}
-
-/* === Actions (Approve / Reject Buttons) === */
-.accessories-actions {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 12px;
-}
-
-.accessories-approve-btn,
-.accessories-reject-btn {
-  border: none;
-  border-radius: 6px;
-  padding: 6px 12px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: 0.3s;
-  color: white;
-}
-
-.accessories-approve-btn {
-  background-color: #16a34a;
-}
-
-.accessories-approve-btn:hover {
-  background-color: #15803d;
-}
-
-.accessories-reject-btn {
-  background-color: #dc2626;
-}
-
-.accessories-reject-btn:hover {
-  background-color: #b91c1c;
-}
-
-/* === Empty, Loading, Error Messages === */
-.accessories-loading,
-.accessories-error,
-.accessories-empty-text {
-  text-align: center;
   font-size: 14px;
-  color: #6b7280;
+  margin: 4px 0;
+  color: #555;
+}
+
+/* ===========================
+   BUTTON GROUP
+=========================== */
+.accessories-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Buttons Styling */
+.accessories-approve-btn,
+.accessories-reject-btn,
+.accessories-pending-btn {
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+/* Approve */
+.accessories-approve-btn {
+  background: #d8f8de;
+  color: #1b8f46;
+}
+.accessories-approve-btn:hover {
+  background: #c6f2d0;
+}
+
+/* Reject */
+.accessories-reject-btn {
+  background: #ffd8d8;
+  color: #d03333;
+}
+.accessories-reject-btn:hover {
+  background: #ffbfbf;
+}
+
+/* Pending */
+.accessories-pending-btn {
+  background: #fff1be;
+  color: #b08100;
+}
+.accessories-pending-btn:hover {
+  background: #ffeaa0;
+}
+
+/* ===========================
+   EMPTY / LOADING TEXT
+=========================== */
+.accessories-empty-text,
+.accessories-loading,
+.accessories-error {
+  text-align: center;
+  font-size: 16px;
   margin-top: 20px;
+  color: #666;
 }

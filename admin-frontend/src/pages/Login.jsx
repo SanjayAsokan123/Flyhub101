@@ -1,72 +1,56 @@
-import React, { useState, useEffect } from "react";
-import { useMutation, gql } from "@apollo/client";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/Login.css";
 
-const ADMIN_LOGIN = gql`
-  mutation AdminLogin($email: String!, $password: String!) {
-    adminLogin(email: $email, password: $password) {
-      success
-      message
-      token
-      refreshToken
-    }
-  }
-`;
-
-export default function Login() {
-  const [email, setEmail] = useState("");
+function Login() {
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const navigate = useNavigate();
 
-  // ✅ Redirect if already logged in
-  useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    if (token) navigate("/");
-  }, [navigate]);
-
-  const [adminLogin, { loading }] = useMutation(ADMIN_LOGIN, {
-    onCompleted: (data) => {
-      if (data.adminLogin.success) {
-        localStorage.setItem("accessToken", data.adminLogin.token);
-        localStorage.setItem("refreshToken", data.adminLogin.refreshToken);
-        setSuccess("Login successful! Redirecting...");
-        setTimeout(() => navigate("/"), 1000); // redirect after success
-      } else {
-        setError(data.adminLogin.message);
-      }
-    },
-    onError: (err) => setError(err.message),
-  });
-
-  const handleSubmit = (e) => {
+  const handleLogin = (e) => {
     e.preventDefault();
-    setError("");
-    setSuccess("");
 
-    if (!email || !password) {
-      setError("Please enter both email and password.");
+    // default superadmin credentials
+    if (username === "admin" && password === "1234") {
+      const user = { username, role: "superadmin" };
+      localStorage.setItem("isLoggedIn", "true");
+      localStorage.setItem("currentUser", JSON.stringify(user));
+      navigate("/");
       return;
     }
-    adminLogin({ variables: { email, password } });
+
+    // check sub-admins from localStorage
+    const subAdmins = JSON.parse(localStorage.getItem("admins")) || [];
+    const found = subAdmins.find(
+      (a) => a.username === username && a.password === password
+    );
+
+    if (found) {
+      localStorage.setItem("isLoggedIn", "true");
+      localStorage.setItem("currentUser", JSON.stringify(found));
+      navigate("/");
+    } else {
+      alert("Invalid credentials ⚠");
+    }
   };
 
   return (
-    <div className="login-container">
+    <div className="login-dark">
       <div className="login-box">
-        <h2>⚙️ Admin Login</h2>
-        <form onSubmit={handleSubmit}>
+        <img src="/flyhubicon.svg" alt="FlyHub Logo" className="flyhub-logo" />
+        <p className="login-sub">Admin Access Portal</p>
+
+        <form onSubmit={handleLogin}>
           <div className="input-group">
             <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
             />
           </div>
+
           <div className="input-group">
             <input
               type="password"
@@ -77,14 +61,21 @@ export default function Login() {
             />
           </div>
 
-          <button type="submit" disabled={loading}>
-            {loading ? "Logging in..." : "Login"}
+          <button type="submit" className="login-btn">
+            Log In
           </button>
         </form>
 
-        {error && <p className="error-text">{error}</p>}
-        {success && <p className="success-text">{success}</p>}
+        <footer className="login-footer">
+          <small>© 2025 Drone Admin. All rights reserved.</small>
+        </footer>
       </div>
+
+      <div className="orb orb1"></div>
+      <div className="orb orb2"></div>
+      <div className="orb orb3"></div>
     </div>
   );
 }
+
+export default Login;

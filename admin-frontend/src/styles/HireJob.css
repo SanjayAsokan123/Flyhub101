@@ -1,0 +1,161 @@
+/* === Layout === */
+.hire-jobs-container {
+  padding: 30px;
+  background-color: #f8fafc;
+  font-family: "Poppins", sans-serif;
+  min-height: 100vh;
+}
+
+/* === Title === */
+.page-title {
+  text-align: center;
+  font-size: 24px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 25px;
+}
+
+/* === Tabs === */
+.status-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 25px;
+}
+
+.status-tab {
+  padding: 8px 18px;
+  border: 1px solid #cbd5e1;
+  border-radius: 25px;
+  background-color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #374151;
+  font-weight: 500;
+}
+
+.status-tab:hover {
+  background-color: #e2e8f0;
+}
+
+.status-tab.active {
+  background-color: #2563eb;
+  color: white;
+  border-color: #2563eb;
+}
+
+/* === Jobs Grid === */
+.jobs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+  justify-content: center;
+}
+
+/* === Job Card === */
+.job-card {
+  position: relative;
+  background-color: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  padding: 16px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.job-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+}
+
+/* === Status Badge === */
+.status-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: white;
+  text-transform: capitalize;
+}
+
+.status-badge.pending {
+  background-color: #f59e0b;
+}
+
+.status-badge.approved {
+  background-color: #22c55e;
+}
+
+.status-badge.rejected {
+  background-color: #ef4444;
+}
+
+/* === Job Details === */
+.job-details {
+  color: #374151;
+  margin-top: 8px;
+}
+
+.job-details h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 10px;
+}
+
+.job-details p {
+  margin: 4px 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.job-details strong {
+  color: #1f2937;
+}
+
+/* === Buttons === */
+.actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+.approve-btn,
+.reject-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: 0.3s;
+  color: white;
+}
+
+.approve-btn {
+  background-color: #16a34a;
+}
+
+.approve-btn:hover {
+  background-color: #15803d;
+}
+
+.reject-btn {
+  background-color: #dc2626;
+}
+
+.reject-btn:hover {
+  background-color: #b91c1c;
+}
+
+/* === Loading / Error / Empty === */
+.loading,
+.error,
+.empty-text {
+  text-align: center;
+  font-size: 14px;
+  color: #6b7280;
+  margin-top: 20px;
+}

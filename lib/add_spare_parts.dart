@@ -7,6 +7,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'config/env.dart';
+
 class AddSparePartForm extends StatefulWidget {
   final String sellerId;
   const AddSparePartForm({required this.sellerId, super.key});
@@ -27,7 +29,7 @@ class _AddSparePartFormState extends State<AddSparePartForm> {
   bool _isSubmitting = false;
 
   final picker = ImagePicker();
-  final String graphqlUrl = "http://192.168.1.178:5001/graphql";
+  final String graphqlUrl = EnvConfig.baseUrl;
 
   // 📸 Pick image
   Future<void> _pickImage() async {

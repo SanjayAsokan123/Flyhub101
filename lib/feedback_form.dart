@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 
+import 'config/env.dart';
+
 class FeedbackFormPage extends StatefulWidget {
   const FeedbackFormPage({Key? key}) : super(key: key);
 
@@ -18,8 +20,8 @@ class _FeedbackFormPageState extends State<FeedbackFormPage> {
 
   // ✉ Function to send feedback mail
   Future<void> sendMail() async {
-    const String username = 'preethis19102004@gmail.com'; // your email
-    const String appPassword = 'jcqm eubr vcdx nlvl'; // 🔒 app password
+    final String username = Mail_User.EMAIL_USER; // your email
+    final String appPassword = Mail_Pass.EMAIL_PASS; // 🔒 app password
 
     final smtpServer = gmail(username, appPassword);
 

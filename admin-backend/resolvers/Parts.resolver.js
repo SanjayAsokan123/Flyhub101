@@ -35,13 +35,20 @@ export const partResolvers = {
       }
     },
 
-    // ✅ Filtered queries
-    approvedParts: async (_, { sellerId }) =>
-      Part.find({ sellerId, status: "approved" }),
-    pendingParts: async (_, { sellerId }) =>
-      Part.find({ sellerId, status: "pending" }),
-    rejectedParts: async (_, { sellerId }) =>
-      Part.find({ sellerId, status: "rejected" }),
+   // ✅ Approved parts for a seller
+    approvedParts: async (_, { sellerId }) => {
+      return Part.find({ sellerId, status: "approved" });
+    },
+
+    // ✅ Pending parts for a seller
+    pendingParts: async (_, { sellerId }) => {
+      return Part.find({ sellerId, status: "pending" });
+    },
+
+    // ✅ Rejected parts for a seller
+    rejectedParts: async (_, { sellerId }) => {
+      return Part.find({ sellerId, status: "rejected" });
+    },
 
     // ✅ Fetch single part
     part: async (_, { partId }) => {

@@ -7,11 +7,13 @@ import 'package:flutter_udid/flutter_udid.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/env.dart';
+
 class Utils {
   // ============================================================
   // 🌐 GRAPHQL ENDPOINT
   // ============================================================
-  static const String graphqlUrl = "http://192.168.1.178:5001/graphql";
+  static final String graphqlUrl = EnvConfig.baseUrl;
 
   // ============================================================
   // 🔔 TOAST MESSAGES

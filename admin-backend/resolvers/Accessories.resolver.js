@@ -60,16 +60,53 @@ export const accessoryResolvers = {
       }
     },
 
-    /**
-     * 📦 Status-based filters
-     */
-    rejectedAccessories: async (_, { sellerId }) =>
-       Accessory.find({ sellerId, status: "rejected" }),
+    // Get all rejected accessories
+    rejectedAccessories: async () => {
+      const accessories = await Accessory.find({ status: "rejected" });
+      return Promise.all(
+        accessories.map(async (a) => {
+          const seller = await Seller.findOne({ customId: a.sellerId });
+          return {
+            ...a.toObject(),
+            sellerInfo: seller
+              ? { email: seller.email, phoneNumber: seller.phoneNumber }
+              : null,
+          };
+        })
+      );
+    },
 
-    approvedAccessories: async (_, { sellerId }) =>
-      Accessory.find({ sellerId, status: "approved" }),
-    pendingAccessories: async (_, { sellerId }) =>
-      Accessory.find({ sellerId, status: "pending" }),
+    // ✅ Get all approved accessories for a seller
+    approvedAccessories: async (_, { sellerId }) => {
+      const accessories = await Accessory.find({ sellerId, status: "approved" });
+      return Promise.all(
+        accessories.map(async (a) => {
+          const seller = await Seller.findOne({ customId: a.sellerId });
+          return {
+            ...a.toObject(),
+            sellerInfo: seller
+              ? { email: seller.email, phoneNumber: seller.phoneNumber }
+              : null,
+          };
+        })
+      );
+    },
+
+    // ✅ Get all pending accessories for a seller
+    pendingAccessories: async (_, { sellerId }) => {
+      const accessories = await Accessory.find({ sellerId, status: "pending" });
+      return Promise.all(
+        accessories.map(async (a) => {
+          const seller = await Seller.findOne({ customId: a.sellerId });
+          return {
+            ...a.toObject(),
+            sellerInfo: seller
+              ? { email: seller.email, phoneNumber: seller.phoneNumber }
+              : null,
+          };
+        })
+      );
+    },
   },
 
   // ============================================================

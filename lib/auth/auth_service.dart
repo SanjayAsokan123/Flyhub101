@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:http/http.dart' as http;
 
+import '../config/env.dart';
+
+
 /// 🔹 FlyHub AuthService — Twilio OTP + Firebase Auth + Firestore Role Sync
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -20,9 +23,9 @@ class AuthService {
   }
 
   /// ✅ Backend base URL (use --dart-define to override for prod/staging)
-  static const String baseUrl = String.fromEnvironment(
+  static final String baseUrl = String.fromEnvironment(
     'API_URL',
-    defaultValue: 'http://192.168.31.179:5001', // fallback for local dev
+    defaultValue: EnvConfig.baseUrl, // fallback for local dev
   );
 
   // ─────────────────────────────

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import "../styles/Parts.css";
 
@@ -38,6 +37,7 @@ function Parts() {
       });
 
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
       const result = await res.json();
 
       if (result.errors) {
@@ -81,6 +81,7 @@ function Parts() {
       });
 
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
       const result = await res.json();
 
       if (result.errors) {
@@ -89,9 +90,12 @@ function Parts() {
       }
 
       const updatedPart = result.data.updatePartStatus;
+
       setParts((prev) =>
         prev.map((p) =>
-          p.partId === updatedPart.partId ? { ...p, status: updatedPart.status } : p
+          p.partId === updatedPart.partId
+            ? { ...p, status: updatedPart.status }
+            : p
         )
       );
 
@@ -117,7 +121,9 @@ function Parts() {
         {["pending", "approved", "rejected"].map((status) => (
           <button
             key={status}
-            className={`status-tab ${selectedStatus === status ? "active" : ""}`}
+            className={`status-tab ${
+              selectedStatus === status ? "active" : ""
+            }`}
             onClick={() => setSelectedStatus(status)}
           >
             {status === "pending" && "⏳ Pending"}
@@ -134,7 +140,7 @@ function Parts() {
         ) : (
           filteredParts.map((part) => (
             <div key={part.partId} className="part-card">
-              {/* Status Badge on top-right */}
+              {/* Status Badge */}
               <div
                 className={`status-badge-top ${part.status.toLowerCase()}`}
               >
@@ -144,7 +150,11 @@ function Parts() {
               {/* Image */}
               <div className="part-image-wrapper">
                 {part.image ? (
-                  <img src={part.image} alt={part.name} className="part-image" />
+                  <img
+                    src={part.image}
+                    alt={part.name}
+                    className="part-image"
+                  />
                 ) : (
                   <div className="part-image placeholder">No Image</div>
                 )}
@@ -153,28 +163,57 @@ function Parts() {
               {/* Details */}
               <div className="part-details">
                 <h3>{part.name}</h3>
-                <p><strong>ID:</strong> {part.partId}</p>
-                <p><strong>Brand:</strong> {part.brand}</p>
-                <p><strong>Price:</strong> ₹{part.price}</p>
-                <p><strong>Quantity:</strong> {part.quantity}</p>
-                <p><strong>Description:</strong> {part.description}</p>
+                <p>
+                  <strong>ID:</strong> {part.partId}
+                </p>
+                <p>
+                  <strong>Brand:</strong> {part.brand}
+                </p>
+                <p>
+                  <strong>Price:</strong> ₹{part.price}
+                </p>
+                <p>
+                  <strong>Quantity:</strong> {part.quantity}
+                </p>
+                <p>
+                  <strong>Description:</strong> {part.description}
+                </p>
 
-                {part.status.toLowerCase() === "pending" && (
-                  <div className="actions">
+                {/* Actions */}
+                <div className="actions">
+                  {part.status !== "approved" && (
                     <button
-                      onClick={() => handleApproval(part.partId, "approved")}
+                      onClick={() =>
+                        handleApproval(part.partId, "approved")
+                      }
                       className="approve-btn"
                     >
                       ✅ Approve
                     </button>
+                  )}
+
+                  {part.status !== "rejected" && (
                     <button
-                      onClick={() => handleApproval(part.partId, "rejected")}
+                      onClick={() =>
+                        handleApproval(part.partId, "rejected")
+                      }
                       className="reject-btn"
                     >
                       ❌ Reject
                     </button>
-                  </div>
-                )}
+                  )}
+
+                  {part.status !== "pending" && (
+                    <button
+                      onClick={() =>
+                        handleApproval(part.partId, "pending")
+                      }
+                      className="reset-btn"
+                    >
+                      🔄 Move to Pending
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))

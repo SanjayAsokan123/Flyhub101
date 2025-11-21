@@ -78,26 +78,30 @@ function Accessories() {
       });
 
       const result = await res.json();
+
       if (result.errors) {
         alert(`Error updating accessory: ${result.errors[0].message}`);
         return;
       }
 
       const updated = result.data.updateAccessoryStatus;
+
       setAccessories((prev) =>
-        prev.map((a) =>
-          a.accessoryId === updated.accessoryId
-            ? { ...a, status: updated.status }
-            : a
+        prev.map((item) =>
+          item.accessoryId === updated.accessoryId
+            ? { ...item, status: updated.status }
+            : item
         )
       );
+
       alert(`Accessory ${newStatus} successfully!`);
     } catch (err) {
       alert(`Network error: ${err.message}`);
     }
   };
 
-  if (loading) return <p className="accessories-loading">Loading accessories...</p>;
+  if (loading)
+    return <p className="accessories-loading">Loading accessories...</p>;
   if (error) return <p className="accessories-error">Error: {error}</p>;
 
   const filteredAccessories = accessories.filter(
@@ -132,10 +136,13 @@ function Accessories() {
         ) : (
           filteredAccessories.map((acc) => (
             <div key={acc.accessoryId} className="accessories-card">
+              
+              {/* FIXED BADGE */}
               <div className={`accessories-badge ${acc.status.toLowerCase()}`}>
                 {acc.status}
               </div>
 
+              {/* Image */}
               <div className="accessories-image-wrapper">
                 {acc.image ? (
                   <img
@@ -148,10 +155,12 @@ function Accessories() {
                 )}
               </div>
 
+              {/* Details */}
               <div className="accessories-details">
                 <h3>{acc.name}</h3>
                 <p><strong>ID:</strong> {acc.accessoryId}</p>
                 <p><strong>Brand:</strong> {acc.brand}</p>
+                <p><strong>Category:</strong> {acc.category}</p>
                 <p><strong>Price:</strong> ₹{acc.price}</p>
                 <p><strong>Description:</strong> {acc.description}</p>
 
@@ -165,26 +174,74 @@ function Accessories() {
                   <p><strong>Seller:</strong> Not available</p>
                 )}
 
-                {acc.status.toLowerCase() === "pending" && (
-                  <div className="accessories-actions">
-                    <button
-                      onClick={() =>
-                        handleApproval(acc.accessoryId, "approved")
-                      }
-                      className="accessories-approve-btn"
-                    >
-                      ✅ Approve
-                    </button>
-                    <button
-                      onClick={() =>
-                        handleApproval(acc.accessoryId, "rejected")
-                      }
-                      className="accessories-reject-btn"
-                    >
-                      ❌ Reject
-                    </button>
-                  </div>
-                )}
+                {/* Buttons */}
+                <div className="accessories-actions">
+                  {acc.status.toLowerCase() === "pending" && (
+                    <>
+                      <button
+                        onClick={() =>
+                          handleApproval(acc.accessoryId, "approved")
+                        }
+                        className="accessories-approve-btn"
+                      >
+                        ✅ Approve
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          handleApproval(acc.accessoryId, "rejected")
+                        }
+                        className="accessories-reject-btn"
+                      >
+                        ❌ Reject
+                      </button>
+                    </>
+                  )}
+
+                  {acc.status.toLowerCase() === "approved" && (
+                    <>
+                      <button
+                        onClick={() =>
+                          handleApproval(acc.accessoryId, "rejected")
+                        }
+                        className="accessories-reject-btn"
+                      >
+                        ❌ Reject
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          handleApproval(acc.accessoryId, "pending")
+                        }
+                        className="accessories-pending-btn"
+                      >
+                        ⏳ Move to Pending
+                      </button>
+                    </>
+                  )}
+
+                  {acc.status.toLowerCase() === "rejected" && (
+                    <>
+                      <button
+                        onClick={() =>
+                          handleApproval(acc.accessoryId, "approved")
+                        }
+                        className="accessories-approve-btn"
+                      >
+                        ✅ Approve
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          handleApproval(acc.accessoryId, "pending")
+                        }
+                        className="accessories-pending-btn"
+                      >
+                        ⏳ Move to Pending
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           ))

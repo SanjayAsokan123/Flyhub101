@@ -14,6 +14,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:provider/provider.dart';
+import 'config/env.dart';
 import 'firebase_options.dart';
 import 'CommonClass/utils.dart';
 import 'services/cart_wishlist_provider.dart';
@@ -73,10 +74,10 @@ Future<void> main() async {
   await initHiveForFlutter();
 
   // ✅ GraphQL Setup (with WebSocket for subscriptions)
-  const String graphqlEndpoint = String.fromEnvironment(
+  final String graphqlEndpoint = String.fromEnvironment(
     'GRAPHQL_URL',
     defaultValue:
-    'http://192.168.1.178:5001/graphql', // 👈 Update for production
+    EnvConfig.baseUrl, // 👈 Update for production
   );
 
   final HttpLink httpLink = HttpLink(graphqlEndpoint);

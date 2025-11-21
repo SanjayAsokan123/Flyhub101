@@ -10,7 +10,7 @@ import 'OrderCenterPage.dart';
 
 
 class OrderSuccessPage extends StatefulWidget {
-  const OrderSuccessPage({super.key});
+  const OrderSuccessPage({super.key, required Map<String, dynamic> drone, required String orderDetails});
 
   @override
   State<OrderSuccessPage> createState() => _OrderSuccessPageState();

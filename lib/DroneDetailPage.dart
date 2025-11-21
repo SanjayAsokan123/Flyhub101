@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
 import 'BuyerDetails/MyCartPage.dart';
-import 'OrderCenterPage.dart';
+import 'AddressPage.dart';
 
 class DroneDetailPage extends StatefulWidget {
   final Map<String, dynamic> drone;
@@ -78,7 +78,6 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
     );
   }
 
-  // ✅ Pull-to-refresh handler (no SnackBar)
   Future<void> _handleRefresh() async {
     await Future.delayed(const Duration(seconds: 1));
     await _loadCartCount();
@@ -87,6 +86,9 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
   @override
   Widget build(BuildContext context) {
     final drone = widget.drone;
+
+    final double price = (drone['price'] ?? 0).toDouble();
+    final double totalAmount = price * quantity;
 
     final List<Map<String, dynamic>> reviews = [
       {
@@ -176,7 +178,7 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
         ],
       ),
 
-      // ✅ Pull-to-refresh wrapper
+      // Pull-to-refresh wrapper
       body: RefreshIndicator(
         onRefresh: _handleRefresh,
         color: themeColor,
@@ -196,15 +198,14 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
                     image: drone['image'] != null
                         ? NetworkImage(drone['image'])
                         : const AssetImage(
-                        'assets/images/MaskGroup34@2x.png')
-                    as ImageProvider,
+                        'assets/images/MaskGroup34@2x.png') as ImageProvider,
                     fit: BoxFit.cover,
                   ),
                 ),
               ),
               const SizedBox(height: 20),
 
-              // Info Section
+              // Info
               Container(
                 padding: const EdgeInsets.all(20),
                 margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -222,7 +223,7 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(drone['name'] ?? "DJI Mini 3 Pro",
+                    Text(drone['name'] ?? "Drone",
                         style: GoogleFonts.lexend(
                             fontSize: 22,
                             fontWeight: FontWeight.w600,
@@ -299,25 +300,25 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
                   ],
                 ),
               ),
+
               const SizedBox(height: 20),
 
-              // Description
               _sectionTitle("Description"),
               _sectionText(drone['description'] ??
-                  "Experience high-speed performance, stability, and HD imaging with this advanced drone. Perfect for agriculture, inspection, and filmmaking."),
+                  "Experience high-speed performance, stability and HD imaging with this advanced drone."),
+
               const SizedBox(height: 20),
 
-              // Offers
               _sectionTitle("Available Offers"),
               _offerTile(Icons.local_offer, "10% Instant Discount on HDFC Cards"),
-              _offerTile(Icons.local_offer, "No Cost EMI available for 6 months"),
-              _offerTile(Icons.local_offer,
-                  "Exchange your old drone for up to ₹5000 off"),
+              _offerTile(Icons.local_offer, "No Cost EMI for 6 Months"),
+              _offerTile(Icons.local_offer, "Exchange old drone for up to ₹5000"),
+
               const SizedBox(height: 20),
 
-              // Reviews
               _sectionTitle("Customer Reviews"),
-              ...reviews.map((review) => _reviewTile(review)).toList(),
+              ...reviews.map((r) => _reviewTile(r)),
+
               const SizedBox(height: 40),
             ],
           ),
@@ -339,10 +340,11 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 onPressed: _addToCart,
-                icon:
-                const Icon(Icons.shopping_cart_outlined, color: Colors.white),
+                icon: const Icon(Icons.shopping_cart_outlined,
+                    color: Colors.white),
                 label: Text("Add to Cart",
-                    style: GoogleFonts.lexend(fontSize: 16, color: Colors.white)),
+                    style:
+                    GoogleFonts.lexend(fontSize: 16, color: Colors.white)),
               ),
             ),
             const SizedBox(width: 10),
@@ -358,13 +360,17 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (context) =>
-                            OrderCenterPage(drone: widget.drone)),
+                      builder: (context) => AddressPage(
+                        drone: widget.drone,
+                        total: totalAmount, // ✔ FIXED (no null)
+                      ),
+                    ),
                   );
                 },
                 icon: const Icon(Icons.flash_on, color: Colors.white),
                 label: Text("Buy Now",
-                    style: GoogleFonts.lexend(fontSize: 16, color: Colors.white)),
+                    style:
+                    GoogleFonts.lexend(fontSize: 16, color: Colors.white)),
               ),
             ),
           ],
@@ -377,7 +383,9 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
     padding: const EdgeInsets.symmetric(horizontal: 20),
     child: Text(text,
         style: GoogleFonts.lexend(
-            fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.black)),
   );
 
   Widget _sectionText(String text) => Padding(
@@ -396,7 +404,8 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
           const SizedBox(width: 6),
           Expanded(
             child: Text(text,
-                style: GoogleFonts.lexend(color: Colors.black87, fontSize: 14)),
+                style:
+                GoogleFonts.lexend(color: Colors.black87, fontSize: 14)),
           ),
         ],
       ),
@@ -425,12 +434,15 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
             children: [
               Text(review["name"],
                   style: GoogleFonts.lexend(
-                      fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black)),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Colors.black)),
               const Spacer(),
               Row(
                 children: List.generate(
                   review["rating"],
-                      (index) => const Icon(Icons.star, color: Colors.amber, size: 16),
+                      (index) =>
+                  const Icon(Icons.star, color: Colors.amber, size: 16),
                 ),
               ),
             ],

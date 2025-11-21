@@ -205,11 +205,16 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
 
       setState(() {
-        marketplaceData["Drones"] = results[0].data ?? [];
-        marketplaceData["Parts"] = results[1].data ?? [];
-        marketplaceData["Accessories"] = results[2].data ?? [];
-        marketplaceData["Jobs"] = results[3].data ?? [];
-        marketplaceData["Services"] = results[4].data ?? [];
+        marketplaceData["Drones"] =
+            (results[0].data ?? []).where((p) => p["status"] == "approved").toList();
+        marketplaceData["Parts"] =
+            (results[1].data ?? []).where((p) => p["status"] == "approved").toList();
+        marketplaceData["Accessories"] =
+            (results[2].data ?? []).where((p) => p["status"] == "approved").toList();
+        marketplaceData["Jobs"] =
+            (results[3].data ?? []).where((p) => p["status"] == "approved").toList();
+        marketplaceData["Services"] =
+            (results[4].data ?? []).where((p) => p["status"] == "approved").toList();
         isLoading = false;
       });
     } catch (e) {

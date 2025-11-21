@@ -6,6 +6,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+import 'config/env.dart';
+
 class AddDroneRentalForm extends StatefulWidget {
   final String sellerId;
   const AddDroneRentalForm({super.key,required this.sellerId});
@@ -29,7 +31,7 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
 
   final picker = ImagePicker();
   final Color themeColor = const Color(0xFF1A0A5B);
-  final String graphqlUrl = "http://192.168.1.178:5001/graphql";
+  final String graphqlUrl = EnvConfig.baseUrl;
 
   /// 📸 Pick image
   Future<void> _pickImage() async {

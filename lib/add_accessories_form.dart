@@ -5,6 +5,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+import 'config/env.dart';
+
 class AddAccessoryForm extends StatefulWidget {
   final String sellerId;
   const AddAccessoryForm({super.key, required this.sellerId});
@@ -27,7 +29,7 @@ class _AddAccessoryFormState extends State<AddAccessoryForm> {
   double _uploadProgress = 0.0;
 
   final picker = ImagePicker();
-  final String graphqlUrl = "http://192.168.1.178:5001/graphql";
+  final String graphqlUrl = EnvConfig.baseUrl;
   final Color themeColor = const Color(0xFF1A0A5B);
 
   /// 📸 Pick image from gallery

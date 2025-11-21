@@ -7,6 +7,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'config/env.dart';
+
 class AddDronePage extends StatefulWidget {
   final String sellerId;
   const AddDronePage({super.key, required this.sellerId});
@@ -27,7 +29,7 @@ class _AddDronePageState extends State<AddDronePage> {
   File? imageFile;
   bool _isSubmitting = false;
 
-  final String graphqlUrl = "http://192.168.1.178:5001/graphql";
+  final String graphqlUrl = EnvConfig.baseUrl;
 
   Future<void> _pickImage() async {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);

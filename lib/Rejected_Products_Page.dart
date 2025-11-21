@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 
+import 'config/env.dart';
+
 class RejectedProductsPage extends StatefulWidget {
   final String sellerCustomId;
   const RejectedProductsPage({required this.sellerCustomId, super.key});
@@ -13,7 +15,7 @@ class _RejectedProductsPageState extends State<RejectedProductsPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final Color themeColor = const Color(0xFF1A0A5B);
-  final String backendUrl = "http://192.168.1.178:5001/graphql";
+  final String backendUrl = EnvConfig.baseUrl;
 
   bool loading = true;
 
