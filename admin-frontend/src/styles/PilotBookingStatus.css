@@ -1,0 +1,275 @@
+/* ========== ROOT WRAPPER ========== */
+.sold-root {
+  width: 100%;
+  max-width: 1100px;
+  margin: auto;
+  padding: 20px;
+  font-family: "Inter", sans-serif;
+}
+
+/* ========== HEADER ========== */
+.sold-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 25px;
+  flex-wrap: wrap;
+}
+
+.sold-title {
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.sold-sub {
+  margin: 4px 0 0;
+  color: #666;
+  font-size: 15px;
+}
+
+.sold-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+/* ========== INPUTS & DROPDOWNS ========== */
+.sold-search,
+.sold-select {
+  padding: 8px 12px;
+  font-size: 14px;
+  border-radius: 8px;
+  border: 1px solid #d3d3d3;
+  background: #fff;
+  outline: none;
+  transition: 0.2s;
+}
+
+.sold-search:focus,
+.sold-select:focus {
+  border-color: #007bff;
+}
+
+/* ========== BUTTONS ========== */
+.sold-btn {
+  padding: 8px 15px;
+  background: #007bff;
+  border: none;
+  color: white;
+  font-size: 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.sold-btn:hover {
+  background: #0067d8;
+}
+
+.sold-btn.ghost {
+  background: transparent;
+  border: 1px solid #007bff;
+  color: #007bff;
+}
+
+.sold-btn.ghost:hover {
+  background: #007bff;
+  color: white;
+}
+
+/* ========== FORM ========== */
+.sold-form {
+  background: #f9f9f9;
+  padding: 20px;
+  margin-bottom: 25px;
+  border-radius: 12px;
+  border: 1px solid #e3e3e3;
+}
+
+.sold-field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 15px;
+}
+
+.sold-field label {
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: #444;
+}
+
+.sold-field input,
+.sold-field select {
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+
+.sold-row {
+  display: flex;
+  gap: 15px;
+}
+
+.sold-field.small {
+  flex: 1;
+}
+
+.sold-form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+/* ========== LIST ========== */
+.sold-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.sold-item {
+  background: white;
+  border: 1px solid #e0e0e0;
+  padding: 15px;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sold-item-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.sold-item-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.sold-item-meta {
+  font-size: 14px;
+  color: #666;
+}
+
+.sold-item-right {
+  text-align: right;
+}
+
+.sold-item-date {
+  font-size: 14px;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+/* STATUS BADGES */
+.sold-item-status {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 25px;
+  display: inline-block;
+  text-transform: uppercase;
+}
+
+.sold-item-status.green {
+  background: #d4fbe4;
+  color: #1a9c43;
+  border: 1px solid #9febc3;
+}
+
+.sold-item-status.red {
+  background: #ffe4e4;
+  color: #d93025;
+  border: 1px solid #ffcdcd;
+}
+
+.sold-item-status.blue {
+  background: #e3f1ff;
+  color: #0a66c2;
+  border: 1px solid #bcdcff;
+}
+
+/* EMPTY STATE */
+.sold-empty {
+  text-align: center;
+  padding: 40px 0;
+  color: #888;
+  font-size: 16px;
+}
+
+/* ========== FOOTER PAGINATION ========== */
+.sold-footer {
+  margin-top: 30px;
+  padding-top: 15px;
+  border-top: 1px solid #e5e5e5;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sold-pages {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.sold-page-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: #f2f2f2;
+  border: none;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.sold-page-btn:hover {
+  background: #e2e2e2;
+}
+
+.sold-page-btn:disabled {
+  background: #ddd;
+  cursor: default;
+}
+
+.sold-page-ind {
+  font-weight: 600;
+  color: #444;
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 768px) {
+  .sold-header {
+    flex-direction: column;
+    gap: 15px;
+    align-items: flex-start;
+  }
+
+  .sold-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .sold-search,
+  .sold-select,
+  .sold-btn {
+    width: 100%;
+  }
+
+  .sold-row {
+    flex-direction: column;
+  }
+
+  .sold-item {
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+
+  .sold-item-right {
+    text-align: center;
+  }
+}

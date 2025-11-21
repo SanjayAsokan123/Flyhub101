@@ -12,6 +12,8 @@ export const buyerTypeDefs = gql`
     email: String
     phone: String
     token: String
+    createdAt: String      # 🔥 Added
+    updatedAt: String      # (optional, but useful)
   }
 
   # ============================================================

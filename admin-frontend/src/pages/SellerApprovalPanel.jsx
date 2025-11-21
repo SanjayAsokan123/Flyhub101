@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { gql, ApolloClient, InMemoryCache, HttpLink } from "@apollo/client";
+import "../styles/SellerApprove.css";
 
 const BACKEND_URL = "http://127.0.0.1:5001/graphql";
-
 const client = new ApolloClient({
   link: new HttpLink({ uri: BACKEND_URL }),
   cache: new InMemoryCache({
@@ -17,12 +17,22 @@ const GET_SELLERS_QUERY = gql`
   query GetSellers {
     getSellers {
       customId
+      firebaseUid
+      name
       companyName
       PANnumber
       gstNumber
+      address
+      bankIFCnumber
+      bankAccountNumber
+      authorized
       email
       phoneNumber
       status
+      shippingAddresses
+      pickupAddresses
+      companyPan
+      bankName
     }
   }
 `;
@@ -56,12 +66,13 @@ export default function SellerApprovalPanel() {
     try {
       setErrMsg("");
       setLoading(true);
+
       const { data } = await client.query({
         query: GET_SELLERS_QUERY,
         fetchPolicy: "no-cache",
       });
 
-      const sellers = (data?.getSellers ?? []).filter((s) => s?.customId != null);
+      const sellers = (data?.getSellers ?? []).filter((s) => s?.customId);
 
       setPending(sellers.filter((s) => s.status === "pending"));
       setApproved(sellers.filter((s) => s.status === "approved"));
@@ -81,11 +92,11 @@ export default function SellerApprovalPanel() {
   const updateStatus = useCallback(
     async (customId, status) => {
       if (!customId) return;
+
       if (!window.confirm(`Change status of ${customId} → ${status}?`)) return;
 
       try {
         setActionLoading(true);
-        setErrMsg("");
         await client.mutate({
           mutation: UPDATE_SELLER_STATUS_MUTATION,
           variables: { customId: String(customId), status },
@@ -93,7 +104,6 @@ export default function SellerApprovalPanel() {
         await fetchSellers();
       } catch (err) {
         console.error("Update error:", err);
-        setErrMsg(err?.message || "Failed to update status.");
         alert(err?.message || "Failed to update status.");
       } finally {
         setActionLoading(false);
@@ -105,11 +115,11 @@ export default function SellerApprovalPanel() {
   const deleteSeller = useCallback(
     async (customId) => {
       if (!customId) return;
-      if (!window.confirm("Delete this seller irreversibly?")) return;
+
+      if (!window.confirm("Delete this seller permanently?")) return;
 
       try {
         setActionLoading(true);
-        setErrMsg("");
         await client.mutate({
           mutation: DELETE_SELLER_MUTATION,
           variables: { customId: String(customId) },
@@ -117,7 +127,6 @@ export default function SellerApprovalPanel() {
         await fetchSellers();
       } catch (err) {
         console.error("Delete error:", err);
-        setErrMsg(err?.message || "Failed to delete seller.");
         alert(err?.message || "Failed to delete seller.");
       } finally {
         setActionLoading(false);
@@ -129,37 +138,70 @@ export default function SellerApprovalPanel() {
   if (loading) return <p>Loading sellers...</p>;
 
   const renderTable = (title, list, actions) => (
-    <section style={{ marginBottom: 28 }}>
+    <section style={{ marginBottom: 35 }}>
       <h2>{title}</h2>
+
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th style={thStyle}>Custom ID</th>
-              <th style={thStyle}>Company</th>
-              <th style={thStyle}>PAN</th>
-              <th style={thStyle}>GST</th>
-              <th style={thStyle}>Email</th>
-              <th style={thStyle}>Phone</th>
-              <th style={thStyle}>Actions</th>
+              {[
+                "Custom ID",
+                "Firebase UID",
+                "Name",
+                "Company",
+                "PAN",
+                "GST",
+                "Address",
+                "Bank IFC",
+                "Bank Acc No",
+                "Bank Name",
+                "Authorized",
+                "Email",
+                "Phone",
+                "Company PAN",
+                "Shipping Addresses",
+                "Pickup Addresses",
+                "Actions",
+              ].map((h) => (
+                <th key={h} style={thStyle}>
+                  {h}
+                </th>
+              ))}
             </tr>
           </thead>
+
           <tbody>
-            {(!list || list.length === 0) ? (
+            {!list || list.length === 0 ? (
               <tr>
-                <td colSpan="7" style={emptyCellStyle}>No sellers found</td>
+                <td colSpan="17" style={emptyCellStyle}>
+                  No sellers found
+                </td>
               </tr>
-            ) : list.map((s) => (
-              <tr key={s.customId}>
-                <td style={tdStyle}>{s.customId}</td>
-                <td style={tdStyle}>{s.companyName}</td>
-                <td style={tdStyle}>{s.PANnumber}</td>
-                <td style={tdStyle}>{s.gstNumber || "-"}</td>
-                <td style={tdStyle}>{s.email}</td>
-                <td style={tdStyle}>{s.phoneNumber}</td>
-                <td style={tdStyle}>{actions(s)}</td>
-              </tr>
-            ))}
+            ) : (
+              list.map((s) => (
+                <tr key={s.customId}>
+                  <td style={tdStyle}>{s.customId}</td>
+                  <td style={tdStyle}>{s.firebaseUid}</td>
+                  <td style={tdStyle}>{s.name}</td>
+                  <td style={tdStyle}>{s.companyName}</td>
+                  <td style={tdStyle}>{s.PANnumber}</td>
+                  <td style={tdStyle}>{s.gstNumber}</td>
+                  <td style={tdStyle}>{s.address}</td>
+                  <td style={tdStyle}>{s.bankIFCnumber}</td>
+                  <td style={tdStyle}>{s.bankAccountNumber}</td>
+                  <td style={tdStyle}>{s.bankName}</td>
+                  <td style={tdStyle}>{s.authorized}</td>
+                  <td style={tdStyle}>{s.email}</td>
+                  <td style={tdStyle}>{s.phoneNumber}</td>
+                  <td style={tdStyle}>{s.companyPan}</td>
+                  <td style={tdStyle}>{s.shippingAddresses?.join(", ")}</td>
+                  <td style={tdStyle}>{s.pickupAddresses?.join(", ")}</td>
+
+                  <td style={tdStyle}>{actions(s)}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -174,42 +216,64 @@ export default function SellerApprovalPanel() {
         <div style={{ marginBottom: 12, color: "crimson" }}>{errMsg}</div>
       )}
 
+      {/* Pending sellers */}
       {renderTable("⏳ Pending", pending, (s) => (
         <div style={{ display: "flex", gap: 8 }}>
-          <button disabled={actionLoading} onClick={() => updateStatus(s.customId, "approved")}>Approve</button>
-          <button disabled={actionLoading} onClick={() => updateStatus(s.customId, "rejected")}>Reject</button>
-          <button disabled={actionLoading} onClick={() => deleteSeller(s.customId)}>Delete</button>
+          <button disabled={actionLoading} onClick={() => updateStatus(s.customId, "approved")}>
+            Approve
+          </button>
+          <button disabled={actionLoading} onClick={() => updateStatus(s.customId, "rejected")}>
+            Reject
+          </button>
+          <button disabled={actionLoading} onClick={() => deleteSeller(s.customId)}>
+            Delete
+          </button>
         </div>
       ))}
 
+      {/* Approved sellers */}
       {renderTable("✅ Approved", approved, (s) => (
         <div style={{ display: "flex", gap: 8 }}>
-          <button disabled={actionLoading} onClick={() => updateStatus(s.customId, "pending")}>Revert</button>
-          <button disabled={actionLoading} onClick={() => deleteSeller(s.customId)}>Delete</button>
+          <button disabled={actionLoading} onClick={() => updateStatus(s.customId, "pending")}>
+            Revert
+          </button>
+          <button disabled={actionLoading} onClick={() => deleteSeller(s.customId)}>
+            Delete
+          </button>
         </div>
       ))}
 
+      {/* Rejected sellers */}
       {renderTable("❌ Rejected", rejected, (s) => (
         <div style={{ display: "flex", gap: 8 }}>
-          <button disabled={actionLoading} onClick={() => updateStatus(s.customId, "pending")}>Revert</button>
-          <button disabled={actionLoading} onClick={() => deleteSeller(s.customId)}>Delete</button>
+          <button disabled={actionLoading} onClick={() => updateStatus(s.customId, "pending")}>
+            Revert
+          </button>
+          <button disabled={actionLoading} onClick={() => deleteSeller(s.customId)}>
+            Delete
+          </button>
         </div>
       ))}
     </div>
   );
 }
 
-/* simple styles */
+/* table styles */
 const thStyle = {
   textAlign: "left",
   padding: "8px 10px",
   borderBottom: "1px solid #ddd",
   background: "#fafafa",
+  fontWeight: "600",
+  whiteSpace: "nowrap",
 };
+
 const tdStyle = {
   padding: "8px 10px",
   borderBottom: "1px solid #eee",
+  verticalAlign: "top",
 };
+
 const emptyCellStyle = {
   padding: 12,
   textAlign: "center",

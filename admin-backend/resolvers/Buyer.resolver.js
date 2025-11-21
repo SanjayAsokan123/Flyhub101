@@ -7,12 +7,7 @@ import { auth } from "../config/firebaseAdmin.js";
 import { createLoginIndex, findLoginIndex } from "../utils/loginIndex.js";
 
 /**
- * BUYER GraphQL RESOLVERS (FINAL)
- * Features:
- * - Email/Phone/BuyerID login
- * - OTP login via Firebase UID
- * - Auto loginIndex creation
- * - Full JWT support
+ * BUYER GraphQL RESOLVERS (UPDATED)
  */
 
 export const buyerResolvers = {
@@ -34,7 +29,7 @@ export const buyerResolvers = {
   // ============================================================
   Mutation: {
     // ------------------------------------------------------------
-    // 🟢 BUYER SIGNUP (Email + Password + Phone + OTP)
+    // 🟢 BUYER SIGNUP
     // ------------------------------------------------------------
     signupBuyer: async (
       _,
@@ -42,13 +37,11 @@ export const buyerResolvers = {
       { pubsub }
     ) => {
       try {
-        // Prevent duplicate email
         const existing = await Buyer.findOne({ email });
         if (existing) throw new Error("Buyer with this email already exists.");
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create buyer in MongoDB
         const buyer = await Buyer.create({
           name,
           email,
@@ -57,22 +50,22 @@ export const buyerResolvers = {
           firebaseUid,
         });
 
-        // Create loginIndex mapping for email, phone, buyerId
+        // Login index mapping
         await createLoginIndex({
           uid: firebaseUid,
           email,
           phone,
-          customId: buyer.buyerId, // FLYHUBB0001
+          customId: buyer.buyerId,
         });
 
-        // JWT Token
+        // JWT
         const token = jwt.sign(
           { buyerId: buyer.id, email: buyer.email },
           process.env.JWT_SECRET,
           { expiresIn: "1d" }
         );
 
-        // System notification
+        // Notification
         await createSellerNotification({
           sellerId: "SYSTEM",
           title: "🆕 New Buyer Registered",
@@ -83,12 +76,14 @@ export const buyerResolvers = {
           pubsub,
         });
 
+        // ✅ RETURN createdAt as well
         return {
           id: buyer.id,
           buyerId: buyer.buyerId,
           name: buyer.name,
           email: buyer.email,
           phone: buyer.phoneNumber,
+          createdAt: buyer.createdAt,  // <-- ADDED
           token,
         };
       } catch (err) {
@@ -98,19 +93,17 @@ export const buyerResolvers = {
     },
 
     // ------------------------------------------------------------
-    // 🔵 BUYER LOGIN (Email / Phone / BuyerID)
+    // 🔵 BUYER LOGIN
     // ------------------------------------------------------------
     loginBuyer: async (_, { input, password }) => {
       try {
         let buyer = null;
 
-        // 1️⃣ Try loginIndex lookup (fastest + cross-platform)
         const loginMatch = await findLoginIndex(input);
-        if (loginMatch && loginMatch.uid) {
+        if (loginMatch?.uid) {
           buyer = await Buyer.findOne({ firebaseUid: loginMatch.uid });
         }
 
-        // 2️⃣ Fallback: direct DB search
         if (!buyer) {
           if (input.includes("@")) {
             buyer = await Buyer.findOne({ email: input });
@@ -123,7 +116,6 @@ export const buyerResolvers = {
 
         if (!buyer) throw new Error("Buyer not found");
 
-        // Validate password
         const valid = await bcrypt.compare(password, buyer.password || "");
         if (!valid) throw new Error("Incorrect password");
 
@@ -133,12 +125,14 @@ export const buyerResolvers = {
           { expiresIn: "1d" }
         );
 
+        // ✅ Include createdAt
         return {
           id: buyer.id,
           buyerId: buyer.buyerId,
           name: buyer.name,
           email: buyer.email,
           phone: buyer.phoneNumber,
+          createdAt: buyer.createdAt,  // <-- ADDED
           token,
         };
       } catch (err) {
@@ -148,7 +142,7 @@ export const buyerResolvers = {
     },
 
     // ------------------------------------------------------------
-    // 🔵 OTP LOGIN (Phone Only + Firebase UID)
+    // 🔵 OTP LOGIN
     // ------------------------------------------------------------
     loginBuyerOtp: async (_, { firebaseUid }) => {
       try {
@@ -162,12 +156,14 @@ export const buyerResolvers = {
           { expiresIn: "1d" }
         );
 
+        // ✅ Include createdAt
         return {
           id: buyer.id,
           buyerId: buyer.buyerId,
           name: buyer.name,
           email: buyer.email,
           phone: buyer.phoneNumber,
+          createdAt: buyer.createdAt,  // <-- ADDED
           token,
         };
       } catch (err) {
@@ -177,7 +173,7 @@ export const buyerResolvers = {
     },
 
     // ------------------------------------------------------------
-    // ✏ UPDATE BUYER PROFILE
+    // ✏ UPDATE BUYER
     // ------------------------------------------------------------
     updateBuyer: async (_, { buyerId, name, email, phone, password }) => {
       try {

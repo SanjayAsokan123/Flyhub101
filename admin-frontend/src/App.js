@@ -13,6 +13,8 @@ import HirePilot from "./pages/HirePilot";
 import HireJob from "./pages/HireJob";
 import Regulatory from "./pages/Regulatory";
 import Settings from "./pages/Settings";
+import PilotBookingStatus from "./pages/PilotBookingStatus";
+import RegisteredBuyer from "./pages/RegisteredBuyer";
 import SellerApprovalPanel from "./pages/SellerApprovalPanel";
 import ReturnProductsForm from "./pages/ReturnProductsForm";
 import DroneRentalForm from "./pages/DroneRentalForm";
@@ -49,9 +51,10 @@ export default function App() {
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/pilot" element={<HirePilot />} />
                   <Route path="/job" element={<HireJob />} />
-                     <Route path="/orders" element={<Orders/>} />
+                  <Route path="/orders" element={<Orders/>} />
                   <Route path="/seller" element={<SellerApprovalPanel />} />
-
+                  <Route path="/PilotBookingStatus" element={<PilotBookingStatus/>} />
+                   <Route path="/RegisteredBuyer" element={<RegisteredBuyer/>} />
                    <Route path="/manage-admins" element={<ManageAdmins />} />
                    <Route path="/training-page" element={<TrainingPage />} />
                    <Route path="/drone-rental-form" element={<DroneRentalForm />} />
