@@ -1,24 +1,25 @@
-import 'package:flutter/material.dart';
-import 'package:graphql_flutter/graphql_flutter.dart';
-import 'package:flyhub/Login/splashscreen.dart';
-import 'package:flyhub/services/role_manager.dart';
-import 'package:flyhub/HomeScreen/Dynamichome.dart';
-import 'package:flyhub/HomeScreen/Bottoms/BuyerProfilePage.dart';
-import 'package:flyhub/HomeScreen/Bottoms/SellerPage.dart';
-import 'package:flyhub/HomeScreen/Bottoms/GuestProfilePage.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:provider/provider.dart';
-import 'config/env.dart';
-import 'firebase_options.dart';
-import 'CommonClass/utils.dart';
-import 'services/cart_wishlist_provider.dart';
+import 'package:flyhub/HomeScreen/Bottoms/BuyerProfilePage.dart';
+// import 'package:flyhub/HomeScreen/Bottoms/GuestProfilePage.dart';
+import 'package:flyhub/HomeScreen/Bottoms/SellerPage.dart';
+import 'package:flyhub/HomeScreen/Bottoms/homescreen.dart';
+import 'package:flyhub/HomeScreen/Dynamichome.dart';
 import 'package:flyhub/Login/splashscreen.dart';
+import 'package:flyhub/services/role_manager.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'CommonClass/utils.dart';
+import 'Login/FlyHubSelectionPage.dart';
+import 'firebase_options.dart';
+import 'services/cart_wishlist_provider.dart';
 
 /// 🔔 Local Notifications Plugin
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -74,10 +75,10 @@ Future<void> main() async {
   await initHiveForFlutter();
 
   // ✅ GraphQL Setup (with WebSocket for subscriptions)
-  final String graphqlEndpoint = String.fromEnvironment(
+  const String graphqlEndpoint = String.fromEnvironment(
     'GRAPHQL_URL',
     defaultValue:
-    EnvConfig.baseUrl, // 👈 Update for production
+    'http://192.168.1.13:5001/graphql', // 👈 Update for production
   );
 
   final HttpLink httpLink = HttpLink(graphqlEndpoint);
@@ -210,6 +211,7 @@ Future<void> _showLocalNotification(RemoteMessage message) async {
 /// 🧩 Main Application
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
   @override
   State<MyApp> createState() => _MyAppState();
 }
@@ -224,35 +226,41 @@ class _MyAppState extends State<MyApp> {
     _initializeApp();
   }
 
-  /// ✅ Initialize Firebase, Role, and Device Info
+  /// 🔥 Initialize Firebase Auth + Role + Device Info + Start Page
   Future<void> _initializeApp() async {
     try {
+      // 1️⃣ Check Firebase user
       final user = FirebaseAuth.instance.currentUser;
+      final token = user != null ? await user.getIdToken() : null;
+
+      // 2️⃣ Sync Role from Firestore → Local
       await RoleManager.syncFirestoreRole();
       final role = await RoleManager.getLocalRole();
-
-      print("🧩 [Startup Role Detected] $role");
-
+      print("🧩 Startup Role: $role");
+      print("🧩 user log : $user");
+      // 3️⃣ Decide the correct home page
       if (user == null) {
-        _startPage = const GuestProfilePage();
-      } else if (role == "seller") {
-        _startPage = const SellerPage();
-      } else if (role == "buyer") {
-        _startPage = const BuyerProfilePage();
-      } else {
-        _startPage = const Dynamichome(selectedIndex: 0);
+        _startPage = const Splashscreen(); // Not logged in
+      }else if (role == 'guest'){
+        _startPage = const FlyHubSelectionPage();
       }
 
+
+      // 4️⃣ Device data (only first launch)
       await _initializeDeviceData();
     } catch (e) {
-      print("⚠ Initialization Error: $e");
+      print("⚠ Init Error: $e");
       _startPage = const Splashscreen();
     }
 
-    if (mounted) setState(() => _initialized = true);
+    if (mounted) {
+      setState(() {
+        _initialized = true;
+      });
+    }
   }
 
-  /// ✅ Collect & Upload Device Info (only once)
+  /// 📱 Store device info only once
   Future<void> _initializeDeviceData() async {
     final prefs = await SharedPreferences.getInstance();
     bool isFirstLaunch = prefs.getBool('firstLaunch') ?? true;
@@ -267,12 +275,6 @@ class _MyAppState extends State<MyApp> {
       var platform = await Utils.platform();
       var versionCode = packageInfo.buildNumber;
 
-      await prefs.setString("deviceModel", deviceModel);
-      await prefs.setString("deviceId", deviceId);
-      await prefs.setString("deviceVersion", deviceVersion);
-      await prefs.setString("platform", platform);
-      await prefs.setString("vCode", versionCode);
-
       await FirebaseFirestore.instance.collection('devices').doc(deviceId).set({
         'model': deviceModel,
         'version': deviceVersion,
@@ -281,12 +283,11 @@ class _MyAppState extends State<MyApp> {
         'timestamp': FieldValue.serverTimestamp(),
       });
 
-      print('✅ [Device Logged]');
-    } catch (e) {
-      print('⚠ [Device Info Error] $e');
-    }
+      await prefs.setBool("firstLaunch", false);
 
-    await prefs.setBool("firstLaunch", false);
+    } catch (e) {
+      print("⚠ Device Info Error: $e");
+    }
   }
 
   @override
@@ -307,7 +308,7 @@ class _MyAppState extends State<MyApp> {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const Splashscreen(),
+      home: _startPage,
     );
   }
 }

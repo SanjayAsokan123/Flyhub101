@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../HomeScreen/Dynamichome.dart';
 import '../../services/role_manager.dart';
+import './SellerRegisterPage.dart';
 
 class SellerLoginPage extends StatefulWidget {
   const SellerLoginPage({super.key});
@@ -13,159 +15,213 @@ class SellerLoginPage extends StatefulWidget {
 }
 
 class _SellerLoginPageState extends State<SellerLoginPage> {
-  final TextEditingController _inputController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController input = TextEditingController();
+  final TextEditingController password = TextEditingController();
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  bool _loading = false;
-  String? _error;
+  bool loading = false;
+  bool showPassword = false;
+  String? error;
+
   static const Color themeColor = Color(0xFF1A0A5B);
 
-  Future<void> _sellerLogin() async {
-    final input = _inputController.text.trim();
-    final password = _passwordController.text.trim();
+  // -------------------------------------------------------------------
+  // 🔥 SELLER LOGIN METHOD
+  // Supports: email / phone / sellerId
+  // -------------------------------------------------------------------
+  Future<void> sellerLogin() async {
+    final inputVal = input.text.trim();
+    final pass = password.text.trim();
 
-    if (input.isEmpty || password.isEmpty) {
-      setState(() => _error = "Enter email/phone/Seller ID and password.");
+    if (inputVal.isEmpty || pass.isEmpty) {
+      showMessage("Enter credentials");
       return;
     }
 
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() => loading = true);
 
     try {
-      String? email;
+      DocumentSnapshot? indexDoc;
 
-      // 🔍 1. LOOKUP INPUT IN loginIndex
-      final indexDoc = await _firestore
-          .collection("loginIndex")
-          .doc("phone_$input")
+      // 1) Email login
+      indexDoc = await _firestore.collection("loginIndex")
+          .doc("email_$inputVal")
           .get();
 
-      DocumentSnapshot? loginIndex;
-
-      if (indexDoc.exists) {
-        loginIndex = indexDoc;
-      } else {
-        final emailDoc = await _firestore.collection("loginIndex").doc("email_$input").get();
-        if (emailDoc.exists) {
-          loginIndex = emailDoc;
-        } else {
-          final idDoc = await _firestore.collection("loginIndex").doc("sellerId_$input").get();
-          if (idDoc.exists) loginIndex = idDoc;
-        }
+      // 2) Phone login
+      if (!indexDoc.exists) {
+        indexDoc = await _firestore.collection("loginIndex")
+            .doc("phone_$inputVal")
+            .get();
       }
 
-      if (loginIndex == null || !loginIndex.exists) {
-        throw Exception("No seller found for this ID/phone/email.");
+      // 3) Seller ID login
+      if (!indexDoc.exists) {
+        indexDoc = await _firestore.collection("loginIndex")
+            .doc("sellerId_$inputVal")
+            .get();
       }
 
-      final uid = loginIndex['uid'];
+      if (!indexDoc.exists) {
+        showMessage("User not found");
+        return;
+      }
 
-      // 🔄 2. FETCH EMAIL FROM USERS/{uid}
+      final uid = indexDoc["uid"];
+
+      // Fetch users/{uid}
       final userDoc = await _firestore.collection("users").doc(uid).get();
-      email = userDoc['email'];
-
-      if (email == null) {
-        throw Exception("Email not found for this seller.");
+      if (!userDoc.exists) {
+        showMessage("User record missing");
+        return;
       }
 
-      // 🔐 3. Firebase Auth login using email
-      await _auth.signInWithEmailAndPassword(
-          email: email, password: password);
+      final data = userDoc.data()!;
+      final email = data["email"];
 
-      // 🏷 Save role locally
+      Map<String, dynamic> roles =
+      Map<String, dynamic>.from(data["roles"] ?? {});
+
+      if (roles["seller"] != true) {
+        showMessage("Not a seller account");
+        return;
+      }
+
+      // Firebase login
+      await _auth.signInWithEmailAndPassword(email: email, password: pass);
+
+      // Save role locally
       await RoleManager.setLocalRole("seller");
 
-      // 🚀 Navigate to seller dashboard
-      if (!mounted) return;
+      showMessage("Login successful");
+
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => const Dynamichome(selectedIndex: 3),
-        ),
+        MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 3)),
       );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("✅ Logged in successfully!")),
-      );
-    } on FirebaseAuthException catch (e) {
-      setState(() => _error = e.message);
     } catch (e) {
-      setState(() => _error = e.toString());
+      showMessage("Login failed: $e");
     } finally {
-      setState(() => _loading = false);
+      setState(() => loading = false);
     }
   }
 
+  // -------------------------------------------------------------------
+  // UI
+  // -------------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
+    final w = MediaQuery.of(context).size.width;
+
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text("Seller Login",
+      body: Center(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: w * 0.08),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                "Seller Login",
+                textAlign: TextAlign.center,
                 style: GoogleFonts.lexend(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                   color: themeColor,
-                )),
-
-            const SizedBox(height: 20),
-
-            TextField(
-              controller: _inputController,
-              decoration: InputDecoration(
-                hintText: "Email / Phone / Seller ID",
-                prefixIcon: const Icon(Icons.person),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-
-            const SizedBox(height: 15),
-
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              decoration: InputDecoration(
-                hintText: "Password",
-                prefixIcon: const Icon(Icons.lock),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Text(_error!, style: const TextStyle(color: Colors.red)),
-              ),
-
-            const SizedBox(height: 20),
-
-            _loading
-                ? const CircularProgressIndicator(color: themeColor)
-                : ElevatedButton(
-              onPressed: _sellerLogin,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: themeColor,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text("Login",
-                  style: TextStyle(color: Colors.white, fontSize: 16)),
-            ),
-          ],
+              const SizedBox(height: 20),
+
+              TextField(
+                controller: input,
+                decoration: InputDecoration(
+                  labelText: "Email / Phone / Seller ID",
+                  prefixIcon: const Icon(Icons.person),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 15),
+
+              TextField(
+                controller: password,
+                obscureText: !showPassword,
+                decoration: InputDecoration(
+                  labelText: "Password",
+                  prefixIcon: const Icon(Icons.lock),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                        showPassword ? Icons.visibility : Icons.visibility_off,
+                        color: themeColor),
+                    onPressed: () {
+                      setState(() => showPassword = !showPassword);
+                    },
+                  ),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+
+              if (error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(error!,
+                      style: const TextStyle(color: Colors.red, fontSize: 14)),
+                ),
+
+              const SizedBox(height: 20),
+
+              loading
+                  ? const Center(
+                child: CircularProgressIndicator(color: themeColor),
+              )
+                  : ElevatedButton(
+                onPressed: sellerLogin,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: themeColor,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  "Login",
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
+              ),
+
+              const SizedBox(height: 15),
+
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const SellerRegisterPage()),
+                  );
+                },
+                child: Text(
+                  "Don't have a seller account? Register",
+                  style: TextStyle(
+                    color: themeColor,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  // -------------------------------------------------------------------
+  void showMessage(String msg) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg)));
   }
 }

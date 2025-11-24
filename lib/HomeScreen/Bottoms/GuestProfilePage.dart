@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../Login/FlyHubSelectionPage.dart';
 import '../../Login/LoginPage.dart';
-import 'SellerFormDialog.dart';
+import '../../Login/SellerLoginPage.dart';
 import '../../services/role_manager.dart';
 import '../../HomeScreen/Dynamichome.dart';
 
@@ -55,7 +55,7 @@ class _GuestProfilePageState extends State<GuestProfilePage> {
 
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => const SellerFormDialog()),
+      MaterialPageRoute(builder: (_) => const SellerLoginPage()),
     );
   }
 

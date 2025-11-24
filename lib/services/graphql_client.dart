@@ -1,6 +1,7 @@
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import '../../config/env.dart';
 
 /// 🚀 FlyHub GraphQL Client with Firebase Auth + Subscriptions + Auto-Reconnect
 class GraphQLService {
@@ -12,11 +13,13 @@ class GraphQLService {
   static Future<GraphQLClient> initClient() async {
     final user = FirebaseAuth.instance.currentUser;
     // ✅ Always fetch a fresh Firebase token
-    final token = user != null ? await user.getIdToken(true) : null;
-
-    // 🔗 HTTP Auth link for secure API requests
     final AuthLink authLink = AuthLink(
-      getToken: () async => token != null ? 'Bearer $token' : '',
+      getToken: () async {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user == null) return '';
+        final freshToken = await user.getIdToken(true); // 🔥 ALWAYS fresh
+        return 'Bearer $freshToken';
+      },
     );
 
     final HttpLink httpLink = HttpLink(_httpUrl);
@@ -28,8 +31,13 @@ class GraphQLService {
         autoReconnect: true,
         inactivityTimeout: const Duration(minutes: 5),
         // reconnectInterval: const Duration(seconds: 5), // ✅ Reconnect every 5s
-        initialPayload: () async => {
-          'Authorization': token != null ? 'Bearer $token' : '',
+        initialPayload: () async {
+          final user = FirebaseAuth.instance.currentUser;
+          final freshToken = user != null ? await user.getIdToken(true) : null;
+
+          return {
+            'Authorization': freshToken != null ? 'Bearer $freshToken' : '',
+          };
         },
       ),
     );

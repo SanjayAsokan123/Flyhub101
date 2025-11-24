@@ -8,7 +8,7 @@ export const sellerTypeDefs = gql`
   """
   type Seller {
     customId: ID
-    firebaseUid: String
+    firebaseUid: String!
     name: String
     companyName: String
     PANnumber: String
@@ -45,22 +45,24 @@ export const sellerTypeDefs = gql`
   ✏️ Seller Input (Registration / Update)
   Fields made optional because Firebase auto-creates minimal sellers
   """
-  input SellerInput {
-    name: String
-    companyName: String
-    PANnumber: String
-    gstNumber: String
-    address: String
-    bankIFCnumber: String
-    bankAccountNumber: String
-    authorized: String
-    email: String
-    phoneNumber: String
-    shippingAddresses: [String!]
-    pickupAddresses: [String!]
-    companyPan: String
-    bankName: String
-  }
+input SellerInput {
+  name: String
+  companyName: String
+  PANnumber: String
+  gstNumber: String
+  address: String
+  bankIFCnumber: String
+  bankAccountNumber: String
+  authorized: String
+  email: String
+  phoneNumber: String
+  shippingAddresses: [String!]
+  pickupAddresses: [String!]
+  companyPan: String
+  bankName: String
+  firebaseUid: String   # <-- ADD THIS
+}
+
 
   """
   📱 FCM Token Update Response

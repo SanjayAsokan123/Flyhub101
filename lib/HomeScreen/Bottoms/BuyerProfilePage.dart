@@ -12,7 +12,7 @@ import '../../HomeScreen/Bottoms/GuestProfilePage.dart';
 import '../../services/role_manager.dart';
 import '../../WishlistPage.dart';
 import '../../BuyerDetails/MyCartPage.dart';
-import '../../HomeScreen/Bottoms/SellerFormDialog.dart';
+import '../../Login/SellerLoginPage.dart';
 import '../../BuyerDetails/DroneRentalConfirmation.dart';
 import '../../BuyerDetails/MyCartPage.dart';
 import '../../BuyerDetails/Pilot_Booking_Status.dart';
@@ -232,7 +232,7 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
             _buildTile("My Orders", Icons.receipt_long, () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const SellerFormDialog()),
+                MaterialPageRoute(builder: (_) => const SellerLoginPage()),
               );
             }),
             _buildTile("Pilot Booking Status", Icons.person, () {
@@ -253,7 +253,7 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
 
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const SellerFormDialog()),
+                MaterialPageRoute(builder: (_) => const SellerLoginPage()),
               );
             }),
             _buildTile("Logout", Icons.logout, _logout),

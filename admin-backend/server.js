@@ -16,7 +16,7 @@ import multer from "multer";
 import { uploadToFirebase } from "./utils/uploadToFirebase.js";
 import sellerAuthRouter from "./routes/sellerAuth.js";
 
-// ✅ Import GraphQL Schemas & Resolvers
+// GraphQL Schema + Resolvers
 import { typeDefs } from "./schema/typeDefs/index.js";
 import { resolves } from "./resolvers/resolves/index.js";
 
@@ -28,32 +28,34 @@ const startServer = async () => {
     const app = express();
 
     // =======================================================
-    // ✅ Core Middleware
+    // 🌍 Core Middlewares
     // =======================================================
     app.use(cors());
     app.use(express.json());
     app.use("/uploads", express.static("uploads"));
 
+    // =======================================================
+    // 🔥 IMPORTANT: Firebase Auth Middleware FIRST
+    // =======================================================
+    app.use(verifyFirebaseToken);
 
-app.use("/auth", sellerAuthRouter);
+    // Auth route
+    app.use("/auth", sellerAuthRouter);
 
     // =======================================================
-    // ✅ Multer Config (for /upload)
+    // 📁 Multer Setup (File Upload)
     // =======================================================
     const storage = multer.memoryStorage();
     const upload = multer({ storage });
 
-    // =======================================================
-    // ✅ Health Check
-    // =======================================================
+    // Health Check
     app.get("/healthz", (_req, res) => res.json({ ok: true }));
 
     // =======================================================
-    // ✅ Firebase File Upload Route (REST endpoint)
+    // 📤 Firebase File Upload Route
     // =======================================================
     app.post(
       "/upload",
-      verifyFirebaseToken,
       upload.single("file"),
       async (req, res) => {
         try {
@@ -81,22 +83,17 @@ app.use("/auth", sellerAuthRouter);
     );
 
     // =======================================================
-    // ✅ graphql-upload Middleware (for GraphQL file fields)
+    // 📦 GraphQL Upload Middleware
     // =======================================================
     app.use(graphqlUploadExpress({ maxFileSize: 10_000_000, maxFiles: 10 }));
 
     // =======================================================
-    // ✅ Firebase Protection
-    // =======================================================
-    app.use(verifyFirebaseToken);
-
-    // =======================================================
-    // ✅ Connect MongoDB
+    // 🛢 MongoDB Connect
     // =======================================================
     await connectDB();
 
     // =======================================================
-    // ✅ Merge TypeDefs & Resolvers
+    // 🧩 Merge Schemas
     // =======================================================
     const baseTypeDefs = `
       type Query
@@ -105,8 +102,7 @@ app.use("/auth", sellerAuthRouter);
     `;
 
     const mergedTypeDefs = mergeTypeDefs([baseTypeDefs, ...typeDefs]);
-const mergedResolvers = mergeResolvers([...resolves]);
-
+    const mergedResolvers = mergeResolvers([...resolves]);
 
     const schema = makeExecutableSchema({
       typeDefs: mergedTypeDefs,
@@ -114,7 +110,7 @@ const mergedResolvers = mergeResolvers([...resolves]);
     });
 
     // =======================================================
-    // ✅ Apollo Server Setup
+    // 🚀 Apollo Server
     // =======================================================
     const server = new ApolloServer({
       schema,
@@ -123,8 +119,10 @@ const mergedResolvers = mergeResolvers([...resolves]);
         const refresh = req.headers["x-refresh-token"];
         const firebaseUser = req.firebaseUser || null;
 
+        // 🔥 Firebase User available
         if (firebaseUser) return { firebaseUser, pubsub };
 
+        // 🔐 Admin JWT Token
         if (authHeader.startsWith("Bearer ")) {
           const token = authHeader.split(" ")[1];
           try {
@@ -137,6 +135,7 @@ const mergedResolvers = mergeResolvers([...resolves]);
                   refresh,
                   process.env.JWT_REFRESH_SECRET
                 );
+
                 const newToken = jwt.sign(
                   {
                     id: decodedRefresh.id,
@@ -146,6 +145,7 @@ const mergedResolvers = mergeResolvers([...resolves]);
                   process.env.JWT_SECRET,
                   { expiresIn: "15m" }
                 );
+
                 return { admin: decodedRefresh, newToken, pubsub };
               } catch {
                 console.log("❌ Invalid refresh token");
@@ -162,7 +162,7 @@ const mergedResolvers = mergeResolvers([...resolves]);
     server.applyMiddleware({ app, path: "/graphql" });
 
     // =======================================================
-    // ✅ WebSocket Subscriptions
+    // 🔔 WebSocket Setup
     // =======================================================
     const httpServer = createServer(app);
     const wsServer = new WebSocketServer({
@@ -173,7 +173,7 @@ const mergedResolvers = mergeResolvers([...resolves]);
     useServer({ schema, context: () => ({ pubsub }) }, wsServer);
 
     // =======================================================
-    // ✅ Start the Server
+    // 🚀 Start Server
     // =======================================================
     httpServer.listen(PORT, "0.0.0.0", () => {
       console.log("==================================================");
@@ -184,6 +184,7 @@ const mergedResolvers = mergeResolvers([...resolves]);
       console.log(`🔥 Firebase Admin: Initialized`);
       console.log("==================================================");
     });
+
   } catch (err) {
     console.error("❌ Server startup error:", err);
   }
