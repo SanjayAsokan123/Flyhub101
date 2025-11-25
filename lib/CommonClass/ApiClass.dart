@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/env.dart';
 import 'utils.dart';
 import '../services/graphql_client.dart';
 
@@ -226,55 +227,84 @@ class ApiClass {
       return ApiResult.error(e.toString());
     }
   }
-
-  Future<ApiResult> bookPilot({
+  Future<Map<String, dynamic>> bookPilotRental({
     required String pilotId,
-    required String buyerName,
-    required String buyerEmail,
-    required String contact,
+    required String name,
+    required String email,
+    required String phone,
     required String location,
-    required String date,
-    required String startTime,
-    required String endTime,
+    required double amount,
+    required String rentalDate,
+    required String startDate,
+    required String endDate,
   }) async {
-    const String mutation = r'''
-      mutation BookPilot($input: BookPilotInput!) {
-        bookPilot(input: $input) {
-          success
-          message
+    final url =  EnvConfig.baseUrl;
+
+    final mutation = """
+    mutation CreateRental(
+      \$pilotId: String!,
+      \$name: String!,
+      \$email: String!,
+      \$phone: String!,
+      \$location: String!,
+      \$amount: Float!,
+      \$rentalDate: String!,
+      \$startDate: String!,
+      \$endDate: String!
+    ) {
+      createPilotRental(
+        name: \$name
+        email: \$email
+        phone: \$phone
+        location: \$location
+        amount: \$amount
+        rentalDate: \$rentalDate
+        rentalPeriod: {
+          startDate: \$startDate
+          endDate: \$endDate
         }
+        pilotId: \$pilotId
+      ) {
+        pilot_rental_id
+        status
       }
-    ''';
+    }
+  """;
+
+    final body = jsonEncode({
+      "query": mutation,
+      "variables": {
+        "pilotId": pilotId,
+        "name": name,
+        "email": email,
+        "phone": phone,
+        "location": location,
+        "amount": amount,
+        "rentalDate": rentalDate,
+        "startDate": startDate,
+        "endDate": endDate,
+      },
+    });
 
     try {
-      final client = await GraphQLService.initClient();
-      final result = await client.mutate(MutationOptions(
-        document: gql(mutation),
-        variables: {
-          "input": {
-            "pilotId": pilotId,
-            "buyerName": buyerName,
-            "buyerEmail": buyerEmail,
-            "contact": contact,
-            "location": location,
-            "date": date,
-            "startTime": startTime,
-            "endTime": endTime,
-          }
-        },
-      ));
+      final res = await http.post(
+        Uri.parse(url),
+        headers: {"Content-Type": "application/json"},
+        body: body,
+      );
 
-      if (result.hasException) {
-        debugPrint("❌ [bookPilot] Error: ${result.exception}");
-        return ApiResult.error(result.exception.toString());
+      final json = jsonDecode(res.body);
+
+      if (json["errors"] != null) {
+        return {
+          "status": "error",
+          "message": json["errors"][0]["message"],
+        };
       }
 
-      final data = result.data?['bookPilot'];
-      debugPrint("✅ Pilot booked: ${data?['message']}");
-      return ApiResult.success(data);
+      return {"status": "success", "data": json["data"]};
     } catch (e) {
-      debugPrint("⚠️ [bookPilot] Exception: $e");
-      return ApiResult.error(e.toString());
+      return {"status": "error", "message": e.toString()};
     }
   }
 

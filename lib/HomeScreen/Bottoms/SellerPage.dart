@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../HomeScreen/Dynamichome.dart';
 import '../../HomeScreen/Bottoms/BuyerProfilePage.dart';
 import '../../HomeScreen/Bottoms/GuestProfilePage.dart';
+import '../../config/env.dart';
 import '../../services/role_manager.dart';
 
 // Product Status Pages
@@ -36,12 +37,6 @@ import 'package:flyhub/PrivacyPolicy.dart';
 import 'package:flyhub/Terms_Conditions.dart';
 import '../../feedback_form.dart';
 
-// Bottom Pages
-import './MarketPage.dart';
-import './PilotPage.dart';
-import './RentalsPage.dart';
-import './homescreen.dart';
-
 class SellerPage extends StatefulWidget {
   const SellerPage({super.key});
 
@@ -59,7 +54,7 @@ class _SellerPageState extends State<SellerPage> {
   bool _loading = true;
 
   static const Color themeColor = Color(0xFF1A0A5B);
-  final String graphqlUrl = "http://192.168.1.178:5001/graphql";
+  final String graphqlUrl = EnvConfig.baseUrl;
 
   @override
   void initState() {

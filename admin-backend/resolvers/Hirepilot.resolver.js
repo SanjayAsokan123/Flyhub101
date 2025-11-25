@@ -1,6 +1,5 @@
 import { HirePilot } from "../models/Hirepilot.model.js";
 import { Seller } from "../models/Seller.model.js";
-import { PilotBooking } from "../models/Pilot_Booking.model.js";
 import { sendSellerStatusMail } from "../utils/emailService.js";
 import { createSellerNotification } from "../utils/createSellerNotification.js";
 import {
@@ -86,6 +85,7 @@ export const hirePilotResolvers = {
 
     pilotBookings: async (_, { pilotId }) =>
       PilotBooking.find({ pilotId }).sort({ createdAt: -1 }),
+
   },
 
   // ============================================================

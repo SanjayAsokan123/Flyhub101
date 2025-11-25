@@ -216,7 +216,6 @@ export default function SellerApprovalPanel() {
         <div style={{ marginBottom: 12, color: "crimson" }}>{errMsg}</div>
       )}
 
-      {/* Pending sellers */}
       {renderTable("⏳ Pending", pending, (s) => (
         <div style={{ display: "flex", gap: 8 }}>
           <button disabled={actionLoading} onClick={() => updateStatus(s.customId, "approved")}>
@@ -231,7 +230,6 @@ export default function SellerApprovalPanel() {
         </div>
       ))}
 
-      {/* Approved sellers */}
       {renderTable("✅ Approved", approved, (s) => (
         <div style={{ display: "flex", gap: 8 }}>
           <button disabled={actionLoading} onClick={() => updateStatus(s.customId, "pending")}>
@@ -243,7 +241,6 @@ export default function SellerApprovalPanel() {
         </div>
       ))}
 
-      {/* Rejected sellers */}
       {renderTable("❌ Rejected", rejected, (s) => (
         <div style={{ display: "flex", gap: 8 }}>
           <button disabled={actionLoading} onClick={() => updateStatus(s.customId, "pending")}>

@@ -1,4 +1,4 @@
-// lib/views/auth/LoginPage.dart
+// lib/views/auth/BuyerLoginPage.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -10,15 +10,15 @@ import '../../services/role_manager.dart';
 import './BuyerRegisterPage.dart';
 import './forgot_password_page.dart';
 
-class LoginPage extends StatefulWidget {
+class BuyerLoginPage extends StatefulWidget {
   final String? logoPath;
-  const LoginPage({super.key, this.logoPath});
+  const BuyerLoginPage({super.key, this.logoPath});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<BuyerLoginPage> createState() => _BuyerLoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _BuyerLoginPageState extends State<BuyerLoginPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -113,17 +113,17 @@ class _LoginPageState extends State<LoginPage> {
 
     // phone
     final phoneDoc =
-    await _firestore.collection("loginIndex").doc("phone_$input").get();
+    await _firestore.collection("BuyerOtp").doc("phone_$input").get();
     if (phoneDoc.exists) indexDoc = phoneDoc;
 
     // email-as-id
     final emailDoc =
-    await _firestore.collection("loginIndex").doc("email_$input").get();
+    await _firestore.collection("buyers").doc("email_$input").get();
     if (emailDoc.exists) indexDoc = emailDoc;
 
     // sellerId (but cannot login seller here)
     final idDoc =
-    await _firestore.collection("loginIndex").doc("sellerId_$input").get();
+    await _firestore.collection("buyers").doc("sellerId_$input").get();
     if (idDoc.exists) indexDoc = idDoc;
 
     if (indexDoc == null || !indexDoc.exists) {
@@ -139,7 +139,7 @@ class _LoginPageState extends State<LoginPage> {
   // Fetch email using users/{uid}
   // ----------------------------------------------------------------------
   Future<String> _getEmailForUid(String uid) async {
-    final snap = await _firestore.collection("users").doc(uid).get();
+    final snap = await _firestore.collection("buyers").doc(uid).get();
 
     if (snap.exists &&
         snap.data() != null &&
@@ -172,7 +172,7 @@ class _LoginPageState extends State<LoginPage> {
       if (user == null) throw Exception("Google login failed");
 
       // Upsert Firestore record
-      await _firestore.collection("users").doc(user.uid).set({
+      await _firestore.collection("buyers").doc(user.uid).set({
         "name": user.displayName ?? "",
         "email": user.email ?? "",
         "roles": { "buyer": true }, // buyer only
@@ -180,7 +180,7 @@ class _LoginPageState extends State<LoginPage> {
         "updatedAt": FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      await RoleManager.setLocalRole("buyer");
+      await RoleManager.setLocalRole("buyers");
 
       if (!mounted) return;
 

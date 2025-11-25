@@ -4,9 +4,7 @@ import { Seller } from "../models/Seller.model.js";
 import { createSellerNotification } from "../utils/createSellerNotification.js";
 import { sendSellerStatusMail } from "../utils/emailService.js";
 
-/**
- * Helper — Safely build Mongo match object
- */
+
 const buildMatch = (base = {}) => {
   const match = { ...base };
   if (typeof match.status === "string") match.status = match.status.toLowerCase();
@@ -15,9 +13,6 @@ const buildMatch = (base = {}) => {
 };
 
 export const rentalBookingResolvers = {
-  // ============================================================
-  // 📊 QUERIES
-  // ============================================================
   Query: {
 
       getAllPilotRentals: async () =>
@@ -68,13 +63,8 @@ getPilotRentalsBySellerId: async (_, { sellerId }) => {
       PilotRental.aggregateWithPilotByRentalId({ paymentStatus: "completed" }),
   },
 
-  // ============================================================
-  // ⚙️ MUTATIONS
-  // ============================================================
   Mutation: {
-    /**
-     * 🟢 Create Pilot Rental Booking
-     */
+
     createPilotRental: async (
       _,
       { name, email, phone, location, amount, rentalDate, rentalPeriod, pilotId },
@@ -123,9 +113,6 @@ getPilotRentalsBySellerId: async (_, { sellerId }) => {
       }
     },
 
-    /**
-     * 📞 Update Contact Info
-     */
     updatePilotRentalContact: async (_, { pilot_rental_id, phone, location }) => {
       try {
         const patch = {};
@@ -149,9 +136,6 @@ getPilotRentalsBySellerId: async (_, { sellerId }) => {
       }
     },
 
-    /**
-     * 🔄 Update Rental Status + Notify Seller
-     */
     updatePilotRentalStatus: async (_, { pilot_rental_id, status }, { pubsub }) => {
       try {
         const valid = ["pending", "confirmed", "cancelled"];
@@ -202,9 +186,6 @@ getPilotRentalsBySellerId: async (_, { sellerId }) => {
       }
     },
 
-    /**
-     * 💰 Update Payment Status + Notify Seller
-     */
     updatePaymentStatus: async (_, { pilot_rental_id, paymentStatus }, { pubsub }) => {
       try {
         const valid = ["pending", "failed", "completed"];
@@ -245,9 +226,6 @@ getPilotRentalsBySellerId: async (_, { sellerId }) => {
       }
     },
 
-    /**
-     * 🗑️ Delete Pilot Rental
-     */
     deletePilotRental: async (_, { pilot_rental_id }) => {
       try {
         const deleted = await PilotRental.findOneAndDelete({ pilot_rental_id });

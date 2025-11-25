@@ -141,10 +141,20 @@ function Sidebar() {
                            <MdLocalShipping /> RegisteredBuyer
                          </Link>
                         </li>
+                        <li>
+                            <Link to="/RegisteredSeller">
+                                 <MdLocalShipping /> RegisteredSeller
+                            </Link>
+                        </li>
 
                       <li>
                           <Link to="/PilotBookingStatus">
                             <MdLocalShipping /> PilotBookingStatus
+                          </Link>
+                      </li>
+                      <li>
+                          <Link to="/DroneBookingStatus">
+                            <MdLocalShipping /> DroneBookingStatus
                           </Link>
                       </li>
                     </ul>

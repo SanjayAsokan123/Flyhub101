@@ -1,5 +1,5 @@
 import DroneRental from "../models/Buyer_Booking_Drone_Rental.model.js";
-//import { Rental } from "../models/Seller_Drone_Rental.js"; // Seller-side listings
+import { Rental } from "../models/Rental.model.js";
 import { Seller } from "../models/Seller.model.js";
 import { createSellerNotification } from "../utils/createSellerNotification.js";
 import { sendSellerStatusMail } from "../utils/emailService.js";

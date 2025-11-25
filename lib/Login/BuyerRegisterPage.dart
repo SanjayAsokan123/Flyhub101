@@ -147,7 +147,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
     try {
       // Check if email already exists (multi-role support)
       final existing = await _firestore
-          .collection("users")
+          .collection("buyers")
           .where("email", isEqualTo: email)
           .limit(1)
           .get();
@@ -161,7 +161,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
 
         roles["buyer"] = true;
 
-        await _firestore.collection("users").doc(uid).set({
+        await _firestore.collection("buyers").doc(uid).set({
           "roles": roles,
           "firstName": first,
           "lastName": last,
@@ -169,11 +169,11 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
           "phone": phone,
         }, SetOptions(merge: true));
 
-        await _firestore.collection("loginIndex").doc("phone_$phone").set({
+        await _firestore.collection("BuyerOtp").doc("phone_$phone").set({
           "uid": uid,
         });
 
-        await RoleManager.setLocalRole("buyer");
+        await RoleManager.setLocalRole("BuyerOtp");
 
         Navigator.pushReplacement(
           context,
@@ -193,7 +193,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
       final user = cred.user!;
       final uid = user.uid;
 
-      await _firestore.collection("users").doc(uid).set({
+      await _firestore.collection("buyers").doc(uid).set({
         "email": email,
         "phone": phone,
         "firstName": first,
@@ -203,11 +203,11 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
         "createdAt": FieldValue.serverTimestamp(),
       });
 
-      await _firestore.collection("loginIndex").doc("email_$email").set({
+      await _firestore.collection("buyers").doc("email_$email").set({
         "uid": uid,
       });
 
-      await _firestore.collection("loginIndex").doc("phone_$phone").set({
+      await _firestore.collection("BuyerOtp").doc("phone_$phone").set({
         "uid": uid,
       });
 

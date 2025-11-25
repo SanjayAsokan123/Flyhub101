@@ -17,7 +17,7 @@ import '../../BuyerDetails/MyCartPage.dart';
 import '../../WishlistPage.dart';
 import '../Bottoms/MarketPage.dart';
 import '../../DroneDetailPage.dart';
-import '../../Login/LoginPage.dart';
+import '../../Login/BuyerLoginPage.dart';
 import '../../firebase_options.dart';
 import '../../services/cart_wishlist_provider.dart';
 
@@ -1182,7 +1182,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_user == null) {
       Future.microtask(() => Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const LoginPage()),
+        MaterialPageRoute(builder: (_) => const BuyerLoginPage()),
             (route) => false,
       ));
       return const SizedBox();

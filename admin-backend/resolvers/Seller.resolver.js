@@ -80,39 +80,40 @@ export const sellerResolvers = {
 
         let seller = await Seller.findOne(query);
 
-        // ------------------------------
-        // 🆕 Auto-create minimal seller
-        // ------------------------------
-        if (!seller) {
-          const autoEmail =
-            email ||
-            (username ? `${username}@autogen.flyhub` : null) ||
-            (phone ? `${phone}@autogen.flyhub` : null) ||
-            `autogen_${Date.now()}@flyhub`;
+      // ------------------------------
+      // 🆕 Auto-create minimal seller
+      // ------------------------------
+      if (!seller) {
+        const autoEmail =
+          email ||
+          (username ? `${username}@autogen.flyhub` : null) ||
+          (phone ? `${phone}@autogen.flyhub` : null) ||
+          `autogen_${Date.now()}@flyhub`;
 
-          seller = new Seller({
-            email: autoEmail,
-            name: username || "New Seller",
-            companyName: "Pending Store",
-            PANnumber: "PENDING",
-            address: "Pending Address",
-            phoneNumber: phone || "0000000000",
-            gstNumber: "",
-            shippingAddresses: [],
-            pickupAddresses: [],
-            status: "pending",
-          });
+        seller = new Seller({
+          email: autoEmail,
+          name: username || "New Seller",
+          companyName: "Pending Store",
+          PANnumber: "PENDING",
+          address: "Pending Address",
+          phoneNumber: phone || "0000000000",
+          gstNumber: "",
+          shippingAddresses: [],
+          pickupAddresses: [],
+          status: "pending",
+        });
 
-          await seller.save();
+await seller.save();
 
 await createLoginIndex({
-//  uid: savedSeller.firebaseUid,
-  email: savedSeller.email,
-  phone: savedSeller.phoneNumber,
-  sellerId: savedSeller.customId,
+  uid: seller.firebaseUid || null,
+  email: seller.email,
+  phone: seller.phoneNumber,
+  sellerId: seller.customId,
 });
 
-        }
+      }
+
 
         return seller;
       } catch (err) {
@@ -153,7 +154,7 @@ await createLoginIndex({
        const seller = new Seller({
          ...input,
          email,
-         firebaseUid: input.firebaseUid || null,
+         firebaseUid: input.firebaseUid,
          shippingAddresses: input.shippingAddresses || [],
          pickupAddresses: input.pickupAddresses || [],
          status: "pending",
@@ -163,10 +164,11 @@ await createLoginIndex({
 
        // Create loginIndex for email/phone/sellerId
        await createLoginIndex({
-         uid: savedSeller.firebaseUid,         // 🔥 IMPORTANT FIX
+         uid: savedSeller.firebaseUid,
          email: savedSeller.email,
          phone: savedSeller.phoneNumber,
          sellerId: savedSeller.customId,
+
        });
 
        // Notify admin

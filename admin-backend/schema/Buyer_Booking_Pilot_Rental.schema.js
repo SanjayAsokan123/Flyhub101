@@ -50,7 +50,6 @@ type Query {
 }
 
   type Mutation {
-    # If you want the join to work, you can set pilot_rental_id equal to the pilot's pilotId at creation time.
     createPilotRental(
       name: String!
       email: String!

@@ -1,163 +1,129 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import "../styles/PilotBookingStatus.css";
 
-export default function PilotBookingStatus() {
-  const [bookings, setBookings] = useState(sampleData());
+const GRAPHQL_URL = "http://127.0.0.1:5001/graphql";
+
+export default function PilotRentalBookings() {
+  const [rentals, setRentals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   const [query, setQuery] = useState("");
-  const [showForm, setShowForm] = useState(false);
-
-  const [form, setForm] = useState({
-    pilot: "",
-    customer: "",
-    droneType: "",
-    price: "",
-    status: "Confirmed",
-    date: new Date().toISOString().slice(0, 10),
-  });
-
-  const [sortKey, setSortKey] = useState("date-newest");
+  const [sortKey, setSortKey] = useState("newest");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 6;
 
-  /* ---------- Sample Data ---------- */
-  function sampleData() {
-    return [
-      {
-        id: gid(),
-        pilot: "Rahul Verma",
-        customer: "Asha R",
-        droneType: "Quadcopter",
-        price: 3500,
-        status: "Confirmed",
-        date: "2025-02-14",
-      },
-      {
-        id: gid(),
-        pilot: "Kiran M",
-        customer: "Vikram P",
-        droneType: "Hexacopter",
-        price: 5000,
-        status: "Completed",
-        date: "2025-03-11",
-      },
-      {
-        id: gid(),
-        pilot: "Sanjay Rao",
-        customer: "Priya K",
-        droneType: "Mini Drone",
-        price: 1800,
-        status: "Cancelled",
-        date: "2025-01-25",
-      },
-      {
-        id: gid(),
-        pilot: "Vinod S",
-        customer: "Rohit G",
-        droneType: "FPV Drone",
-        price: 4200,
-        status: "Upcoming",
-        date: "2025-04-03",
-      },
-    ];
-  }
+  // ----------------------------------------------------------
+  // 🔥 Fetch Pilot Rentals (NEW SCHEMA)
+  // ----------------------------------------------------------
+  const fetchRentals = async () => {
+    setLoading(true);
+    setError(null);
 
-  function gid() {
-    return Math.random().toString(36).slice(2, 9);
-  }
+    const gql = `
+      query {
+        getAllPilotRentals {
+          pilot_rental_id
+          name
+          email
+          phone
+          location
+          amount
+          status
+          paymentStatus
+          rentalDate
+          rentalPeriod {
+            startDate
+            endDate
+          }
+          createdAt
+          updatedAt
+          pilot {
+            pilotName
+            pilotCompany
+            phoneNumber
+            email
+          }
+        }
+      }
+    `;
 
-  /* ---------- Add Booking ---------- */
-  function onSubmit(e) {
-    e.preventDefault();
+    try {
+      const res = await fetch(GRAPHQL_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: gql }),
+      });
 
-    if (!form.pilot.trim() || !form.customer.trim() || !form.price) {
-      alert("Please fill pilot, customer and price.");
-      return;
+      const json = await res.json();
+      if (json.errors) {
+        setError(json.errors[0].message);
+        return;
+      }
+
+      setRentals(json.data.getAllPilotRentals || []);
+    } catch (err) {
+      setError("Network Error: " + err.message);
     }
 
-    const newItem = {
-      id: gid(),
-      pilot: form.pilot.trim(),
-      customer: form.customer.trim(),
-      droneType: form.droneType.trim(),
-      price: Number(form.price),
-      status: form.status,
-      date: form.date,
-    };
+    setLoading(false);
+  };
 
-    setBookings((b) => [newItem, ...b]);
-    setShowForm(false);
-  }
+  useEffect(() => {
+    fetchRentals();
+  }, []);
 
-  /* ---------- CSV Export ---------- */
-  function exportCSV() {
-    const rows = bookings.map((b) => [
-      b.pilot,
-      b.customer,
-      b.droneType,
-      b.price,
-      b.status,
-      b.date,
-    ]);
-
-    const header = ["Pilot", "Customer", "Drone Type", "Price", "Status", "Date"];
-
-    const csv = [header, ...rows].map((r) => r.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `pilot-booking-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  /* ---------- Search + Sort ---------- */
-  function filtered() {
-    const q = query.trim().toLowerCase();
-
-    let out = bookings.filter((b) => {
-      if (!q) return true;
-
+  // ----------------------------------------------------------
+  // 🔍 Filter, Search, Sort
+  // ----------------------------------------------------------
+  const processed = rentals
+    .filter((r) => {
+      const q = query.toLowerCase();
       return (
-        b.pilot.toLowerCase().includes(q) ||
-        b.customer.toLowerCase().includes(q) ||
-        b.droneType.toLowerCase().includes(q) ||
-        b.status.toLowerCase().includes(q) ||
-        String(b.price).includes(q) ||
-        b.date.includes(q)
+        r.name.toLowerCase().includes(q) ||
+        r.phone.toLowerCase().includes(q) ||
+        r.location.toLowerCase().includes(q) ||
+        r.status.toLowerCase().includes(q) ||
+        r.paymentStatus.toLowerCase().includes(q) ||
+        (r.pilot?.pilotName || "").toLowerCase().includes(q) ||
+        (r.pilot?.pilotCompany || "").toLowerCase().includes(q)
       );
-    });
-
-    out.sort((a, b) => {
-      if (sortKey === "date-newest") return b.date.localeCompare(a.date);
-      if (sortKey === "date-oldest") return a.date.localeCompare(b.date);
-      if (sortKey === "price") return b.price - a.price;
-      if (sortKey === "pilot") return a.pilot.localeCompare(b.pilot);
+    })
+    .sort((a, b) => {
+      if (sortKey === "newest") return b.createdAt.localeCompare(a.createdAt);
+      if (sortKey === "oldest") return a.createdAt.localeCompare(b.createdAt);
+      if (sortKey === "pilot")
+        return (a.pilot?.pilotName || "").localeCompare(
+          b.pilot?.pilotName || ""
+        );
       return 0;
     });
 
-    return out;
-  }
+  const totalPages = Math.max(1, Math.ceil(processed.length / PAGE_SIZE));
+  const visible = processed.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const list = filtered();
-  const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
-  const visible = list.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // ----------------------------------------------------------
+  // UI Loading / Error
+  // ----------------------------------------------------------
+  if (loading) return <p className="buyer-loading">Loading rentals...</p>;
+  if (error) return <p className="buyer-error">Error: {error}</p>;
 
-  /* ---------- UI ---------- */
+  // ----------------------------------------------------------
+  // JSX UI
+  // ----------------------------------------------------------
   return (
     <div className="sold-root">
-      {/* Header */}
+      {/* HEADER */}
       <header className="sold-header">
         <div>
-          <h1 className="sold-title">Pilot Booking Status</h1>
-          <p className="sold-sub">Manage and track all drone pilot bookings.</p>
+          <h1 className="sold-title">Pilot Rentals</h1>
+          <p className="sold-sub">Track all pilot rental bookings</p>
         </div>
 
         <div className="sold-actions">
           <input
             className="sold-search"
-            placeholder="Search pilot, customer, status..."
+            placeholder="Search name, phone, pilot..."
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -170,134 +136,69 @@ export default function PilotBookingStatus() {
             value={sortKey}
             onChange={(e) => setSortKey(e.target.value)}
           >
-            <option value="date-newest">Newest First</option>
-            <option value="date-oldest">Oldest First</option>
-            <option value="price">Highest Price</option>
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
             <option value="pilot">Pilot Name</option>
           </select>
 
-          <button className="sold-btn" onClick={() => setShowForm(!showForm)}>
-            {showForm ? "Close Form" : "Add Booking"}
-          </button>
-
-          <button className="sold-btn ghost" onClick={exportCSV}>
-            Export CSV
+          <button className="sold-btn" onClick={fetchRentals}>
+            Refresh
           </button>
         </div>
       </header>
 
-      {/* Form */}
-      {showForm && (
-        <form className="sold-form" onSubmit={onSubmit}>
-          <div className="sold-field">
-            <label>Pilot Name</label>
-            <input
-              value={form.pilot}
-              onChange={(e) => setForm({ ...form, pilot: e.target.value })}
-            />
-          </div>
-
-          <div className="sold-field">
-            <label>Customer Name</label>
-            <input
-              value={form.customer}
-              onChange={(e) => setForm({ ...form, customer: e.target.value })}
-            />
-          </div>
-
-          <div className="sold-field">
-            <label>Drone Type</label>
-            <input
-              value={form.droneType}
-              onChange={(e) => setForm({ ...form, droneType: e.target.value })}
-            />
-          </div>
-
-          <div className="sold-row">
-            <div className="sold-field small">
-              <label>Price (₹)</label>
-              <input
-                type="number"
-                value={form.price}
-                onChange={(e) => setForm({ ...form, price: e.target.value })}
-              />
-            </div>
-
-            <div className="sold-field small">
-              <label>Status</label>
-              <select
-                value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value })}
-              >
-                <option>Confirmed</option>
-                <option>Upcoming</option>
-                <option>Completed</option>
-                <option>Cancelled</option>
-              </select>
-            </div>
-
-            <div className="sold-field small">
-              <label>Date</label>
-              <input
-                type="date"
-                value={form.date}
-                onChange={(e) => setForm({ ...form, date: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="sold-form-actions">
-            <button className="sold-btn">Save</button>
-            <button
-              type="button"
-              className="sold-btn ghost"
-              onClick={() => setShowForm(false)}
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* List */}
+      {/* LIST */}
       <main className="sold-list">
-        {visible.length === 0 && (
-          <div className="sold-empty">No bookings found.</div>
+        {visible.length === 0 ? (
+          <div className="sold-empty">No rentals found.</div>
+        ) : (
+          visible.map((r) => (
+            <article key={r.pilot_rental_id} className="sold-item">
+              <div className="sold-item-left">
+                <div className="sold-item-title">
+                  {r.pilot?.pilotName || "Unknown Pilot"} —{" "}
+                  <span>{r.pilot?.pilotCompany || ""}</span>
+                </div>
+
+                <div className="sold-item-meta">
+                  <strong>{r.name}</strong> • {r.location}
+                </div>
+
+                <div className="sold-item-meta small">📞 {r.phone}</div>
+
+                <div className="sold-item-meta small">
+                  {r.rentalPeriod.startDate} → {r.rentalPeriod.endDate}
+                </div>
+
+                <div className="sold-item-meta small">
+                  ₹ {r.amount} • Payment: {r.paymentStatus}
+                </div>
+              </div>
+
+              <div className="sold-item-right">
+                <div className="sold-item-date">{r.rentalDate}</div>
+
+                <div
+                  className={`sold-item-status ${
+                    r.status === "confirmed"
+                      ? "green"
+                      : r.status === "cancelled"
+                      ? "red"
+                      : "blue"
+                  }`}
+                >
+                  {r.status}
+                </div>
+              </div>
+            </article>
+          ))
         )}
-
-        {visible.map((b) => (
-          <article key={b.id} className="sold-item">
-            <div className="sold-item-left">
-              <div className="sold-item-title">
-                {b.pilot} — <span>{b.droneType}</span>
-              </div>
-              <div className="sold-item-meta">
-                Customer: <strong>{b.customer}</strong> • ₹{b.price}
-              </div>
-            </div>
-
-            <div className="sold-item-right">
-              <div className="sold-item-date">{b.date}</div>
-              <div
-                className={`sold-item-status ${
-                  b.status.toLowerCase() === "completed"
-                    ? "green"
-                    : b.status.toLowerCase() === "cancelled"
-                    ? "red"
-                    : "blue"
-                }`}
-              >
-                {b.status}
-              </div>
-            </div>
-          </article>
-        ))}
       </main>
 
-      {/* Pagination */}
+      {/* PAGINATION */}
       <footer className="sold-footer">
         <div>
-          Showing <strong>{list.length}</strong> bookings
+          Showing <strong>{processed.length}</strong> rentals
         </div>
 
         <div className="sold-pages">

@@ -60,9 +60,6 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) => fetchListingSeller());
   }
 
-  // Query name here is a best-effort guess; backend may need a different field name.
-  // This query attempts to get the rental listing by rentalId and receives seller info.
-  // If your backend exposes a different query, replace the query string below with that.
   static const String getListingQuery = r'''
     query GetRentalListing($rentalId: String!) {
       getRentalListingById(rentalId: $rentalId) {
@@ -108,20 +105,45 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
 
   // Mutation (unchanged - backend returns seller snapshot in result)
   static const String createBookingMutation = r'''
-    mutation CreateDroneRental($name: String!, $phone: String!, $location: String!, $rentalDate: String!, $rentalId: String!) {
-      createDroneRental(name: $name, phone: $phone, location: $location, rentalDate: $rentalDate, rentalId: $rentalId) {
-        drone_rental_id
-        name
-        phone
-        location
-        rentalDate
-        rentalId
-        sellerEmail
-        sellerPhone
-        createdAt
+  mutation CreateDroneRental(
+    $name: String!,
+    $email: String!,
+    $phone: String!,
+    $location: String!,
+    $amount: Float!,
+    $rentalDate: String!,
+    $startDate: String!,
+    $endDate: String!,
+    $rentalId: String!
+  ) {
+    createDroneRental(
+      name: $name
+      email: $email
+      phone: $phone
+      location: $location
+      amount: $amount
+      rentalDate: $rentalDate
+      rentalPeriod: {
+        startDate: $startDate
+        endDate: $endDate
       }
+      rentalId: $rentalId
+    ) {
+      drone_rental_id
+      rentalId
+      name
+      phone
+      email
+      location
+      rentalDate
+      createdAt
+      sellerEmail
+      sellerPhone
     }
-  ''';
+  }
+''';
+
+
 
   Future<void> _pickBookingDate() async {
     final now = DateTime.now();
@@ -166,11 +188,16 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
         document: gql(createBookingMutation),
         variables: {
           "name": nameController.text.trim(),
+          "email": "customer@example.com",
           "phone": contactController.text.trim(),
           "location": locationController.text.trim(),
+          "amount": (widget.rental['price'] ?? 0).toDouble(),
           "rentalDate": bookingDate!.toIso8601String(),
+          "startDate": bookingDate!.toIso8601String(),
+          "endDate": bookingDate!.toIso8601String(),
           "rentalId": rentalId,
         },
+
         fetchPolicy: FetchPolicy.networkOnly,
       ));
 

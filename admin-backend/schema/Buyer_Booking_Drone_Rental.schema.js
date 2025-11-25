@@ -1,35 +1,13 @@
 import { gql } from "apollo-server-express";
 
 export const dronerentalBookingTypeDefs = gql`
+
+  # -------------------------
+  # Embedded Period
+  # -------------------------
   type RentalPeriod {
-    startDate: String!
-    endDate: String!
-  }
-
-  type DroneDetails {
-    rentalId: String
-    name: String
-    brand: String
-    location: String
-    pricePerHour: Float
-    pricePerDay: Float
-    available: Boolean
-  }
-
-  type DroneRental {
-    drone_rental_id: String!
-    name: String!
-    email: String!
-    phone: String!
-    location: String!
-    amount: Float!
-    status: String!
-    rentalDate: String!
-    rentalPeriod: RentalPeriod!
-    paymentStatus: String!
-    createdAt: String!
-    updatedAt: String!
-    drone: DroneDetails
+    startDate: String
+    endDate: String
   }
 
   input RentalPeriodInput {
@@ -37,18 +15,67 @@ export const dronerentalBookingTypeDefs = gql`
     endDate: String!
   }
 
-  extend type Query {
+  # -------------------------
+  # Lightweight Drone Info
+  # -------------------------
+  type DroneLight {
+    rentalId: String
+    name: String
+    brand: String
+    location: String
+    pricePerHour: Float
+    pricePerDay: Float
+    description: String
+    image: String
+    quantity: Int
+    insurance: Boolean
+    with_pilot: Boolean
+    available_today: Boolean
+    sellerId: String
+  }
+
+  # -------------------------
+  # Drone Rental Booking Type
+  # -------------------------
+  type DroneRental {
+    drone_rental_id: String!
+    rentalId: String          # <- nullable to avoid errors
+    name: String!
+    email: String
+    phone: String!
+    location: String!
+    amount: Float
+    rentalDate: String!
+    rentalPeriod: RentalPeriod
+    status: String!
+    paymentStatus: String!
+    createdAt: String!
+    updatedAt: String!
+    drone: DroneLight
+    sellerEmail: String
+    sellerPhone: String
+  }
+
+  # -------------------------
+  # Queries
+  # -------------------------
+  type Query {
     getAllDroneRentals: [DroneRental!]!
-    getDroneRentalById(drone_rental_id: String!): DroneRental
     getDroneRentalsByStatus(status: String!): [DroneRental!]!
     getDroneRentalsByPaymentStatus(paymentStatus: String!): [DroneRental!]!
+    getDroneRentalById(drone_rental_id: String!): DroneRental
+
     getPendingDroneRentals: [DroneRental!]!
     getConfirmedDroneRentals: [DroneRental!]!
     getCancelledDroneRentals: [DroneRental!]!
     getCompletedDronePaymentRentals: [DroneRental!]!
   }
 
-  extend type Mutation {
+  # -------------------------
+  # Mutations
+  # -------------------------
+  type Mutation {
+
     createDroneRental(
       name: String!
       email: String!
@@ -60,7 +87,6 @@ export const dronerentalBookingTypeDefs = gql`
       rentalId: String!
     ): DroneRental!
 
-    # ✅ Added contact update
     updateDroneRentalContact(
       drone_rental_id: String!
       phone: String

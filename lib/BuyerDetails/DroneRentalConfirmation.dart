@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+import '../config/env.dart';
 
 class DroneRentalApprovalPage extends StatefulWidget {
   const DroneRentalApprovalPage({super.key});
@@ -11,116 +13,143 @@ class DroneRentalApprovalPage extends StatefulWidget {
 class _DroneRentalApprovalPageState extends State<DroneRentalApprovalPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
-  // Example rental data
-  final List<Map<String, String>> rentals = [
-    {
-      'id': 'R001',
-      'drone': 'DJI Phantom 4',
-      'renter': 'John Doe',
-      'status': 'Pending',
-      'date': '2025-10-10',
-    },
-    {
-      'id': 'R002',
-      'drone': 'DJI Mini 3 Pro',
-      'renter': 'Alice Smith',
-      'status': 'Approved',
-      'date': '2025-10-08',
-    },
-    {
-      'id': 'R003',
-      'drone': 'Parrot Anafi',
-      'renter': 'Mark Lee',
-      'status': 'Rejected',
-      'date': '2025-10-09',
-      'reason': 'Incomplete documents',
-    },
-    {
-      'id': 'R004',
-      'drone': 'DJI Mavic Air 2',
-      'renter': 'Sarah Johnson',
-      'status': 'Pending',
-      'date': '2025-10-11',
-    },
-  ];
+  late GraphQLClient client;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+
+    client = GraphQLClient(
+      link: HttpLink(EnvConfig.baseUrl),
+      cache: GraphQLCache(),
+    );
   }
 
-  List<Map<String, String>> getFilteredRentals(String status) {
-    return rentals.where((rental) => rental['status'] == status).toList();
-  }
-
-  Widget buildRentalCard(Map<String, String> rental) {
-    Color statusColor;
-    switch (rental['status']) {
-      case 'Approved':
-        statusColor = Colors.green;
-        break;
-      case 'Rejected':
-        statusColor = Colors.red;
-        break;
-      default:
-        statusColor = const Color(0xFF1A0A5B); // theme color for Pending
+  // Queries
+  static const GET_APPROVED = r'''
+    query {
+      getConfirmedDroneRentals {
+        drone_rental_id
+        name
+        phone
+        rentalDate
+        status
+        drone { name image }
+      }
     }
+  ''';
+
+  static const GET_PENDING = r'''
+    query {
+      getPendingDroneRentals {
+        drone_rental_id
+        name
+        phone
+        rentalDate
+        status
+        drone { name image }
+      }
+    }
+  ''';
+
+  static const GET_REJECTED = r'''
+    query {
+      getCancelledDroneRentals {
+        drone_rental_id
+        name
+        phone
+        rentalDate
+        status
+        drone { name image }
+      }
+    }
+  ''';
+
+  Widget buildStatusTab(String queryName, String query) {
+    return FutureBuilder<QueryResult>(
+      future: client.query(QueryOptions(document: gql(query))),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.data!.hasException) {
+          return Center(child: Text("Error: ${snapshot.data!.exception}"));
+        }
+
+        final rentals = snapshot.data!.data?[queryName] ?? [];
+
+        if (rentals.isEmpty) {
+          return const Center(child: Text("No requests found"));
+        }
+
+        return ListView.builder(
+          itemCount: rentals.length,
+          itemBuilder: (context, index) => buildRentalCard(rentals[index]),
+        );
+      },
+    );
+  }
+
+
+  Widget buildRentalCard(dynamic rental) {
+    final status = rental['status'] ?? 'Pending';
+
+    Color color = Colors.blue;
+    if (status == "confirmed") color = Colors.green;
+    if (status == "cancelled") color = Colors.red;
 
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      elevation: 4,
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 3,
       child: ListTile(
-        leading: Icon(Icons.airplanemode_active, color: statusColor, size: 30),
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: rental['drone']?['image'] != null
+              ? Image.network(rental['drone']['image'], width: 55, height: 55, fit: BoxFit.cover)
+              : Icon(Icons.airplanemode_active, size: 40, color: color),
+        ),
         title: Text(
-          rental['drone']!,
+          rental['drone']?['name'] ?? "Drone",
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         subtitle: Text(
-          'Renter: ${rental['renter']}\nDate: ${rental['date']}',
-          style: const TextStyle(height: 1.4),
+          "Customer: ${rental['name']}\nDate: ${rental['rentalDate']}",
+          style: const TextStyle(height: 1.5),
         ),
         trailing: Text(
-          rental['status']!,
-          style: TextStyle(
-            color: statusColor,
-            fontWeight: FontWeight.bold,
-          ),
+          status.toUpperCase(),
+          style: TextStyle(color: color, fontWeight: FontWeight.bold),
         ),
         onTap: () {
-          // Seller can only view details
           showDialog(
             context: context,
             builder: (_) => AlertDialog(
               title: Text(
-                rental['drone']!,
+                rental['drone']?['name'] ?? "Details",
                 style: const TextStyle(
-                    color: Color(0xFF1A0A5B), fontWeight: FontWeight.bold),
+                    fontSize: 18, fontWeight: FontWeight.bold),
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Rental ID: ${rental['id']}'),
-                  Text('Renter Name: ${rental['renter']}'),
-                  Text('Rental Date: ${rental['date']}'),
-                  Text('Status: ${rental['status']}',
-                      style: TextStyle(
-                          color: statusColor, fontWeight: FontWeight.bold)),
-                  // Show reason if rejected
-                  if (rental['status'] == 'Rejected' && rental.containsKey('reason'))
-                    Text('Reason: ${rental['reason']}',
-                        style: const TextStyle(color: Colors.red)),
+                  Text("Booking ID: ${rental['drone_rental_id']}"),
+                  Text("Customer: ${rental['name']}"),
+                  Text("Phone: ${rental['phone']}"),
+                  Text("Date: ${rental['rentalDate']}"),
+                  Text(
+                    "Status: $status",
+                    style: TextStyle(color: color),
+                  ),
                 ],
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Close',
-                      style: TextStyle(color: Color(0xFF1A0A5B))),
-                ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Close"))
               ],
             ),
           );
@@ -135,48 +164,30 @@ class _DroneRentalApprovalPageState extends State<DroneRentalApprovalPage>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Drone Rental Status',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text("Drone Rental Status", style: TextStyle(color: Colors.white)),
         backgroundColor: themeColor,
         iconTheme: const IconThemeData(color: Colors.white),
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.white,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
           tabs: const [
-            Tab(text: 'Approved'), // first
-            Tab(text: 'Pending'),  // second
-            Tab(text: 'Rejected'), // third
+            Tab(text: "Approved"),
+            Tab(text: "Pending"),
+            Tab(text: "Rejected"),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          buildListView('Approved'),
-          buildListView('Pending'),
-          buildListView('Rejected'),
+          buildStatusTab("getConfirmedDroneRentals", GET_APPROVED),
+          buildStatusTab("getPendingDroneRentals", GET_PENDING),
+          buildStatusTab("getCancelledDroneRentals", GET_REJECTED),
         ],
       ),
-    );
-  }
 
-  Widget buildListView(String status) {
-    var filtered = getFilteredRentals(status);
-    if (filtered.isEmpty) {
-      return const Center(
-        child: Text(
-          'No requests found',
-          style: TextStyle(fontSize: 16, color: Colors.grey),
-        ),
-      );
-    }
-    return ListView.builder(
-      itemCount: filtered.length,
-      itemBuilder: (context, index) => buildRentalCard(filtered[index]),
     );
   }
 }

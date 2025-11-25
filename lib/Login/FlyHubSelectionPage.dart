@@ -3,7 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flyhub/HomeScreen/Dynamichome.dart';
 import 'package:flyhub/Login/SellerLoginPage.dart';
-import 'package:flyhub/Login/LoginPage.dart';
+import 'package:flyhub/Login/BuyerLoginPage.dart';
 import 'package:flyhub/services/role_manager.dart';
 
 class FlyHubSelectionPage extends StatefulWidget {
@@ -136,7 +136,7 @@ class _FlyHubSelectionPageState extends State<FlyHubSelectionPage>
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => const LoginPage(),
+                builder: (_) => const BuyerLoginPage(),
               ),
             );
           },

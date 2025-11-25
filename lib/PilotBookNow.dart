@@ -50,7 +50,6 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
     await showTimePicker(context: context, initialTime: TimeOfDay.now());
     if (picked != null) setState(() => endTime = picked);
   }
-
   Future<void> _submitBooking() async {
     if (_formKey.currentState!.validate()) {
       if (selectedDate == null || startTime == null || endTime == null) {
@@ -67,33 +66,45 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
       final buyerName = user.displayName ?? "FlyHub User";
       final buyerEmail = user.email ?? "unknown@flyhub.com";
 
-      final bookingDate = DateFormat('yyyy-MM-dd').format(selectedDate!);
-      final pilotId = widget.pilot['pilotId'] ?? "";
+      final rentalDate = DateFormat('yyyy-MM-dd').format(selectedDate!);
+
+      final rentalStart = DateFormat('yyyy-MM-dd HH:mm').format(
+        DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day, startTime!.hour, startTime!.minute),
+      );
+
+      final rentalEnd = DateFormat('yyyy-MM-dd HH:mm').format(
+        DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day, endTime!.hour, endTime!.minute),
+      );
+
+      final pilotId = widget.pilot['pilotId'];
+      final price = widget.pilot['price']?['perHour'] ?? 1200;
 
       setState(() => isLoading = true);
       _showSnack("Booking your pilot...", isLoading: true);
 
-      final result = await _api.bookPilot(
+      final result = await _api.bookPilotRental(
         pilotId: pilotId,
-        buyerName: buyerName,
-        buyerEmail: buyerEmail,
-        contact: contactController.text.trim(),
+        name: buyerName,
+        email: buyerEmail,
+        phone: contactController.text.trim(),
         location: locationController.text.trim(),
-        date: bookingDate,
-        startTime: startTime!.format(context),
-        endTime: endTime!.format(context),
+        amount: price.toDouble(),
+        rentalDate: rentalDate,
+        startDate: rentalStart,
+        endDate: rentalEnd,
       );
 
       setState(() => isLoading = false);
 
-      if (result.status == "success") {
-        _showSnack(result.data['message'] ?? "Booking successful!");
+      if (result['status'] == "success") {
+        _showSnack("Pilot booked successfully!");
         Navigator.pop(context);
       } else {
-        _showSnack("Booking failed: ${result.message}", isError: true);
+        _showSnack("Booking failed: ${result['message']}", isError: true);
       }
     }
   }
+
 
   void _showSnack(String message, {bool isError = false, bool isLoading = false}) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();

@@ -24,13 +24,13 @@ export const sellerTypeDefs = gql`
     pickupAddresses: [String!]
     companyPan: String
     bankName: String
-
-    # Multi-device FCM support
+    createdAt: String
+    updatedAt: String
     fcmTokens: [String!]
     fcmToken: String
-
     Drones: [Drone!]
   }
+
 
   """
   🔄 Seller account status enum

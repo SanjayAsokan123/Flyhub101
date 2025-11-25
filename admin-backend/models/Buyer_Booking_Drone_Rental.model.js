@@ -3,10 +3,12 @@ import mongoose from "mongoose";
 const rentalSchema = new mongoose.Schema(
   {
     drone_rental_id: { type: String, unique: true, index: true },
+
     name: { type: String, required: true },
     email: { type: String, required: true },
     phone: { type: String, required: true },
     location: { type: String, required: true },
+
     amount: { type: Number, required: true },
 
     status: {
@@ -28,16 +30,21 @@ const rentalSchema = new mongoose.Schema(
       default: "pending",
     },
 
-    rentalId: { type: String, required: true }, // Link to rental drone listing
+    rentalId: { type: String, required: true }, // Link to seller rental listing
   },
   { timestamps: true }
 );
 
-// ✅ Auto-generate drone_rental_id like DR1, DR2, DR3...
+//
+// ------------------------------------------------------------
+// AUTO-GENERATE drone_rental_id (DR1, DR2, DR3...)
+// ------------------------------------------------------------
 rentalSchema.pre("save", async function (next) {
   if (this.drone_rental_id) return next();
 
-  const last = await this.constructor.findOne().sort({ drone_rental_id: -1 });
+  const last = await this.constructor
+    .findOne({ drone_rental_id: { $regex: /^DR\d+$/ } })
+    .sort({ drone_rental_id: -1 });
 
   if (last?.drone_rental_id) {
     const num = parseInt(last.drone_rental_id.replace("DR", ""), 10);
@@ -45,22 +52,29 @@ rentalSchema.pre("save", async function (next) {
   } else {
     this.drone_rental_id = "DR1";
   }
+
   next();
 });
 
-// Buyer_booking_Drone_rental.model.js
-rentalSchema.statics.aggregateWithDroneByRentalId = function (match = {}, sort = { createdAt: -1 }) {
+
+rentalSchema.statics.aggregateWithDroneByRentalId = function (
+  match = {},
+  sort = { createdAt: -1 }
+) {
   return this.aggregate([
     { $match: match },
+
     {
       $lookup: {
-        from: "rentals",                 // : correct collection name
+        from: "seller_dronerentals", // FINAL FIXED COLLECTION NAME
         localField: "rentalId",
         foreignField: "rentalId",
-        as: "rental"
-      }
+        as: "rental",
+      },
     },
-    { $unwind: { path: "$rental", preserveNullAndEmptyArrays: true } }, // : unwind the joined array
+
+    { $unwind: { path: "$rental", preserveNullAndEmptyArrays: true } },
+
     {
       $project: {
         drone_rental_id: 1,
@@ -75,21 +89,21 @@ rentalSchema.statics.aggregateWithDroneByRentalId = function (match = {}, sort =
         paymentStatus: 1,
         createdAt: 1,
         updatedAt: 1,
-        drone: {                         // : match GraphQL "drone" field
+
+        drone: {
           rentalId: "$rental.rentalId",
           name: "$rental.name",
           brand: "$rental.brand",
           location: "$rental.location",
-          pricePerHour: "$rental.pricePerHour", // : use $ field paths (number)
-          pricePerDay: "$rental.pricePerDay"    // : use $ field paths (number)
-        }
-      }
+          pricePerHour: "$rental.pricePerHour",
+          pricePerDay: "$rental.pricePerDay",
+        },
+      },
     },
-    { $sort: sort }
+
+    { $sort: sort },
   ]);
 };
 
-
-// ✅ Model Export
 const DroneRental = mongoose.model("DroneRental", rentalSchema);
 export default DroneRental;
