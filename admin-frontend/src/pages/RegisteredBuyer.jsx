@@ -56,13 +56,7 @@ function BuyersList() {
     fetchBuyers();
   }, []);
 
-  /* ===========================================================
-     ✅ FIXED DATE PARSING HANDLER
-     Works for:
-     - ISO date: "2025-01-12T10:20:30Z"
-     - UNIX seconds: 1763444345
-     - UNIX milliseconds: 1763444345000
-     =========================================================== */
+
   const parseDate = (value) => {
     if (!value) return null;
 

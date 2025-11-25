@@ -15,18 +15,12 @@ if (!admin.apps.length) {
     let credentials;
     const serviceAccountPath = process.env.FIREBASE_ADMIN_CREDENTIALS;
 
-    // -----------------------------------------
-    // 🔑 Option 1: Local JSON service account
-    // -----------------------------------------
     if (serviceAccountPath && fs.existsSync(serviceAccountPath)) {
       console.log(`🔑 Using Firebase Admin credentials from: ${serviceAccountPath}`);
       const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, "utf8"));
       credentials = admin.credential.cert(serviceAccount);
     }
 
-    // -----------------------------------------
-    // 🔑 Option 2: Environment variables (production)
-    // -----------------------------------------
     else if (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
       console.log("🌍 Using Firebase credentials from environment variables");
       credentials = admin.credential.cert({
@@ -63,8 +57,6 @@ if (!admin.apps.length) {
   firestore = admin.firestore();
 }
 
-// -----------------------------------------
-// ✅ EXPORTS
-// -----------------------------------------
+
 export { admin, app, bucket, auth, firestore };
 export default admin;

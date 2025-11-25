@@ -3,10 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../HomeScreen/Dynamichome.dart';
 import '../services/role_manager.dart';
+import '../services/graphql_client.dart';   // <-- GraphQL backend link
 
 class BuyerRegisterPage extends StatefulWidget {
   const BuyerRegisterPage({super.key});
@@ -37,48 +37,38 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
 
   static const Color themeColor = Color(0xFF1A0A5B);
 
-  // ---------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // SEND OTP
-  // ---------------------------------------------------------
+  // ---------------------------------------------------------------------------
   Future<void> _sendOtp() async {
-    final phoneRaw = _phone.text.trim();
-    if (phoneRaw.length != 10) {
-      _showSnack("Enter valid 10-digit phone number");
-      return;
+    final phone = _phone.text.trim();
+    if (phone.length != 10) {
+      return _showSnack("Enter valid 10-digit phone number");
     }
 
     setState(() => _sendingOtp = true);
 
-    final phone = "+91$phoneRaw";
-
     await FirebaseAuth.instance.verifyPhoneNumber(
-      phoneNumber: phone,
+      phoneNumber: "+91$phone",
       verificationCompleted: (PhoneAuthCredential credential) async {
-        final user = FirebaseAuth.instance.currentUser;
-        if (user == null) return;
-
         try {
-          await user.linkWithCredential(credential);
-        } on FirebaseAuthException catch (e) {
-          if (e.code == 'provider-already-linked') {
-            // OK
-          } else if (e.code == 'credential-already-in-use') {
-            _showSnack("Phone already used in another account");
-            return;
-          }
-        }
-
-        setState(() => _otpVerified = true);
+          await _auth.signInWithCredential(credential);
+          setState(() {
+            _otpVerified = true;
+            _otpSent = true;
+          });
+          _showSnack("Phone auto verified");
+        } catch (_) {}
       },
       verificationFailed: (FirebaseAuthException e) {
         _showSnack(e.message ?? "OTP failed");
       },
-      codeSent: (String id, int? _) {
+      codeSent: (id, _) {
         _verificationId = id;
         setState(() => _otpSent = true);
-        _showSnack("OTP sent to $phone");
+        _showSnack("OTP sent");
       },
-      codeAutoRetrievalTimeout: (String id) {
+      codeAutoRetrievalTimeout: (id) {
         _verificationId = id;
       },
     );
@@ -86,136 +76,116 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
     setState(() => _sendingOtp = false);
   }
 
-
-  // ---------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // VERIFY OTP
-  // ---------------------------------------------------------
+  // ---------------------------------------------------------------------------
   Future<void> _verifyOtp() async {
-    if (_verificationId == null) {
-      _showSnack("OTP was not sent");
-      return;
-    }
+    if (_verificationId == null) return _showSnack("OTP not sent");
+    if (_otp.text.trim().isEmpty) return _showSnack("Enter OTP");
 
     try {
-      final cred = PhoneAuthProvider.credential(
+      setState(() => _loading = true);
+
+      final credential = PhoneAuthProvider.credential(
         verificationId: _verificationId!,
         smsCode: _otp.text.trim(),
       );
 
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        _showSnack("User not logged in");
-        return;
-      }
+      final userCred = await _auth.signInWithCredential(credential);
+      final user = userCred.user;
+      if (user == null) throw Exception("OTP verification failed");
 
-      try {
-        await user.linkWithCredential(cred);
-      } on FirebaseAuthException catch (e) {
-        if (e.code == 'provider-already-linked') {
-          // already linked
-        } else if (e.code == 'credential-already-in-use') {
-          _showSnack("Phone already used by another account");
-          return;
-        }
-      }
+      // Store only uid → phone mapping
+      await _firestore
+          .collection("BuyerOtp")
+          .doc("phone_${_phone.text.trim()}")
+          .set({"uid": user.uid});
 
       setState(() => _otpVerified = true);
-      _showSnack("Phone Verified!");
-    } catch (e) {
+      _showSnack("Phone verified!");
+    } catch (_) {
       _showSnack("Invalid OTP");
+    } finally {
+      setState(() => _loading = false);
     }
   }
 
-  // ---------------------------------------------------------
-  // REGISTER BUYER (MULTI-ROLE SUPPORT)
-  // ---------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // REGISTER BUYER (Firebase + GraphQL Backend)
+  // ---------------------------------------------------------------------------
   Future<void> _registerBuyer() async {
     if (!_formKey.currentState!.validate()) return;
-    if (!_otpVerified) {
-      _showSnack("Please verify phone first.");
-      return;
+
+    if (!_otpVerified &&
+        (_auth.currentUser?.phoneNumber?.isEmpty ?? true)) {
+      return _showSnack("Please verify phone first");
     }
 
     setState(() => _loading = true);
 
     final email = _email.text.trim();
-    final pass = _password.text.trim();
+    final password = _password.text.trim();
     final phone = _phone.text.trim();
-    final first = _firstName.text.trim();
-    final last = _lastName.text.trim();
+    final name = "${_firstName.text.trim()} ${_lastName.text.trim()}";
 
     try {
-      // Check if email already exists (multi-role support)
-      final existing = await _firestore
-          .collection("buyers")
-          .where("email", isEqualTo: email)
-          .limit(1)
-          .get();
+      // 🔹 Ensure Firebase User exists
+      User? user = _auth.currentUser;
 
-      if (existing.docs.isNotEmpty) {
-        final doc = existing.docs.first;
-        final uid = doc.id;
-
-        final roles =
-        Map<String, dynamic>.from(doc.data()["roles"] ?? {});
-
-        roles["buyer"] = true;
-
-        await _firestore.collection("buyers").doc(uid).set({
-          "roles": roles,
-          "firstName": first,
-          "lastName": last,
-          "name": "$first $last",
-          "phone": phone,
-        }, SetOptions(merge: true));
-
-        await _firestore.collection("BuyerOtp").doc("phone_$phone").set({
-          "uid": uid,
-        });
-
-        await RoleManager.setLocalRole("BuyerOtp");
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
+      if (user == null) {
+        final cred = await _auth.createUserWithEmailAndPassword(
+          email: email,
+          password: password,
         );
-
-        _showSnack("Buyer role added to existing account!");
-        return;
+        user = cred.user;
       }
 
-      // New account
-      final cred = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: pass,
-      );
+      if (user == null) throw Exception("Firebase user creation failed");
 
-      final user = cred.user!;
       final uid = user.uid;
 
-      await _firestore.collection("buyers").doc(uid).set({
-        "email": email,
-        "phone": phone,
-        "firstName": first,
-        "lastName": last,
-        "name": "$first $last",
-        "roles": { "buyer": true, "seller": false },
-        "createdAt": FieldValue.serverTimestamp(),
-      });
+      // 🔹 Link Email & Password (if user initially signed in through OTP)
+      try {
+        await user.linkWithCredential(
+          EmailAuthProvider.credential(email: email, password: password),
+        );
+      } catch (_) {}
 
-      await _firestore.collection("buyers").doc("email_$email").set({
-        "uid": uid,
-      });
+      // -----------------------------------------------------------------------
+      // 🔥 CALL GRAPHQL BACKEND → backend creates buyer + buyerId
+      // -----------------------------------------------------------------------
+      final result = await GraphQLService.signupBuyer(
+        name: name,
+        email: email,
+        phone: phone,
+        password: password,
+        firebaseUid: uid,
+      );
 
-      await _firestore.collection("BuyerOtp").doc("phone_$phone").set({
-        "uid": uid,
-      });
+      final buyerId = result["buyerId"];
 
+      // -----------------------------------------------------------------------
+      // 🔥 STORE ONLY INDEX DOCS IN FIRESTORE (NOT FULL DATA)
+      // -----------------------------------------------------------------------
+      await _firestore
+          .collection("buyers")
+          .doc("email_${email.replaceAll('.', '_')}")
+          .set({"uid": uid, "buyerId": buyerId});
+
+      await _firestore
+          .collection("BuyerOtp")
+          .doc("phone_$phone")
+          .set({"uid": uid, "buyerId": buyerId});
+
+      // -----------------------------------------------------------------------
       await RoleManager.setLocalRole("buyer");
 
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
+        MaterialPageRoute(
+          builder: (_) => const Dynamichome(selectedIndex: 0),
+        ),
       );
 
       _showSnack("Buyer registered successfully!");
@@ -226,13 +196,13 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
     }
   }
 
-  // ---------------------------------------------------------
+  // ---------------------------------------------------------------------------
   void _showSnack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  // ---------------------------------------------------------
-
+  // ---------------------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -262,22 +232,33 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
               Row(
                 children: [
                   Expanded(
-                      child: _input(
-                          _phone, "Phone Number", Icons.phone_android,
-                          isPhone: true)),
+                    child: _input(
+                      _phone,
+                      "Phone Number",
+                      Icons.phone_android,
+                      isPhone: true,
+                    ),
+                  ),
                   const SizedBox(width: 10),
+
                   (!_otpSent)
                       ? ElevatedButton(
-                      onPressed: _sendingOtp ? null : _sendOtp,
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: themeColor),
-                      child: const Text("Send OTP"))
-                      : ElevatedButton(
-                    onPressed: _otpVerified ? null : _verifyOtp,
+                    onPressed:
+                    _sendingOtp ? null : _sendOtp,
                     style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                        _otpVerified ? Colors.green : themeColor),
-                    child: Text(_otpVerified ? "Verified" : "Verify"),
+                        backgroundColor: themeColor),
+                    child: const Text("Send OTP"),
+                  )
+                      : ElevatedButton(
+                    onPressed:
+                    _otpVerified ? null : _verifyOtp,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _otpVerified
+                          ? Colors.green
+                          : themeColor,
+                    ),
+                    child: Text(
+                        _otpVerified ? "Verified" : "Verify"),
                   ),
                 ],
               ),
@@ -287,8 +268,9 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
                 TextField(
                   controller: _otp,
                   decoration: const InputDecoration(
-                      labelText: "Enter OTP",
-                      border: OutlineInputBorder()),
+                    labelText: "Enter OTP",
+                    border: OutlineInputBorder(),
+                  ),
                 ),
               ],
 
@@ -297,14 +279,20 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
               _loading
                   ? const CircularProgressIndicator()
                   : ElevatedButton(
-                  onPressed: _registerBuyer,
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: themeColor,
-                      minimumSize: const Size(double.infinity, 50)),
-                  child: const Text("Register as Buyer",
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold))),
+                onPressed: _registerBuyer,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: themeColor,
+                  minimumSize:
+                  const Size(double.infinity, 50),
+                ),
+                child: const Text(
+                  "Register as Buyer",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -312,7 +300,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
     );
   }
 
-  // ---------------------------------------------------------
+  // ---------------------------------------------------------------------------
   Widget _input(TextEditingController c, String label, IconData icon,
       {bool isPassword = false, bool isPhone = false}) {
     return TextFormField(
@@ -324,7 +312,9 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, color: themeColor),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
       ),
     );
   }

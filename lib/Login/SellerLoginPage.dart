@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
-
 import '../../HomeScreen/Dynamichome.dart';
 import '../../services/role_manager.dart';
+import '../config/env.dart';
 import './SellerRegisterPage.dart';
+
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class SellerLoginPage extends StatefulWidget {
   const SellerLoginPage({super.key});
@@ -19,108 +21,148 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
   final TextEditingController password = TextEditingController();
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   bool loading = false;
   bool showPassword = false;
-  String? error;
 
   static const Color themeColor = Color(0xFF1A0A5B);
 
-  // -------------------------------------------------------------------
-  // 🔥 SELLER LOGIN METHOD
-  // Supports: email / phone / sellerId
-  // -------------------------------------------------------------------
-  Future<void> sellerLogin() async {
-    final inputVal = input.text.trim();
-    final pass = password.text.trim();
+  // -------------------------------------------------------------
+  // 🔥 GRAPHQL → Check seller status ONLY from MongoDB
+  // -------------------------------------------------------------
+  Future<Map<String, dynamic>?> fetchSellerFromAPI(String value) async {
+    final String url = EnvConfig.baseUrl; // TODO: replace
 
-    if (inputVal.isEmpty || pass.isEmpty) {
-      showMessage("Enter credentials");
+    final query = """
+      query SellerByEmail(\$email: String, \$username: String, \$phone: String, \$customId: String) {
+        sellerByEmail(email: \$email, username: \$username, phone: \$phone, customId: \$customId) {
+          customId
+          email
+          phoneNumber
+          status
+        }
+      }
+    """;
+
+    final variables = {
+      "email": value.contains("@") ? value : null,
+      "phone": value.length >= 8 ? value : null,
+      "username": null,
+      "customId": value,
+    };
+
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"query": query, "variables": variables}),
+    );
+
+    final body = jsonDecode(response.body);
+    return body["data"]?["sellerByEmail"];
+  }
+
+  // -------------------------------------------------------------
+  // 🔐 SELLER LOGIN
+  // -------------------------------------------------------------
+  Future<void> sellerLogin() async {
+    final enteredInput = input.text.trim();
+    final enteredPass = password.text.trim();
+
+    if (enteredInput.isEmpty || enteredPass.isEmpty) {
+      showMessage("Please enter login details");
       return;
     }
 
     setState(() => loading = true);
 
     try {
-      DocumentSnapshot? indexDoc;
+      // -----------------------------------------------------
+      // 1️⃣ CHECK SELLER IN MONGODB (GraphQL)
+      // -----------------------------------------------------
+      final seller = await fetchSellerFromAPI(enteredInput);
 
-      // 1) Email login
-      indexDoc = await _firestore.collection("loginIndex")
-          .doc("email_$inputVal")
-          .get();
-
-      // 2) Phone login
-      if (!indexDoc.exists) {
-        indexDoc = await _firestore.collection("loginIndex")
-            .doc("phone_$inputVal")
-            .get();
-      }
-
-      // 3) Seller ID login
-      if (!indexDoc.exists) {
-        indexDoc = await _firestore.collection("loginIndex")
-            .doc("sellerId_$inputVal")
-            .get();
-      }
-
-      if (!indexDoc.exists) {
-        showMessage("User not found");
+      if (seller == null) {
+        showMessage("No seller found");
         return;
       }
 
-      final uid = indexDoc["uid"];
+      final String customId = seller["customId"] ?? "";
+      final String email = seller["email"] ?? "";
+      final String status = seller["status"] ?? "pending";
 
-      // Fetch users/{uid}
-      final userDoc = await _firestore.collection("users").doc(uid).get();
-      if (!userDoc.exists) {
-        showMessage("User record missing");
+      // -----------------------------------------------------
+      // 2️⃣ STATUS CHECK (MongoDB decides, NOT Firebase!)
+      // -----------------------------------------------------
+      if (status == "pending") {
+        showMessage("Seller account is pending approval");
         return;
       }
 
-      final data = userDoc.data()!;
-      final email = data["email"];
-
-      Map<String, dynamic> roles =
-      Map<String, dynamic>.from(data["roles"] ?? {});
-
-      if (roles["seller"] != true) {
-        showMessage("Not a seller account");
+      if (status == "rejected") {
+        showMessage("Seller account is rejected");
         return;
       }
 
-      // Firebase login
-      await _auth.signInWithEmailAndPassword(email: email, password: pass);
+      if (status != "approved") {
+        showMessage("Invalid status: $status");
+        return;
+      }
 
-      // Save role locally
+      if (email.isEmpty) {
+        showMessage("Account has no email. Contact support.");
+        return;
+      }
+
+      // -----------------------------------------------------
+      // 3️⃣ LOGIN USING FIREBASE EMAIL/PASSWORD
+      // -----------------------------------------------------
+      await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: enteredPass,
+      );
+
+      // -----------------------------------------------------
+      // 4️⃣ SAVE ROLE
+      // -----------------------------------------------------
       await RoleManager.setLocalRole("seller");
 
-      showMessage("Login successful");
+      showMessage("Login Successful!");
 
+      // -----------------------------------------------------
+      // 5️⃣ NAVIGATE
+      // -----------------------------------------------------
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 3)),
+        MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
       );
 
     } catch (e) {
-      showMessage("Login failed: $e");
+      debugPrint("Login error: $e");
+      showMessage("Login failed: ${_friendlyError(e)}");
     } finally {
       setState(() => loading = false);
     }
   }
 
-  // -------------------------------------------------------------------
+  String _friendlyError(Object e) {
+    final s = e.toString();
+    if (s.contains("wrong-password")) return "Incorrect password";
+    if (s.contains("user-not-found")) return "User not found";
+    return s;
+  }
+
+  // -------------------------------------------------------------
   // UI
-  // -------------------------------------------------------------------
+  // -------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
-    final w = MediaQuery.of(context).size.width;
+    final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(
         child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(horizontal: w * 0.08),
+          padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.08),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -133,19 +175,24 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
                   color: themeColor,
                 ),
               ),
+
               const SizedBox(height: 20),
 
+              // INPUT
               TextField(
                 controller: input,
                 decoration: InputDecoration(
                   labelText: "Email / Phone / Seller ID",
                   prefixIcon: const Icon(Icons.person),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
+
               const SizedBox(height: 15),
 
+              // PASSWORD
               TextField(
                 controller: password,
                 obscureText: !showPassword,
@@ -154,30 +201,23 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
                   prefixIcon: const Icon(Icons.lock),
                   suffixIcon: IconButton(
                     icon: Icon(
-                        showPassword ? Icons.visibility : Icons.visibility_off,
-                        color: themeColor),
+                      showPassword ? Icons.visibility : Icons.visibility_off,
+                      color: themeColor,
+                    ),
                     onPressed: () {
                       setState(() => showPassword = !showPassword);
                     },
                   ),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
-
-              if (error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Text(error!,
-                      style: const TextStyle(color: Colors.red, fontSize: 14)),
-                ),
 
               const SizedBox(height: 20),
 
               loading
-                  ? const Center(
-                child: CircularProgressIndicator(color: themeColor),
-              )
+                  ? const Center(child: CircularProgressIndicator())
                   : ElevatedButton(
                 onPressed: sellerLogin,
                 style: ElevatedButton.styleFrom(
@@ -200,7 +240,8 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => const SellerRegisterPage()),
+                      builder: (_) => const SellerRegisterPage(),
+                    ),
                   );
                 },
                 child: Text(
@@ -219,8 +260,8 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
     );
   }
 
-  // -------------------------------------------------------------------
   void showMessage(String msg) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(msg)));
   }

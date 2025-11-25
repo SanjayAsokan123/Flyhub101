@@ -1,12 +1,13 @@
 // lib/views/auth/BuyerLoginPage.dart
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../HomeScreen/Dynamichome.dart';
 import '../../services/role_manager.dart';
+import '../../services/graphql_client.dart';
 import './BuyerRegisterPage.dart';
 import './forgot_password_page.dart';
 
@@ -31,14 +32,14 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
 
   static const Color themeColor = Color(0xFF1A0A5B);
 
-  // ----------------------------------------------------------------------
-  // BUYER LOGIN WITH ROLE CHECK
-  // ----------------------------------------------------------------------
+  // ===========================================================================
+  // 🔥 LOGIN USER FLOW
+  // ===========================================================================
   Future<void> _loginUser() async {
     final input = _inputController.text.trim();
-    final pass = _passwordController.text.trim();
+    final password = _passwordController.text.trim();
 
-    if (input.isEmpty || pass.isEmpty) {
+    if (input.isEmpty || password.isEmpty) {
       setState(() => _errorMessage = "Please enter both credentials.");
       return;
     }
@@ -49,53 +50,69 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
     });
 
     try {
-      String emailToUse = input;
-
-      // If not email → resolve via loginIndex
+      // ==========================================================
+      // 1️⃣ Resolve email → User may enter Phone or BuyerID
+      // ==========================================================
+      String email = input;
       if (!_looksLikeEmail(input)) {
-        emailToUse = await _resolveEmail(input);
+        email = await _resolveEmail(input);
       }
 
-      // LOGIN
-      final cred = await _auth.signInWithEmailAndPassword(
-        email: emailToUse,
-        password: pass,
+      // ==========================================================
+      // 2️⃣ Firebase email & password login
+      // ==========================================================
+      final cred =
+      await _auth.signInWithEmailAndPassword(email: email, password: password);
+      final firebaseUser = cred.user;
+
+      if (firebaseUser == null) throw Exception("Login failed (firebase).");
+
+      // ==========================================================
+      // 3️⃣ BACKEND LOGIN → Get buyerId (FLYHUBBxxxx)
+      // ==========================================================
+      final backendUser = await GraphQLService.loginBuyer(
+        input: input,
+        password: password,
       );
 
-      final user = cred.user;
-      if (user == null) throw Exception("Login failed");
+      final buyerId = backendUser["buyerId"];
+      if (buyerId == null) throw Exception("Backend did not return buyer ID.");
 
-      // Fetch Firestore user doc
-      final snap = await _firestore.collection("users").doc(user.uid).get();
-      if (!snap.exists) throw Exception("No user record found");
+      // ==========================================================
+      // 4️⃣ Fetch Firestore buyer document
+      // buyers / FLYHUBB0001
+      // ==========================================================
+      final buyerSnap =
+      await _firestore.collection("buyers").doc(buyerId).get();
 
-      final data = snap.data()!;
-      final roles = Map<String, dynamic>.from(data["roles"] ?? {});
-
-      // ------------------------------------------------------------------
-      // ROLE VALIDATION
-      // ------------------------------------------------------------------
-
-      if (roles["seller"] == true && roles["buyer"] != true) {
-        // ❌ Seller-only → block this page
-        throw Exception(
-          "This email belongs to a seller account.\nPlease use Seller Login.",
-        );
+      if (!buyerSnap.exists) {
+        throw Exception("Buyer record missing in Firestore (ID: $buyerId)");
       }
 
-      // Buyer OR Buyer+Seller allowed
+      final roles = buyerSnap.data()?["roles"] ?? {};
+      if (roles["buyer"] != true) {
+        throw Exception("This account is not registered as a buyer.");
+      }
+
+      // ==========================================================
+      // 5️⃣ Save local role
+      // ==========================================================
       await RoleManager.setLocalRole("buyer");
 
+      // ==========================================================
+      // 6️⃣ Navigate to dashboard
+      // ==========================================================
       if (!mounted) return;
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
+        MaterialPageRoute(
+          builder: (_) => const Dynamichome(selectedIndex: 0),
+        ),
       );
 
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text("Welcome back!")));
-
     } on FirebaseAuthException catch (e) {
       setState(() => _errorMessage = _friendlyAuthMessage(e.code));
     } catch (e) {
@@ -105,54 +122,52 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
     }
   }
 
-  // ----------------------------------------------------------------------
-  // Resolve email using loginIndex or users collection
-  // ----------------------------------------------------------------------
+  // ===========================================================================
+  // 🔍 Resolve Email using Firestore lookups
+  // ===========================================================================
   Future<String> _resolveEmail(String input) async {
-    DocumentSnapshot? indexDoc;
+    DocumentSnapshot? doc;
 
-    // phone
+    // 🔹 1. Phone lookup
     final phoneDoc =
     await _firestore.collection("BuyerOtp").doc("phone_$input").get();
-    if (phoneDoc.exists) indexDoc = phoneDoc;
+    if (phoneDoc.exists) doc = phoneDoc;
 
-    // email-as-id
-    final emailDoc =
-    await _firestore.collection("buyers").doc("email_$input").get();
-    if (emailDoc.exists) indexDoc = emailDoc;
+    // 🔹 2. Email-index lookup
+    final emailDoc = await _firestore
+        .collection("buyers")
+        .doc("email_${input.replaceAll('.', '_')}")
+        .get();
+    if (emailDoc.exists) doc = emailDoc;
 
-    // sellerId (but cannot login seller here)
-    final idDoc =
-    await _firestore.collection("buyers").doc("sellerId_$input").get();
-    if (idDoc.exists) indexDoc = idDoc;
+    // 🔹 3. BuyerID lookup (FLYHUBBxxxx)
+    final buyerDoc =
+    await _firestore.collection("buyers").doc(input).get();
+    if (buyerDoc.exists) doc = buyerDoc;
 
-    if (indexDoc == null || !indexDoc.exists) {
-      throw Exception("No account found for this email / phone / ID");
+    if (doc == null || !doc.exists) {
+      throw Exception("No account found for this Email / Phone / Buyer ID.");
     }
 
-    final uid = indexDoc["uid"];
+    final uid = doc["uid"];
 
-    return await _getEmailForUid(uid);
-  }
+    // ===== Fetch actual email by UID =====
+    final snap = await _firestore
+        .collection("buyers")
+        .where("uid", isEqualTo: uid)
+        .limit(1)
+        .get();
 
-  // ----------------------------------------------------------------------
-  // Fetch email using users/{uid}
-  // ----------------------------------------------------------------------
-  Future<String> _getEmailForUid(String uid) async {
-    final snap = await _firestore.collection("buyers").doc(uid).get();
-
-    if (snap.exists &&
-        snap.data() != null &&
-        snap.data()!.containsKey("email")) {
-      return snap.data()!["email"];
+    if (snap.docs.isNotEmpty && snap.docs.first.data().containsKey("email")) {
+      return snap.docs.first.data()["email"];
     }
 
-    throw Exception("Unable to resolve email for this account.");
+    throw Exception("Email lookup failed.");
   }
 
-  // ----------------------------------------------------------------------
-  // Google Sign-In (Buyer only)
-  // ----------------------------------------------------------------------
+  // ===========================================================================
+  // 🔵 Google Sign-in → Buyer only
+  // ===========================================================================
   Future<void> _signInWithGoogle() async {
     try {
       setState(() => _isLoading = true);
@@ -167,20 +182,25 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
         idToken: googleAuth.idToken,
       );
 
-      final cred = await _auth.signInWithCredential(credential);
-      final user = cred.user;
-      if (user == null) throw Exception("Google login failed");
+      final userCred = await _auth.signInWithCredential(credential);
+      final user = userCred.user;
 
-      // Upsert Firestore record
-      await _firestore.collection("buyers").doc(user.uid).set({
-        "name": user.displayName ?? "",
-        "email": user.email ?? "",
-        "roles": { "buyer": true }, // buyer only
+      if (user == null) throw Exception("Google login failed.");
+
+      final email = user.email ?? "";
+      final name = user.displayName ?? "";
+
+      // 🔹 Write minimal Firestore buyer doc
+      await _firestore.collection("buyers").doc(email).set({
+        "email": email,
+        "name": name,
+        "roles": {"buyer": true},
         "signInMethod": "google",
+        "uid": user.uid,
         "updatedAt": FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      await RoleManager.setLocalRole("buyers");
+      await RoleManager.setLocalRole("buyer");
 
       if (!mounted) return;
 
@@ -188,25 +208,22 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
         context,
         MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
       );
-
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("Logged in with Google")));
-
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Google sign-in failed: $e")));
+      _showSnack("Google sign-in failed: $e");
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
+  // ===========================================================================
   // Helpers
+  // ===========================================================================
   bool _looksLikeEmail(String v) => v.contains("@");
 
   String _friendlyAuthMessage(String code) {
     switch (code) {
       case "user-not-found":
-        return "No account found.";
+        return "No buyer found.";
       case "wrong-password":
         return "Incorrect password.";
       case "invalid-email":
@@ -216,9 +233,14 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
     }
   }
 
-  // ----------------------------------------------------------------------
+  void _showSnack(String msg) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  // ===========================================================================
   // UI
-  // ----------------------------------------------------------------------
+  // ===========================================================================
   @override
   Widget build(BuildContext context) {
     final h = MediaQuery.of(context).size.height;
@@ -232,30 +254,28 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
             children: [
               SizedBox(height: h * 0.07),
               Text("Welcome Back",
-                  style: GoogleFonts.lexend(
+                  style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
                       color: themeColor)),
               const SizedBox(height: 10),
-
               Text("Login to explore FlyHub marketplace",
-                  style: GoogleFonts.lexend(
-                      fontSize: 14, color: Colors.grey.shade600)),
+                  style:
+                  TextStyle(fontSize: 14, color: Colors.grey.shade600)),
               const SizedBox(height: 40),
 
-              // Input
               TextField(
                 controller: _inputController,
                 decoration: InputDecoration(
-                  hintText: "Email / Phone / Seller ID",
+                  hintText: "Email / Phone / Buyer ID",
                   prefixIcon: const Icon(Icons.person_outline),
-                  border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
+
               const SizedBox(height: 15),
 
-              // Password
               TextField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
@@ -269,8 +289,8 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
                     onPressed: () =>
                         setState(() => _obscurePassword = !_obscurePassword),
                   ),
-                  border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
 
@@ -280,8 +300,7 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const ForgotPasswordPage(),
-                    ),
+                        builder: (_) => const ForgotPasswordPage()),
                   ),
                   child: const Text("Forgot Password?",
                       style: TextStyle(color: themeColor)),
@@ -298,14 +317,14 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
 
               const SizedBox(height: 10),
 
-              // LOGIN BUTTON
               _isLoading
-                  ? const CircularProgressIndicator(color: themeColor)
+                  ? const CircularProgressIndicator()
                   : ElevatedButton(
                 onPressed: _loginUser,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: themeColor,
-                  minimumSize: const Size(double.infinity, 50),
+                  minimumSize:
+                  const Size(double.infinity, 50),
                 ),
                 child: const Text("Login",
                     style: TextStyle(
@@ -324,38 +343,42 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
                 ),
                 Expanded(child: Divider()),
               ]),
+
               const SizedBox(height: 20),
 
-              // GOOGLE LOGIN
               ElevatedButton.icon(
                 onPressed: _signInWithGoogle,
-                icon: Image.asset('assets/google_logo.png', height: 24),
+                icon:
+                Image.asset('assets/google_logo.png', height: 24),
                 label: const Text("Continue with Google",
                     style: TextStyle(color: Colors.black)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 50),
+                  minimumSize:
+                  const Size(double.infinity, 50),
                   side: const BorderSide(color: Colors.grey),
                 ),
               ),
 
               const SizedBox(height: 25),
 
-              // Register
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                const Text("New user? "),
-                GestureDetector(
-                  onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const BuyerRegisterPage())),
-                  child: const Text(
-                    "Register here",
-                    style: TextStyle(
-                        color: themeColor, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ]),
+              Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("New user? "),
+                    GestureDetector(
+                      onTap: () =>
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) =>
+                                  const BuyerRegisterPage())),
+                      child: const Text("Register here",
+                          style: TextStyle(
+                              color: themeColor,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                  ]),
 
               SizedBox(height: h * 0.05),
             ],

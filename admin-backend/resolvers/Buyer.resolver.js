@@ -6,14 +6,9 @@ import { createSellerNotification } from "../utils/createSellerNotification.js";
 import { auth } from "../config/firebaseAdmin.js";
 import { createLoginIndex, findLoginIndex } from "../utils/loginIndex.js";
 
-/**
- * BUYER GraphQL RESOLVERS (UPDATED)
- */
+
 
 export const buyerResolvers = {
-  // ============================================================
-  // 📊 QUERIES
-  // ============================================================
   Query: {
     buyers: async () => await Buyer.find().sort({ createdAt: -1 }),
 
@@ -24,13 +19,7 @@ export const buyerResolvers = {
     },
   },
 
-  // ============================================================
-  // ⚙ MUTATIONS
-  // ============================================================
   Mutation: {
-    // ------------------------------------------------------------
-    // 🟢 BUYER SIGNUP
-    // ------------------------------------------------------------
     signupBuyer: async (
       _,
       { name, email, phone, password, firebaseUid },
@@ -141,9 +130,6 @@ export const buyerResolvers = {
       }
     },
 
-    // ------------------------------------------------------------
-    // 🔵 OTP LOGIN
-    // ------------------------------------------------------------
     loginBuyerOtp: async (_, { firebaseUid }) => {
       try {
         const buyer = await Buyer.findOne({ firebaseUid });
@@ -172,9 +158,6 @@ export const buyerResolvers = {
       }
     },
 
-    // ------------------------------------------------------------
-    // ✏ UPDATE BUYER
-    // ------------------------------------------------------------
     updateBuyer: async (_, { buyerId, name, email, phone, password }) => {
       try {
         const data = {};
@@ -196,9 +179,6 @@ export const buyerResolvers = {
       }
     },
 
-    // ------------------------------------------------------------
-    // 🗑 DELETE BUYER
-    // ------------------------------------------------------------
     deleteBuyer: async (_, { buyerId }, { pubsub }) => {
       try {
         const deleted = await Buyer.findByIdAndDelete(buyerId);

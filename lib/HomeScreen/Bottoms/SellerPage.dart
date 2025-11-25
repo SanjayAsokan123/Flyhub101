@@ -1,41 +1,35 @@
-import 'dart:io';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
-// Core pages
-import '../../HomeScreen/Dynamichome.dart';
-import '../../HomeScreen/Bottoms/BuyerProfilePage.dart';
-import '../../HomeScreen/Bottoms/GuestProfilePage.dart';
-import '../../config/env.dart';
-import '../../services/role_manager.dart';
-
-// Product Status Pages
-import '../../Sold_Product_Page.dart';
-import '../../Rejected_Products_Page.dart';
-import '../../Pending_Products_Page.dart';
-import '../../Approval_Products_Page.dart';
-import '../../Return_Product_Page.dart';
-
-// Add Product Pages
-import '../../AddDrone.dart';
-import '../../add_spare_parts.dart';
-import '../../add_accessories_form.dart';
-import '../../add_service_form.dart';
-import '../../add_hire_pilots_form.dart';
-import '../../add_drone_rental_form.dart';
-import '../../add_job_form.dart';
-
-// Rental pages
-import '../../Seller_Drone_Rental_Page.dart';
-import '../../Seller_Pilot_Rental_Page.dart';
-
+import 'package:flutter/material.dart';
 // Settings Pages
 import 'package:flyhub/Help_Support_Page.dart';
 import 'package:flyhub/PrivacyPolicy.dart';
 import 'package:flyhub/Terms_Conditions.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+
+// Add Product Pages
+import '../../AddDrone.dart';
+import '../../Approval_Products_Page.dart';
+import '../../HomeScreen/Bottoms/BuyerProfilePage.dart';
+// import '../../HomeScreen/Bottoms/GuestProfilePage.dart';
+import '../../Login/SellerLoginPage.dart';
+import '../../Login/splashscreen.dart';
+import '../../Pending_Products_Page.dart';
+import '../../Rejected_Products_Page.dart';
+import '../../Return_Product_Page.dart';
+// Rental pages
+import '../../Seller_Drone_Rental_Page.dart';
+import '../../Seller_Pilot_Rental_Page.dart';
+// Product Status Pages
+import '../../Sold_Product_Page.dart';
+import '../../add_accessories_form.dart';
+import '../../add_drone_rental_form.dart';
+import '../../add_hire_pilots_form.dart';
+import '../../add_job_form.dart';
+import '../../add_service_form.dart';
+import '../../add_spare_parts.dart';
+import '../../config/env.dart';
 import '../../feedback_form.dart';
+import '../../services/role_manager.dart';
 
 class SellerPage extends StatefulWidget {
   const SellerPage({super.key});
@@ -72,7 +66,7 @@ class _SellerPageState extends State<SellerPage> {
 
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const GuestProfilePage()),
+          MaterialPageRoute(builder: (_) => const Splashscreen()),
         );
         return;
       }
@@ -80,7 +74,7 @@ class _SellerPageState extends State<SellerPage> {
       await RoleManager.setLocalRole("seller");
       await _fetchOrCreateSeller(
         _user!.email ?? "",
-        _user!.displayName ?? "Seller",
+        _user!.displayName ?? "",
       );
     } catch (e) {
       debugPrint("❌ SellerPage init error: $e");
@@ -103,6 +97,7 @@ class _SellerPageState extends State<SellerPage> {
           companyName
           email
           address
+          status
         }
       }
       ''';
@@ -127,6 +122,7 @@ class _SellerPageState extends State<SellerPage> {
           customId
           companyName
           email
+          status
         }
       }
       ''';
@@ -137,18 +133,18 @@ class _SellerPageState extends State<SellerPage> {
           variables: {
             'input': {
               'name': name,
-              'companyName': 'My Drone Store',
-              'PANnumber': 'AUTO1234F',
-              'gstNumber': '',
+              'companyName': 'Nil',
+              'PANnumber': 'Nil',
+              'gstNumber': 'Unknown GST',
               'address': 'Unknown Address',
               'authorized': name,
               'email': email,
               'phoneNumber': 'N/A',
               'shippingAddresses': ['Unknown Address'],
               'pickupAddresses': ['Unknown Address'],
-              'companyPan': 'AUTO1234F',
-              'bankAccountNumber': '0000000000',
-              'bankIFCnumber': 'AUTOIFSC1234',
+              'companyPan': 'Unknown Pan',
+              'bankAccountNumber': 'Unknown Bank Account',
+              'bankIFCnumber': 'Unknown BankIFC',
               'bankName': 'Unknown',
             },
           },
@@ -167,14 +163,109 @@ class _SellerPageState extends State<SellerPage> {
     }
   }
 
-  Future<void> _switchToBuyer() async {
-    await RoleManager.updateRole("buyer");
-    if (!mounted) return;
+  bool get _isApproved {
+    final status = _sellerData?['status'] ?? "";
+    return status.toLowerCase() == "approved";
+  }
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const BuyerProfilePage()),
-    );
+  Future<void> _switchToBuyer() async {
+    try {
+      // Update role to buyer
+      await RoleManager.updateRole("buyer");
+      if (!mounted) return;
+
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(color: themeColor),
+        ),
+      );
+
+      // Create GraphQL client
+      final client = GraphQLClient(
+        link: HttpLink(graphqlUrl),
+        cache: GraphQLCache(),
+      );
+
+      // Check if buyer exists with this email
+      const String query = r'''
+      query BuyerByEmail($email: String!) {
+        buyerByEmail(email: $email) {
+          customId
+          name
+          email
+        }
+      }
+      ''';
+
+      final result = await client.query(
+        QueryOptions(
+          document: gql(query),
+          variables: {'email': _user?.email ?? ""},
+        ),
+      );
+
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      final buyer = result.data?['buyerByEmail'];
+
+      if (buyer != null) {
+        // Buyer exists, go directly to Buyer Profile Page
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const BuyerProfilePage()),
+        );
+      } else {
+        // Buyer doesn't exist, need to verify/login as buyer first
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const SellerLoginPage()),
+        );
+
+        // Show message after navigation
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Please verify as a buyer to continue"),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint("❌ Switch to Buyer Error: $e");
+
+      // Close loading dialog if open
+      if (mounted) Navigator.pop(context);
+
+      // On error, send to login page for safety
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const SellerLoginPage()),
+      );
+
+      // Show error message
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content:
+              Text("Error switching to buyer mode. Please login again."),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      });
+    }
   }
 
   Future<void> _logout() async {
@@ -184,7 +275,7 @@ class _SellerPageState extends State<SellerPage> {
 
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
+      MaterialPageRoute(builder: (_) => const SellerLoginPage()),
           (route) => false,
     );
   }
@@ -195,45 +286,172 @@ class _SellerPageState extends State<SellerPage> {
     );
   }
 
+  void _showNotApprovedDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.lock, color: themeColor),
+            const SizedBox(width: 10),
+            const Text("Account Not Verified"),
+          ],
+        ),
+        content: const Text(
+          "After verifying your details, we will send your ID and email. "
+              "My Store and Product Status sections will be enabled once approved.",
+          style: TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("OK", style: TextStyle(color: themeColor)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHeader() {
     final name = _sellerData?['companyName'] ?? "Seller";
     final email = _sellerData?['email'] ?? "No email";
+    final status = _sellerData?['status'] ?? "";
+    final customId = _sellerData?['customId'] ?? "";
 
     return Column(
       children: [
-        CircleAvatar(
-          radius: 45,
-          backgroundColor: themeColor,
-          child: Text(
-            name[0].toUpperCase(),
-            style: const TextStyle(color: Colors.white, fontSize: 24),
-          ),
+        Stack(
+          children: [
+            CircleAvatar(
+              radius: 45,
+              backgroundColor: themeColor,
+              child: Text(
+                name[0].toUpperCase(),
+                style: const TextStyle(color: Colors.white, fontSize: 24),
+              ),
+            ),
+            if (!_isApproved)
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.orange,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  child: const Icon(Icons.lock, color: Colors.white, size: 16),
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 12),
         Text(name,
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         Text(email, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+
+        // Show customId only when status is "approved"
+        if (_isApproved) ...[
+          const SizedBox(height: 5),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: themeColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: themeColor.withOpacity(0.3)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.verified, color: themeColor, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  "ID: $customId",
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: themeColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ] else ...[
+          const SizedBox(height: 5),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.pending, color: Colors.orange, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  status.isEmpty
+                      ? "Pending Verification"
+                      : status.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.orange,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+
         const SizedBox(height: 15),
       ],
     );
   }
 
-  Widget _buildTile(String label, IconData icon, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon, color: themeColor),
-      title: Text(label),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-      onTap: onTap,
+  Widget _buildTile(String label, IconData icon, VoidCallback onTap,
+      {bool locked = false}) {
+    return Opacity(
+      opacity: locked ? 0.5 : 1.0,
+      child: ListTile(
+        leading: Icon(icon, color: locked ? Colors.grey : themeColor),
+        title: Row(
+          children: [
+            Text(label,
+                style: TextStyle(color: locked ? Colors.grey : Colors.black)),
+            if (locked) ...[
+              const SizedBox(width: 8),
+              const Icon(Icons.lock, size: 14, color: Colors.grey),
+            ],
+          ],
+        ),
+        trailing: Icon(Icons.arrow_forward_ios,
+            size: 14, color: locked ? Colors.grey : null),
+        onTap: locked ? _showNotApprovedDialog : onTap,
+      ),
     );
   }
 
-  Widget _buildSection(String title) {
+  Widget _buildSection(String title, {bool locked = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Text(
-        title,
-        style: const TextStyle(
-            fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: locked ? Colors.grey : Colors.black,
+            ),
+          ),
+          if (locked) ...[
+            const SizedBox(width: 8),
+            const Icon(Icons.lock, size: 18, color: Colors.grey),
+          ],
+        ],
       ),
     );
   }
@@ -278,14 +496,41 @@ class _SellerPageState extends State<SellerPage> {
           ),
         ],
       ),
-
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(vertical: 15),
         child: Column(
           children: [
             _buildHeader(),
 
-            _buildSection("My Store"),
+            // Show warning banner if not approved
+            if (!_isApproved) ...[
+              Container(
+                margin:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline,
+                        color: Colors.orange, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        "Your account is pending verification. My Store and Product Status will be enabled after approval.",
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.orange.shade800),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            _buildSection("My Store", locked: !_isApproved),
 
             _buildTile("Add Drone for Sale", Icons.airplanemode_active, () {
               _sellerId == null
@@ -295,7 +540,7 @@ class _SellerPageState extends State<SellerPage> {
                 MaterialPageRoute(
                     builder: (_) => AddDronePage(sellerId: _sellerId!)),
               );
-            }),
+            }, locked: !_isApproved),
 
             _buildTile("Add Spare Parts", Icons.build, () {
               _sellerId == null
@@ -306,7 +551,7 @@ class _SellerPageState extends State<SellerPage> {
                     builder: (_) =>
                         AddSparePartForm(sellerId: _sellerId!)),
               );
-            }),
+            }, locked: !_isApproved),
 
             _buildTile("Add Accessories", Icons.memory, () {
               _sellerId == null
@@ -317,7 +562,7 @@ class _SellerPageState extends State<SellerPage> {
                     builder: (_) =>
                         AddAccessoryForm(sellerId: _sellerId!)),
               );
-            }),
+            }, locked: !_isApproved),
 
             _buildTile("Add Rental Drone", Icons.precision_manufacturing, () {
               _sellerId == null
@@ -328,7 +573,7 @@ class _SellerPageState extends State<SellerPage> {
                     builder: (_) =>
                         AddDroneRentalForm(sellerId: _sellerId!)),
               );
-            }),
+            }, locked: !_isApproved),
 
             _buildTile("Add Drone Services", Icons.design_services, () {
               _sellerId == null
@@ -338,7 +583,7 @@ class _SellerPageState extends State<SellerPage> {
                 MaterialPageRoute(
                     builder: (_) => AddServiceForm(sellerId: _sellerId!)),
               );
-            }),
+            }, locked: !_isApproved),
 
             _buildTile("Add Jobs / Gigs", Icons.work_outline, () {
               _sellerId == null
@@ -348,7 +593,7 @@ class _SellerPageState extends State<SellerPage> {
                 MaterialPageRoute(
                     builder: (_) => AddJobForm(sellerId: _sellerId!)),
               );
-            }),
+            }, locked: !_isApproved),
 
             _buildTile("Add Hire Pilot", Icons.flight_takeoff, () {
               _sellerId == null
@@ -359,19 +604,19 @@ class _SellerPageState extends State<SellerPage> {
                     builder: (_) =>
                         AddHirePilotForm(sellerId: _sellerId!)),
               );
-            }),
+            }, locked: !_isApproved),
 
             const SizedBox(height: 20),
 
             // Product Status
-            _buildSection("Product Status"),
+            _buildSection("Product Status", locked: !_isApproved),
 
             _buildTile("Sold Products", Icons.check_circle_outline, () {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const SoldProductsPage()),
               );
-            }),
+            }, locked: !_isApproved),
 
             _buildTile("Rejected Products", Icons.cancel_outlined, () {
               _sellerId == null
@@ -380,10 +625,9 @@ class _SellerPageState extends State<SellerPage> {
                 context,
                 MaterialPageRoute(
                     builder: (_) =>
-                        RejectedProductsPage(
-                            sellerCustomId: _sellerId!)),
+                        RejectedProductsPage(sellerCustomId: _sellerId!)),
               );
-            }),
+            }, locked: !_isApproved),
 
             _buildTile("Pending Products", Icons.pending_actions_outlined, () {
               _sellerId == null
@@ -392,10 +636,9 @@ class _SellerPageState extends State<SellerPage> {
                 context,
                 MaterialPageRoute(
                     builder: (_) =>
-                        PendingProductsPage(
-                            sellerCustomId: _sellerId!)),
+                        PendingProductsPage(sellerCustomId: _sellerId!)),
               );
-            }),
+            }, locked: !_isApproved),
 
             _buildTile("Approval Products", Icons.verified_outlined, () {
               _sellerId == null
@@ -404,24 +647,24 @@ class _SellerPageState extends State<SellerPage> {
                 context,
                 MaterialPageRoute(
                     builder: (_) =>
-                        ApprovalProductsPage(
-                            sellerCustomId: _sellerId!)),
+                        ApprovalProductsPage(sellerCustomId: _sellerId!)),
               );
-            }),
+            }, locked: !_isApproved),
 
             _buildTile("Return Products", Icons.keyboard_return_outlined, () {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const ReturnedProductsPage()),
               );
-            }),
+            }, locked: !_isApproved),
 
             _buildTile("Rental Drones", Icons.air_outlined, () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const SellerDroneRentalPage()),
+                MaterialPageRoute(
+                    builder: (_) => const SellerDroneRentalPage()),
               );
-            }),
+            }, locked: !_isApproved),
 
             _buildTile("Pilot Rental", Icons.person_pin_circle_rounded, () {
               _sellerId == null
@@ -432,7 +675,7 @@ class _SellerPageState extends State<SellerPage> {
                     builder: (_) =>
                         PilotRentalPage(sellerId: _sellerId!)),
               );
-            }),
+            }, locked: !_isApproved),
 
             const SizedBox(height: 20),
 
@@ -450,10 +693,8 @@ class _SellerPageState extends State<SellerPage> {
             }),
 
             _buildTile("Privacy Policy", Icons.privacy_tip_outlined, () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const PrivacyPolicyPage()));
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()));
             }),
 
             _buildTile("Help & Support", Icons.help_outline, () {
@@ -464,8 +705,7 @@ class _SellerPageState extends State<SellerPage> {
             }),
 
             _buildTile("Send Feedback", Icons.feedback_outlined, () {
-              Navigator.push(
-                  context,
+              Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const FeedbackFormPage()));
             }),
 

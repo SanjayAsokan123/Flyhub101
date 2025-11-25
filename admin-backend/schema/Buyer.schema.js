@@ -1,10 +1,7 @@
 import { gql } from "apollo-server-express";
 
 export const buyerTypeDefs = gql`
-  """
-  👤 Buyer Type
-  Represents a FlyHub marketplace buyer.
-  """
+
   type Buyer {
     id: ID
     buyerId: String
@@ -16,14 +13,9 @@ export const buyerTypeDefs = gql`
     updatedAt: String      # (optional, but useful)
   }
 
-  # ============================================================
-  # 📌 QUERIES
-  # ============================================================
   type Query {
-    """ Fetch all buyers (admin) """
     buyers: [Buyer]
 
-    """ Fetch a single buyer by MongoDB ID """
     buyer(id: ID!): Buyer
   }
 
@@ -31,10 +23,6 @@ export const buyerTypeDefs = gql`
   # 📌 MUTATIONS
   # ============================================================
   type Mutation {
-    """
-    🟢 Buyer Signup
-    Email + Password + Phone + OTP (Firebase)
-    """
     signupBuyer(
       name: String!
       email: String!

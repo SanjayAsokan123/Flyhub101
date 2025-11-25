@@ -16,7 +16,6 @@ import Settings from "./pages/Settings";
 import PilotBookingStatus from "./pages/PilotBookingStatus";
 import DroneBookingStatus from "./pages/DroneBookingStatus";
 import RegisteredBuyer from "./pages/RegisteredBuyer";
-import RegisteredSeller from "./pages/RegisteredSeller";
 import SellerApprovalPanel from "./pages/SellerApprovalPanel";
 import ReturnProductsForm from "./pages/ReturnProductsForm";
 import DroneRentalForm from "./pages/DroneRentalForm";
@@ -59,7 +58,6 @@ export default function App() {
                   <Route path="/PilotBookingStatus" element={<PilotBookingStatus/>} />
                   <Route path="/DroneBookingStatus" element={<DroneBookingStatus/>} />
                    <Route path="/RegisteredBuyer" element={<RegisteredBuyer/>} />
-                   <Route path="/RegisteredSeller" element={<RegisteredSeller/>} />
                    <Route path="/manage-admins" element={<ManageAdmins />} />
                    <Route path="/training-page" element={<TrainingPage />} />
                    <Route path="/drone-rental-form" element={<DroneRentalForm />} />
