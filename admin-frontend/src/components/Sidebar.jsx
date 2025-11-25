@@ -105,6 +105,11 @@ function Sidebar() {
                           <FaServicestack /> Services
                         </Link>
                       </li>
+                       <li>
+                                              <Link to="/tax">
+                                                <FaServicestack /> TaxesForAllSellers
+                                              </Link>
+                                            </li>
                     </ul>
                   )}
                 </li>

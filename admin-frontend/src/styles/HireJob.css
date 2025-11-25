@@ -1,161 +1,250 @@
-/* === Layout === */
-.hire-jobs-container {
+/* ===========================
+   MAIN CONTAINER
+=========================== */
+.jobs-container {
   padding: 30px;
-  background-color: #f8fafc;
   font-family: "Poppins", sans-serif;
-  min-height: 100vh;
 }
 
-/* === Title === */
-.page-title {
-  text-align: center;
-  font-size: 24px;
-  font-weight: 600;
-  color: #1f2937;
+.jobs-title {
+  font-size: 28px;
+  font-weight: 700;
   margin-bottom: 25px;
+  color: white;
+  text-align: center;
 }
 
-/* === Tabs === */
-.status-tabs {
+/* ===========================
+   STATUS TABS
+=========================== */
+.job-tabs {
   display: flex;
   justify-content: center;
-  gap: 12px;
+  align-items: center;
+  gap: 18px;
   margin-bottom: 25px;
 }
 
-.status-tab {
-  padding: 8px 18px;
-  border: 1px solid #cbd5e1;
-  border-radius: 25px;
-  background-color: #fff;
-  font-size: 14px;
+.job-tab {
+  padding: 10px 18px;
+  border-radius: 12px;
+  border: 1px solid #dcdcdc;
+  background: #fff;
   cursor: pointer;
-  transition: all 0.3s ease;
-  color: #374151;
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 14px;
+  transition: 0.25s ease;
 }
 
-.status-tab:hover {
-  background-color: #e2e8f0;
+.job-tab:hover {
+  background: #f5f5f5;
 }
 
-.status-tab.active {
-  background-color: #2563eb;
+.job-tab.active {
+  background: #222;
   color: white;
-  border-color: #2563eb;
+  border-color: #222;
 }
 
-/* === Jobs Grid === */
+/* ===========================
+   GRID
+=========================== */
 .jobs-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 18px;
-  justify-content: center;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 22px;
 }
 
-/* === Job Card === */
+/* ===========================
+   CARD
+=========================== */
 .job-card {
+  background: #fff;
+  border: 1px solid #e7e7e7;
+  border-radius: 16px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  padding: 18px;
   position: relative;
-  background-color: #ffffff;
-  border-radius: 14px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-  padding: 16px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: 0.3s ease;
 }
 
 .job-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+  transform: translateY(-4px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
 }
 
-/* === Status Badge === */
-.status-badge {
+/* ===========================
+   BADGE
+=========================== */
+.job-badge {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  padding: 4px 10px;
-  border-radius: 12px;
+  top: 14px;
+  right: 14px;
+  padding: 6px 12px;
+  border-radius: 10px;
   font-size: 12px;
-  font-weight: 500;
-  color: white;
+  font-weight: 600;
   text-transform: capitalize;
 }
 
-.status-badge.pending {
-  background-color: #f59e0b;
+.badge-approved {
+  background: #d7f5e5;
+  color: #1f8c4f;
 }
 
-.status-badge.approved {
-  background-color: #22c55e;
+.badge-pending {
+  background: #fff4c4;
+  color: #b18a00;
 }
 
-.status-badge.rejected {
-  background-color: #ef4444;
+.badge-rejected {
+  background: #ffd8d8;
+  color: #d03333;
 }
 
-/* === Job Details === */
-.job-details {
-  color: #374151;
-  margin-top: 8px;
+.badge-unknown {
+  background: #e0e0e0;
+  color: #666;
 }
 
-.job-details h3 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #111827;
-  margin-bottom: 10px;
+/* ===========================
+   DETAILS SECTION
+=========================== */
+.job-body {
+  margin-top: 15px;
 }
 
-.job-details p {
-  margin: 4px 0;
-  font-size: 13px;
+.job-title {
+  font-size: 18px;
+  margin: 0 0 8px;
+  color: #333;
+}
+
+.job-meta {
+  font-size: 14px;
+  margin-bottom: 12px;
+  color: #555;
+  display: flex;
+  align-items: center;
+}
+
+.job-desc {
+  font-size: 14px;
+  margin-bottom: 12px;
+  color: #555;
   line-height: 1.4;
 }
 
-.job-details strong {
-  color: #1f2937;
-}
-
-/* === Buttons === */
-.actions {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 12px;
-}
-
-.approve-btn,
-.reject-btn {
-  border: none;
-  border-radius: 6px;
-  padding: 6px 12px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: 0.3s;
-  color: white;
-}
-
-.approve-btn {
-  background-color: #16a34a;
-}
-
-.approve-btn:hover {
-  background-color: #15803d;
-}
-
-.reject-btn {
-  background-color: #dc2626;
-}
-
-.reject-btn:hover {
-  background-color: #b91c1c;
-}
-
-/* === Loading / Error / Empty === */
-.loading,
-.error,
-.empty-text {
-  text-align: center;
+.job-info p {
+  margin: 6px 0;
+  color: #555;
   font-size: 14px;
-  color: #6b7280;
+}
+
+.job-info strong {
+  color: #333;
+}
+
+/* ===========================
+   BUTTON GROUP
+=========================== */
+.job-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Buttons Style (Same as rental.css) */
+.btn {
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: 0.2s ease;
+  flex: 1;
+  min-width: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Approve */
+.btn.approve {
+  background: #d8f8de;
+  color: #1b8f46;
+}
+.btn.approve:hover:not(:disabled) {
+  background: #c6f2d0;
+}
+.btn.approve::before {
+  content: "✓";
+  margin-right: 6px;
+  font-size: 16px;
+}
+
+/* Reject */
+.btn.reject {
+  background: #ffd8d8;
+  color: #d03333;
+}
+.btn.reject:hover:not(:disabled) {
+  background: #ffbfbf;
+}
+.btn.reject::before {
+  content: "✗";
+  margin-right: 6px;
+  font-size: 16px;
+}
+
+/* Pending */
+.btn.pending {
+  background: #fff1be;
+  color: #b08100;
+}
+.btn.pending:hover:not(:disabled) {
+  background: #ffeaa0;
+}
+.btn.pending::before {
+  content: "⏳";
+  margin-right: 6px;
+  font-size: 16px;
+}
+
+/* ===========================
+   EMPTY / LOADING
+=========================== */
+.jobs-empty {
+  text-align: center;
+  font-size: 16px;
   margin-top: 20px;
+  color: #666;
+  padding: 20px;
+  border-radius: 12px;
+  background: #f9f9f9;
+}
+
+.jobs-empty.error {
+  color: #d03333;
+  background: #fff0f0;
+}
+
+/* ===========================
+   PAGE TITLE (Updated)
+=========================== */
+.page-title {
+  font-size: 30px;
+  font-weight: 700;
+  color: #ffffff !important;   /* PURE WHITE */
+  text-align: center;
+  margin-bottom: 25px;
+  margin-top: 10px;
+  letter-spacing: 0.5px;
 }

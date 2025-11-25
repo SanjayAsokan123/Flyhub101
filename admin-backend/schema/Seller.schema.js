@@ -8,7 +8,7 @@ export const sellerTypeDefs = gql`
   """
   type Seller {
     customId: ID
-    firebaseUid: String!
+    firebaseUid: String
     name: String
     companyName: String
     PANnumber: String
@@ -24,13 +24,13 @@ export const sellerTypeDefs = gql`
     pickupAddresses: [String!]
     companyPan: String
     bankName: String
-    createdAt: String
-    updatedAt: String
+
+    # Multi-device FCM support
     fcmTokens: [String!]
     fcmToken: String
+
     Drones: [Drone!]
   }
-
 
   """
   🔄 Seller account status enum
@@ -42,7 +42,7 @@ export const sellerTypeDefs = gql`
   }
 
   """
-  ✏️ Seller Input (Registration / Update)
+  ✏ Seller Input (Registration / Update)
   Fields made optional because Firebase auto-creates minimal sellers
   """
 input SellerInput {
@@ -60,7 +60,8 @@ input SellerInput {
   pickupAddresses: [String!]
   companyPan: String
   bankName: String
-  firebaseUid: String   # <-- ADD THIS
+ firebaseUid:String
+ status: SellerStatus
 }
 
 
@@ -107,13 +108,13 @@ input SellerInput {
     # 🟢 Create seller (registration form / admin)
     createSeller(input: SellerInput!): Seller!
 
-    # ✏️ Update seller details
+    # ✏ Update seller details
     updateSeller(customId: ID!, input: SellerInput!): Seller!
 
     # 🔄 Change seller status
     changeSellerStatus(customId: ID!, status: SellerStatus!): Seller!
 
-    # 🗑️ Delete a seller
+    # 🗑 Delete a seller
     deleteSeller(customId: ID!): Seller
 
     # 📲 Register FCM token

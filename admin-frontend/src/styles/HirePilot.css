@@ -1,113 +1,202 @@
-/* Common styling for both dashboards */
-.pilots-grid, .jobs-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
-  margin-top: 20px;
+/* ===========================
+   MAIN CONTAINER
+=========================== */
+.rental-container {
+  padding: 30px;
+  font-family: "Poppins", sans-serif;
 }
 
-.pilot-card, .job-card {
-  background: #fff;
-  padding: 15px;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-.pilot-card h3, .job-card h3 {
-  margin-bottom: 10px;
-  color: #7F1DBA;
-}
-
-.pilot-card p, .job-card p {
-  margin: 4px 0;
-  font-size: 0.95rem;
-}
-
-.pilot-actions button, .job-actions button {
-  margin-right: 8px;
-  margin-top: 8px;
-  padding: 6px 12px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  color: #fff;
-  font-weight: bold;
-}
-
-.pilot-actions button:first-child, .job-actions button:first-child {
-  background-color: #16a34a; /* green for approve */
-}
-
-.pilot-actions button:last-child, .job-actions button:last-child {
-  background-color: #dc2626; /* red for reject */
-}
-
-.loading, .error {
+.rental-title {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 25px;
+  color: white;
   text-align: center;
-  margin-top: 30px;
-  font-size: 1.2rem;
 }
-.tab-navigation {
+
+/* ===========================
+   STATUS TABS
+=========================== */
+.rental-tabs {
   display: flex;
-  gap: 10px;
-  margin: 20px 0;
-  border-bottom: 2px solid #e0e0e0;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 25px;
 }
 
-.tab-btn {
-  padding: 10px 20px;
-  border: none;
-  background: transparent;
+.rental-tab {
+  padding: 10px 18px;
+  border-radius: 12px;
+  border: 1px solid #dcdcdc;
+  background: #fff;
   cursor: pointer;
-  font-weight: 500;
-  color: #666;
-  border-bottom: 3px solid transparent;
-  transition: all 0.3s;
+  font-weight: 600;
+  font-size: 14px;
+  transition: 0.25s ease;
 }
 
-.tab-btn:hover {
-  color: #1A0A5B;
+.rental-tab:hover {
+  background: #f5f5f5;
 }
 
-.tab-btn.active {
-  color: #1A0A5B;
-  border-bottom-color: #1A0A5B;
+.rental-tab.active {
+  background: #222;
+  color: white;
+  border-color: #222;
 }
 
-.status {
-  padding: 5px 10px;
-  border-radius: 20px;
+/* ===========================
+   GRID
+=========================== */
+.rental-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 22px;
+}
+
+/* ===========================
+   CARD
+=========================== */
+.rental-card {
+  background: #fff;
+  border: 1px solid #e7e7e7;
+  border-radius: 16px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  padding: 18px;
+  position: relative;
+  transition: 0.3s ease;
+}
+
+.rental-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+
+/* ===========================
+   BADGES
+=========================== */
+.rental-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  padding: 6px 12px;
+  border-radius: 10px;
   font-size: 12px;
-  font-weight: bold;
+  font-weight: 600;
+  text-transform: capitalize;
 }
 
-.status-pending {
-  background-color: #fff3cd;
-  color: #856404;
+.badge-approved {
+  background: #d7f5e5;
+  color: #1f8c4f;
 }
 
-.status-approved {
-  background-color: #d4edda;
-  color: #155724;
+.badge-pending {
+  background: #fff4c4;
+  color: #b18a00;
 }
 
-.status-rejected {
-  background-color: #f8d7da;
-  color: #721c24;
+.badge-rejected {
+  background: #ffd8d8;
+  color: #d03333;
 }
-/* ✅ PDF DOCUMENT LINKS STYLING */
+
+.badge-unknown {
+  background: #e0e0e0;
+  color: #666;
+}
+
+/* ===========================
+   IMAGE
+=========================== */
+.rental-img {
+  width: 100%;
+  height: 160px; /* reduced height */
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f1f1f1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  object-fit: cover;
+}
+
+/* ===========================
+   CONTENT STYLES
+=========================== */
+.rental-body {
+  margin-top: 15px;
+}
+
+.rental-name {
+  font-size: 17px;
+  margin: 0 0 8px;
+  color: #333;
+}
+
+.rental-meta {
+  font-size: 13px;
+  margin-bottom: 10px;
+  color: #555;
+  display: flex;
+  align-items: center;
+}
+
+.muted {
+  color: #777;
+}
+
+.dot {
+  margin: 0 8px;
+  color: #ccc;
+}
+
+.mono {
+  font-family: monospace;
+  color: #777;
+}
+
+.rental-prices {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.rental-desc {
+  font-size: 13px;
+  margin-bottom: 12px;
+  color: #555;
+  line-height: 1.4;
+}
+
+.rental-attributes {
+  margin: 0 0 12px;
+  list-style: none;
+  padding: 0;
+  font-size: 13px;
+}
+
+.rental-attributes li {
+  margin-bottom: 6px;
+  color: #555;
+}
+
+/* ===========================
+   DOCUMENTS
+=========================== */
 .documents-section {
-  margin-top: 12px;
+  margin-top: 10px;
   padding: 10px;
-  background-color: #f8f9fa;
-  border-radius: 6px;
+  background: #f8f9fa;
+  border-radius: 8px;
   border-left: 3px solid #007bff;
 }
 
 .documents-section p {
-  margin: 0 0 8px 0;
+  margin: 0 0 8px;
   font-weight: 600;
-  color: #333;
 }
 
 .document-links {
@@ -116,235 +205,98 @@
   margin: 0;
 }
 
-.document-links li {
-  margin-bottom: 6px;
-}
-
 .pdf-link {
+  padding: 8px 12px;
+  background: #007bff;
+  color: #fff;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 13px;
   display: inline-flex;
   align-items: center;
-  padding: 8px 12px;
-  background-color: #007bff;
-  color: white !important;
-  text-decoration: none;
-  border-radius: 5px;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background-color 0.3s ease;
 }
 
 .pdf-link:hover {
-  background-color: #0056b3;
-  text-decoration: none;
+  background: #0056b3;
 }
 
-.pdf-link:active {
-  background-color: #004085;
+/* ===========================
+   SELLER INFO
+=========================== */
+.seller-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #eee;
 }
 
-/* Loading and Error States */
-.loading {
-  text-align: center;
-  padding: 40px;
-  font-size: 18px;
-  color: #666;
-}
-
-.error {
-  text-align: center;
-  padding: 40px;
-  font-size: 18px;
-  color: #dc3545;
-  background-color: #f8d7da;
-  border: 1px solid #f5c6cb;
-  border-radius: 8px;
-  margin: 20px;
-}
-
-.no-pilots {
-  text-align: center;
-  padding: 40px;
-  font-size: 16px;
-  color: #666;
-}
-
-/* Tab Navigation */
-.tab-navigation {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-  border-bottom: 2px solid #e0e0e0;
-  padding-bottom: 10px;
-}
-
-.tab-btn {
-  padding: 10px 20px;
-  border: none;
-  background-color: transparent;
-  color: #666;
-  font-size: 16px;
-  font-weight: 500;
-  cursor: pointer;
-  border-radius: 5px 5px 0 0;
-  transition: all 0.3s ease;
-}
-
-.tab-btn:hover {
-  background-color: #f0f0f0;
-  color: #333;
-}
-
-.tab-btn.active {
-  background-color: #007bff;
-  color: white;
-}
-
-/* Pilot Cards Grid */
-.pilots-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 20px;
-  padding: 20px 0;
-}
-
-.pilot-card {
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 10px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.pilot-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-}
-
-.pilot-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-  padding-bottom: 10px;
-  border-bottom: 2px solid #f0f0f0;
-}
-
-.pilot-header h2 {
-  margin: 0;
-  font-size: 20px;
-  color: #333;
-}
-
-/* Status Badges */
-.status {
-  padding: 5px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.status-pending {
-  background-color: #fff3cd;
-  color: #856404;
-  border: 1px solid #ffeaa7;
-}
-
-.status-approved {
-  background-color: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
-
-.status-rejected {
-  background-color: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-}
-
-/* Pilot Details */
-.pilot-details p {
-  margin: 8px 0;
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-.pilot-details strong {
+.seller-section p {
+  margin: 4px 0;
+  font-size: 13px;
   color: #555;
 }
 
-.price {
-  background-color: #e7f3ff;
-  padding: 8px;
-  border-radius: 5px;
-  font-weight: 600;
-  color: #007bff;
-}
-
-/* Seller Info */
-.seller-info {
-  margin-top: 15px;
-  padding-top: 15px;
-  border-top: 1px solid #e0e0e0;
-}
-
-.seller-info p {
-  margin: 5px 0;
-  font-size: 13px;
-  color: #666;
-}
-
-/* Action Buttons */
-.pilot-actions {
+/* ===========================
+   ACTION BUTTONS
+=========================== */
+.rental-actions {
+  margin-top: 14px;
   display: flex;
   gap: 10px;
-  margin-top: 15px;
-  padding-top: 15px;
-  border-top: 1px solid #e0e0e0;
+  flex-wrap: wrap;
 }
 
-.btn-approve,
-.btn-reject {
-  flex: 1;
-  padding: 10px;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
+.btn {
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
   font-weight: 600;
+  border: none;
   cursor: pointer;
-  transition: all 0.3s ease;
+  flex: 1;
+  min-width: 100px;
+  transition: 0.25s ease;
 }
 
-.btn-approve {
-  background-color: #28a745;
-  color: white;
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-.btn-approve:hover {
-  background-color: #218838;
+/* Approve button */
+.btn.approve {
+  background: #d8f8de;
+  color: #1b8f46;
+}
+.btn.approve:hover:not(:disabled) {
+  background: #c6f2d0;
 }
 
-.btn-reject {
-  background-color: #dc3545;
-  color: white;
+/* Reject */
+.btn.reject {
+  background: #ffd8d8;
+  color: #d03333;
+}
+.btn.reject:hover:not(:disabled) {
+  background: #ffbfbf;
 }
 
-.btn-reject:hover {
-  background-color: #c82333;
+/* Pending */
+.btn.pending {
+  background: #fff1be;
+  color: #b08100;
+}
+.btn.pending:hover:not(:disabled) {
+  background: #ffeaa0;
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-  .pilots-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .tab-navigation {
-    flex-wrap: wrap;
-  }
-
-  .tab-btn {
-    flex: 1 1 45%;
-  }
+/* ===========================
+   EMPTY STATES
+=========================== */
+.rental-empty {
+  text-align: center;
+  padding: 20px;
+  font-size: 15px;
+  color: #666;
+  background: #f9f9f9;
+  border-radius: 10px;
 }

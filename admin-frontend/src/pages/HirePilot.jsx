@@ -3,167 +3,69 @@ import "../styles/HirePilot.css";
 
 const GRAPHQL_URL = "http://127.0.0.1:5001/graphql";
 
-function HirePilotsDashboard() {
+export default function HirePilotsDashboard() {
   const [pilots, setPilots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("all"); // all, pending, approved, rejected
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [updating, setUpdating] = useState({ id: null, status: null });
 
-  // 🔄 Fetch pilots based on status tab
-  useEffect(() => {
-    const fetchPilots = async () => {
-      setLoading(true);
-      setError(null);
+  // Fetch pilots
+  const fetchPilots = async () => {
+    setLoading(true);
+    setError(null);
 
-      let query;
-
-      // ✅ SELECT QUERY BASED ON TAB
-      if (activeTab === "all") {
-        query = `
-          query {
-            hirePilots {
-              pilotId
-              pilotName
-              pilotCompany
-              location
-              availability
-              specification
-              description
-              adminStatus
-              newemail
-              newphoneNumber
-              price { perHour perDay }
-              certifications { url }
-              resume { url }
-              sellerId
-              seller {
-                customId
-                name
-                email
-                phoneNumber
-              }
-            }
-          }
-        `;
-      } else if (activeTab === "pending") {
-        query = `
-          query {
-            hirePilotsByStatus(adminStatus: "pending") {
-              pilotId
-              pilotName
-              pilotCompany
-              location
-              availability
-              specification
-              description
-              adminStatus
-              newemail
-              newphoneNumber
-              price { perHour perDay }
-              certifications { url }
-              resume { url }
-              sellerId
-              seller {
-                customId
-                name
-                email
-                phoneNumber
-              }
-            }
-          }
-        `;
-      } else if (activeTab === "approved") {
-        query = `
-          query {
-            hirePilotsByStatus(adminStatus: "approved") {
-              pilotId
-              pilotName
-              pilotCompany
-              location
-              availability
-              specification
-              description
-              adminStatus
-              newemail
-              newphoneNumber
-              price { perHour perDay }
-              certifications { url }
-              resume { url }
-              sellerId
-              seller {
-                customId
-                name
-                email
-                phoneNumber
-              }
-            }
-          }
-        `;
-      } else if (activeTab === "rejected") {
-        query = `
-          query {
-            hirePilotsByStatus(adminStatus: "rejected") {
-              pilotId
-              pilotName
-              pilotCompany
-              location
-              availability
-              specification
-              description
-              adminStatus
-              newemail
-              newphoneNumber
-              price { perHour perDay }
-              certifications { url }
-              resume { url }
-              sellerId
-              seller {
-                customId
-                name
-                email
-                phoneNumber
-              }
-            }
-          }
-        `;
-      }
-
-      try {
-        const res = await fetch(GRAPHQL_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query }),
-        });
-
-        const result = await res.json();
-
-        if (result.errors) {
-          setError(result.errors[0].message);
-        } else {
-          let pilotData = [];
-          if (activeTab === "all") pilotData = result.data.hirePilots;
-          else pilotData = result.data.hirePilotsByStatus;
-
-          setPilots(pilotData);
+    let query = `
+      query {
+        hirePilots {
+          pilotId
+          pilotName
+          pilotCompany
+          location
+          availability
+          specification
+          description
+          adminStatus
+          newemail
+          newphoneNumber
+          price { perHour perDay }
+          certifications { url }
+          resume { url }
+          sellerId
+          seller { name email phoneNumber }
         }
-      } catch (err) {
-        setError("Network error: " + err.message);
-      } finally {
-        setLoading(false);
       }
-    };
+    `;
 
+    try {
+      const res = await fetch(GRAPHQL_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+
+      const json = await res.json();
+      if (json.errors) throw new Error(json.errors[0].message);
+
+      setPilots(json.data.hirePilots || []);
+    } catch (err) {
+      setError(err.message || "Failed to fetch pilots");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchPilots();
-  }, [activeTab]);
+  }, []);
 
-  // 📝 Handle pilot approval/rejection
-  const handleApproval = async (pilotId, status) => {
+  // Update pilot status
+  const updatePilotStatus = async (pilotId, newStatus) => {
+    setUpdating({ id: pilotId, status: newStatus });
+
     const mutation = `
-      mutation {
-        adminUpdateHirePilotStatus(
-          pilotId: "${pilotId}"
-          adminStatus: "${status}"
-        ) {
+      mutation UpdatePilotStatus($pilotId: String!, $status: String!) {
+        adminUpdateHirePilotStatus(pilotId: $pilotId, adminStatus: $status) {
           pilotId
           adminStatus
         }
@@ -174,87 +76,147 @@ function HirePilotsDashboard() {
       const res = await fetch(GRAPHQL_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: mutation }),
+        body: JSON.stringify({
+          query: mutation,
+          variables: { pilotId, status: newStatus },
+        }),
       });
 
-      const result = await res.json();
+      const json = await res.json();
+      if (json.errors) throw new Error(json.errors[0].message);
 
-      if (result.errors) {
-        alert("Error updating pilot: " + result.errors[0].message);
-      } else {
-        // ✅ Use safe concatenation (no backticks)
-        alert("Pilot " + status + " successfully!");
-        setActiveTab("all"); // Refresh data
-      }
+      // Update UI
+      setPilots((prev) =>
+        prev.map((p) =>
+          p.pilotId === pilotId ? { ...p, adminStatus: newStatus } : p
+        )
+      );
     } catch (err) {
-      console.error("Error updating pilot status:", err);
+      alert("Failed to update status: " + err.message);
+    } finally {
+      setUpdating({ id: null, status: null });
+    }
+  };
+
+  const displayed =
+    statusFilter === "all"
+      ? pilots
+      : pilots.filter(
+          (p) => (p.adminStatus || "").toLowerCase() === statusFilter
+        );
+
+  const isUpdating = (pid, status) =>
+    updating.id === pid && updating.status === status;
+
+  const statusClass = (s) => {
+    if (!s) return "badge-unknown";
+    switch (s.toLowerCase()) {
+      case "approved":
+        return "badge-approved";
+      case "pending":
+        return "badge-pending";
+      case "rejected":
+        return "badge-rejected";
+      default:
+        return "badge-unknown";
     }
   };
 
   if (loading) return <div className="loading">Loading hire pilots...</div>;
-  if (error) return <div className="error">Error: {error}</div>;
+  if (error) return <div className="error">❌ {error}</div>;
 
   return (
-    <div className="pilots-dashboard">
-      <h1>Hire Pilots Dashboard</h1>
+    <div className="rental-container">
+      <h2 className="rental-title">🧑‍✈ Hire Pilots Dashboard</h2>
 
-      {/* ✅ TAB NAVIGATION */}
-      <div className="tab-navigation">
-        {["all", "pending", "approved", "rejected"].map((tab) => (
+      {/* Tabs */}
+      <div className="rental-tabs">
+        {["all", "approved", "pending", "rejected"].map((s) => (
           <button
-            key={tab}
-            className={`tab-btn ${activeTab === tab ? "active" : ""}`}
-            onClick={() => setActiveTab(tab)}
+            key={s}
+            className={`rental-tab ${statusFilter === s ? "active" : ""}`}
+            onClick={() => setStatusFilter(s)}
           >
-            {tab.toUpperCase()}
+            {s === "all" && "📋 All Pilots"}
+            {s === "approved" && "✅ Approved"}
+            {s === "pending" && "⏳ Pending"}
+            {s === "rejected" && "❌ Rejected"}
           </button>
         ))}
       </div>
 
-      {/* ✅ PILOTS LIST */}
-      {pilots.length === 0 ? (
-        <p className="no-pilots">No pilots to display.</p>
+      {/* No pilots */}
+      {displayed.length === 0 ? (
+        <div className="rental-empty">
+          {statusFilter === "all"
+            ? "No pilots found."
+            : `No ${statusFilter} pilots found.`}
+        </div>
       ) : (
-        <div className="pilots-grid">
-          {pilots.map((pilot) => (
-            <div key={pilot.pilotId} className="pilot-card">
-              <div className="pilot-header">
-                <h2>{pilot.pilotName}</h2>
-                <span className={`status status-${pilot.adminStatus?.toLowerCase()}`}>
-                  {pilot.adminStatus}
-                </span>
-              </div>
+        <div className="rental-grid">
+          {displayed.map((p) => (
+            <div key={p.pilotId} className="rental-card">
+              {/* Badge */}
+              <span className={`rental-badge ${statusClass(p.adminStatus)}`}>
+                {p.adminStatus?.toUpperCase() || "UNKNOWN"}
+              </span>
 
-              <div className="pilot-details">
-                <p><strong>Pilot ID:</strong> {pilot.pilotId}</p>
-                {pilot.pilotCompany && <p><strong>Company:</strong> {pilot.pilotCompany}</p>}
-                <p><strong>Email:</strong> {pilot.newemail}</p>
-                <p><strong>Phone:</strong> {pilot.newphoneNumber}</p>
-                {pilot.location && <p><strong>Location:</strong> {pilot.location}</p>}
-                <p><strong>Available:</strong> {pilot.availability ? "Yes" : "No"}</p>
-                {pilot.specification && <p><strong>Specification:</strong> {pilot.specification}</p>}
-                {pilot.description && <p><strong>Description:</strong> {pilot.description}</p>}
+              <img
+                src={"/pilot-placeholder.jpg"}
+                alt={p.pilotName}
+                className="rental-img"
+              />
 
-                {pilot.price && (
-                  <p className="price">
-                    <strong>Price:</strong> ₹{pilot.price.perHour}/hr, ₹{pilot.price.perDay}/day
-                  </p>
-                )}
+              <div className="rental-body">
+                <h3 className="rental-name">{p.pilotName}</h3>
 
-                {/* ✅ Certifications */}
-                {pilot.certifications && pilot.certifications.length > 0 && (
+                <p className="rental-meta">
+                  <span className="muted">{p.pilotCompany || "Independent"}</span>
+                  <span className="dot">•</span>
+                  <span className="mono">ID: {p.pilotId}</span>
+                </p>
+
+                <div className="rental-prices">
+                  <div>
+                    <strong>Per hour:</strong>{" "}
+                    {p.price?.perHour ? `₹${p.price.perHour}` : "—"}
+                  </div>
+                  <div>
+                    <strong>Per day:</strong>{" "}
+                    {p.price?.perDay ? `₹${p.price.perDay}` : "—"}
+                  </div>
+                </div>
+
+                <p className="rental-desc">
+                  {p.description || "No description provided."}
+                </p>
+
+                <ul className="rental-attributes">
+                  <li>
+                    <strong>Location:</strong> {p.location || "—"}
+                  </li>
+                  <li>
+                    <strong>Available:</strong> {p.availability ? "Yes" : "No"}
+                  </li>
+                  <li>
+                    <strong>Specification:</strong> {p.specification || "—"}
+                  </li>
+                </ul>
+
+                {/* Certifications */}
+                {p.certifications?.length > 0 && (
                   <div className="documents-section">
                     <p><strong>Certifications:</strong></p>
                     <ul className="document-links">
-                      {pilot.certifications.map((cert, index) => (
-                        <li key={index}>
+                      {p.certifications.map((c, i) => (
+                        <li key={i}>
                           <a
-                            href={cert.url}
+                            href={c.url}
                             target="_blank"
-                            rel="noopener noreferrer"
+                            rel="noreferrer"
                             className="pdf-link"
                           >
-                            📄 Certification {index + 1}
+                            📄 Certificate {i + 1}
                           </a>
                         </li>
                       ))}
@@ -262,14 +224,14 @@ function HirePilotsDashboard() {
                   </div>
                 )}
 
-                {/* ✅ Resume */}
-                {pilot.resume && pilot.resume.url && (
+                {/* Resume */}
+                {p.resume?.url && (
                   <div className="documents-section">
                     <p><strong>Resume:</strong></p>
                     <a
-                      href={pilot.resume.url}
+                      href={p.resume.url}
                       target="_blank"
-                      rel="noopener noreferrer"
+                      rel="noreferrer"
                       className="pdf-link"
                     >
                       📄 View Resume
@@ -277,33 +239,90 @@ function HirePilotsDashboard() {
                   </div>
                 )}
 
-                {/* ✅ Seller Info */}
-                {pilot.seller && (
-                  <div className="seller-info">
-                    <p><strong>Seller:</strong> {pilot.seller.name}</p>
-                    <p><strong>Seller Email:</strong> {pilot.seller.email}</p>
-                    <p><strong>Seller Phone:</strong> {pilot.seller.phoneNumber}</p>
+                {/* Seller Info */}
+                {p.seller && (
+                  <div className="seller-section">
+                    <p><strong>Seller Name:</strong> {p.seller.name}</p>
+                    <p><strong>Email:</strong> {p.seller.email}</p>
+                    <p><strong>Phone:</strong> {p.seller.phoneNumber}</p>
                   </div>
                 )}
-              </div>
 
-              {/* ✅ Actions for pending pilots */}
-              {pilot.adminStatus?.toLowerCase() === "pending" && (
-                <div className="pilot-actions">
-                  <button
-                    className="btn-approve"
-                    onClick={() => handleApproval(pilot.pilotId, "approved")}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    className="btn-reject"
-                    onClick={() => handleApproval(pilot.pilotId, "rejected")}
-                  >
-                    Reject
-                  </button>
+                {/* Action Buttons */}
+                <div className="rental-actions">
+                  {p.adminStatus === "pending" && (
+                    <>
+                      <button
+                        className="btn approve"
+                        disabled={isUpdating(p.pilotId, "approved")}
+                        onClick={() => updatePilotStatus(p.pilotId, "approved")}
+                      >
+                        {isUpdating(p.pilotId, "approved")
+                          ? "Updating..."
+                          : "Approve"}
+                      </button>
+
+                      <button
+                        className="btn reject"
+                        disabled={isUpdating(p.pilotId, "rejected")}
+                        onClick={() => updatePilotStatus(p.pilotId, "rejected")}
+                      >
+                        {isUpdating(p.pilotId, "rejected")
+                          ? "Updating..."
+                          : "Reject"}
+                      </button>
+                    </>
+                  )}
+
+                  {p.adminStatus === "approved" && (
+                    <>
+                      <button
+                        className="btn reject"
+                        disabled={isUpdating(p.pilotId, "rejected")}
+                        onClick={() => updatePilotStatus(p.pilotId, "rejected")}
+                      >
+                        {isUpdating(p.pilotId, "rejected")
+                          ? "Updating..."
+                          : "Reject"}
+                      </button>
+
+                      <button
+                        className="btn pending"
+                        disabled={isUpdating(p.pilotId, "pending")}
+                        onClick={() => updatePilotStatus(p.pilotId, "pending")}
+                      >
+                        {isUpdating(p.pilotId, "pending")
+                          ? "Updating..."
+                          : "Move to Pending"}
+                      </button>
+                    </>
+                  )}
+
+                  {p.adminStatus === "rejected" && (
+                    <>
+                      <button
+                        className="btn pending"
+                        disabled={isUpdating(p.pilotId, "pending")}
+                        onClick={() => updatePilotStatus(p.pilotId, "pending")}
+                      >
+                        {isUpdating(p.pilotId, "pending")
+                          ? "Updating..."
+                          : "Move to Pending"}
+                      </button>
+
+                      <button
+                        className="btn approve"
+                        disabled={isUpdating(p.pilotId, "approved")}
+                        onClick={() => updatePilotStatus(p.pilotId, "approved")}
+                      >
+                        {isUpdating(p.pilotId, "approved")
+                          ? "Updating..."
+                          : "Approve"}
+                      </button>
+                    </>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           ))}
         </div>
@@ -311,5 +330,3 @@ function HirePilotsDashboard() {
     </div>
   );
 }
-
-export default HirePilotsDashboard;

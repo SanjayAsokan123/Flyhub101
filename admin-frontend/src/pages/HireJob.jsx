@@ -8,6 +8,7 @@ function HireJobsDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filterStatus, setFilterStatus] = useState("all");
+  const [updating, setUpdating] = useState({ id: null, status: null });
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -42,6 +43,7 @@ function HireJobsDashboard() {
         });
 
         const result = await res.json();
+
         if (result.errors) setError(result.errors[0].message);
         else setJobs(result.data.jobs);
       } catch (err) {
@@ -54,7 +56,28 @@ function HireJobsDashboard() {
     fetchJobs();
   }, []);
 
+  // 🔥 Status badge classes
+  const statusClass = (s) => {
+    if (!s) return "badge-unknown";
+    switch (s.toLowerCase()) {
+      case "approved":
+        return "badge-approved";
+      case "pending":
+        return "badge-pending";
+      case "rejected":
+        return "badge-rejected";
+      default:
+        return "badge-unknown";
+    }
+  };
+
+  const isUpdating = (jobId, status) =>
+    updating.id === jobId && updating.status === status;
+
+  // 🔥 Update status mutation
   const handleApproval = async (jobId, status) => {
+    setUpdating({ id: jobId, status });
+
     const mutation = `
       mutation {
         updateStatus(jobId: "${jobId}", status: "${status}") {
@@ -72,6 +95,7 @@ function HireJobsDashboard() {
       });
 
       const result = await res.json();
+
       if (!result.errors) {
         setJobs((prev) =>
           prev.map((job) =>
@@ -81,13 +105,16 @@ function HireJobsDashboard() {
       }
     } catch (err) {
       console.error("Error updating job status:", err);
+    } finally {
+      setUpdating({ id: null, status: null });
     }
   };
 
-  const filteredJobs = jobs.filter((job) => {
-    if (filterStatus === "all") return true;
-    return job.status?.toLowerCase() === filterStatus;
-  });
+  const filteredJobs = jobs.filter((job) =>
+    filterStatus === "all"
+      ? true
+      : job.status?.toLowerCase() === filterStatus
+  );
 
   if (loading) return <p className="loading">Loading jobs...</p>;
   if (error) return <p className="error">Error: {error}</p>;
@@ -96,14 +123,15 @@ function HireJobsDashboard() {
     <div className="hire-jobs-container">
       <h2 className="page-title">💼 Hire Jobs Dashboard</h2>
 
+      {/* 🔥 Status Tabs */}
       <div className="status-tabs">
-        {["all", "pending", "approved", "rejected"].map((status) => (
+        {["all", "approved", "pending", "rejected"].map((s) => (
           <button
-            key={status}
-            className={`status-tab ${filterStatus === status ? "active" : ""}`}
-            onClick={() => setFilterStatus(status)}
+            key={s}
+            className={`status-tab ${filterStatus === s ? "active" : ""}`}
+            onClick={() => setFilterStatus(s)}
           >
-            {status.charAt(0).toUpperCase() + status.slice(1)}
+            {s.charAt(0).toUpperCase() + s.slice(1)}
           </button>
         ))}
       </div>
@@ -112,14 +140,17 @@ function HireJobsDashboard() {
         {filteredJobs.length === 0 && (
           <p className="empty-text">No jobs found for this status.</p>
         )}
+
         {filteredJobs.map((job) => (
           <div key={job.jobId} className="job-card">
-            <div className={`status-badge ${job.status?.toLowerCase()}`}>
-              {job.status}
+            {/* 🔥 Status badge */}
+            <div className={`status-badge ${statusClass(job.status)}`}>
+              {job.status ? job.status.toUpperCase() : "UNKNOWN"}
             </div>
 
             <div className="job-details">
               <h3>{job.jobName}</h3>
+
               <p><strong>Company:</strong> {job.companyName}</p>
               <p><strong>Type:</strong> {job.jobType}</p>
               <p><strong>Experience:</strong> {job.experience}</p>
@@ -127,26 +158,87 @@ function HireJobsDashboard() {
               <p><strong>Salary:</strong> {job.salary}</p>
               <p><strong>Description:</strong> {job.description}</p>
               <p><strong>Requirement:</strong> {job.requirement}</p>
-              <p><strong>Email:</strong> {job.email}</p>
-              <p><strong>Phone:</strong> {job.phoneNumber}</p>
+
+              <div className="seller-info">
+                <p><strong>Email:</strong> {job.email}</p>
+                <p><strong>Phone:</strong> {job.phoneNumber}</p>
+              </div>
             </div>
 
-            {job.status?.toLowerCase() === "pending" && (
-              <div className="actions">
-                <button
-                  className="approve-btn"
-                  onClick={() => handleApproval(job.jobId, "approved")}
-                >
-                  ✅ Approve
-                </button>
-                <button
-                  className="reject-btn"
-                  onClick={() => handleApproval(job.jobId, "rejected")}
-                >
-                  ❌ Reject
-                </button>
-              </div>
-            )}
+            {/* 🔥 Action Buttons */}
+            <div className="actions">
+              {job.status === "pending" && (
+                <>
+                  <button
+                    className="approve-btn"
+                    disabled={isUpdating(job.jobId, "approved")}
+                    onClick={() => handleApproval(job.jobId, "approved")}
+                  >
+                    {isUpdating(job.jobId, "approved")
+                      ? "Updating..."
+                      : "Approve"}
+                  </button>
+
+                  <button
+                    className="reject-btn"
+                    disabled={isUpdating(job.jobId, "rejected")}
+                    onClick={() => handleApproval(job.jobId, "rejected")}
+                  >
+                    {isUpdating(job.jobId, "rejected")
+                      ? "Updating..."
+                      : "Reject"}
+                  </button>
+                </>
+              )}
+
+              {job.status === "approved" && (
+                <>
+                  <button
+                    className="reject-btn"
+                    disabled={isUpdating(job.jobId, "rejected")}
+                    onClick={() => handleApproval(job.jobId, "rejected")}
+                  >
+                    {isUpdating(job.jobId, "rejected")
+                      ? "Updating..."
+                      : "Reject"}
+                  </button>
+
+                  <button
+                    className="pending-btn"
+                    disabled={isUpdating(job.jobId, "pending")}
+                    onClick={() => handleApproval(job.jobId, "pending")}
+                  >
+                    {isUpdating(job.jobId, "pending")
+                      ? "Updating..."
+                      : "Move to Pending"}
+                  </button>
+                </>
+              )}
+
+              {job.status === "rejected" && (
+                <>
+                  <button
+                    className="pending-btn"
+                    disabled={isUpdating(job.jobId, "pending")}
+                    onClick={() => handleApproval(job.jobId, "pending")}
+                  >
+                    {isUpdating(job.jobId, "pending")
+                      ? "Updating..."
+                      : "Move to Pending"}
+                  </button>
+
+                  <button
+                    className="approve-btn"
+                    disabled={isUpdating(job.jobId, "approved")}
+                    onClick={() => handleApproval(job.jobId, "approved")}
+                  >
+                    {isUpdating(job.jobId, "approved")
+                      ? "Updating..."
+                      : "Approve"}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         ))}
       </div>
