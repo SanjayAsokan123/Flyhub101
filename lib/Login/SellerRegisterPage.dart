@@ -148,6 +148,9 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
         password: pass,
       );
 
+
+
+
       final user = userCredential.user;
       if (user == null) throw Exception("User creation failed");
 
