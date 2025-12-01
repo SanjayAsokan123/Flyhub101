@@ -8,7 +8,6 @@ import {
   deleteFirebaseFile,
 } from "../utils/uploadToFirebase.js";
 
-// Helper: Generate unique return ID
 async function generateReturnId() {
   const count = await ReturnRequest.countDocuments();
   return `FHR${count + 1}`; // Flyhub Return ID
@@ -16,9 +15,6 @@ async function generateReturnId() {
 
 export const returnResolvers = {
   Query: {
-    /**
-     * 🟢 Fetch all return requests (latest first)
-     */
     returnRequests: async () => {
       try {
         const returns = await ReturnRequest.find().sort({ createdAt: -1 });
@@ -60,9 +56,6 @@ export const returnResolvers = {
       }
     },
 
-    /**
-     * 🟢 Fetch return requests by status
-     */
     returnRequestsByStatus: async (_, { status }) => {
       const validStatuses = ["requested", "approved", "rejected", "completed"];
       if (!validStatuses.includes(status))
@@ -78,9 +71,6 @@ export const returnResolvers = {
   },
 
   Mutation: {
-    /**
-     * 🟡 Buyer creates a return request (with Firebase file upload)
-     */
     requestReturn: async (_, { data }, { pubsub }) => {
       try {
         const order = await Order.findOne({ orderId: data.orderId });
@@ -93,7 +83,6 @@ export const returnResolvers = {
         const buyerId = order.buyer?.buyerId || null;
         const returnId = await generateReturnId();
 
-        // ✅ Upload proof image or PDF (optional)
         let proofUrl = data.proofUrl || null;
         if (data.proofFile?.file) {
           proofUrl = await uploadSingleFile(data.proofFile.file, "return-proofs");
@@ -112,7 +101,6 @@ export const returnResolvers = {
           "customId name phoneNumber email address"
         );
 
-        // 🔔 Notify seller
         await createSellerNotification({
           sellerId,
           title: "📦 New Return Request",
@@ -142,9 +130,6 @@ export const returnResolvers = {
       }
     },
 
-    /**
-     * ✏️ Update return request (status or proof)
-     */
     updateReturnRequest: async (_, { returnId, data }, { pubsub }) => {
       try {
         const existing = await ReturnRequest.findOne({ returnId });
@@ -194,9 +179,6 @@ export const returnResolvers = {
       }
     },
 
-    /**
-     * 🔄 Update return request status (Admin or Seller)
-     */
     updateReturnStatus: async (_, { returnId, status }, { pubsub }) => {
       try {
         const validStatuses = ["requested", "approved", "rejected", "completed"];
@@ -214,7 +196,6 @@ export const returnResolvers = {
 
         const seller = await Seller.findOne({ customId: updated.sellerId });
 
-        // 📨 Email to seller
         if (seller?.email) {
           await sendSellerStatusMail({
             to: seller.email,
@@ -224,7 +205,6 @@ export const returnResolvers = {
           });
         }
 
-        // 🔔 Seller notification
         await createSellerNotification({
           sellerId: updated.sellerId,
           title:
@@ -249,9 +229,6 @@ export const returnResolvers = {
       }
     },
 
-    /**
-     * 🗑 Delete return request (Firebase cleanup)
-     */
     deleteReturn: async (_, { returnId }, { pubsub }) => {
       try {
         const deleted = await ReturnRequest.findOneAndDelete({ returnId });

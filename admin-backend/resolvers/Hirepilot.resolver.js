@@ -8,7 +8,6 @@ import {
   deleteFirebaseFile,
 } from "../utils/uploadToFirebase.js";
 
-// ✅ MongoDB aggregation for pilot + seller info
 const baseLookup = [
   {
     $lookup: {
@@ -47,9 +46,6 @@ const baseLookup = [
 ];
 
 export const hirePilotResolvers = {
-  // ============================================================
-  // 📊 QUERIES
-  // ============================================================
   Query: {
     hirePilots: async () => HirePilot.aggregate(baseLookup),
 
@@ -88,33 +84,22 @@ export const hirePilotResolvers = {
 
   },
 
-  // ============================================================
-  // ⚙️ MUTATIONS
-  // ============================================================
   Mutation: {
-    /**
-     * 🧑‍✈️ Add a new Hire Pilot listing
-     */
+
     addHirePilot: async (_, { input }, { pubsub }) => {
       try {
         const seller = await Seller.findOne({ customId: input.sellerId });
         if (!seller) throw new Error("Seller not found");
 
-        // ✅ Upload certifications
-        if (input.certifications?.length) {
-          const certFiles = input.certifications.filter((c) => c.file);
-          const certUrls = certFiles.length
-            ? await uploadMultipleFiles(certFiles.map((c) => c.file), "certifications")
-            : [];
-          input.certifications = input.certifications.map((c, i) =>
-            c.url ? c : { url: certUrls[i] }
-          );
+        if (!input.pilotId || input.pilotId.trim() === "") {
+          throw new Error("pilotId is required");
         }
 
-        // ✅ Upload resume
-        if (input.resume?.file) {
-          const resumeUrl = await uploadSingleFile(input.resume.file, "resumes");
-          input.resume = { url: resumeUrl };
+        const existingPilot = await HirePilot.findOne({ pilotId: input.pilotId });
+        if (existingPilot) {
+          throw new Error(
+            `Pilot ID already exists: ${input.pilotId}. Please regenerate a new ID.`
+          );
         }
 
         const newPilot = new HirePilot({
@@ -125,7 +110,6 @@ export const hirePilotResolvers = {
 
         await newPilot.save();
 
-        // 🔔 Notify seller
         await createSellerNotification({
           sellerId: input.sellerId,
           title: "🧑‍✈️ New Pilot Submitted",
@@ -136,10 +120,12 @@ export const hirePilotResolvers = {
           pubsub,
         });
 
+        // 6️⃣ Return populated result
         const result = await HirePilot.aggregate([
           { $match: { _id: newPilot._id } },
           ...baseLookup,
         ]);
+
         return result[0];
       } catch (err) {
         console.error("❌ Error adding hire pilot:", err);
@@ -147,9 +133,7 @@ export const hirePilotResolvers = {
       }
     },
 
-    /**
-     * 📅 Book a pilot
-     */
+
     bookPilot: async (_, { input }, { pubsub }) => {
       const { pilotId, buyerName, buyerEmail, contact, location, date, startTime, endTime } = input;
       const pilot = await HirePilot.findOne({ pilotId });
@@ -183,7 +167,6 @@ export const hirePilotResolvers = {
       });
       await pilot.save();
 
-      // 🔔 Notify seller
       await createSellerNotification({
         sellerId: pilot.sellerId,
         title: `📅 New Booking for ${pilot.pilotName}`,
@@ -194,7 +177,6 @@ export const hirePilotResolvers = {
         pubsub,
       });
 
-      // 📧 Email seller
       const seller = await Seller.findOne({ customId: pilot.sellerId });
       if (seller?.email) {
         await sendSellerStatusMail({
@@ -225,15 +207,11 @@ export const hirePilotResolvers = {
       };
     },
 
-    /**
-     * 🗑 Delete a pilot and clean up files
-     */
     deleteHirePilot: async (_, { pilotId }, { pubsub }) => {
       try {
         const deleted = await HirePilot.findOneAndDelete({ pilotId });
         if (!deleted) throw new Error("Pilot not found");
 
-        // 🧹 Delete uploaded files
         if (deleted.certifications?.length) {
           for (const cert of deleted.certifications) {
             if (cert.url) await deleteFirebaseFile(cert.url);
@@ -243,7 +221,6 @@ export const hirePilotResolvers = {
           await deleteFirebaseFile(deleted.resume.url);
         }
 
-        // 🔔 Notify seller
         await createSellerNotification({
           sellerId: deleted.sellerId,
           title: "🗑️ Pilot Listing Deleted",
@@ -261,9 +238,6 @@ export const hirePilotResolvers = {
       }
     },
 
-    /**
-     * ✅ Admin updates pilot status
-     */
     adminUpdateHirePilotStatus: async (_, { pilotId, adminStatus }, { pubsub }) => {
       const updated = await HirePilot.findOneAndUpdate(
         { pilotId },
@@ -312,9 +286,6 @@ export const hirePilotResolvers = {
       return result[0];
     },
 
-    /**
-     * ✅ Buyer updates pilot status
-     */
     buyerUpdateHirePilotStatus: async (_, { pilotId, buyerStatus }, { pubsub }) => {
       const updated = await HirePilot.findOneAndUpdate(
         { pilotId },
@@ -348,12 +319,10 @@ export const hirePilotResolvers = {
     },
   },
 
-  // ============================================================
-  // 🔔 SUBSCRIPTIONS
-  // ============================================================
   Subscription: {
     newPilotBooking: {
-      subscribe: (_, __, { pubsub }) => pubsub.asyncIterator("NEW_PILOT_BOOKING"),
+      subscribe: (_, __, { pubsub }) =>
+      pubsub.asyncIterator("NEW_PILOT_BOOKING"),
     },
     hirePilotStatusChanged: {
       subscribe: (_, __, { pubsub }) =>

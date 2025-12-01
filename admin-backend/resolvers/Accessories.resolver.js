@@ -5,13 +5,7 @@ import { sendSellerStatusMail } from "../utils/emailService.js";
 import { createSellerNotification } from "../utils/createSellerNotification.js";
 import {calculateFinalPrice} from "../utils/TaxCalculator.js";
 export const accessoryResolvers = {
-  // ============================================================
-  // 📊 QUERIES
-  // ============================================================
   Query: {
-    /**
-     * 🧾 Fetch all accessories (with seller info)
-     */
     accessories: async () => {
       try {
         const accessories = await Accessory.find().sort({ createdAt: -1 });
@@ -35,10 +29,6 @@ export const accessoryResolvers = {
         throw new Error("Failed to fetch accessories: " + error.message);
       }
     },
-
-    /**
-     * 🎯 Fetch a single accessory by ID
-     */
     accessory: async (_, { accessoryId }) => {
       try {
         const accessory = await Accessory.findOne({ accessoryId });
@@ -60,7 +50,6 @@ export const accessoryResolvers = {
       }
     },
 
-    // Get all rejected accessories
     rejectedAccessories: async () => {
       const accessories = await Accessory.find({ status: "rejected" });
       return Promise.all(
@@ -76,7 +65,6 @@ export const accessoryResolvers = {
       );
     },
 
-    // ✅ Get all approved accessories for a seller
     approvedAccessories: async (_, { sellerId }) => {
       const accessories = await Accessory.find({ sellerId, status: "approved" });
       return Promise.all(
@@ -92,7 +80,6 @@ export const accessoryResolvers = {
       );
     },
 
-    // ✅ Get all pending accessories for a seller
     pendingAccessories: async (_, { sellerId }) => {
       const accessories = await Accessory.find({ sellerId, status: "pending" });
       return Promise.all(
@@ -109,13 +96,7 @@ export const accessoryResolvers = {
     },
   },
 
-  // ============================================================
-  // ⚙️ MUTATIONS
-  // ============================================================
   Mutation: {
-    /**
-     * 🟢 Create new accessory listing
-     */
     createAccessory: async (_, { input }, { pubsub }) => {
       try {
         const seller = await Seller.findOne({ customId: input.sellerId });
@@ -135,10 +116,8 @@ export const accessoryResolvers = {
           status: "pending",
           sellerId: input.sellerId,
         });
-
         const saved = await newAccessory.save();
 
-        // 🔔 Notify seller about submission
         await createSellerNotification({
           sellerId: input.sellerId,
           title: "Accessory Submitted for Review",
@@ -162,9 +141,6 @@ export const accessoryResolvers = {
       }
     },
 
-    /**
-     * ✏️ Update accessory details
-     */
     updateAccessory: async (_, { accessoryId, input }) => {
       try {
         const updated = await Accessory.findOneAndUpdate(
@@ -191,10 +167,6 @@ export const accessoryResolvers = {
       }
     },
 
-    /**
-     * 🔄 Update accessory status (pending/approved/rejected)
-     * + Notify seller via email and in-app
-     */
     updateAccessoryStatus: async (_, { accessoryId, status }, { pubsub }) => {
       try {
         const validStatuses = ["pending", "approved", "rejected"];
@@ -210,7 +182,6 @@ export const accessoryResolvers = {
 
         const seller = await Seller.findOne({ customId: updated.sellerId });
 
-        // ✉️ Send Email Notification
         if (seller?.email) {
           try {
             await sendSellerStatusMail({
@@ -224,7 +195,6 @@ export const accessoryResolvers = {
           }
         }
 
-        // 🔔 Create Seller Notification
         try {
           await createSellerNotification({
             sellerId: updated.sellerId,
@@ -259,9 +229,6 @@ export const accessoryResolvers = {
       }
     },
 
-    /**
-     * 🗑️ Delete Accessory
-     */
     deleteAccessory: async (_, { accessoryId }, { pubsub }) => {
       try {
         const deleted = await Accessory.findOneAndDelete({ accessoryId });
@@ -269,7 +236,6 @@ export const accessoryResolvers = {
 
         const seller = await Seller.findOne({ customId: deleted.sellerId });
 
-        // 🔔 Optional: Notify seller of deletion
         await createSellerNotification({
           sellerId: deleted.sellerId,
           title: `Accessory Deleted`,

@@ -4,58 +4,36 @@ import { Counter } from "./Counter.model.js";
 
 const SellerSchema = new mongoose.Schema(
   {
-    // Unique seller identifier
     customId: { type: String, unique: true, sparse: true },
-
-    // Firebase Auth UID (linked to Auth user)
     firebaseUid: { type: String, index: true, sparse: true },
-
-    // Company & Contact Info
     companyName: { type: String, required: true },
     PANnumber: { type: String, required: true },
     gstNumber: { type: String },
     address: { type: String, required: true },
-
     email: {
       type: String,
       required: true,
       unique: true,
       lowercase: true,
     },
-
     phoneNumber: { type: String, required: true },
     name: { type: String },
-
-    // Banking / Tax Details
     bankName: { type: String },
     bankAccountNumber: { type: String },
     bankIFCnumber: { type: String },
     companyPan: { type: String },
     authorized: { type: String },
-
-    // Address Lists
     shippingAddresses: { type: [String], default: [] },
     pickupAddresses: { type: [String], default: [] },
-
-    // Auth-related fields
-    // NOTE: Do NOT store plaintext passwords. If you migrated older records,
-    // remove plainPassword after hashing into passwordHash.
-    passwordHash: { type: String, select: false }, // bcrypt hash (hidden by default)
-    // optional temporary field that migration can remove:
+    passwordHash: { type: String, select: false },
     plainPassword: { type: String, select: false, default: undefined },
-
-    // Role / Status
     role: { type: String, default: "seller" },
     status: {
       type: String,
       enum: ["pending", "approved", "rejected", "suspended"],
       default: "pending",
     },
-
-    // Drones linked
     Drones: [{ type: mongoose.Schema.Types.ObjectId, ref: "Drone" }],
-
-    // Notification Tokens (for multi-device support)
     fcmTokens: {
       type: [String],
       default: [],
@@ -67,8 +45,6 @@ const SellerSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
-// Counter helper
 async function getNextSequence(prefix) {
   const ret = await Counter.findByIdAndUpdate(
     prefix,
@@ -78,7 +54,6 @@ async function getNextSequence(prefix) {
   return ret.seq;
 }
 
-// generate sequential customId
 SellerSchema.pre("save", async function (next) {
   try {
     if (this.isNew && !this.customId) {

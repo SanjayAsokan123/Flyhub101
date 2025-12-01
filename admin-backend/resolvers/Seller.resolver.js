@@ -1,18 +1,15 @@
+// resolvers/sellerResolvers.js
 import { Seller } from "../models/Seller.model.js";
+import { SellerNotification } from "../models/SellerNotification.model.js";
 import { sendSellerStatusMail } from "../utils/emailService.js";
-import { createSellerNotification } from "../utils/createSellerNotification.js";
+import { SELLER_NOTIFICATION_TOPIC } from "../utils/createSellerNotification.js";
 import { createLoginIndex, deleteLoginIndex } from "../utils/loginIndex.js";
 import { auth, firestore } from "../config/firebaseAdmin.js";
 
-/**
- * Resolves firebaseUid for a seller by email or phone.
- * Persists to Mongo and creates loginIndex.
- */
 async function resolveAndPersistFirebaseUid(seller) {
   try {
     if (seller.firebaseUid) return seller.firebaseUid;
 
-    // 🔍 Try lookup by email
     if (seller.email) {
       try {
         const userRecord = await auth.getUserByEmail(seller.email);
@@ -20,17 +17,13 @@ async function resolveAndPersistFirebaseUid(seller) {
       } catch {}
     }
 
-    // 🔍 Try lookup by phone
     if (!seller.firebaseUid && seller.phoneNumber) {
       try {
-        const userRecord = await auth.getUserByPhoneNumber(
-          seller.phoneNumber
-        );
+        const userRecord = await auth.getUserByPhoneNumber(seller.phoneNumber);
         if (userRecord?.uid) seller.firebaseUid = userRecord.uid;
       } catch {}
     }
 
-    // 🟢 Persist UID + login index
     if (seller.firebaseUid) {
       await seller.save();
       try {
@@ -53,9 +46,6 @@ async function resolveAndPersistFirebaseUid(seller) {
 }
 
 export const sellerResolvers = {
-  // ======================================================
-  // 🚀 QUERIES
-  // ======================================================
   Query: {
     getSellers: async () => {
       return await Seller.find().sort({ createdAt: -1 });
@@ -92,14 +82,16 @@ export const sellerResolvers = {
         ].filter(Boolean),
       };
 
-      const seller = await Seller.findOne(query);
-      return seller;
+      return await Seller.findOne(query);
+    },
+
+    sellerNotifications: async (_, { sellerId }) => {
+      return await SellerNotification.find({ sellerId }).sort({
+        createdAt: -1,
+      });
     },
   },
 
-  // ======================================================
-  // 🚀 MUTATIONS
-  // ======================================================
   Mutation: {
     createSeller: async (_, { input }, { pubsub }) => {
       const email = input.email?.trim();
@@ -108,9 +100,6 @@ export const sellerResolvers = {
         $or: [{ firebaseUid: input.firebaseUid }, { email: input.email }],
       });
 
-      // ---------------------------------------------------------
-      // 🔁 If seller exists → Update
-      // ---------------------------------------------------------
       if (exists) {
         const updated = await Seller.findByIdAndUpdate(
           exists._id,
@@ -134,9 +123,6 @@ export const sellerResolvers = {
         return updated;
       }
 
-      // ---------------------------------------------------------
-      // 🆕 New Seller
-      // ---------------------------------------------------------
       const seller = new Seller({
         ...input,
         email,
@@ -147,6 +133,7 @@ export const sellerResolvers = {
       const saved = await seller.save();
       await resolveAndPersistFirebaseUid(saved);
 
+      // 🔥 Admin receives new seller notification
       await createSellerNotification({
         sellerId: "ADMIN",
         title: "New Seller Registered",
@@ -173,9 +160,6 @@ export const sellerResolvers = {
       return updated;
     },
 
-    // --------------------------------------------------------
-    // 🔥 changeSellerStatus
-    // --------------------------------------------------------
     changeSellerStatus: async (_, { customId, status }, { pubsub }) => {
       const valid = ["pending", "approved", "rejected"];
       status = status.trim().toLowerCase();
@@ -191,7 +175,6 @@ export const sellerResolvers = {
 
       const uid = await resolveAndPersistFirebaseUid(seller);
 
-      // Update Firestore user doc (Flutter uses this)
       if (uid) {
         await firestore.collection("users").doc(uid).set(
           {
@@ -203,7 +186,6 @@ export const sellerResolvers = {
         );
       }
 
-      // Email user
       try {
         await sendSellerStatusMail({
           to: seller.email,
@@ -213,7 +195,7 @@ export const sellerResolvers = {
         });
       } catch {}
 
-      // Push notification
+      // 🔥 Push notification + subscription
       await createSellerNotification({
         sellerId: seller.customId,
         title:
@@ -284,6 +266,25 @@ export const sellerResolvers = {
         message: "Token updated",
         seller,
       };
+    },
+
+    markSellerNotificationRead: async (_, { notificationId }) => {
+      await SellerNotification.findOneAndUpdate(
+        { notificationId },
+        { read: true }
+      );
+
+      return {
+        success: true,
+        message: "Notification marked as read",
+      };
+    },
+  },
+
+  Subscription: {
+    sellerNotificationAdded: {
+      subscribe: (_, { sellerId }, { pubsub }) =>
+        pubsub.subscribe(SELLER_NOTIFICATION_TOPIC),
     },
   },
 };

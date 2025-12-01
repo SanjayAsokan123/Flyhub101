@@ -10,6 +10,7 @@ import '../../BuyerDetails/MyCartPage.dart';
 import '../../WishlistPage.dart';
 import '../../services/cart_wishlist_provider.dart';
 import '../Dynamichome.dart';
+import '../../utils/responsive_utils.dart';
 
 // --- Professional Theme/Style Constants ---
 const Color kPrimaryColor = Color(0xFF1A0A5B);
@@ -35,6 +36,7 @@ class _MarketPageState extends State<MarketPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final ApiClass _api = ApiClass();
+  final TextEditingController _searchController = TextEditingController();
 
   // Data lists
   List<dynamic> drones = [];
@@ -62,20 +64,23 @@ class _MarketPageState extends State<MarketPage>
     _tabController =
         TabController(length: 3, vsync: this, initialIndex: widget.initialTab);
     _fetchAll();
+    _searchController.addListener(() {
+      setState(() {
+        searchQuery = _searchController.text;
+      });
+      _applyFiltersAndSort();
+    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
-  // ----------------------
-  // Data loading & helpers
-  // ----------------------
   Future<void> _fetchAll() async {
     setState(() => isLoading = true);
-
     try {
       final results = await Future.wait([
         _api.getDrones(),
@@ -114,7 +119,9 @@ class _MarketPageState extends State<MarketPage>
       _applyFiltersAndSort();
       setState(() => isLoading = false);
     } catch (e) {
-      Utils.bottomToast(context, "Error fetching marketplace: $e");
+      if (mounted) {
+        Utils.bottomToast(context, "Error fetching marketplace: $e");
+      }
       setState(() => isLoading = false);
     }
   }
@@ -122,7 +129,7 @@ class _MarketPageState extends State<MarketPage>
   Map<String, dynamic> _normalizeItem(dynamic raw, {required String category}) {
     final Map m = (raw is Map) ? Map<String, dynamic>.from(raw) : {'raw': raw};
     dynamic id = m['droneId'] ?? m['partId'] ?? m['accessoryId'] ?? m['id'] ?? m['uin'] ?? m['name'];
-    final name = m['name'] ?? '';
+    final name = m['name'] ?? 'Unknown Product';
     final brand = m['brand'] ?? '';
     double price = 0.0;
     final rawPrice = m['price'] ?? m['cost'] ?? 0;
@@ -138,8 +145,10 @@ class _MarketPageState extends State<MarketPage>
     final image = m['image'] ?? m['imageUrl'] ?? '';
     final description = m['description'] ?? m['desc'] ?? '';
 
+    final String itemId = id?.toString() ?? '${category}${name}${DateTime.now().millisecondsSinceEpoch}';
+
     return {
-      'id': id?.toString() ?? name.toString(),
+      'id': itemId,
       'raw': m,
       'category': category,
       'name': name,
@@ -151,9 +160,6 @@ class _MarketPageState extends State<MarketPage>
     };
   }
 
-  // ----------------------
-  // Filtering / Searching
-  // ----------------------
   void _searchProducts(String q) {
     setState(() {
       searchQuery = q.trim().toLowerCase();
@@ -213,29 +219,50 @@ class _MarketPageState extends State<MarketPage>
       currentPriceRange = const RangeValues(0, 100000);
       selectedBrand = 'All';
       sortBy = 'Recommended';
+      _searchController.clear();
     });
     _applyFiltersAndSort();
   }
 
-  // ----------------------
-  // Wishlist / Cart actions
-  // ----------------------
   Future<void> _toggleWishlist(Map<String, dynamic> item) async {
-    final provider = context.read<CartWishlistProvider>();
-    final name = item['name'] ?? 'Item';
-    final added = await provider.toggleWishlist(item);
-    Utils.bottomToast(context, added ? "$name added to wishlist" : "$name removed from wishlist");
+    try {
+      final provider = context.read<CartWishlistProvider>();
+      final name = item['name'] ?? 'Item';
+
+      final wishlistItem = {
+        'id': item['id']?.toString() ?? 'unknown_${DateTime.now().millisecondsSinceEpoch}',
+        'name': item['name'] ?? 'Unknown Product',
+        'price': item['price'] ?? 0.0,
+        'image': item['image'] ?? '',
+        'brand': item['brand'] ?? '',
+        'category': item['category'] ?? '',
+        'description': item['description'] ?? '',
+        ...item,
+      };
+
+      final added = await provider.toggleWishlist(wishlistItem);
+
+      if (mounted) {
+        Utils.bottomToast(
+            context,
+            added ? "$name added to wishlist" : "$name removed from wishlist"
+        );
+        setState(() {});
+      }
+    } catch (e) {
+      if (mounted) {
+        Utils.bottomToast(context, "Error updating wishlist: $e");
+      }
+    }
   }
 
-  // ----------------------
-  // Enhanced Filter modal
-  // ----------------------
   void _showFilterModal() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
+        height: ResponsiveUtils.getSafeContainerHeight(context, percentage: 0.8),
         decoration: const BoxDecoration(
           color: kSurfaceColor,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -243,51 +270,48 @@ class _MarketPageState extends State<MarketPage>
         child: StatefulBuilder(
           builder: (context, setModal) {
             return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
-                left: 24,
-                right: 24,
-                top: 24,
-              ),
+              padding: ResponsiveUtils.getMarketFilterModalPadding(context),
               child: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Header
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text("Filter & Sort",
                             style: GoogleFonts.inter(
-                              fontSize: 22,
+                              fontSize: ResponsiveUtils.getTitleFontSize(context),
                               fontWeight: FontWeight.w700,
                               color: kTextPrimary,
                             )),
                         IconButton(
                           onPressed: () => Navigator.pop(context),
                           icon: Container(
-                            padding: const EdgeInsets.all(4),
+                            padding: EdgeInsets.all(ResponsiveUtils.getCardMargin(context) / 2),
                             decoration: BoxDecoration(
                               color: kLightBackground,
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(Icons.close, color: kTextSecondary, size: 20),
+                            child: Icon(
+                                Icons.close,
+                                color: kTextSecondary,
+                                size: ResponsiveUtils.getIconSize(context)
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
                     Text("Refine your search results",
                         style: GoogleFonts.inter(
-                          fontSize: 14,
+                          fontSize: ResponsiveUtils.getBodyFontSize(context),
                           color: kTextSecondary,
                         )),
-                    const SizedBox(height: 32),
+                    SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
 
-                    // Price Range
                     _buildSectionHeader("Price Range"),
-                    const SizedBox(height: 16),
+                    SizedBox(height: ResponsiveUtils.getCardMargin(context)),
                     RangeSlider(
                       values: currentPriceRange,
                       min: 0,
@@ -297,7 +321,7 @@ class _MarketPageState extends State<MarketPage>
                       inactiveColor: Colors.grey.shade200,
                       onChanged: (v) => setModal(() => currentPriceRange = v),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -305,13 +329,15 @@ class _MarketPageState extends State<MarketPage>
                         _buildPriceChip("₹${currentPriceRange.end.round()}"),
                       ],
                     ),
-                    const SizedBox(height: 32),
+                    SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
 
-                    // Brand
                     _buildSectionHeader("Brand"),
-                    const SizedBox(height: 16),
+                    SizedBox(height: ResponsiveUtils.getCardMargin(context)),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: ResponsiveUtils.getCardMargin(context),
+                          vertical: ResponsiveUtils.getCardMargin(context) / 2
+                      ),
                       decoration: BoxDecoration(
                         color: kLightBackground,
                         borderRadius: BorderRadius.circular(12),
@@ -321,27 +347,33 @@ class _MarketPageState extends State<MarketPage>
                         value: selectedBrand,
                         isExpanded: true,
                         underline: Container(),
-                        icon: Icon(Icons.keyboard_arrow_down_rounded, color: kTextSecondary),
+                        icon: Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            color: kTextSecondary,
+                            size: ResponsiveUtils.getIconSize(context)
+                        ),
                         items: availableBrands.map((String brand) {
                           return DropdownMenuItem<String>(
                             value: brand,
                             child: Text(brand,
                                 style: GoogleFonts.inter(
                                   color: kTextPrimary,
-                                  fontSize: 16,
+                                  fontSize: ResponsiveUtils.getBodyFontSize(context),
                                 )),
                           );
                         }).toList(),
                         onChanged: (String? newValue) => setModal(() => selectedBrand = newValue ?? 'All'),
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
 
-                    // Sort
                     _buildSectionHeader("Sort By"),
-                    const SizedBox(height: 16),
+                    SizedBox(height: ResponsiveUtils.getCardMargin(context)),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: ResponsiveUtils.getCardMargin(context),
+                          vertical: ResponsiveUtils.getCardMargin(context) / 2
+                      ),
                       decoration: BoxDecoration(
                         color: kLightBackground,
                         borderRadius: BorderRadius.circular(12),
@@ -351,7 +383,11 @@ class _MarketPageState extends State<MarketPage>
                         value: sortBy,
                         isExpanded: true,
                         underline: Container(),
-                        icon: Icon(Icons.keyboard_arrow_down_rounded, color: kTextSecondary),
+                        icon: Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            color: kTextSecondary,
+                            size: ResponsiveUtils.getIconSize(context)
+                        ),
                         items: const [
                           'Recommended',
                           'Price: Low to High',
@@ -364,16 +400,15 @@ class _MarketPageState extends State<MarketPage>
                             child: Text(value,
                                 style: GoogleFonts.inter(
                                   color: kTextPrimary,
-                                  fontSize: 16,
+                                  fontSize: ResponsiveUtils.getBodyFontSize(context),
                                 )),
                           );
                         }).toList(),
                         onChanged: (String? newValue) => setModal(() => sortBy = newValue ?? 'Recommended'),
                       ),
                     ),
-                    const SizedBox(height: 40),
+                    SizedBox(height: ResponsiveUtils.getSectionSpacing(context) + 8),
 
-                    // Action Buttons
                     Row(
                       children: [
                         Expanded(
@@ -384,19 +419,23 @@ class _MarketPageState extends State<MarketPage>
                             },
                             style: OutlinedButton.styleFrom(
                               side: BorderSide(color: kBorderColor, width: 1.5),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: EdgeInsets.symmetric(
+                                  vertical: ResponsiveUtils.getButtonHeight(context) - 32
+                              ),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)
+                              ),
                               backgroundColor: kLightBackground,
                             ),
                             child: Text("Reset All",
                                 style: GoogleFonts.inter(
                                   color: kTextSecondary,
                                   fontWeight: FontWeight.w600,
-                                  fontSize: 16,
+                                  fontSize: ResponsiveUtils.getBodyFontSize(context),
                                 )),
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        SizedBox(width: ResponsiveUtils.getCardMargin(context)),
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () {
@@ -405,8 +444,12 @@ class _MarketPageState extends State<MarketPage>
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: kPrimaryColor,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: EdgeInsets.symmetric(
+                                  vertical: ResponsiveUtils.getButtonHeight(context) - 32
+                              ),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)
+                              ),
                               elevation: 2,
                               shadowColor: kPrimaryColor.withOpacity(0.3),
                             ),
@@ -414,13 +457,13 @@ class _MarketPageState extends State<MarketPage>
                                 style: GoogleFonts.inter(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w600,
-                                  fontSize: 16,
+                                  fontSize: ResponsiveUtils.getBodyFontSize(context),
                                 )),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 24),
+                    SizedBox(height: ResponsiveUtils.getVerticalPadding(context)),
                   ],
                 ),
               ),
@@ -434,7 +477,7 @@ class _MarketPageState extends State<MarketPage>
   Widget _buildSectionHeader(String text) {
     return Text(text,
         style: GoogleFonts.inter(
-          fontSize: 18,
+          fontSize: ResponsiveUtils.getTitleFontSize(context) - 2,
           fontWeight: FontWeight.w600,
           color: kTextPrimary,
         ));
@@ -442,7 +485,10 @@ class _MarketPageState extends State<MarketPage>
 
   Widget _buildPriceChip(String text) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: EdgeInsets.symmetric(
+          horizontal: ResponsiveUtils.getCardMargin(context),
+          vertical: ResponsiveUtils.getCardMargin(context) / 2
+      ),
       decoration: BoxDecoration(
         color: kPrimaryColor.withOpacity(0.08),
         borderRadius: BorderRadius.circular(8),
@@ -453,96 +499,267 @@ class _MarketPageState extends State<MarketPage>
         style: GoogleFonts.inter(
           color: kPrimaryColor,
           fontWeight: FontWeight.w600,
-          fontSize: 14,
+          fontSize: ResponsiveUtils.getSmallFontSize(context),
         ),
       ),
     );
   }
 
-  // ----------------------
-  // Clean Grid Shimmer
-  // ----------------------
+  // FIXED Shimmer Loading - No Pixel Overflow
   Widget _shimmer() {
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: 6,
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2,
-        childAspectRatio: 0.72,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+    final crossCount = ResponsiveUtils.getMarketGridCrossAxisCount(context);
+    final gridPadding = ResponsiveUtils.getMarketGridPadding(context);
+    final gridSpacing = ResponsiveUtils.getMarketGridSpacing(context);
+
+    // Calculate safe item count based on screen size
+    final safeItemCount = crossCount * 4; // Show 4 rows maximum
+
+    return Padding(
+      padding: EdgeInsets.all(gridPadding),
+      child: GridView.builder(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: crossCount,
+          childAspectRatio: 0.75, // Fixed aspect ratio for stability
+          crossAxisSpacing: gridSpacing,
+          mainAxisSpacing: gridSpacing,
+        ),
+        itemCount: safeItemCount,
+        itemBuilder: (_, __) => _buildShimmerItem(context),
       ),
-      itemBuilder: (_, __) => Container(
+    );
+  }
+
+  Widget _buildShimmerItem(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final crossCount = ResponsiveUtils.getMarketGridCrossAxisCount(context);
+    final gridPadding = ResponsiveUtils.getMarketGridPadding(context);
+    final gridSpacing = ResponsiveUtils.getMarketGridSpacing(context);
+
+    // Calculate safe image height based on available space
+    final availableWidth = screenWidth - (2 * gridPadding) - ((crossCount - 1) * gridSpacing);
+    final itemWidth = availableWidth / crossCount;
+    final imageHeight = itemWidth * 0.7; // 70% of item width for image
+
+    return Container(
+      decoration: BoxDecoration(
         color: kSurfaceColor,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 140,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Image placeholder
+          Container(
+            width: double.infinity,
+            height: imageHeight,
+            decoration: BoxDecoration(
               color: kShimmerColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(12),
+          ),
+
+          // Content area
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.all(ResponsiveUtils.getCardMargin(context)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Brand placeholder
                   Container(
-                    width: 60,
+                    width: itemWidth * 0.4,
                     height: 12,
-                    color: kShimmerColor,
+                    decoration: BoxDecoration(
+                      color: kShimmerColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                   ),
-                  const SizedBox(height: 8),
+
+                  SizedBox(height: 8),
+
+                  // Title placeholder line 1
                   Container(
                     width: double.infinity,
-                    height: 16,
-                    color: kShimmerColor,
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: 100,
                     height: 14,
-                    color: kShimmerColor,
+                    decoration: BoxDecoration(
+                      color: kShimmerColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                   ),
-                  const SizedBox(height: 12),
+
+                  SizedBox(height: 6),
+
+                  // Title placeholder line 2
+                  Container(
+                    width: itemWidth * 0.7,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: kShimmerColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+
+                  const Spacer(),
+
+                  // Price and stock
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
-                        width: 70,
-                        height: 18,
-                        color: kShimmerColor,
+                        width: itemWidth * 0.5,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: kShimmerColor,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
                       ),
                       Container(
-                        width: 60,
+                        width: itemWidth * 0.3,
                         height: 20,
-                        color: kShimmerColor,
+                        decoration: BoxDecoration(
+                          color: kShimmerColor,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
                       ),
                     ],
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _badge(int count) => Container(
-    padding: const EdgeInsets.all(4),
+    padding: EdgeInsets.all(ResponsiveUtils.getCardMargin(context) / 3),
     decoration: BoxDecoration(
       color: Colors.red.shade600,
       borderRadius: BorderRadius.circular(8),
     ),
-    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-    child: Text('$count',
-        style: GoogleFonts.inter(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-        ),
-        textAlign: TextAlign.center),
+    constraints: BoxConstraints(
+        minWidth: ResponsiveUtils.getMarketBadgeSize(context),
+        minHeight: ResponsiveUtils.getMarketBadgeSize(context)
+    ),
+    child: Text(
+      count > 99 ? '99+' : '$count',
+      style: GoogleFonts.inter(
+        color: Colors.white,
+        fontSize: ResponsiveUtils.getSmallFontSize(context) - 1,
+        fontWeight: FontWeight.bold,
+      ),
+      textAlign: TextAlign.center,
+    ),
   );
+
+  // NEW: Search Bar matching Pilot page design
+  Widget _buildSearchBar() {
+    return Container(
+      height: ResponsiveUtils.getSearchBarHeight(context),
+      decoration: BoxDecoration(
+        color: kSurfaceColor,
+        borderRadius: BorderRadius.circular(
+          ResponsiveUtils.getDynamicPadding(context, 0.025),
+        ),
+        border: Border.all(
+          color: kBorderColor,
+          width: ResponsiveUtils.getBorderWidth(context) * 6,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Search Icon
+          Padding(
+            padding: EdgeInsets.only(
+              left: ResponsiveUtils.getDynamicPadding(context, 0.03),
+            ),
+            child: Icon(
+              Icons.search_rounded,
+              color: kTextSecondary,
+              size: ResponsiveUtils.getIconSize(context) * 0.8,
+            ),
+          ),
+
+          // Search Field
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: ResponsiveUtils.getDynamicPadding(context, 0.02),
+              ),
+              child: TextField(
+                controller: _searchController,
+                style: GoogleFonts.inter(
+                  fontSize: ResponsiveUtils.getBodyFontSize(context),
+                  color: kTextPrimary,
+                  fontWeight: FontWeight.w500,
+                ),
+                decoration: InputDecoration(
+                  hintText: "Search drones, parts, accessories...",
+                  hintStyle: GoogleFonts.inter(
+                    color: kTextSecondary,
+                    fontSize: ResponsiveUtils.getBodyFontSize(context),
+                    fontWeight: FontWeight.w400,
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                  isDense: true,
+                ),
+              ),
+            ),
+          ),
+
+          // Filter Button
+          Container(
+            width: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
+            height: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
+            margin: EdgeInsets.only(
+              right: ResponsiveUtils.getDynamicPadding(context, 0.012),
+            ),
+            decoration: BoxDecoration(
+              color: kPrimaryColor,
+              borderRadius: BorderRadius.circular(
+                ResponsiveUtils.getDynamicPadding(context, 0.018),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: kPrimaryColor.withOpacity(0.3),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: IconButton(
+              icon: Icon(
+                Icons.tune_rounded,
+                color: Colors.white,
+                size: ResponsiveUtils.getIconSize(context) * 0.7,
+              ),
+              onPressed: _showFilterModal,
+              padding: EdgeInsets.zero,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -557,14 +774,21 @@ class _MarketPageState extends State<MarketPage>
         backgroundColor: kSurfaceColor,
         elevation: 1,
         surfaceTintColor: kSurfaceColor,
-        title: Text("Marketplace",
-            style: GoogleFonts.inter(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: kPrimaryColor,
-            )),
+        toolbarHeight: ResponsiveUtils.getAppBarHeight(context),
+        title: Text(
+          "Marketplace",
+          style: GoogleFonts.inter(
+            fontSize: ResponsiveUtils.getTitleFontSize(context),
+            fontWeight: FontWeight.w700,
+            color: kPrimaryColor,
+          ),
+        ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded, color: kTextSecondary, size: 20),
+          icon: Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: kTextSecondary,
+              size: ResponsiveUtils.getIconSize(context)
+          ),
           onPressed: () => Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -573,94 +797,70 @@ class _MarketPageState extends State<MarketPage>
           ),
         ),
         actions: [
-          // Wishlist icon with badge
           Stack(
             children: [
               IconButton(
-                icon: Icon(Icons.favorite_outline, color: kTextSecondary, size: 22),
-                onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const WishlistPage())
+                icon: Icon(
+                    Icons.favorite_outline,
+                    color: kTextSecondary,
+                    size: ResponsiveUtils.getIconSize(context)
                 ),
+                onPressed: () {
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => WishlistPage())
+                  ).then((_) {
+                    if (mounted) setState(() {});
+                  });
+                },
               ),
               if (wishlistCount > 0)
                 Positioned(
-                  right: 8,
-                  top: 8,
+                  right: 6,
+                  top: 6,
                   child: _badge(wishlistCount),
                 ),
             ],
           ),
-
-          // Cart icon with badge
           Stack(
             children: [
               IconButton(
-                icon: Icon(Icons.shopping_bag_outlined, color: kTextSecondary, size: 22),
+                icon: Icon(
+                    Icons.shopping_bag_outlined,
+                    color: kTextSecondary,
+                    size: ResponsiveUtils.getIconSize(context)
+                ),
                 onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const MyCartPage())
-                ),
+                ).then((_) {
+                  if (mounted) setState(() {});
+                }),
               ),
               if (cartCount > 0)
                 Positioned(
-                  right: 8,
-                  top: 8,
+                  right: 6,
+                  top: 6,
                   child: _badge(cartCount),
                 ),
             ],
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: ResponsiveUtils.getCardMargin(context) / 2),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(100),
+          preferredSize: Size.fromHeight(ResponsiveUtils.getMarketTabBarHeight(context)),
           child: Column(
             children: [
-              // Search + Filter button
+              // NEW: Search Bar matching Pilot page design
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Container(
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: kSurfaceColor,
-                    border: Border.all(color: kBorderColor),
-                  ),
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 16),
-                      Icon(Icons.search, color: kTextSecondary, size: 20),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          onChanged: _searchProducts,
-                          style: GoogleFonts.inter(fontSize: 16, color: kTextPrimary),
-                          decoration: InputDecoration(
-                            hintText: "Search drones, parts, accessories...",
-                            hintStyle: GoogleFonts.inter(color: kTextSecondary),
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        width: 40,
-                        height: 40,
-                        margin: const EdgeInsets.only(right: 8),
-                        color: kPrimaryColor,
-                        child: IconButton(
-                            onPressed: _showFilterModal,
-                            icon: const Icon(Icons.tune, color: Colors.white, size: 20),
-                            padding: EdgeInsets.zero
-                        ),
-                      ),
-                    ],
-                  ),
+                padding: EdgeInsets.symmetric(
+                  horizontal: ResponsiveUtils.getHorizontalPadding(context),
+                  vertical: ResponsiveUtils.getVerticalPadding(context),
                 ),
+                child: _buildSearchBar(),
               ),
-
-              // Clean Tabs
               Container(
-                height: 48,
+                height: ResponsiveUtils.getButtonHeight(context) - 4,
                 color: kSurfaceColor,
                 child: TabBar(
                   controller: _tabController,
@@ -671,11 +871,11 @@ class _MarketPageState extends State<MarketPage>
                   indicatorSize: TabBarIndicatorSize.label,
                   labelStyle: GoogleFonts.inter(
                     fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                    fontSize: ResponsiveUtils.getBodyFontSize(context),
                   ),
                   unselectedLabelStyle: GoogleFonts.inter(
                     fontWeight: FontWeight.w500,
-                    fontSize: 14,
+                    fontSize: ResponsiveUtils.getBodyFontSize(context),
                   ),
                   tabs: const [
                     Tab(text: 'Drones'),
@@ -701,194 +901,281 @@ class _MarketPageState extends State<MarketPage>
 
   Widget _buildGridView(List<dynamic> items) {
     if (isLoading) return _shimmer();
+
     if (items.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.search_off, size: 60, color: kTextSecondary),
-            const SizedBox(height: 16),
-            Text("No products found",
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  color: kTextPrimary,
-                  fontWeight: FontWeight.w600,
-                )),
-            const SizedBox(height: 8),
-            Text("Try adjusting your search or filters",
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: kTextSecondary,
-                )),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _resetFilters,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: kPrimaryColor,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-              child: Text("Reset Filters",
+        child: SingleChildScrollView(
+          child: Container(
+            width: ResponsiveUtils.getSafeContainerWidth(context, percentage: 0.8),
+            height: ResponsiveUtils.getSafeContainerHeight(context, percentage: 0.6),
+            padding: EdgeInsets.all(ResponsiveUtils.getHorizontalPadding(context)),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                    Icons.search_off,
+                    size: ResponsiveUtils.getMarketEmptyStateIconSize(context),
+                    color: kTextSecondary
+                ),
+                SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
+                Text(
+                  "No products found",
                   style: GoogleFonts.inter(
-                    color: Colors.white,
+                    fontSize: ResponsiveUtils.getTitleFontSize(context) - 2,
+                    color: kTextPrimary,
                     fontWeight: FontWeight.w600,
-                  )),
+                  ),
+                ),
+                SizedBox(height: ResponsiveUtils.getCardMargin(context)),
+                Text(
+                  "Try adjusting your search or filters",
+                  style: GoogleFonts.inter(
+                    fontSize: ResponsiveUtils.getBodyFontSize(context),
+                    color: kTextSecondary,
+                  ),
+                ),
+                SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
+                ElevatedButton(
+                  onPressed: _resetFilters,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kPrimaryColor,
+                    padding: EdgeInsets.symmetric(
+                        horizontal: ResponsiveUtils.getCardMargin(context) * 2,
+                        vertical: ResponsiveUtils.getCardMargin(context)
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    "Reset Filters",
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: ResponsiveUtils.getBodyFontSize(context),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       );
     }
 
-    final cross = MediaQuery.of(context).size.width > 900 ? 4 :
-    (MediaQuery.of(context).size.width > 600 ? 3 : 2);
+    final crossCount = ResponsiveUtils.getMarketGridCrossAxisCount(context);
+    final gridPadding = ResponsiveUtils.getMarketGridPadding(context);
+    final gridSpacing = ResponsiveUtils.getMarketGridSpacing(context);
 
     return RefreshIndicator(
       onRefresh: _fetchAll,
       color: kPrimaryColor,
       backgroundColor: kSurfaceColor,
-      child: GridView.builder(
-        padding: const EdgeInsets.all(16),
-        physics: const AlwaysScrollableScrollPhysics(),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: cross,
-          childAspectRatio: 0.72,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
+      child: Padding(
+        padding: EdgeInsets.all(gridPadding),
+        child: GridView.builder(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossCount,
+            childAspectRatio: 0.75, // Fixed aspect ratio for stability
+            crossAxisSpacing: gridSpacing,
+            mainAxisSpacing: gridSpacing,
+          ),
+          itemCount: items.length,
+          itemBuilder: (context, index) => _buildProductItem(items[index]),
         ),
-        itemCount: items.length,
-        itemBuilder: (context, index) {
-          final item = Map<String, dynamic>.from(items[index]);
-          final id = item['id']?.toString() ?? index.toString();
-          final provider = context.watch<CartWishlistProvider>();
-          final isFav = provider.wishlistIds.contains(id);
+      ),
+    );
+  }
 
-          return GestureDetector(
-            onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => DroneDetailPage(drone: item, Drone: null))
+  Widget _buildProductItem(dynamic item) {
+    final id = item['id']?.toString() ?? '';
+    final provider = context.watch<CartWishlistProvider>();
+    final isFav = provider.wishlistIds.contains(id);
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final crossCount = ResponsiveUtils.getMarketGridCrossAxisCount(context);
+    final gridPadding = ResponsiveUtils.getMarketGridPadding(context);
+    final gridSpacing = ResponsiveUtils.getMarketGridSpacing(context);
+
+    // Calculate safe image height based on available space
+    final availableWidth = screenWidth - (2 * gridPadding) - ((crossCount - 1) * gridSpacing);
+    final itemWidth = availableWidth / crossCount;
+    final imageHeight = itemWidth * 0.7; // 70% of item width for image
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => DroneDetailPage(drone: item, Drone: null))
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: kSurfaceColor,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-            child: Container(
-              color: kSurfaceColor,
-              child: Stack(
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Image container - no border radius
-                      Container(
-                        height: 140,
-                        width: double.infinity,
-                        color: kLightBackground,
-                        child: CachedNetworkImage(
-                          imageUrl: (item['image'] ?? '').toString(),
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          placeholder: (ctx, url) => Container(
-                            color: kShimmerColor,
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: kPrimaryColor.withOpacity(0.5)
-                              ),
-                            ),
-                          ),
-                          errorWidget: (ctx, url, err) => Container(
-                            color: kShimmerColor,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.photo_camera_back, color: kTextSecondary, size: 32),
-                                const SizedBox(height: 4),
-                                Text('No Image', style: GoogleFonts.inter(color: kTextSecondary, fontSize: 12)),
-                              ],
-                            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Product Image
+                Container(
+                  width: double.infinity,
+                  height: imageHeight,
+                  decoration: BoxDecoration(
+                    color: kLightBackground,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                    ),
+                    child: CachedNetworkImage(
+                      imageUrl: (item['image'] ?? '').toString(),
+                      fit: BoxFit.cover,
+                      placeholder: (ctx, url) => Container(
+                        color: kShimmerColor,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: kPrimaryColor.withOpacity(0.5)
                           ),
                         ),
                       ),
-
-                      // Product details
-                      Padding(
-                        padding: const EdgeInsets.all(12),
+                      errorWidget: (ctx, url, err) => Container(
+                        color: kShimmerColor,
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(
-                              item['brand'] ?? '',
-                              style: GoogleFonts.inter(
-                                color: kSecondaryColor,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            Icon(
+                                Icons.photo_camera_back,
+                                color: kTextSecondary,
+                                size: ResponsiveUtils.getIconSize(context) + 10
                             ),
-                            const SizedBox(height: 4),
+                            SizedBox(height: ResponsiveUtils.getCardMargin(context) / 4),
                             Text(
-                              item['name'] ?? '',
-                              style: GoogleFonts.inter(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
-                                color: kTextPrimary,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  "₹${(item['price'] ?? 0).round()}",
-                                  style: GoogleFonts.inter(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 17,
-                                    color: kPrimaryColor,
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  color: kAccentColor.withOpacity(0.1),
-                                  child: Text(
-                                    "In Stock",
-                                    style: GoogleFonts.inter(
-                                      fontSize: 10,
-                                      color: kAccentColor,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                                'No Image',
+                                style: GoogleFonts.inter(
+                                    color: kTextSecondary,
+                                    fontSize: ResponsiveUtils.getSmallFontSize(context)
+                                )
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-
-                  // Favorite button
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: GestureDetector(
-                      onTap: () async {
-                        await _toggleWishlist(item);
-                      },
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        color: kSurfaceColor.withOpacity(0.9),
-                        child: Icon(
-                          isFav ? Icons.favorite : Icons.favorite_border,
-                          color: isFav ? Colors.red.shade500 : kTextSecondary,
-                          size: 18,
-                        ),
-                      ),
                     ),
                   ),
-                ],
+                ),
+
+                // Product Details
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.all(ResponsiveUtils.getCardMargin(context)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item['brand'] ?? '',
+                          style: GoogleFonts.inter(
+                            color: kSecondaryColor,
+                            fontSize: ResponsiveUtils.getSmallFontSize(context),
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        SizedBox(height: ResponsiveUtils.getCardMargin(context) / 4),
+                        Text(
+                          item['name'] ?? '',
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w600,
+                            fontSize: ResponsiveUtils.getBodyFontSize(context),
+                            color: kTextPrimary,
+                          ),
+                          maxLines: ResponsiveUtils.getMarketProductNameLines(context),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const Spacer(),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "₹${(item['price'] ?? 0).round()}",
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w800,
+                                fontSize: ResponsiveUtils.getBodyFontSize(context) + 2,
+                                color: kPrimaryColor,
+                              ),
+                            ),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: ResponsiveUtils.getCardMargin(context) / 2,
+                                  vertical: ResponsiveUtils.getCardMargin(context) / 4
+                              ),
+                              decoration: BoxDecoration(
+                                color: kAccentColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                "In Stock",
+                                style: GoogleFonts.inter(
+                                  fontSize: ResponsiveUtils.getSmallFontSize(context),
+                                  color: kAccentColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            // Favorite Button
+            Positioned(
+              top: ResponsiveUtils.getCardMargin(context),
+              right: ResponsiveUtils.getCardMargin(context),
+              child: GestureDetector(
+                onTap: () async {
+                  await _toggleWishlist(item);
+                },
+                child: Container(
+                  width: ResponsiveUtils.getButtonHeight(context) - 24,
+                  height: ResponsiveUtils.getButtonHeight(context) - 24,
+                  decoration: BoxDecoration(
+                    color: kSurfaceColor.withOpacity(0.9),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    isFav ? Icons.favorite : Icons.favorite_border,
+                    color: isFav ? Colors.red.shade500 : kTextSecondary,
+                    size: ResponsiveUtils.getIconSize(context) - 2,
+                  ),
+                ),
               ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }

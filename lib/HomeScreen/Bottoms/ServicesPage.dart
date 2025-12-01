@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../CommonClass/utils.dart';
 import '../../CommonClass/ApiClass.dart';
+import '../../ServiceBookNow.dart';
 
 class ServicesPage extends StatefulWidget {
   const ServicesPage({super.key});
@@ -18,6 +19,14 @@ class _ServicesPageState extends State<ServicesPage> {
   List<dynamic> serviceList = [];
   List<dynamic> filteredList = [];
   String searchQuery = '';
+
+  List<String> locations = [];
+  List<String> experiences = [];
+  List<String> priceRanges = ["0-5000", "5000-10000", "10000-20000", "20000+"];
+
+  String selectedLocation = "";
+  String selectedPriceRange = "";
+
   final Color primaryColor = const Color(0xFF1A0A5B);
 
   @override
@@ -26,116 +35,140 @@ class _ServicesPageState extends State<ServicesPage> {
     fetchServices();
   }
 
-  /// ✅ Fetch Services via ApiClass
   Future<void> fetchServices() async {
-    // if (!await Utils.checkInternetConnection()) {
-    //   Utils.bottomToast(context, "Please check your internet connection");
-    //   return;
-    // }
-
     setState(() => isLoading = true);
     final res = await _apiClass.getServices();
+
     if (!mounted) return;
 
     if (res.status == "success") {
       final List<dynamic> allServices = res.data ?? [];
+      final approved = allServices.where((s) => s["status"] == "approved").toList();
 
-// keep only approved services
-      final approvedServices =
-      allServices.where((s) => s["status"] == "approved").toList();
+      locations = approved.map((s) => (s["location"] ?? "").toString())
+          .where((e) => e.isNotEmpty).toSet().toList();
+
+      experiences = approved.map((s) => (s["experience"] ?? "").toString())
+          .where((e) => e.isNotEmpty).toSet().toList();
 
       setState(() {
-        serviceList = approvedServices;
+        serviceList = approved;
         filteredList = List.from(serviceList);
         isLoading = false;
       });
-
     } else {
-      Utils.bottomToast(context, "Error fetching services: ${res.message}");
+      Utils.bottomToast(context, "Error: ${res.message}");
       setState(() => isLoading = false);
     }
   }
 
-  /// 🔍 Search Function
   void _searchServices(String query) {
     setState(() {
       searchQuery = query.toLowerCase();
-      filteredList = serviceList.where((s) {
-        final name = (s['name'] ?? '').toString().toLowerCase();
-        final loc = (s['location'] ?? '').toString().toLowerCase();
-        return name.contains(searchQuery) || loc.contains(searchQuery);
-      }).toList();
+      applyFilters();
     });
   }
 
-  /// 🧾 Service Details Bottom Sheet
-  void _showServiceDetails(Map<String, dynamic> s) {
+  void applyFilters() {
+    filteredList = serviceList.where((s) {
+      final name = (s['name'] ?? '').toString().toLowerCase();
+      final loc = (s['location'] ?? '').toString().toLowerCase();
+      final price = int.tryParse(s['price'].toString()) ?? 0;
+
+      if (!(name.contains(searchQuery) || loc.contains(searchQuery))) return false;
+      if (selectedLocation.isNotEmpty && s['location'] != selectedLocation) return false;
+
+      if (selectedPriceRange.isNotEmpty) {
+        final parts = selectedPriceRange.split("-");
+        final min = int.parse(parts[0]);
+        final max = parts[1] == "+" ? 999999 : int.parse(parts[1]);
+        if (!(price >= min && price <= max)) return false;
+      }
+
+      return true;
+    }).toList();
+
+    setState(() {});
+  }
+
+  /// FILTER SHEET
+  void _openFilterSheet() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
-      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) {
         return Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(18),
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Center(
-                    child: Container(
-                        height: 5,
-                        width: 60,
-                        margin: const EdgeInsets.only(bottom: 15),
-                        decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(10)))),
-                Text(s['name'] ?? "Unnamed Service",
-                    style: GoogleFonts.lexend(
-                        fontWeight: FontWeight.bold, fontSize: 18)),
-                const SizedBox(height: 5),
-                Text(s['specificDrone'] ?? "",
-                    style:
-                    GoogleFonts.lexend(color: Colors.grey[700], fontSize: 14)),
-                const Divider(height: 20, thickness: 1.2),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _infoChip(Icons.location_on_outlined, s['location'] ?? "N/A"),
-                    _infoChip(Icons.star, "${s['experience']} yrs exp"),
-                    _infoChip(Icons.currency_rupee, "${s['price']}"),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text("Description:",
-                    style: GoogleFonts.lexend(
-                        fontWeight: FontWeight.bold, fontSize: 14)),
-                const SizedBox(height: 6),
-                Text(s['description'] ?? "No details available.",
-                    style: GoogleFonts.lexend(fontSize: 13, height: 1.4)),
-                const SizedBox(height: 20),
-                Center(
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.shopping_cart_checkout,
-                        color: Colors.white, size: 18),
-                    onPressed: () {
-                      Utils.bottomToast(
-                          context, "Booked ${s['name']} successfully!");
-                      Navigator.pop(context);
-                    },
-                    label: const Text("Book Now",
-                        style: TextStyle(color: Colors.white)),
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 30, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8))),
+                  child: Container(
+                    width: 50,
+                    height: 5,
+                    decoration: BoxDecoration(
+                        color: Colors.grey[400],
+                        borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
-                const SizedBox(height: 10),
+
+                const SizedBox(height: 20),
+                Text("Filters",
+                    style: GoogleFonts.lexend(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
+
+                const SizedBox(height: 20),
+
+                DropdownButtonFormField(
+                  decoration: const InputDecoration(labelText: "Location"),
+                  value: selectedLocation.isEmpty ? null : selectedLocation,
+                  items: locations
+                      .map((loc) => DropdownMenuItem(value: loc, child: Text(loc)))
+                      .toList(),
+                  onChanged: (value) => selectedLocation = value.toString(),
+                ),
+                const SizedBox(height: 15),
+
+                DropdownButtonFormField(
+                  decoration: const InputDecoration(labelText: "Price Range"),
+                  value:
+                  selectedPriceRange.isEmpty ? null : selectedPriceRange,
+                  items: priceRanges
+                      .map((range) =>
+                      DropdownMenuItem(value: range, child: Text(range)))
+                      .toList(),
+                  onChanged: (value) => selectedPriceRange = value.toString(),
+                ),
+
+                const SizedBox(height: 25),
+
+                ElevatedButton(
+                  onPressed: () {
+                    applyFilters();
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    minimumSize: const Size(double.infinity, 45),
+                  ),
+                  child: const Text("Apply Filters",
+                      style: TextStyle(color: Colors.white)),
+                ),
+
+                TextButton(
+                  onPressed: () {
+                    selectedLocation = "";
+                    selectedPriceRange = "";
+                    applyFilters();
+                    Navigator.pop(context);
+                  },
+                  child: const Text("Clear Filters",
+                      style: TextStyle(color: Colors.red)),
+                ),
               ],
             ),
           ),
@@ -143,125 +176,174 @@ class _ServicesPageState extends State<ServicesPage> {
       },
     );
   }
-
-  Widget _infoChip(IconData icon, String label) {
-    return Row(
-      children: [
-        Icon(icon, color: primaryColor, size: 18),
-        const SizedBox(width: 4),
-        Text(label, style: GoogleFonts.lexend(fontSize: 12)),
-      ],
-    );
-  }
-
-  /// 🎨 Compact Service Card
   Widget buildServiceCard(Map<String, dynamic> s) {
     final imageUrl = (s['image'] ?? '').toString();
     final img = imageUrl.startsWith('http')
         ? imageUrl
         : 'https://flyhub-storage.s3.ap-south-1.amazonaws.com/uploads/$imageUrl';
 
-    return InkWell(
-      onTap: () => _showServiceDetails(s),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            child: CachedNetworkImage(
+              imageUrl: img,
+              height: 110,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(s['name'] ?? '',
+                    style: GoogleFonts.lexend(
+                        fontSize: 13, fontWeight: FontWeight.bold)),
+
+                const SizedBox(height: 3),
+
+                Text(s['specificDrone'] ?? '',
+                    style: GoogleFonts.lexend(fontSize: 11, color: Colors.grey)),
+
+                const SizedBox(height: 5),
+
+                Text("₹${s['price'] ?? 'Contact'}",
+                    style: GoogleFonts.lexend(
+                        color: primaryColor, fontSize: 12)),
+
+                const SizedBox(height: 10),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => ServiceBookNow(service: s)),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    child: const Text("Book Now",
+                        style: TextStyle(color: Colors.white, fontSize: 12)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✨ NEW SEARCH BAR UI (as per your sample image)
+  Widget buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Container(
+        height: 52,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
           color: Colors.white,
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+          borderRadius: BorderRadius.circular(40),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            ClipRRect(
-              borderRadius:
-              const BorderRadius.vertical(top: Radius.circular(12)),
-              child: CachedNetworkImage(
-                imageUrl: img,
-                height: 120,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                placeholder: (_, __) =>
-                const Center(child: CircularProgressIndicator()),
-                errorWidget: (_, __, ___) => const Icon(Icons.broken_image,
-                    size: 50, color: Colors.grey),
+            const SizedBox(width: 12),
+
+            Icon(Icons.search, color: Colors.grey[600], size: 22),
+
+            const SizedBox(width: 10),
+
+            Expanded(
+              child: TextField(
+                onChanged: _searchServices,
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  hintText: "Search drones, brands, ...",
+                  hintStyle: GoogleFonts.lexend(
+                    color: Colors.grey[500],
+                    fontSize: 14,
+                  ),
+                ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(s['name'] ?? 'Unnamed Service',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.lexend(
-                          fontWeight: FontWeight.bold, fontSize: 13)),
-                  const SizedBox(height: 3),
-                  Text(s['specificDrone'] ?? '',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style:
-                      GoogleFonts.lexend(color: Colors.grey[700], fontSize: 11)),
-                  const SizedBox(height: 5),
-                  Text("₹${s['price'] ?? 'Contact'}",
-                      style: GoogleFonts.lexend(
-                          color: primaryColor,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12)),
+
+            // FILTER BUTTON (rounded like your image)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              height: 40,
+              width: 40,
+              decoration: BoxDecoration(
+                color: primaryColor,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: primaryColor.withOpacity(0.4),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
                 ],
               ),
-            ),
+              child: IconButton(
+                icon: const Icon(Icons.tune, color: Colors.white, size: 20),
+                onPressed: _openFilterSheet,
+              ),
+            )
           ],
         ),
       ),
     );
   }
 
-  /// 🏗️ Main Build
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+
       appBar: AppBar(
         title: const Text("Drone Services"),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
-        elevation: 0.8,
+        elevation: 0.6,
       ),
-      body: RefreshIndicator(
-        color: primaryColor,
+
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
         onRefresh: fetchServices,
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: TextField(
-                onChanged: _searchServices,
-                decoration: InputDecoration(
-                  hintText: "Search service or location...",
-                  prefixIcon: Icon(Icons.search, color: primaryColor),
-                  filled: true,
-                  fillColor: Colors.grey[200],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-            ),
+
+            /// NEW SEARCH BAR
+            buildSearchBar(),
+
             Expanded(
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : filteredList.isEmpty
-                  ? const Center(
-                child: Text("No drone services available 😶"),
-              )
-                  : GridView.builder(
+              child: GridView.builder(
                 padding: const EdgeInsets.all(12),
                 gridDelegate:
                 const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    childAspectRatio: 0.75,
+                    childAspectRatio: 0.62,
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10),
                 itemCount: filteredList.length,

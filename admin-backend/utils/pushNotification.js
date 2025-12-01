@@ -1,125 +1,96 @@
+// utils/pushNotification.js
 import admin from "../config/firebaseAdmin.js";
 
-/**
- * Flyhub Push Notification Utility
- * --------------------------------
- * Supports single or multiple tokens, retry logic, and silent failures.
- */
+// ⚠️ Implement this later
+async function removeInvalidTokensFromDB(tokens) {
+  console.log("🧹 Remove invalid FCM tokens from DB:", tokens);
+}
 
-/**
- * 🚀 Send FCM push notification
- * @param {string|string[]} tokens - Single token or array of FCM tokens
- * @param {string} title - Notification title
- * @param {string} body - Notification body
- * @param {Object} data - Optional custom data payload
- * @returns {Promise<Object>} Summary of send results
- */
 export async function sendPushNotification(tokens, title, body, data = {}) {
   if (!tokens || (Array.isArray(tokens) && tokens.length === 0)) {
-    console.warn("⚠️ No FCM tokens provided for push notification.");
+    console.warn("⚠️ No FCM tokens provided");
     return { successCount: 0, failureCount: 0, results: [] };
   }
 
-  // Normalize token list
   const tokenList = Array.isArray(tokens) ? tokens : [tokens];
 
-  // Prepare message payload
   const message = {
-    notification: {
-      title,
-      body,
-    },
+    notification: { title, body },
+
     android: {
       priority: "high",
-      notification: {
-        sound: "default",
-      },
+      notification: { sound: "default" },
     },
+
     apns: {
+      headers: { "apns-priority": "10" },
       payload: {
         aps: {
           sound: "default",
+          alert: { title, body },
           contentAvailable: true,
         },
       },
-      headers: { "apns-priority": "10" },
     },
+
     data: Object.fromEntries(
       Object.entries(data || {}).map(([k, v]) => [k, String(v)])
     ),
   };
 
   try {
-    // Batch send if multiple tokens
     let response;
+
+    // 1️⃣ Single token
     if (tokenList.length === 1) {
       response = await admin.messaging().send({
         ...message,
         token: tokenList[0],
       });
-      console.log(`📲 Push sent to single device: ${tokenList[0]}`);
+
+      console.log(`📲 Push sent → ${tokenList[0]}`);
       return { successCount: 1, failureCount: 0, results: [response] };
-    } else {
-      response = await admin.messaging().sendEachForMulticast({
-        tokens: tokenList,
-        ...message,
-      });
-
-      console.log(
-        `📡 Batch push sent: ${response.successCount} success, ${response.failureCount} failed`
-      );
-
-      // Optional: clean up invalid tokens (expired/unregistered)
-      if (response.failureCount > 0) {
-        const invalidTokens = [];
-        response.responses.forEach((r, idx) => {
-          if (!r.success && r.error?.code?.includes("registration-token")) {
-            invalidTokens.push(tokenList[idx]);
-          }
-        });
-
-        if (invalidTokens.length > 0) {
-          console.warn("🧹 Detected invalid FCM tokens:", invalidTokens);
-          // TODO: optionally remove invalid tokens from your Seller DB
-          // await removeInvalidTokensFromDB(invalidTokens);
-        }
-      }
-
-      return {
-        successCount: response.successCount,
-        failureCount: response.failureCount,
-        results: response.responses,
-      };
     }
-  } catch (err) {
-    console.error("❌ sendPushNotification fatal error:", err.message);
-    return { successCount: 0, failureCount: tokenList.length, results: [] };
-  }
-}
 
-/**
- * 🧠 Optional helper to send "silent" background notifications
- * Useful for refreshing dashboard data without alerting user.
- */
-export async function sendSilentPush(tokens, data = {}) {
-  if (!tokens) return null;
-  const tokenList = Array.isArray(tokens) ? tokens : [tokens];
-
-  const message = {
-    android: { priority: "high" },
-    apns: { payload: { aps: { contentAvailable: true } } },
-    data: Object.fromEntries(Object.entries(data || {}).map(([k, v]) => [k, String(v)])),
-  };
-
-  try {
-    const res = await admin.messaging().sendEachForMulticast({
+    // 2️⃣ Multiple tokens
+    response = await admin.messaging().sendEachForMulticast({
       tokens: tokenList,
       ...message,
     });
-    console.log(`🤫 Silent push sent (${res.successCount}/${tokenList.length})`);
-    return res;
+
+    console.log(
+      `📡 Push batch: ${response.successCount} success / ${response.failureCount} failed`
+    );
+
+    // 🚨 Remove invalid tokens
+    if (response.failureCount > 0) {
+      const invalidTokens = [];
+
+      response.responses.forEach((r, idx) => {
+        if (!r.success) {
+          if (
+            r.error?.code === "messaging/registration-token-not-registered" ||
+            r.error?.code?.includes("registration-token")
+          ) {
+            invalidTokens.push(tokenList[idx]);
+          }
+        }
+      });
+
+      if (invalidTokens.length > 0) {
+        console.warn("🧹 Invalid FCM Tokens:", invalidTokens);
+        await removeInvalidTokensFromDB(invalidTokens);
+      }
+    }
+
+    return response;
+
   } catch (err) {
-    console.error("❌ Silent push error:", err.message);
-    return null;
+    console.error("❌ Push Notification Error:", err.message);
+    return {
+      successCount: 0,
+      failureCount: tokenList.length,
+      results: [],
+    };
   }
 }

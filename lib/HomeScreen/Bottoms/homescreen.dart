@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -10,16 +11,19 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import '../../Regulatory.dart';
 import '../../Training.dart';
+import '../../buyer/notifications/BuyerNotificationsPage.dart';
 import '../../services/graphql_client.dart';
 import '../../CommonClass/ApiClass.dart';
 import '../../CommonClass/utils.dart';
 import '../../BuyerDetails/MyCartPage.dart';
 import '../../WishlistPage.dart';
+import '../../services/role_manager.dart';
 import '../Bottoms/MarketPage.dart';
 import '../../DroneDetailPage.dart';
 import '../../Login/BuyerLoginPage.dart';
 import '../../firebase_options.dart';
 import '../../services/cart_wishlist_provider.dart';
+import '../../utils/responsive_utils.dart';
 
 import '../Bottoms/JobPage.dart';
 import '../Bottoms/ServicesPage.dart';
@@ -31,7 +35,9 @@ class HomeScreen extends StatefulWidget {
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
+
 }
+
 
 class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -44,8 +50,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool isUserLoading = true;
   bool _showElevation = false;
   String _searchQuery = '';
+  int _unreadNotifications = 0;
 
-  // NEW: controls whether categories are expanded inline
   bool _isCategoryExpanded = false;
 
   User? _user;
@@ -61,54 +67,18 @@ class _HomeScreenState extends State<HomeScreen> {
     "Pilot": [],
   };
 
+  final Set<String> _wishlistItems = <String>{};
+
   final List<Map<String, dynamic>> categoryList = [
-    {
-      "title": "Drones",
-      "icon": Icons.flight_takeoff_rounded,
-      "color": Color(0xFF4C1D95),
-    },
-    {
-      "title": "Parts",
-      "icon": Icons.settings_rounded,
-      "color": Color(0xFF4C1D95),
-    },
-    {
-      "title": "Accessories",
-      "icon": Icons.shopping_bag_rounded,
-      "color": Color(0xFF4C1D95),
-    },
-    {
-      "title": "Jobs",
-      "icon": Icons.work_rounded,
-      "color": Color(0xFF4C1D95),
-    },
-    {
-      "title": "Services",
-      "icon": Icons.handyman_rounded,
-      "color": Color(0xFF4C1D95),
-    },
-    {
-      "title": "Rentals",
-      "icon": Icons.calendar_today_rounded,
-      "color": Color(0xFF4C1D95),
-    },
-    {
-      "title": "Pilots",
-      "icon": Icons.person_rounded,
-      "color": Color(0xFF4C1D95),
-    },
-
-    {
-      "title": "Training",
-      "icon": Icons.school_rounded,
-      "color": Color(0xFF4C1D95),
-    },
-    {
-      "title": "Regulatory",
-      "icon": Icons.gavel_rounded,
-      "color": Color(0xFF4C1D95),
-    },
-
+    {"title": "Drones", "icon": "assets/categories/drone1.svg"},
+    {"title": "Parts", "icon": "assets/categories/parts.svg"},
+    {"title": "Accessories", "icon": "assets/categories/accessories.svg"},
+    {"title": "Jobs", "icon": "assets/categories/employee.svg"},
+    {"title": "Services", "icon": "assets/categories/services.svg"},
+    {"title": "Rentals", "icon": "assets/categories/rentals.svg"},
+    {"title": "Pilots", "icon": "assets/categories/pilots.svg"},
+    {"title": "Training", "icon": "assets/categories/presentation.svg"},
+    {"title": "Regulatory", "icon": "assets/categories/regulatory.svg"},
   ];
 
   final List<Map<String, dynamic>> _promoBanners = [
@@ -116,19 +86,19 @@ class _HomeScreenState extends State<HomeScreen> {
       "title": "Premium Drones",
       "subtitle": "Up to 40% OFF",
       "image": "https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=500",
-      "color": Color(0xFF6366F1)
+      "color": Color(0xFF1E0E5C),
     },
     {
       "title": "Drone Parts",
       "subtitle": "Latest Collection",
       "image": "https://images.unsplash.com/photo-1588433707931-88ae9585d6bb?w=500",
-      "color": Color(0xFFF59E0B)
+      "color": Color(0xFF1E0E5C),
     },
     {
       "title": "Accessories",
       "subtitle": "Free Shipping",
       "image": "https://images.unsplash.com/photo-1506947411487-a56738267383?w=500",
-      "color": Color(0xFF14B8A6)
+      "color": Color(0xFF1E0E5C),
     },
   ];
 
@@ -137,6 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _initializeUser();
     fetchHomeData();
+    fetchUnreadNotifications();
     _scrollController.addListener(_onScroll);
     _searchController.addListener(() {
       setState(() {
@@ -161,6 +132,41 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _showElevation = false);
     }
   }
+  Future<void> fetchUnreadNotifications() async {
+    try {
+      final buyerId = await RoleManager.getBuyerId();
+      if (buyerId == null) return;
+
+      const query = r'''
+      query($buyerId: String!) {
+        buyerNotifications(buyerId: $buyerId) {
+          read
+        }
+      }
+    ''';
+
+      final client = GraphQLProvider.of(context).value;
+
+      final result = await client.query(
+        QueryOptions(
+          document: gql(query),
+          variables: {"buyerId": buyerId},
+          fetchPolicy: FetchPolicy.networkOnly,
+        ),
+      );
+
+      final all = result.data?["buyerNotifications"] ?? [];
+      final unread = all.where((n) => n["read"] == false).length;
+
+      if (mounted) {
+        setState(() {
+          _unreadNotifications = unread;
+        });
+      }
+    } catch (e) {
+      debugPrint("🔴 Notification count error: $e");
+    }
+  }
 
   Future<void> _initializeUser() async {
     try {
@@ -168,7 +174,6 @@ class _HomeScreenState extends State<HomeScreen> {
         await Firebase.initializeApp(
           options: DefaultFirebaseOptions.currentPlatform,
         );
-        debugPrint("✅ Firebase initialized");
       }
 
       _user = FirebaseAuth.instance.currentUser;
@@ -180,7 +185,6 @@ class _HomeScreenState extends State<HomeScreen> {
               .get();
           _role = userDoc.data()?['role']?.toString().toLowerCase() ?? 'buyer';
         } catch (e) {
-          debugPrint('⚠ Error fetching user role: $e');
           _role = 'buyer';
         }
       }
@@ -224,23 +228,35 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _toggleWishlist(String itemId) {
+    setState(() {
+      if (_wishlistItems.contains(itemId)) {
+        _wishlistItems.remove(itemId);
+        Utils.bottomToast(context, "Removed from wishlist");
+      } else {
+        _wishlistItems.add(itemId);
+        Utils.bottomToast(context, "Added to wishlist");
+      }
+    });
+  }
+
+  bool _isInWishlist(String itemId) {
+    return _wishlistItems.contains(itemId);
+  }
+
   List<dynamic> get _searchResults {
     if (_searchQuery.isEmpty) return [];
 
     final query = _searchQuery.toLowerCase().trim();
     List<dynamic> results = [];
 
-    // Combine all products from Drones, Parts, and Accessories
     List<dynamic> allProducts = [];
     allProducts.addAll(marketplaceData["Drones"]!);
     allProducts.addAll(marketplaceData["Parts"]!);
     allProducts.addAll(marketplaceData["Accessories"]!);
 
     for (var item in allProducts) {
-      // Try multiple possible name fields
       String productName = "";
-
-      // Check for common name field variations
       if (item["name"] != null) {
         productName = item["name"].toString().toLowerCase().trim();
       } else if (item["title"] != null) {
@@ -249,13 +265,11 @@ class _HomeScreenState extends State<HomeScreen> {
         productName = item["product_name"].toString().toLowerCase().trim();
       }
 
-      // Also check description field if available
       String productDesc = "";
       if (item["description"] != null) {
         productDesc = item["description"].toString().toLowerCase().trim();
       }
 
-      // Check if query matches name or description
       if (productName.contains(query) || productDesc.contains(query)) {
         results.add(item);
       }
@@ -265,7 +279,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBadge(int count) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    padding: EdgeInsets.symmetric(
+      horizontal: ResponsiveUtils.getCardMargin(context) / 2,
+      vertical: ResponsiveUtils.getCardMargin(context) / 4,
+    ),
     decoration: BoxDecoration(
       gradient: const LinearGradient(
         colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
@@ -281,13 +298,16 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ],
     ),
-    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+    constraints: BoxConstraints(
+      minWidth: ResponsiveUtils.getMarketBadgeSize(context),
+      minHeight: ResponsiveUtils.getMarketBadgeSize(context),
+    ),
     child: Text(
       count > 99 ? '99+' : '$count',
       textAlign: TextAlign.center,
       style: GoogleFonts.inter(
         color: Colors.white,
-        fontSize: 10,
+        fontSize: ResponsiveUtils.getSmallFontSize(context) - 1,
         fontWeight: FontWeight.w700,
         height: 1.2,
       ),
@@ -302,23 +322,22 @@ class _HomeScreenState extends State<HomeScreen> {
       elevation: _showElevation ? 4 : 0,
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.white,
-      toolbarHeight: 70,
+      toolbarHeight: ResponsiveUtils.getAppBarHeight(context),
       automaticallyImplyLeading: false,
-      titleSpacing: 20,
+      titleSpacing: ResponsiveUtils.getHorizontalPadding(context),
       title: Row(
         children: [
-          // Clean Logo without background or text
           SvgPicture.asset(
             'assets/images/flyHub_logo.svg',
-            width: 40,
-            height: 40,
+            width: ResponsiveUtils.getIconSize(context) + 18,
+            height: ResponsiveUtils.getIconSize(context) + 18,
           ),
         ],
       ),
       actions: [
-        // Wishlist Icon
+        // ❤️ Wishlist
         Container(
-          margin: const EdgeInsets.only(right: 8),
+          margin: EdgeInsets.only(right: ResponsiveUtils.getCardMargin(context)),
           decoration: BoxDecoration(
             color: const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(12),
@@ -329,20 +348,58 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               IconButton(
                 icon: Icon(Icons.favorite_outline,
-                    color: Color(0xFF475569), size: 22),
+                    color: Color(0xFF475569), size: ResponsiveUtils.getIconSize(context)),
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const WishlistPage()),
                 ),
               ),
               if (wishlistCount > 0)
-                Positioned(right: 8, top: 8, child: _buildBadge(wishlistCount)),
+                Positioned(
+                  right: 6,
+                  top: 6,
+                  child: _buildBadge(wishlistCount),
+                ),
             ],
           ),
         ),
-        // Cart Icon
+
+        // 🔔 NOTIFICATION BELL
         Container(
-          margin: const EdgeInsets.only(right: 16),
+          margin: EdgeInsets.only(right: ResponsiveUtils.getCardMargin(context)),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                icon: Icon(Icons.notifications_none,
+                    color: Color(0xFF475569), size: ResponsiveUtils.getIconSize(context)),
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const BuyerNotificationsPage()),
+                  );
+                  fetchUnreadNotifications(); // Refresh when returning
+                },
+              ),
+
+              if (_unreadNotifications > 0)
+                Positioned(
+                  right: 6,
+                  top: 6,
+                  child: _buildBadge(_unreadNotifications),
+                ),
+            ],
+          ),
+        ),
+
+        // 🛍 CART
+        Container(
+          margin: EdgeInsets.only(right: ResponsiveUtils.getHorizontalPadding(context)),
           decoration: BoxDecoration(
             color: const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(12),
@@ -353,24 +410,36 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               IconButton(
                 icon: Icon(Icons.shopping_bag_outlined,
-                    color: Color(0xFF475569), size: 22),
+                    color: Color(0xFF475569), size: ResponsiveUtils.getIconSize(context)),
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const MyCartPage()),
                 ),
               ),
               if (cartCount > 0)
-                Positioned(right: 8, top: 8, child: _buildBadge(cartCount)),
+                Positioned(
+                  right: 6,
+                  top: 6,
+                  child: _buildBadge(cartCount),
+                ),
             ],
           ),
         ),
       ],
+
     );
   }
 
   Widget buildSearchBar() {
+    final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      padding: EdgeInsets.fromLTRB(
+        horizontalPadding,
+        ResponsiveUtils.getVerticalPadding(context),
+        horizontalPadding,
+        ResponsiveUtils.getVerticalPadding(context),
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -378,7 +447,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       child: Container(
-        height: 52,
+        height: ResponsiveUtils.getSearchBarHeight(context),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -393,14 +462,18 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: Row(
           children: [
-            const SizedBox(width: 16),
-            Icon(Icons.search_rounded, color: Color(0xFF94A3B8), size: 22),
-            const SizedBox(width: 12),
+            SizedBox(width: horizontalPadding),
+            Icon(
+              Icons.search_rounded,
+              color: Color(0xFF94A3B8),
+              size: ResponsiveUtils.getIconSize(context),
+            ),
+            SizedBox(width: ResponsiveUtils.getCardMargin(context)),
             Expanded(
               child: TextField(
                 controller: _searchController,
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: ResponsiveUtils.getBodyFontSize(context),
                   color: const Color(0xFF0F172A),
                   fontWeight: FontWeight.w500,
                 ),
@@ -408,13 +481,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   hintText: "Search drones, parts, services...",
                   hintStyle: GoogleFonts.inter(
                     color: const Color(0xFF94A3B8),
-                    fontSize: 15,
+                    fontSize: ResponsiveUtils.getBodyFontSize(context),
                     fontWeight: FontWeight.w400,
                   ),
                   border: InputBorder.none,
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
-                    icon: Icon(Icons.clear, color: Color(0xFF94A3B8)),
+                    icon: Icon(
+                      Icons.clear,
+                      color: Color(0xFF94A3B8),
+                      size: ResponsiveUtils.getIconSize(context),
+                    ),
                     onPressed: () {
                       _searchController.clear();
                       FocusScope.of(context).unfocus();
@@ -424,17 +501,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            Container(
-              width: 36,
-              height: 36,
-              margin: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Color(0xFF4C1D95).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Color(0xFF4C1D95).withOpacity(0.3)),
-              ),
-              child: Icon(Icons.tune_rounded, color: Color(0xFF4C1D95), size: 18),
-            ),
           ],
         ),
       ),
@@ -442,17 +508,23 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget buildPromoBanner() {
+    final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
+    final bannerHeight = ResponsiveUtils.getBannerHeight(context);
+
     return Container(
-      height: 150,
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      height: bannerHeight,
+      margin: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: ResponsiveUtils.getSectionSpacing(context),
+      ),
       child: PageView.builder(
         itemCount: _promoBanners.length,
         itemBuilder: (context, index) {
           final banner = _promoBanners[index];
           return Container(
-            margin: const EdgeInsets.only(right: 12),
+            margin: EdgeInsets.only(right: ResponsiveUtils.getCardMargin(context)),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
               image: DecorationImage(
                 image: NetworkImage(banner["image"]),
                 fit: BoxFit.cover,
@@ -460,26 +532,26 @@ class _HomeScreenState extends State<HomeScreen> {
               boxShadow: [
                 BoxShadow(
                   color: banner["color"].withOpacity(0.3),
-                  blurRadius: 15,
+                  blurRadius: 10,
                   offset: const Offset(0, 5),
                 ),
               ],
             ),
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
                 gradient: LinearGradient(
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                   colors: [
-                    banner["color"].withOpacity(0.9),
-                    banner["color"].withOpacity(0.7),
+                    banner["color"].withOpacity(0.5),
+                    banner["color"].withOpacity(0.6),
                     Colors.transparent,
                   ],
                 ),
               ),
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: EdgeInsets.all(horizontalPadding),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -488,22 +560,25 @@ class _HomeScreenState extends State<HomeScreen> {
                       banner["title"],
                       style: GoogleFonts.inter(
                         color: Colors.white,
-                        fontSize: 18,
+                        fontSize: ResponsiveUtils.getTitleFontSize(context) - 4,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
                     Text(
                       banner["subtitle"],
                       style: GoogleFonts.inter(
                         color: Colors.white,
-                        fontSize: 13,
+                        fontSize: ResponsiveUtils.getBodyFontSize(context),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: ResponsiveUtils.getCardMargin(context)),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: ResponsiveUtils.getCardMargin(context),
+                        vertical: ResponsiveUtils.getCardMargin(context) / 2,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
@@ -512,7 +587,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         "Shop Now",
                         style: GoogleFonts.inter(
                           color: banner["color"],
-                          fontSize: 12,
+                          fontSize: ResponsiveUtils.getSmallFontSize(context),
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -528,27 +603,24 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget buildCategorySection() {
-    // Number of categories to show in collapsed horizontal list
-    const int collapsedCount = 6;
+    final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
+    const int collapsedCount = 9;
 
-    // When collapsed, we show only the first collapsedCount items horizontally (like before).
-    // When expanded, show a grid of all categories inline.
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(vertical: 24),
+      padding: EdgeInsets.symmetric(vertical: ResponsiveUtils.getSectionSpacing(context)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header with title and View All / View Less toggle
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   "Categories",
                   style: GoogleFonts.inter(
-                    fontSize: 20,
+                    fontSize: ResponsiveUtils.getTitleFontSize(context),
                     fontWeight: FontWeight.w800,
                     color: const Color(0xFF0F172A),
                     letterSpacing: -0.5,
@@ -561,7 +633,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     });
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: ResponsiveUtils.getCardMargin(context),
+                      vertical: ResponsiveUtils.getCardMargin(context) / 2,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(12),
@@ -571,7 +646,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       _isCategoryExpanded ? "View Less" : "View All",
                       style: GoogleFonts.inter(
                         color: const Color(0xFF475569),
-                        fontSize: 14,
+                        fontSize: ResponsiveUtils.getBodyFontSize(context),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -580,48 +655,37 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-
-          const SizedBox(height: 20),
-
-          // Collapsed: horizontal list (like before). Expanded: grid of all categories.
+          SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
           AnimatedCrossFade(
             firstChild: SizedBox(
-              height: 100,
-              child: Row(
-                children: [
-                  // Categories List (horizontal) - unchanged behavior when collapsed
-                  Expanded(
-                    child: ListView.builder(
-                      controller: _categoryScrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      scrollDirection: Axis.horizontal,
-                      itemCount: categoryList.length > collapsedCount ? collapsedCount : categoryList.length,
-                      itemBuilder: (context, index) {
-                        final item = categoryList[index];
-                        return _buildCategoryItem(item);
-                      },
-                    ),
-                  ),
-                ],
+              height: ResponsiveUtils.getScreenWidth(context) * 0.3,
+              child: ListView.builder(
+                controller: _categoryScrollController,
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                scrollDirection: Axis.horizontal,
+                itemCount: categoryList.length > collapsedCount ? collapsedCount : categoryList.length,
+                itemBuilder: (context, index) {
+                  final item = categoryList[index];
+                  return _buildCategoryItem(item);
+                },
               ),
             ),
             secondChild: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
               child: GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 padding: EdgeInsets.zero,
                 itemCount: categoryList.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
-                  childAspectRatio: 0.8,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: ResponsiveUtils.getCategoryGridCount(context),
+                  mainAxisSpacing: ResponsiveUtils.getCardMargin(context),
+                  crossAxisSpacing: ResponsiveUtils.getCardMargin(context),
+                  childAspectRatio: 1.0,
                 ),
                 itemBuilder: (context, index) {
                   final item = categoryList[index];
                   return _buildCategoryItem(item);
-
                 },
               ),
             ),
@@ -633,8 +697,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Extracted category item so both collapsed and expanded use the same UI
   Widget _buildCategoryItem(Map<String, dynamic> item) {
+    final categoryItemSize = ResponsiveUtils.getCategoryItemSize(context);
+    final categoryIconSize = ResponsiveUtils.getCategoryIconSize(context);
+
     return GestureDetector(
       onTap: () {
         switch (item['title']) {
@@ -673,47 +739,41 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       },
       child: Container(
-        width: MediaQuery.of(context).size.width * 0.22,
-
-        margin: const EdgeInsets.symmetric(horizontal: 4),
+        width: ResponsiveUtils.getScreenWidth(context) * categoryItemSize,
+        margin: EdgeInsets.symmetric(horizontal: ResponsiveUtils.getCardMargin(context) / 3),
         child: Column(
           children: [
-            // Glassy Grey Background with Dark Purple Icon
             Container(
-              width: MediaQuery.of(context).size.width * 0.16,
-              height: MediaQuery.of(context).size.width * 0.16,
-
+              width: ResponsiveUtils.getScreenWidth(context) * categoryIconSize,
+              height: ResponsiveUtils.getScreenWidth(context) * categoryIconSize,
               decoration: BoxDecoration(
-                color: Color(0xFFF8FAFC), // Glassy grey background
+                color: Color(0xFFE8ECEF),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: Color(0xFFE2E8F0), // Light border
+                  color: Color(0xFF1E0D51).withOpacity(0.5),
                   width: 1.5,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
               ),
-              child: Icon(
-                item['icon'],
-                color: Color(0xFF4C1D95), // Dark purple icon
-                size: 28,
+              child: Padding(
+                padding: EdgeInsets.all(ResponsiveUtils.getCardMargin(context)),
+                child: SvgPicture.asset(
+                  item['icon'],
+                  color: Colors.black,
+                  width: ResponsiveUtils.getIconSize(context),
+                  height: ResponsiveUtils.getIconSize(context),
+                ),
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
             Text(
               item['title'],
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.inter(
-                fontSize: 12,
+                fontSize: ResponsiveUtils.getSmallFontSize(context),
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF475569),
+                color: const Color(0xFF374151),
               ),
             ),
           ],
@@ -723,15 +783,22 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget buildSectionHeader(String title, VoidCallback onViewAll) {
+    final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 32, 20, 20),
+      padding: EdgeInsets.fromLTRB(
+        horizontalPadding,
+        ResponsiveUtils.getSectionSpacing(context) + 8,
+        horizontalPadding,
+        ResponsiveUtils.getSectionSpacing(context),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             title,
             style: GoogleFonts.inter(
-              fontSize: 20,
+              fontSize: ResponsiveUtils.getTitleFontSize(context),
               fontWeight: FontWeight.w800,
               color: const Color(0xFF0F172A),
               letterSpacing: -0.5,
@@ -740,7 +807,10 @@ class _HomeScreenState extends State<HomeScreen> {
           GestureDetector(
             onTap: onViewAll,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: EdgeInsets.symmetric(
+                horizontal: ResponsiveUtils.getCardMargin(context),
+                vertical: ResponsiveUtils.getCardMargin(context) / 2,
+              ),
               decoration: BoxDecoration(
                 color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(12),
@@ -750,7 +820,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 "View All",
                 style: GoogleFonts.inter(
                   color: const Color(0xFF475569),
-                  fontSize: 14,
+                  fontSize: ResponsiveUtils.getBodyFontSize(context),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -762,7 +832,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget buildProductCard(dynamic item, String category) {
-    // Try multiple possible image field names
+    String itemId = "${item['id'] ?? item['id'] ?? ''}$category";
+
     String imageUrl = "";
     if (item["image"] != null) {
       imageUrl = item["image"].toString();
@@ -776,7 +847,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ? "https://via.placeholder.com/300x200.png?text=No+Image"
         : imageUrl;
 
-    // Try multiple possible name field names
     String productName = "";
     if (item["name"] != null) {
       productName = item["name"].toString();
@@ -788,67 +858,61 @@ class _HomeScreenState extends State<HomeScreen> {
       productName = "Unnamed Product";
     }
 
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (_) =>
-                DroneDetailPage(drone: item, Drone: null)
-        ),
+    final cardWidth = ResponsiveUtils.getProductCardWidth(context);
+    final imageHeight = cardWidth * ResponsiveUtils.getProductImageRatio(context);
+
+    return Container(
+      width: cardWidth,
+      margin: EdgeInsets.only(right: ResponsiveUtils.getCardMargin(context)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF1F5F9), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Container(
-        width: 180,
-        margin: const EdgeInsets.only(right: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFF1F5F9), width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 15,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(20)),
-                  child: CachedNetworkImage(
-                    imageUrl: fullImageUrl,
-                    height: 140,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
-                      height: 140,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.grey.shade100, Colors.grey.shade200],
-                        ),
-                      ),
-                    ),
-                    errorWidget: (_, __, ___) => Container(
-                      height: 140,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.grey.shade100, Colors.grey.shade200],
-                        ),
-                      ),
-                      child: const Icon(Icons.photo, size: 40, color: Colors.grey),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                child: CachedNetworkImage(
+                  imageUrl: fullImageUrl,
+                  height: imageHeight,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  placeholder: (_, __) => Container(
+                    height: imageHeight,
+                    color: const Color(0xFFF5F5F5),
+                  ),
+                  errorWidget: (_, __, ___) => Container(
+                    height: imageHeight,
+                    color: const Color(0xFFF5F5F5),
+                    child: Icon(
+                      Icons.photo,
+                      size: ResponsiveUtils.getIconSize(context) + 18,
+                      color: Colors.grey,
                     ),
                   ),
                 ),
-                Positioned(
-                  top: 8,
-                  right: 8,
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: GestureDetector(
+                  onTap: () {
+                    _toggleWishlist(itemId);
+                  },
                   child: Container(
-                    width: 32,
-                    height: 32,
+                    width: ResponsiveUtils.getButtonHeight(context) - 24,
+                    height: ResponsiveUtils.getButtonHeight(context) - 24,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
@@ -860,112 +924,119 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ],
                     ),
-                    child: const Icon(Icons.favorite_border,
-                        size: 18, color: Color(0xFF475569)),
+                    child: Icon(
+                      _isInWishlist(itemId) ? Icons.favorite : Icons.favorite_border,
+                      size: ResponsiveUtils.getIconSize(context) - 2,
+                      color: _isInWishlist(itemId) ? Color(0xFFEF4444) : Color(0xFF475569),
+                    ),
                   ),
                 ),
-                if (item["discount"] != null && item["discount"] > 0)
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
-                        ),
-                        borderRadius: BorderRadius.circular(8),
+              ),
+              if (item["discount"] != null && item["discount"] > 0)
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: ResponsiveUtils.getCardMargin(context) / 2,
+                      vertical: ResponsiveUtils.getCardMargin(context) / 4,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
                       ),
-                      child: Text(
-                        "${item["discount"]}% OFF",
-                        style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      "${item["discount"]}% OFF",
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontSize: ResponsiveUtils.getSmallFontSize(context) - 1,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
+                ),
+            ],
+          ),
+          Padding(
+            padding: EdgeInsets.all(ResponsiveUtils.getCardMargin(context)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  productName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600,
+                    fontSize: ResponsiveUtils.getBodyFontSize(context),
+                    color: const Color(0xFF0F172A),
+                    height: 1.3,
+                  ),
+                ),
+                SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
+                Row(
+                  children: [
+                    Text(
+                      "₹${item["price"] ?? 0}",
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF0F172A),
+                        fontWeight: FontWeight.w800,
+                        fontSize: ResponsiveUtils.getBodyFontSize(context) + 2,
+                      ),
+                    ),
+                    if (item["originalPrice"] != null && item["originalPrice"] > item["price"])
+                      SizedBox(width: ResponsiveUtils.getCardMargin(context) / 2),
+                    if (item["originalPrice"] != null && item["originalPrice"] > item["price"])
+                      Text(
+                        "₹${item["originalPrice"]}",
+                        style: GoogleFonts.inter(
+                          color: const Color(0xFF94A3B8),
+                          fontWeight: FontWeight.w500,
+                          fontSize: ResponsiveUtils.getSmallFontSize(context),
+                          decoration: TextDecoration.lineThrough,
+                        ),
+                      ),
+                  ],
+                ),
+                SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.star_rounded,
+                      color: Color(0xFFF59E0B),
+                      size: ResponsiveUtils.getIconSize(context) - 6,
+                    ),
+                    SizedBox(width: ResponsiveUtils.getCardMargin(context) / 4),
+                    Text(
+                      "${item["rating"] ?? 4.5}",
+                      style: GoogleFonts.inter(
+                        fontSize: ResponsiveUtils.getSmallFontSize(context),
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                    SizedBox(width: ResponsiveUtils.getCardMargin(context) / 4),
+                    Text(
+                      "(${item["reviews"] ?? 0})",
+                      style: GoogleFonts.inter(
+                        fontSize: ResponsiveUtils.getSmallFontSize(context),
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    productName,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                      color: const Color(0xFF0F172A),
-                      height: 1.3,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Text(
-                        "₹${item["price"] ?? 0}",
-                        style: GoogleFonts.inter(
-                          color: const Color(0xFF0F172A),
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16,
-                        ),
-                      ),
-                      if (item["originalPrice"] != null &&
-                          item["originalPrice"] > item["price"])
-                        const SizedBox(width: 6),
-                      if (item["originalPrice"] != null &&
-                          item["originalPrice"] > item["price"])
-                        Text(
-                          "₹${item["originalPrice"]}",
-                          style: GoogleFonts.inter(
-                            color: const Color(0xFF94A3B8),
-                            fontWeight: FontWeight.w500,
-                            fontSize: 12,
-                            decoration: TextDecoration.lineThrough,
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        "${item["rating"] ?? 4.5}",
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF475569),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        "(${item["reviews"] ?? 0})",
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF94A3B8),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget buildProductCarousel(
-      String title, List<dynamic> products, VoidCallback onViewAll) {
+  Widget buildProductCarousel(String title, List<dynamic> products, VoidCallback onViewAll) {
     if (products.isEmpty) return const SizedBox();
 
     return Column(
@@ -973,10 +1044,9 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         buildSectionHeader(title, onViewAll),
         SizedBox(
-          height: 240,
+          height: ResponsiveUtils.getProductCardHeight(context) + ResponsiveUtils.getCardMargin(context) * 2,
           child: ListView.builder(
-            padding: const EdgeInsets.only(left: 20),
-
+            padding: EdgeInsets.only(left: ResponsiveUtils.getHorizontalPadding(context)),
             scrollDirection: Axis.horizontal,
             itemCount: products.length,
             itemBuilder: (context, index) {
@@ -988,54 +1058,235 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget buildFeaturedSection() {
+  Widget buildJobOpportunities() {
+    if (marketplaceData["Jobs"]!.isEmpty) return const SizedBox();
+
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 16),
-      padding: const EdgeInsets.symmetric(vertical: 24),
+      color: Colors.white,
+      padding: EdgeInsets.symmetric(vertical: ResponsiveUtils.getSectionSpacing(context)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          buildSectionHeader(
+            "Job Opportunities",
+                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const JobsPage())),
+          ),
+          SizedBox(
+            height: ResponsiveUtils.getJobBannerHeight(context),
+            child: ListView.builder(
+              padding: EdgeInsets.only(left: ResponsiveUtils.getHorizontalPadding(context)),
+              scrollDirection: Axis.horizontal,
+              itemCount: marketplaceData["Jobs"]!.length,
+              itemBuilder: (context, index) {
+                final job = marketplaceData["Jobs"]![index];
+                return _buildJobBanner(job);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildJobBanner(dynamic job) {
+    String jobTitle = job["title"] ?? job["jobTitle"] ?? "Job Opportunity";
+    String company = job["company"] ?? job["companyName"] ?? "Hiring Company";
+    String location = job["location"] ?? job["jobLocation"] ?? "Multiple Locations";
+    String salary = job["salary"] ?? job["salaryRange"] ?? "Competitive Salary";
+    String jobType = job["jobType"] ?? job["type"] ?? "Full Time";
+
+    String imageAsset = "assets/images/jobback.jpg";
+
+    bool isUrgent = job["urgent"] == true ||
+        job["jobType"]?.toString().toLowerCase() == "urgent" ||
+        job["applicationDeadline"] != null;
+
+    return GestureDetector(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const JobsPage())),
+      child: Container(
+        width: ResponsiveUtils.getJobBannerWidth(context),
+        margin: EdgeInsets.only(right: ResponsiveUtils.getCardMargin(context)),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          image: const DecorationImage(
+            image: AssetImage("assets/images/jobback.jpg"),
+            fit: BoxFit.cover,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blueAccent.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+              colors: [
+                Color(0xFF7AC9EC).withOpacity(0.8),
+                Color(0xFFF8F6F6).withOpacity(0.5),
+                Color(0x00000000),
+              ],
+            ),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(ResponsiveUtils.getCardMargin(context)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (isUrgent)
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: ResponsiveUtils.getCardMargin(context),
+                      vertical: ResponsiveUtils.getCardMargin(context) / 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Color(0xFFEF4444),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      "URGENT",
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontSize: ResponsiveUtils.getSmallFontSize(context),
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
+                Text(
+                  jobTitle,
+                  style: GoogleFonts.inter(
+                    color: Colors.black.withOpacity(0.9),
+                    fontSize: ResponsiveUtils.getTitleFontSize(context) - 4,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: ResponsiveUtils.getCardMargin(context) / 4),
+                Text(
+                  company,
+                  style: GoogleFonts.inter(
+                    color: Colors.black.withOpacity(0.9),
+                    fontSize: ResponsiveUtils.getTitleFontSize(context) - 6,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.location_on,
+                      size: ResponsiveUtils.getIconSize(context) - 6,
+                      color: Colors.black.withOpacity(0.8),
+                    ),
+                    SizedBox(width: ResponsiveUtils.getCardMargin(context) / 4),
+                    Expanded(
+                      child: Text(
+                        location,
+                        style: GoogleFonts.inter(
+                          color: Colors.black.withOpacity(0.8),
+                          fontSize: ResponsiveUtils.getBodyFontSize(context),
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: ResponsiveUtils.getCardMargin(context) / 4),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.work,
+                      size: ResponsiveUtils.getIconSize(context) - 6,
+                      color: Colors.black.withOpacity(0.8),
+                    ),
+                    SizedBox(width: ResponsiveUtils.getCardMargin(context) / 4),
+                    Text(
+                      jobType,
+                      style: GoogleFonts.inter(
+                        color: Colors.black.withOpacity(0.8),
+                        fontSize: ResponsiveUtils.getBodyFontSize(context),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      salary,
+                      style: GoogleFonts.inter(
+                        color: Colors.black,
+                        fontSize: ResponsiveUtils.getBodyFontSize(context),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget buildFeaturedSection() {
+    final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
+
+    return Container(
+      margin: EdgeInsets.symmetric(vertical: ResponsiveUtils.getSectionSpacing(context)),
+      padding: EdgeInsets.symmetric(vertical: ResponsiveUtils.getSectionSpacing(context)),
       color: Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
             child: Text(
               "Why Choose Us?",
               style: GoogleFonts.inter(
-                fontSize: 20,
+                fontSize: ResponsiveUtils.getTitleFontSize(context),
                 fontWeight: FontWeight.w800,
                 color: const Color(0xFF0F172A),
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
             child: Row(
               children: [
                 _buildFeatureCard(
                   "Free Shipping",
-                  "On orders over ₹2000",
+                  "orders over ₹2000",
                   Icons.local_shipping_rounded,
-                  Color(0xFF4C1D95),
+                  Color(0xFF1E0E5C),
                 ),
                 _buildFeatureCard(
                   "Secure Payment",
                   "100% protected",
                   Icons.verified_user_rounded,
-                  Color(0xFF4C1D95),
+                  Color(0xFF169652),
                 ),
                 _buildFeatureCard(
                   "Easy Returns",
                   "30-day policy",
                   Icons.assignment_return_rounded,
-                  Color(0xFF4C1D95),
+                  Color(0xFF733486),
                 ),
                 _buildFeatureCard(
                   "24/7 Support",
                   "Always here to help",
                   Icons.support_agent_rounded,
-                  Color(0xFF4C1D95),
+                  Color(0xFFB44A29),
                 ),
               ],
             ),
@@ -1046,10 +1297,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildFeatureCard(String title, String subtitle, IconData icon, Color color) {
+    final cardWidth = ResponsiveUtils.getFeatureCardWidth(context);
+    final cardHeight = ResponsiveUtils.getFeatureCardHeight(context);
+
     return Container(
-      width: 160,
-      margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(16),
+      width: cardWidth,
+      height: cardHeight,
+      margin: EdgeInsets.only(right: ResponsiveUtils.getCardMargin(context)),
+      padding: EdgeInsets.all(ResponsiveUtils.getCardMargin(context)),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(16),
@@ -1059,27 +1314,31 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: EdgeInsets.all(ResponsiveUtils.getCardMargin(context) / 2),
             decoration: BoxDecoration(
               color: color,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: Colors.white, size: 20),
+            child: Icon(
+              icon,
+              color: Colors.white,
+              size: ResponsiveUtils.getIconSize(context),
+            ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: ResponsiveUtils.getCardMargin(context)),
           Text(
             title,
             style: GoogleFonts.inter(
-              fontSize: 14,
+              fontSize: ResponsiveUtils.getBodyFontSize(context) + 2,
               fontWeight: FontWeight.w700,
               color: color,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: ResponsiveUtils.getCardMargin(context) / 4),
           Text(
             subtitle,
             style: GoogleFonts.inter(
-              fontSize: 12,
+              fontSize: ResponsiveUtils.getSmallFontSize(context),
               fontWeight: FontWeight.w500,
               color: Color(0xFF64748B),
             ),
@@ -1091,29 +1350,34 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildSearchResults() {
     final results = _searchResults;
+    final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
 
     if (results.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
+      return Container(
+        height: ResponsiveUtils.getSafeContainerHeight(context, percentage: 0.6),
+        child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.search_off, size: 64, color: Color(0xFF94A3B8)),
-              const SizedBox(height: 16),
+              Icon(
+                Icons.search_off,
+                size: ResponsiveUtils.getMarketEmptyStateIconSize(context),
+                color: Color(0xFF94A3B8),
+              ),
+              SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
               Text(
                 "No products found",
                 style: GoogleFonts.inter(
-                  fontSize: 18,
+                  fontSize: ResponsiveUtils.getTitleFontSize(context) - 4,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF475569),
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: ResponsiveUtils.getCardMargin(context)),
               Text(
                 "Try different keywords",
                 style: GoogleFonts.inter(
-                  fontSize: 14,
+                  fontSize: ResponsiveUtils.getBodyFontSize(context),
                   color: Color(0xFF94A3B8),
                 ),
               ),
@@ -1127,37 +1391,37 @@ class _HomeScreenState extends State<HomeScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            ResponsiveUtils.getSectionSpacing(context),
+            horizontalPadding,
+            ResponsiveUtils.getCardMargin(context),
+          ),
           child: Text(
             "Search Results",
             style: GoogleFonts.inter(
-              fontSize: 20,
+              fontSize: ResponsiveUtils.getTitleFontSize(context),
               fontWeight: FontWeight.w800,
               color: const Color(0xFF0F172A),
             ),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
           child: Text(
             "${results.length} products found",
             style: GoogleFonts.inter(
-              fontSize: 14,
+              fontSize: ResponsiveUtils.getBodyFontSize(context),
               color: const Color(0xFF64748B),
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
         GridView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.75,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-          ),
+          gridDelegate: ResponsiveUtils.getProductGridDelegate(context),
           itemCount: results.length,
           itemBuilder: (context, index) {
             return buildProductCard(results[index], "Search");
@@ -1174,18 +1438,10 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Colors.white,
         body: Center(
           child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4C1D95)),
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1E0D51)),
           ),
         ),
       );
-    }
-    if (_user == null) {
-      Future.microtask(() => Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const BuyerLoginPage()),
-            (route) => false,
-      ));
-      return const SizedBox();
     }
 
     return Scaffold(
@@ -1195,7 +1451,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: isLoading
           ? shimmerContent(context)
           : RefreshIndicator(
-        color: const Color(0xFF4C1D95),
+        color: const Color(0xFF1E0D51),
         onRefresh: fetchHomeData,
         child: _searchQuery.isNotEmpty
             ? ListView(
@@ -1217,42 +1473,34 @@ class _HomeScreenState extends State<HomeScreen> {
               "Popular Drones",
               marketplaceData["Drones"]!,
                   () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const MarketPage(initialTab: 0))),
+                context,
+                MaterialPageRoute(builder: (_) => const MarketPage(initialTab: 0)),
+              ),
             ),
             buildFeaturedSection(),
             buildProductCarousel(
               "Drone Parts",
               marketplaceData["Parts"]!,
                   () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const MarketPage(initialTab: 1))),
+                context,
+                MaterialPageRoute(builder: (_) => const MarketPage(initialTab: 1)),
+              ),
             ),
             buildProductCarousel(
               "Accessories",
               marketplaceData["Accessories"]!,
                   () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const MarketPage(initialTab: 2))),
+                context,
+                MaterialPageRoute(builder: (_) => const MarketPage(initialTab: 2)),
+              ),
             ),
-            buildProductCarousel(
-              "Job Opportunities",
-              marketplaceData["Jobs"]!,
-                  () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const JobsPage())),
-            ),
+            buildJobOpportunities(),
             buildProductCarousel(
               "Drone Services",
               marketplaceData["Services"]!,
-                  () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const ServicesPage())),
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ServicesPage())),
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: ResponsiveUtils.getSectionSpacing(context) * 2),
           ],
         ),
       ),
@@ -1260,82 +1508,85 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget shimmerContent(BuildContext context) {
+    final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
+
     return ListView(
-      padding: const EdgeInsets.all(0),
+      padding: EdgeInsets.zero,
       children: [
+        // Search Bar Shimmer
         Container(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(horizontalPadding),
           color: Colors.white,
           child: Shimmer.fromColors(
             baseColor: const Color(0xFFE2E8F0),
             highlightColor: const Color(0xFFF8FAFC),
-            child: Column(
-              children: [
-                Container(
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-              ],
+            child: Container(
+              height: ResponsiveUtils.getSearchBarHeight(context),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
+
+        // Banner Shimmer
         Shimmer.fromColors(
           baseColor: const Color(0xFFE2E8F0),
           highlightColor: const Color(0xFFF8FAFC),
           child: Container(
-            height: 160,
-            margin: const EdgeInsets.symmetric(horizontal: 20),
+            height: ResponsiveUtils.getBannerHeight(context),
+            margin: EdgeInsets.symmetric(horizontal: horizontalPadding),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
             ),
           ),
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
+
+        // Categories Shimmer
         Shimmer.fromColors(
           baseColor: const Color(0xFFE2E8F0),
           highlightColor: const Color(0xFFF8FAFC),
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 24),
+            padding: EdgeInsets.symmetric(vertical: ResponsiveUtils.getSectionSpacing(context)),
             color: Colors.white,
             child: Column(
               children: [
                 Container(
-                  height: 24,
+                  height: ResponsiveUtils.getTitleFontSize(context),
                   width: 120,
-                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                  margin: EdgeInsets.symmetric(horizontal: horizontalPadding),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
                 SizedBox(
-                  height: 100,
+                  height: ResponsiveUtils.getScreenWidth(context) * 0.3,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                     itemCount: 7,
                     itemBuilder: (_, __) => Container(
-                      width: 80,
-                      margin: const EdgeInsets.symmetric(horizontal: 6),
+                      width: ResponsiveUtils.getScreenWidth(context) * 0.2,
+                      margin: EdgeInsets.symmetric(horizontal: ResponsiveUtils.getCardMargin(context) / 3),
                       child: Column(
                         children: [
                           Container(
-                            width: 64,
-                            height: 64,
+                            width: ResponsiveUtils.getScreenWidth(context) * 0.15,
+                            height: ResponsiveUtils.getScreenWidth(context) * 0.15,
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(16),
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
                           Container(
-                            height: 12,
+                            height: ResponsiveUtils.getSmallFontSize(context),
                             width: 60,
                             decoration: BoxDecoration(
                               color: Colors.white,
@@ -1351,48 +1602,47 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ),
-        ...List.generate(
-          4,
-              (index) => Shimmer.fromColors(
-            baseColor: const Color(0xFFE2E8F0),
-            highlightColor: const Color(0xFFF8FAFC),
-            child: Container(
-              margin: const EdgeInsets.only(top: 24),
-              color: Colors.white,
-              child: Column(
-                children: [
-                  Container(
-                    height: 28,
-                    width: 180,
-                    margin: const EdgeInsets.symmetric(horizontal: 20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+
+        // Product Carousels Shimmer
+        ...List.generate(4, (index) => Shimmer.fromColors(
+          baseColor: const Color(0xFFE2E8F0),
+          highlightColor: const Color(0xFFF8FAFC),
+          child: Container(
+            margin: EdgeInsets.only(top: ResponsiveUtils.getSectionSpacing(context)),
+            color: Colors.white,
+            child: Column(
+              children: [
+                Container(
+                  height: ResponsiveUtils.getTitleFontSize(context),
+                  width: 180,
+                  margin: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    height: 240,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.only(left: 20),
-                      itemCount: 3,
-                      itemBuilder: (_, __) => Container(
-                        width: 180,
-                        margin: const EdgeInsets.only(right: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
+                ),
+                SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
+                SizedBox(
+                  height: ResponsiveUtils.getProductCardHeight(context) + ResponsiveUtils.getCardMargin(context) * 2,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.only(left: horizontalPadding),
+                    itemCount: 3,
+                    itemBuilder: (_, __) => Container(
+                      width: ResponsiveUtils.getProductCardWidth(context),
+                      margin: EdgeInsets.only(right: ResponsiveUtils.getCardMargin(context)),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
-                ],
-              ),
+                ),
+                SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
+              ],
             ),
           ),
-        ),
+        )),
       ],
     );
   }

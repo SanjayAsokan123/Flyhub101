@@ -21,12 +21,10 @@ const partSchema = new mongoose.Schema(
     image: { type: String },
     quantity: { type: Number, default: 1 },
     status: { type: String, default: "pending" },
-    sellerId: { type: String, required: true }, // stores Seller.customId
+    sellerId: { type: String, required: true },
   },
   { timestamps: true }
 );
-
-// Auto-generate partId per seller
 partSchema.pre("save", async function (next) {
   if (this.isNew && !this.partId && this.sellerId) {
     const seller = await Seller.findOne({ customId: this.sellerId });

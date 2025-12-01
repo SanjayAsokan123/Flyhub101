@@ -9,10 +9,6 @@ import {
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-/**
- * 🖼 Single file upload
- * POST /upload/single
- */
 router.post("/single", upload.single("file"), async (req, res) => {
   try {
     const folder = req.body.folder || "general";
@@ -23,11 +19,6 @@ router.post("/single", upload.single("file"), async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
-
-/**
- * 📦 Multiple file upload
- * POST /upload/multiple
- */
 router.post("/multiple", upload.array("files"), async (req, res) => {
   try {
     const folder = req.body.folder || "general";

@@ -15,7 +15,6 @@ const serviceSchema = new mongoose.Schema({
   sellerId: { type: String, required: true },
 }, { timestamps: true });
 
-// Pre-save hook: atomic counter
 serviceSchema.pre("save", async function(next) {
   try {
     if (this.isNew && !this.serviceId) {
@@ -25,7 +24,7 @@ serviceSchema.pre("save", async function(next) {
       const counter = await Counter.findOneAndUpdate(
         { name: this.sellerId },
         { $inc: { seq: 1 } },
-        { new: true, upsert: true } // create if doesn't exist
+        { new: true, upsert: true }
       );
 
       this.serviceId = `${seller.customId}SS${String(counter.seq).padStart(4, "0")}`;

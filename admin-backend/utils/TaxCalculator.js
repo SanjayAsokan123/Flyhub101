@@ -1,6 +1,5 @@
 import { Tax } from "../models/tax.model.js";
 
-// get latest tax and compute tax multiplier
 export async function calculateFinalPrice(basePrice) {
   const latestTax = await Tax.findOne().sort({ createdAt: -1 });
     console.log(`latestTax: ${latestTax}`);

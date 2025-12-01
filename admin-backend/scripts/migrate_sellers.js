@@ -44,7 +44,6 @@ async function run() {
       ) {
         console.log(`⚠️ Skipping INVALID seller: ${seller._id}`);
 
-        // Log invalid sellers
         fs.appendFileSync(
           "invalid_sellers.log",
           `${seller._id} -> Missing fields\n`
@@ -52,10 +51,6 @@ async function run() {
 
         continue;
       }
-
-      // -----------------------------------------
-      // 1) PASSWORD HASHING
-      // -----------------------------------------
       if ((!seller.passwordHash || seller.passwordHash === "") && seller.plainPassword) {
         const hash = await bcrypt.hash(String(seller.plainPassword).trim(), 10);
         seller.passwordHash = hash;
@@ -63,10 +58,6 @@ async function run() {
         await seller.save();
         console.log(`🔐 Hashed password for ${seller.customId || seller._id}`);
       }
-
-      // -----------------------------------------
-      // 2) FIREBASE USER CREATION / LINKING
-      // -----------------------------------------
       let uid = seller.firebaseUid;
 
       if (!uid) {
@@ -91,7 +82,6 @@ async function run() {
 
           console.log(`🆔 Created Firebase user for ${seller.customId || seller._id} -> ${uid}`);
         } catch (err) {
-          // If email already exists in Firebase, link it
           if (err.code === "auth/email-already-exists" && seller.email) {
             try {
               const existing = await auth.getUserByEmail(seller.email);
@@ -106,14 +96,10 @@ async function run() {
             }
           } else {
             console.error("❌ Firebase createUser failed for", seller.customId || seller._id, err);
-            continue; // Skip Firestore index for this seller
+            continue;
           }
         }
       }
-
-      // -----------------------------------------
-      // 3) CREATE FIRESTORE loginIndex ENTRIES
-      // -----------------------------------------
       if (firestore && uid) {
         const setIndex = (prefix, key) => {
           if (isMissing(key)) return;
@@ -137,13 +123,11 @@ async function run() {
         setIndex("sellerId", seller.customId);
       }
 
-      // Throttle processing every 50 sellers
       if (processed % 50 === 0) {
         await new Promise((r) => setTimeout(r, 200));
       }
     }
 
-    // Commit final firestore batch
     if (batchOps > 0) {
       console.log(`🔁 Final commit of ${batchOps}`);
       await batch.commit();
@@ -157,5 +141,4 @@ async function run() {
     process.exit(1);
   }
 }
-
 run();

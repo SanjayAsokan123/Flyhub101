@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 
+import 'config/env.dart';
+
 // 🧾 Model
 class RegulatoryInfo {
   final String id;
@@ -79,7 +81,7 @@ class _RegulatoryPageState extends State<RegulatoryPage> {
   List<RegulatoryInfo> regulatoryList = [];
   bool isLoading = true;
 
-  final String backendUrl = 'http://192.168.1.178:5001/graphql';
+  final String backendUrl = EnvConfig.baseUrl;
 
   final String getRegulatoryQuery = '''
     query {

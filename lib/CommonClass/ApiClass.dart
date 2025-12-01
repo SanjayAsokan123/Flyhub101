@@ -1,15 +1,14 @@
-import 'dart:convert';
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/material.dart';
-import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:flyhub/config/env.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
-import 'package:mime/mime.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../config/env.dart';
-import 'utils.dart';
+
 import '../services/graphql_client.dart';
 
 /// ✅ Unified API Result for all network operations
@@ -27,45 +26,52 @@ class ApiResult {
       ApiResult(status: "error", data: null, message: msg);
 }
 
+/// ✅ API Response class for Job Application
+class ApiResponse {
+  final bool success;
+  final String? message;
+  final dynamic data;
+
+  ApiResponse({
+    required this.success,
+    this.message,
+    this.data,
+  });
+
+  @override
+  String toString() {
+    return 'ApiResponse(success: $success, message: $message, data: $data)';
+  }
+}
+
 /// 🧩 FlyHub GraphQL + Firebase API Manager
 class ApiClass {
   late SharedPreferences pref;
-
+  final FirebaseStorage _storage = FirebaseStorage.instance;
   // ============================================================
-  // ☁️ Firebase File Upload via Backend REST API
+  // ☁ Firebase File Upload via Backend REST API
   // ============================================================
-  Future<ApiResult> uploadToFirebaseServer(File file, String folder) async {
+  Future<String?> uploadToFirebaseStorage(File file, String folder, {String? fileName}) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        return ApiResult.error("User not authenticated with Firebase");
-      }
+      if (user == null) throw Exception("User not authenticated");
 
-      final token = await user.getIdToken();
-      final uri = Uri.parse(
-          "http://192.168.1.178:5001/upload"); // ✅ Use /upload
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = "${timestamp}_${file.path.split('/').last}";
+      final path = "$folder/${user.uid}/$fileName";
 
-      final request = http.MultipartRequest("POST", uri)
-        ..headers["Authorization"] = "Bearer $token"
-        ..fields["folder"] = folder
-        ..files.add(await http.MultipartFile.fromPath("file", file.path));
+      final ref = _storage.ref().child(path);
+      await ref.putFile(file);
 
-      final response = await request.send();
-      final resBody = await response.stream.bytesToString();
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(resBody);
-        debugPrint("✅ Uploaded to Firebase Storage: ${data['url']}");
-        return ApiResult.success(data['url']);
-      } else {
-        debugPrint("❌ Upload failed: $resBody");
-        return ApiResult.error(resBody);
-      }
+      final downloadUrl = await ref.getDownloadURL();
+      debugPrint("✅ Uploaded to Firebase: $downloadUrl");
+      return downloadUrl;
     } catch (e) {
-      debugPrint("⚠️ Upload exception: $e");
-      return ApiResult.error(e.toString());
+      debugPrint("❌ Firebase upload error: $e");
+      return null;
     }
   }
+
 
 
   // ============================================================
@@ -124,7 +130,7 @@ class ApiClass {
   }
 
   // ============================================================
-  // 👨‍✈️ HIRE PILOTS
+  // 👨‍✈ HIRE PILOTS
   // ============================================================
   Future<ApiResult> getApprovedHirePilots() async {
     const String query = r'''
@@ -159,6 +165,9 @@ class ApiClass {
         "getApprovedHirePilots", query, "approvedHirePilotsByStatus");
   }
 
+  // --------------------------------------------------------------
+  // Final Add Hire Pilot (GraphQL Mutation)
+  // --------------------------------------------------------------
   Future<ApiResult> addHirePilot({
     required String pilotName,
     required String pilotCompany,
@@ -174,7 +183,7 @@ class ApiClass {
     String? resumeUrl,
     String? description,
   }) async {
-    const String mutation = r'''
+    const mutation = r'''
       mutation AddHirePilot($input: HirePilotInput!) {
         addHirePilot(input: $input) {
           pilotId
@@ -190,8 +199,9 @@ class ApiClass {
 
     try {
       final client = await GraphQLService.initClient();
+
       final certInputs =
-      (certificationUrls ?? []).map((url) => {"url": url}).toList();
+          certificationUrls?.map((url) => {"url": url}).toList() ?? [];
 
       final variables = {
         "input": {
@@ -210,23 +220,21 @@ class ApiClass {
         }
       };
 
-      final result =
-      await client.mutate(
-          MutationOptions(document: gql(mutation), variables: variables));
+      final result = await client.mutate(
+        MutationOptions(document: gql(mutation), variables: variables),
+      );
 
       if (result.hasException) {
-        debugPrint("❌ [addHirePilot] ${result.exception}");
+        debugPrint("❌ GraphQL Error: ${result.exception}");
         return ApiResult.error(result.exception.toString());
       }
 
-      final data = result.data?['addHirePilot'];
-      debugPrint("✅ Added Pilot: ${data?['pilotName']}");
-      return ApiResult.success(data);
+      return ApiResult.success(result.data?["addHirePilot"]);
     } catch (e) {
-      debugPrint("⚠️ [addHirePilot] Exception: $e");
       return ApiResult.error(e.toString());
     }
   }
+
   Future<Map<String, dynamic>> bookPilotRental({
     required String pilotId,
     required String name,
@@ -334,6 +342,94 @@ class ApiClass {
     return _runQuery("getJobs", query, "jobs");
   }
 
+  Future<ApiResponse> submitJobApplication({
+    required String jobBookingId,
+    required String name,
+    required String email,
+    required String phoneNumber,
+    required String resumeUrl,
+  }) async {
+    const String mutation = r'''
+      mutation SubmitJobApplication($input: JobApplicationInput!) {
+        submitJobApplication(input: $input) {
+          success
+          message
+          application {
+            _id
+            name
+            email
+            phoneNumber
+            resumeUrl
+            jobBookingId
+            status
+            createdAt
+          }
+        }
+      }
+    ''';
+
+    final variables = {
+      "input": {
+        "jobBookingId": jobBookingId,
+        "name": name,
+        "email": email,
+        "phoneNumber": phoneNumber,
+        "resumeUrl": resumeUrl,
+      }
+    };
+
+    try {
+      debugPrint("📤 Submitting job application...");
+      debugPrint("jobBookingId: $jobBookingId");
+      debugPrint("Name: $name");
+      debugPrint("Email: $email");
+      debugPrint("Phone: $phoneNumber");
+      debugPrint("Resume URL: $resumeUrl");
+
+      final client = await GraphQLService.initClient();
+      final result = await client.mutate(
+        MutationOptions(
+          document: gql(mutation),
+          variables: variables,
+        ),
+      );
+
+      debugPrint("📥 Response received");
+
+      if (result.hasException) {
+        debugPrint("❌ GraphQL Exception: ${result.exception}");
+        return ApiResponse(
+          success: false,
+          message: result.exception.toString(),
+        );
+      }
+
+      final data = result.data?['submitJobApplication'];
+
+      if (data != null && data['success'] == true) {
+        debugPrint("✅ Application submitted successfully");
+        return ApiResponse(
+          success: true,
+          message: data['message'] ?? "Application submitted successfully",
+          data: data['application'],
+        );
+      } else {
+        final errorMessage = data?['message'] ?? "Failed to submit application";
+        debugPrint("❌ Application failed: $errorMessage");
+        return ApiResponse(
+          success: false,
+          message: errorMessage,
+        );
+      }
+    } catch (e) {
+      debugPrint("❌ submitJobApplication error: $e");
+      return ApiResponse(
+        success: false,
+        message: "Error: $e",
+      );
+    }
+  }
+
   // ============================================================
   // 🛠 SERVICES
   // ============================================================
@@ -367,40 +463,38 @@ class ApiClass {
   Future<ApiResult> getRentals() async {
     const String query = r'''
       query {
-       rentals {
-  rentalId
-  name
-  brand
-  pricePerDay
-  pricePerHour
-  description
-  image
-  location
-  insurance
-  with_pilot
-  available_today
-  status        # 👈 ADD THIS FIELD
-}
-
+        rentals {
+          rentalId
+          name
+          brand
+          pricePerDay
+          pricePerHour
+          description
+          image
+          location
+          insurance
+          with_pilot
+          available_today
+          status
+        }
       }
     ''';
     return _runQuery("getRentals", query, "rentals");
   }
 
-
   Future<ApiResult> enrollTraining(Map<String, dynamic> data) async {
     const String mutation = r'''
-    mutation EnrollTraining($input: TrainingEnrollInput!) {
-      enrollTraining(input: $input) {
-        id
-        name
-        email
-        phone
-        address
-        status
+      mutation EnrollTraining($input: TrainingEnrollInput!) {
+        enrollTraining(input: $input) {
+          id
+          name
+          email
+          phone
+          address
+          status
+        }
       }
-    }
-  ''';
+    ''';
 
     try {
       final client = await GraphQLService.initClient();
@@ -416,53 +510,54 @@ class ApiClass {
 
       return ApiResult.success(result.data?['enrollTraining']);
     } catch (e) {
-      debugPrint("⚠️ [EnrollTraining] Exception: $e");
+      debugPrint("⚠ [EnrollTraining] Exception: $e");
       return ApiResult.error(e.toString());
     }
   }
 
   Future<ApiResult> getCourses() async {
     const String query = r'''
-    query {
-      courses {
-        id
-        title
-        description
-        image
-        duration
-        format
-        certificate
-        price
+      query {
+        courses {
+          id
+          title
+          description
+          image
+          duration
+          format
+          certificate
+          price
+        }
       }
-    }
-  ''';
+    ''';
     return _runQuery("getCourses", query, "courses");
   }
 
   Future<ApiResult> getTrainingById(String id) async {
     const query = r'''
-    query($id: ID!) {
-      getTrainingById(id: $id) {
-        id
-        title
-        amount
-        gst
-        days
-        totalAmount
-        imagePath
-        shortDescription
-        fullDescription
+      query($id: ID!) {
+        getTrainingById(id: $id) {
+          id
+          title
+          amount
+          gst
+          days
+          totalAmount
+          imagePath
+          shortDescription
+          fullDescription
+        }
       }
-    }
-  ''';
-    return _runQuery(
-        "getTrainingById", query, "getTrainingById", variables: {"id": id});
+    ''';
+    return _runQuery("getTrainingById", query, "getTrainingById",
+        variables: {"id": id});
   }
 
   // ============================================================
   // 🧠 Helper for Queries
   // ============================================================
-  Future<ApiResult> _runQuery(String tag,
+  Future<ApiResult> _runQuery(
+      String tag,
       String query,
       String field, {
         Map<String, dynamic>? variables,
@@ -485,8 +580,11 @@ class ApiClass {
       debugPrint("✅ [$tag] Loaded ${data is List ? data.length : 1} items");
       return ApiResult.success(data);
     } catch (e) {
-      debugPrint("⚠️ [$tag] Exception: $e");
+      debugPrint("⚠ [$tag] Exception: $e");
       return ApiResult.error(e.toString());
     }
+  }
+  Future bookDroneService(Map<String, dynamic> body) async{
+
   }
 }

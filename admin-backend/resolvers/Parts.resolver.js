@@ -11,7 +11,6 @@ import {
 
 export const partResolvers = {
   Query: {
-    // ✅ Fetch all parts with seller info
     parts: async () => {
       try {
         const allParts = await Part.find();
@@ -35,22 +34,18 @@ export const partResolvers = {
       }
     },
 
-   // ✅ Approved parts for a seller
     approvedParts: async (_, { sellerId }) => {
       return Part.find({ sellerId, status: "approved" });
     },
 
-    // ✅ Pending parts for a seller
     pendingParts: async (_, { sellerId }) => {
       return Part.find({ sellerId, status: "pending" });
     },
 
-    // ✅ Rejected parts for a seller
     rejectedParts: async (_, { sellerId }) => {
       return Part.find({ sellerId, status: "rejected" });
     },
 
-    // ✅ Fetch single part
     part: async (_, { partId }) => {
       try {
         const part = await Part.findOne({ partId });
@@ -71,9 +66,6 @@ export const partResolvers = {
   },
 
   Mutation: {
-    /**
-     * 🟢 Create a new part with Firebase upload
-     */
     createPart: async (_, { input }, { pubsub }) => {
       try {
         const seller = await Seller.findOne({ customId: input.sellerId });
@@ -82,7 +74,6 @@ export const partResolvers = {
         input.price = finalPrice;
         const newPartData = { ...input, status: "pending" };
 
-        // ✅ Upload image if file provided
         if (input.imageFile?.file) {
           newPartData.image = await uploadSingleFile(input.imageFile.file, "parts");
         }
@@ -90,7 +81,6 @@ export const partResolvers = {
         const newPart = new Part(newPartData);
         const saved = await newPart.save();
 
-        // 🔔 Notify seller
         await createSellerNotification({
           sellerId: input.sellerId,
           title: "🧩 New Part Submitted",
@@ -114,9 +104,6 @@ export const partResolvers = {
       }
     },
 
-    /**
-     * ✏️ Update part details (with Firebase cleanup)
-     */
     updatePart: async (_, { partId, input }) => {
       try {
         const existing = await Part.findOne({ partId });
@@ -124,7 +111,6 @@ export const partResolvers = {
 
         const updateData = { ...input };
 
-        // ✅ Replace old image in Firebase if new one uploaded
         if (input.imageFile?.file) {
           if (existing.image) {
             await deleteFirebaseFile(existing.image);
@@ -151,9 +137,6 @@ export const partResolvers = {
       }
     },
 
-    /**
-     * ✅ Update Part Status + Notifications
-     */
     updatePartStatus: async (_, { partId, status }, { pubsub }) => {
       try {
         const updated = await Part.findOneAndUpdate(
@@ -165,7 +148,6 @@ export const partResolvers = {
 
         const seller = await Seller.findOne({ customId: updated.sellerId });
 
-        // 📨 Email
         if (seller?.email) {
           await sendSellerStatusMail({
             to: seller.email,
@@ -175,7 +157,6 @@ export const partResolvers = {
           });
         }
 
-        // 🔔 In-app notification
         await createSellerNotification({
           sellerId: updated.sellerId,
           title: `🧩 Part ${
@@ -203,15 +184,11 @@ export const partResolvers = {
       }
     },
 
-    /**
-     * 🗑 Delete part (with Firebase cleanup)
-     */
     deletePart: async (_, { partId }, { pubsub }) => {
       try {
         const deleted = await Part.findOneAndDelete({ partId });
         if (!deleted) throw new Error("Part not found");
 
-        // ✅ Delete Firebase file if exists
         if (deleted.image) {
           await deleteFirebaseFile(deleted.image);
         }

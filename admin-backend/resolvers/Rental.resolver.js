@@ -9,9 +9,6 @@ import {
 
 export const rentalResolvers = {
   Query: {
-    /**
-     * 🟢 Fetch all rentals with seller info
-     */
     rentals: async () => {
       try {
         return await Rental.getWithSellerInfo();
@@ -21,9 +18,6 @@ export const rentalResolvers = {
       }
     },
 
-    /**
-     * 🟢 Fetch rental by ID
-     */
     rental: async (_, { rentalId }) => {
       try {
         const rental = await Rental.findOne({ rentalId });
@@ -43,9 +37,6 @@ export const rentalResolvers = {
       }
     },
 
-    /**
-     * 🟡 Rentals filtered by status
-     */
     approvedRentals: async (_, { sellerId }) =>
       Rental.find({ sellerId, status: "approved" }),
     pendingRentals: async (_, { sellerId }) =>
@@ -55,9 +46,6 @@ export const rentalResolvers = {
   },
 
   Mutation: {
-    /**
-     * 🟢 Create new rental listing with Firebase upload
-     */
     createRental: async (_, { input }, { pubsub }) => {
       try {
         const {
@@ -79,7 +67,6 @@ export const rentalResolvers = {
         const seller = await Seller.findOne({ customId: sellerId });
         if (!seller) throw new Error(`Seller with ID ${sellerId} not found`);
 
-        // ✅ Upload image if file provided
         let finalImage = image || null;
         if (imageFile?.file) {
           finalImage = await uploadSingleFile(imageFile.file, "rentals");
@@ -100,7 +87,6 @@ export const rentalResolvers = {
 
         const saved = await newRental.save();
 
-        // 🔔 Notify seller about submission
         await createSellerNotification({
           sellerId,
           title: "🚁 New Rental Submitted",
@@ -124,21 +110,15 @@ export const rentalResolvers = {
       }
     },
 
-    /**
-     * ✏️ Update rental listing (with Firebase cleanup)
-     */
     updateRental: async (_, { rentalId, input }) => {
       try {
         const existing = await Rental.findOne({ rentalId });
         if (!existing) throw new Error("Rental not found");
 
-        // ✅ Handle image update
         if (input.imageFile?.file) {
-          // Delete old image if present
           if (existing.image) {
             await deleteFirebaseFile(existing.image);
           }
-          // Upload new image
           input.image = await uploadSingleFile(input.imageFile.file, "rentals");
         }
 
@@ -162,9 +142,6 @@ export const rentalResolvers = {
       }
     },
 
-    /**
-     * 🟡 Update rental approval status
-     */
     updateRentalStatus: async (_, { rentalId, status }, { pubsub }) => {
       try {
         const updated = await Rental.findOneAndUpdate(
@@ -176,7 +153,6 @@ export const rentalResolvers = {
 
         const seller = await Seller.findOne({ customId: updated.sellerId });
 
-        // 📨 Email notification
         if (seller?.email) {
           await sendSellerStatusMail({
             to: seller.email,
@@ -186,7 +162,6 @@ export const rentalResolvers = {
           });
         }
 
-        // 🔔 In-app notification
         await createSellerNotification({
           sellerId: updated.sellerId,
           title:
@@ -220,15 +195,11 @@ export const rentalResolvers = {
       }
     },
 
-    /**
-     * 🗑 Delete rental (Firebase cleanup)
-     */
     deleteRental: async (_, { rentalId }, { pubsub }) => {
       try {
         const deleted = await Rental.findOneAndDelete({ rentalId });
         if (!deleted) throw new Error("Rental not found");
 
-        // ✅ Delete Firebase image if exists
         if (deleted.image) {
           await deleteFirebaseFile(deleted.image);
         }

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import "../styles/DroneRentalForm.css";
 
-const GRAPHQL_URL = "http://192.168.1.110:5001/graphql";
+const GRAPHQL_URL = "http://127.0.0.1:5001/graphql";
 
 export default function DroneRentalForm() {
   const [rentals, setRentals] = useState([]);

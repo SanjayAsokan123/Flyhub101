@@ -2,7 +2,6 @@ import { Tax } from "../models/tax.model.js";
 
 export const taxResolvers = {
   Query: {
-    // Get latest tax configuration
     getTax: async () => {
       try {
         const latestTax = await Tax.findOne().sort({ createdAt: -1 });
@@ -15,7 +14,6 @@ export const taxResolvers = {
   },
 
   Mutation: {
-    // Update tax (creates a new tax record so history is maintained)
     updateTax: async (_, { input }) => {
       try {
         const newTax = new Tax({

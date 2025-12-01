@@ -3,7 +3,7 @@ import { Seller } from "./Seller.model.js";
 
 const hireJobSchema = new mongoose.Schema(
   {
-    jobId: { type: String }, // Auto-generated per seller
+    jobId: { type: String },
     jobName: { type: String, required: true },
     companyName: { type: String, required: true },
     jobType: String,
@@ -12,15 +12,14 @@ const hireJobSchema = new mongoose.Schema(
     salary: String,
     description: String,
     requirement: String,
-    email: String, // will be populated from Seller
-    phoneNumber: String, // will be populated from Seller
+    email: String,
+    phoneNumber: String,
     status: { type: String, default: "pending" },
-    sellerId: { type: String, required: true }, // stores Seller.customId
+    sellerId: { type: String, required: true },
   },
   { timestamps: true }
 );
 
-// Auto-generate jobId per seller
 hireJobSchema.pre("save", async function (next) {
   try {
     if (this.isNew && !this.jobId && this.sellerId) {
@@ -32,8 +31,6 @@ hireJobSchema.pre("save", async function (next) {
       });
       const jobNumber = String(count + 1).padStart(3, "0");
       this.jobId = `${seller.customId}J${jobNumber}`;
-
-      // populate email and phoneNumber from Seller
       this.email = seller.email;
       this.phoneNumber = seller.phoneNumber;
     }

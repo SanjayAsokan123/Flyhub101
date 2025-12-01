@@ -1,7 +1,6 @@
 import { gql } from "apollo-server-express";
 
 export const returnTypeDefs = gql`
-  """ Seller information attached to a return """
   type SellerDetails {
     sellerId: String
     name: String
@@ -10,7 +9,6 @@ export const returnTypeDefs = gql`
     address: String
   }
 
-  """ Buyer information attached to a return """
   type BuyerDetails {
     buyerId: String
     name: String
@@ -19,7 +17,6 @@ export const returnTypeDefs = gql`
     address: String
   }
 
-  """ Represents a return request record """
   type ReturnRequest {
     returnId: String
     orderId: String
@@ -33,7 +30,6 @@ export const returnTypeDefs = gql`
     buyer: BuyerDetails
   }
 
-  """ Input for creating or updating a return request """
   input ReturnRequestInput {
     orderId: String
     productId: String
@@ -44,24 +40,18 @@ export const returnTypeDefs = gql`
   }
 
   extend type Query {
-    """ Fetch all return requests """
     returnRequests: [ReturnRequest]
 
-    """ Fetch return requests filtered by status """
     returnRequestsByStatus(status: String!): [ReturnRequest]
   }
 
   extend type Mutation {
-    """ Buyer requests a product return """
     requestReturn(data: ReturnRequestInput!): ReturnRequest
 
-    """ Update existing return request details (reason, proof, etc.) """
-    updateReturnRequest(returnId: String!, data: ReturnRequestInput): ReturnRequest  # ✅ Added
+    updateReturnRequest(returnId: String!, data: ReturnRequestInput): ReturnRequest
 
-    """ Update return status (admin or seller approval) """
     updateReturnStatus(returnId: String!, status: String!): ReturnRequest
 
-    """ Delete a return request """
     deleteReturn(returnId: String!): ReturnRequest
   }
 `;

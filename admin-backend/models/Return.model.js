@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const returnRequestSchema = new mongoose.Schema(
   {
-    returnId: { type: String, unique: true }, // Auto-generated
+    returnId: { type: String, unique: true },
     orderId: { type: String, required: true },
     productId: { type: String, required: true },
     type: { type: String, required: true },

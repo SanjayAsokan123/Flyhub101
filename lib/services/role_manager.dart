@@ -3,140 +3,152 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 
-/// 🧩 RoleManager
-/// Centralized service to manage user roles in FlyHub.
-/// Handles syncing between local cache and Firestore.
-///
-/// Supported roles:
-/// - "buyer"
-/// - "seller"
-/// - "guest"
+/// RoleManager – Manages roles & IDs for Buyer / Seller / Guest
 class RoleManager {
   static const String _roleKey = "user_role";
+  static const String _buyerIdKey = "buyer_id";
+  static const String _sellerIdKey = "seller_id";
+
   static const String _defaultRole = "guest";
 
-  static String? _cachedRole; // In-memory cache
+  static String? _cachedRole;
+  static String? _cachedBuyerId;
+  static String? _cachedSellerId;
 
-  /// ✅ Save role locally (with cache + loop prevention)
+  // ---------------------------------------------------------------------------
+  // 🔥 ROLE MANAGEMENT
+  // ---------------------------------------------------------------------------
+
   static Future<void> setLocalRole(String role) async {
     final prefs = await SharedPreferences.getInstance();
     final newRole = role.toLowerCase();
 
-    if (_cachedRole == newRole) {
-      debugPrint("🔸 [RoleManager] Role unchanged ($_cachedRole) — skipped save");
-      return;
-    }
+    if (_cachedRole == newRole) return;
 
     _cachedRole = newRole;
     await prefs.setString(_roleKey, newRole);
-    debugPrint("🔹 [RoleManager] Local role saved → $newRole");
+    debugPrint("🔹 [RoleManager] Role updated → $newRole");
   }
 
-  /// ✅ Get saved role (fallback = "guest")
   static Future<String> getLocalRole() async {
-    if (_cachedRole != null) {
-      return _cachedRole!;
-    }
+    if (_cachedRole != null) return _cachedRole!;
 
     final prefs = await SharedPreferences.getInstance();
-    final role = prefs.getString(_roleKey) ?? _defaultRole;
-    _cachedRole = role;
-    debugPrint("🔹 [RoleManager] Loaded local role → $role");
-    return role;
+    _cachedRole = prefs.getString(_roleKey) ?? _defaultRole;
+    return _cachedRole!;
   }
 
-  /// ✅ Clear saved role (on logout)
   static Future<void> clearRole() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_roleKey);
     _cachedRole = null;
-    debugPrint("🧹 [RoleManager] Local role cleared (logout)");
+
+    await prefs.remove(_buyerIdKey);
+    await prefs.remove(_sellerIdKey);
+    _cachedBuyerId = null;
+    _cachedSellerId = null;
+
+    debugPrint("🧹 [RoleManager] Role + IDs cleared");
   }
 
-  /// ✅ One-way sync: Firestore → Local
+  // ---------------------------------------------------------------------------
+  // 🔥 BUYER ID MANAGEMENT
+  // ---------------------------------------------------------------------------
+
+  static Future<void> saveBuyerId(String buyerId) async {
+    final prefs = await SharedPreferences.getInstance();
+    _cachedBuyerId = buyerId;
+    await prefs.setString(_buyerIdKey, buyerId);
+    debugPrint("🟢 [RoleManager] BuyerID saved → $buyerId");
+  }
+
+  static Future<String?> getBuyerId() async {
+    if (_cachedBuyerId != null) return _cachedBuyerId;
+    final prefs = await SharedPreferences.getInstance();
+    _cachedBuyerId = prefs.getString(_buyerIdKey);
+    return _cachedBuyerId;
+  }
+
+  // ---------------------------------------------------------------------------
+  // 🔥 SELLER ID MANAGEMENT
+  // ---------------------------------------------------------------------------
+
+  static Future<void> saveSellerId(String sellerId) async {
+    final prefs = await SharedPreferences.getInstance();
+    _cachedSellerId = sellerId;
+    await prefs.setString(_sellerIdKey, sellerId);
+    debugPrint("🟣 [RoleManager] SellerID saved → $sellerId");
+  }
+
+  static Future<String?> getSellerId() async {
+    if (_cachedSellerId != null) return _cachedSellerId;
+    final prefs = await SharedPreferences.getInstance();
+    _cachedSellerId = prefs.getString(_sellerIdKey);
+    return _cachedSellerId;
+  }
+
+  // ---------------------------------------------------------------------------
+  // 🔥 FIRESTORE ROLE SYNC
+  // ---------------------------------------------------------------------------
+
   static Future<void> syncFirestoreRole() async {
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
       await setLocalRole(_defaultRole);
-      debugPrint("⚠️ [RoleManager] No user logged in — defaulted to guest");
       return;
     }
 
     try {
-      final docRef =
-      FirebaseFirestore.instance.collection('users').doc(user.uid);
-      final snapshot = await docRef.get();
-
-      if (!snapshot.exists) {
-        debugPrint("⚠️ [RoleManager] No Firestore doc found — defaulting to guest");
-        await setLocalRole(_defaultRole);
-        return;
-      }
+      final doc = await FirebaseFirestore.instance
+          .collection("users")
+          .doc(user.uid)
+          .get();
 
       final role =
-      (snapshot.data()?['role'] ?? _defaultRole).toString().toLowerCase();
+      (doc.data()?["role"] ?? _defaultRole).toString().toLowerCase();
 
-      if (_cachedRole != role) {
-        await setLocalRole(role);
-        debugPrint("✅ [RoleManager] Synced Firestore role → $role");
-      } else {
-        debugPrint("🔸 [RoleManager] Firestore role unchanged ($role)");
+      await setLocalRole(role);
+
+      if (role == "buyer" && doc.data()?["buyerId"] != null) {
+        await saveBuyerId(doc.data()!["buyerId"]);
       }
+
+      if (role == "seller" && doc.data()?["sellerId"] != null) {
+        await saveSellerId(doc.data()!["sellerId"]);
+      }
+
+      debugPrint("✅ [RoleManager] Synced Firestore → Role: $role");
     } catch (e) {
-      debugPrint("⚠️ [RoleManager] Error syncing Firestore role: $e");
+      debugPrint("⚠️ [RoleManager] Firestore Sync Error: $e");
     }
   }
 
-  /// ✅ Update both Firestore + local cache (only if changed)
-  static Future<void> updateRole(String newRole) async {
-    final user = FirebaseAuth.instance.currentUser;
-    final normalizedRole = newRole.toLowerCase();
+  // ---------------------------------------------------------------------------
+  // 🔥 QUICK CHECK HELPERS
+  // ---------------------------------------------------------------------------
 
-    if (user == null) {
-      debugPrint("⚠️ [RoleManager] No user found — saving locally as $normalizedRole");
-      await setLocalRole(normalizedRole);
-      return;
-    }
-
-    try {
-      final docRef =
-      FirebaseFirestore.instance.collection('users').doc(user.uid);
-      final docSnapshot = await docRef.get();
-      final firestoreRole =
-      (docSnapshot.data()?['role'] ?? _defaultRole).toString().toLowerCase();
-
-      if (firestoreRole != normalizedRole) {
-        await docRef.set({
-          'role': normalizedRole,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-        debugPrint("✅ [RoleManager] Firestore role updated → $normalizedRole");
-      } else {
-        debugPrint("🔸 [RoleManager] Firestore already set to $normalizedRole — skipped");
-      }
-
-      await setLocalRole(normalizedRole);
-    } catch (e) {
-      debugPrint("⚠️ [RoleManager] Error updating Firestore role: $e");
-    }
-  }
-
-  /// 🧠 Quick role checks
   static Future<bool> isSeller() async =>
-      (await getLocalRole()).toLowerCase() == "seller";
+      (await getLocalRole()) == "seller";
 
   static Future<bool> isBuyer() async =>
-      (await getLocalRole()).toLowerCase() == "buyer";
+      (await getLocalRole()) == "buyer";
 
   static Future<bool> isGuest() async =>
-      (await getLocalRole()).toLowerCase() == "guest";
+      (await getLocalRole()) == "guest";
 
-  /// 🧩 Force clear all (debug/dev use)
+  // ---------------------------------------------------------------------------
+  // 🔥 DEBUG RESET
+  // ---------------------------------------------------------------------------
+
   static Future<void> resetAll() async {
-    _cachedRole = null;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_roleKey);
-    debugPrint("🧹 [RoleManager] Full reset completed (local + cache)");
+    await prefs.clear();
+
+    _cachedRole = null;
+    _cachedBuyerId = null;
+    _cachedSellerId = null;
+
+    debugPrint("🧹 [RoleManager] FULL RESET DONE");
   }
 }

@@ -1,23 +1,21 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flyhub/HomeScreen/Bottoms/BuyerProfilePage.dart';
-// import 'package:flyhub/HomeScreen/Bottoms/GuestProfilePage.dart';
-import 'package:flyhub/HomeScreen/Bottoms/SellerPage.dart';
-import 'package:flyhub/HomeScreen/Bottoms/homescreen.dart';
-import 'package:flyhub/HomeScreen/Dynamichome.dart';
 import 'package:flyhub/Login/splashscreen.dart';
 import 'package:flyhub/services/role_manager.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'CommonClass/utils.dart';
 import 'Login/FlyHubSelectionPage.dart';
+import 'config/env.dart';
 import 'firebase_options.dart';
 import 'services/cart_wishlist_provider.dart';
 
@@ -25,7 +23,88 @@ import 'services/cart_wishlist_provider.dart';
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 FlutterLocalNotificationsPlugin();
 
-/// 🚀 Background FCM Handler
+// -----------------------------------------------------------------------------
+// ✔ SAVE / REMOVE FCM TOKENS
+// -----------------------------------------------------------------------------
+Future<void> saveBuyerFcmToken(String buyerId) async {
+  try {
+    final token = await FirebaseMessaging.instance.getToken();
+    if (token == null) return;
+
+    final url = Uri.parse(
+      "${EnvConfig.baseUrl.replaceAll('/graphql', '')}/saveBuyerFcmToken",
+    );
+
+    await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"buyerId": buyerId, "fcmToken": token}),
+    );
+  } catch (e) {
+    print("❌ Save Buyer FCM Error: $e");
+  }
+}
+
+Future<void> saveSellerFcmToken(String sellerId) async {
+  try {
+    final token = await FirebaseMessaging.instance.getToken();
+    if (token == null) return;
+
+    final url = Uri.parse(
+      "${EnvConfig.baseUrl.replaceAll('/graphql', '')}/saveSellerFcmToken",
+    );
+
+    await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"sellerId": sellerId, "fcmToken": token}),
+    );
+  } catch (e) {
+    print("❌ Save Seller FCM Error: $e");
+  }
+}
+
+Future<void> removeBuyerFcmToken(String buyerId) async {
+  try {
+    final token = await FirebaseMessaging.instance.getToken();
+    if (token == null) return;
+
+    final url = Uri.parse(
+      "${EnvConfig.baseUrl.replaceAll('/graphql', '')}/removeBuyerFcmToken",
+    );
+
+    await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"buyerId": buyerId, "fcmToken": token}),
+    );
+  } catch (e) {
+    print("❌ Remove Buyer FCM Error: $e");
+  }
+}
+
+Future<void> removeSellerFcmToken(String sellerId) async {
+  try {
+    final token = await FirebaseMessaging.instance.getToken();
+    if (token == null) return;
+
+    final url = Uri.parse(
+      "${EnvConfig.baseUrl.replaceAll('/graphql', '')}/removeSellerFcmToken",
+    );
+
+    await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"sellerId": sellerId, "fcmToken": token}),
+    );
+  } catch (e) {
+    print("❌ Remove Seller FCM Error: $e");
+  }
+}
+
+// -----------------------------------------------------------------------------
+// ✔ BACKGROUND FCM HANDLER
+// -----------------------------------------------------------------------------
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   try {
@@ -44,42 +123,52 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await _showLocalNotification(message);
 }
 
+// -----------------------------------------------------------------------------
+// ✔ MAIN
+// -----------------------------------------------------------------------------
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  try {
-    await _safeFirebaseInit();
-  } catch (e) {
-    print("⚠ Firebase init failed: $e");
-  }
-
+  await _safeFirebaseInit();
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   await _initializeLocalNotifications();
   await _requestNotificationPermission();
 
-  // ✅ Foreground Notification Handler
-  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
     print("📩 [Foreground FCM] ${message.notification?.title}");
     _showLocalNotification(message);
+
+    final role = await RoleManager.getLocalRole();
+
+    if (role == "buyer") {
+      final buyerId = await RoleManager.getBuyerId();
+      if (buyerId != null) saveBuyerFcmToken(buyerId);
+    } else if (role == "seller") {
+      final sellerId = await RoleManager.getSellerId();
+      if (sellerId != null) saveSellerFcmToken(sellerId);
+    }
   });
 
-  // ✅ Print FCM Token
-  try {
-    final token = await FirebaseMessaging.instance.getToken();
-    print("📲 [FCM Token] $token");
-  } catch (e) {
-    print("⚠ [FCM Token Error] $e");
-  }
+  FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+    print("🔄 New FCM Token: $newToken");
+
+    final role = await RoleManager.getLocalRole();
+
+    if (role == "buyer") {
+      final buyerId = await RoleManager.getBuyerId();
+      if (buyerId != null) saveBuyerFcmToken(buyerId);
+    } else if (role == "seller") {
+      final sellerId = await RoleManager.getSellerId();
+      if (sellerId != null) saveSellerFcmToken(sellerId);
+    }
+  });
 
   await initHiveForFlutter();
 
-  // ✅ GraphQL Setup (with WebSocket for subscriptions)
-  const String graphqlEndpoint = String.fromEnvironment(
-    'GRAPHQL_URL',
-    defaultValue:
-    'http://192.168.1.178:5001/graphql', // 👈 Update for production
-  );
+  // ---------- GraphQL Client ----------
+  // ✅ Single source of truth for URL
+  final String graphqlEndpoint = EnvConfig.baseUrl; // e.g. http://192.168.1.178:5001/graphql
 
   final HttpLink httpLink = HttpLink(graphqlEndpoint);
 
@@ -91,15 +180,18 @@ Future<void> main() async {
     },
   );
 
+  // WebSocket endpoint (subscriptions)
+  final String wsEndpoint = graphqlEndpoint.replaceFirst("http", "ws");
+
   final WebSocketLink wsLink = WebSocketLink(
-    graphqlEndpoint.replaceFirst("http", "ws"),
+    wsEndpoint,
     config: SocketClientConfig(
       autoReconnect: true,
       inactivityTimeout: const Duration(seconds: 30),
       initialPayload: () async {
         final user = FirebaseAuth.instance.currentUser;
         final token = user != null ? await user.getIdToken() : null;
-        return {'Authorization': 'Bearer $token'};
+        return token != null ? {'Authorization': 'Bearer $token'} : {};
       },
     ),
   );
@@ -113,12 +205,8 @@ Future<void> main() async {
   final GraphQLClient graphQLClient = GraphQLClient(
     link: link,
     cache: GraphQLCache(store: HiveStore()),
-    defaultPolicies: DefaultPolicies(
-      query: Policies(fetch: FetchPolicy.cacheAndNetwork),
-    ),
   );
 
-  // ✅ Wrap app with Providers & GraphQL Client
   runApp(
     MultiProvider(
       providers: [
@@ -132,7 +220,59 @@ Future<void> main() async {
   );
 }
 
-/// ✅ Firebase Initialization with Safety
+// -----------------------------------------------------------------------------
+// ✔ BUYER NOTIFICATION SUBSCRIPTION
+// -----------------------------------------------------------------------------
+void listenBuyerNotifications(BuildContext context) async {
+  final client = GraphQLProvider.of(context).value;
+
+  final role = await RoleManager.getLocalRole();
+  if (role != "buyer") return;
+
+  final buyerId = await RoleManager.getBuyerId();
+  if (buyerId == null) return;
+
+  final subscription = gql(r'''
+    subscription BuyerNotification($buyerId: String!) {
+      buyerNotificationAdded(buyerId: $buyerId) {
+        notificationId
+        title
+        message
+        type
+        createdAt
+      }
+    }
+  ''');
+
+  client
+      .subscribe(
+    SubscriptionOptions(
+      document: subscription,
+      variables: {"buyerId": buyerId},
+    ),
+  )
+      .listen((event) {
+    final data = event.data?["buyerNotificationAdded"];
+    if (data != null) {
+      flutterLocalNotificationsPlugin.show(
+        0,
+        data["title"],
+        data["message"],
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'high_importance_channel',
+            'High Importance Notifications',
+            importance: Importance.high,
+          ),
+        ),
+      );
+    }
+  });
+}
+
+// -----------------------------------------------------------------------------
+// ✔ FIREBASE INIT
+// -----------------------------------------------------------------------------
 Future<void> _safeFirebaseInit() async {
   try {
     if (Firebase.apps.isEmpty) {
@@ -140,38 +280,38 @@ Future<void> _safeFirebaseInit() async {
         options: DefaultFirebaseOptions.currentPlatform,
       );
       print("✅ Firebase initialized (Main)");
-    } else {
-      Firebase.app();
     }
   } catch (e) {
     print("⚠ Firebase init error: $e");
   }
 }
 
-/// ✅ Request Notification Permission
+// -----------------------------------------------------------------------------
+// ✔ NOTIFICATION PERMISSION
+// -----------------------------------------------------------------------------
 Future<void> _requestNotificationPermission() async {
-  FirebaseMessaging messaging = FirebaseMessaging.instance;
-  NotificationSettings settings = await messaging.requestPermission(
+  NotificationSettings settings =
+  await FirebaseMessaging.instance.requestPermission(
     alert: true,
     badge: true,
     sound: true,
   );
 
-  if (settings.authorizationStatus == AuthorizationStatus.denied) {
-    print("❌ User denied notification permission.");
-  } else if (settings.authorizationStatus == AuthorizationStatus.authorized ||
-      settings.authorizationStatus == AuthorizationStatus.provisional) {
+  if (settings.authorizationStatus == AuthorizationStatus.authorized) {
     print("✅ Notification permission granted.");
+  } else {
+    print("❌ Notification permission denied.");
   }
 }
 
-/// ✅ Initialize Local Notifications
+// -----------------------------------------------------------------------------
+// ✔ LOCAL NOTIFICATION SETUP
+// -----------------------------------------------------------------------------
 Future<void> _initializeLocalNotifications() async {
-  const AndroidInitializationSettings androidInit =
-  AndroidInitializationSettings('@mipmap/ic_launcher');
-  const InitializationSettings initSettings =
-  InitializationSettings(android: androidInit);
-  await flutterLocalNotificationsPlugin.initialize(initSettings);
+  const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const settings = InitializationSettings(android: androidInit);
+
+  await flutterLocalNotificationsPlugin.initialize(settings);
 
   const AndroidNotificationChannel channel = AndroidNotificationChannel(
     'high_importance_channel',
@@ -186,19 +326,17 @@ Future<void> _initializeLocalNotifications() async {
       ?.createNotificationChannel(channel);
 }
 
-/// ✅ Display Local Notification
+// -----------------------------------------------------------------------------
+// ✔ SHOW LOCAL FCM NOTIFICATION
+// -----------------------------------------------------------------------------
 Future<void> _showLocalNotification(RemoteMessage message) async {
-  const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+  const androidDetails = AndroidNotificationDetails(
     'high_importance_channel',
     'High Importance Notifications',
-    channelDescription: 'Used for important alerts',
     importance: Importance.high,
-    priority: Priority.high,
-    playSound: true,
-    icon: '@mipmap/ic_launcher',
   );
-  const NotificationDetails details =
-  NotificationDetails(android: androidDetails);
+
+  const details = NotificationDetails(android: androidDetails);
 
   await flutterLocalNotificationsPlugin.show(
     0,
@@ -208,7 +346,9 @@ Future<void> _showLocalNotification(RemoteMessage message) async {
   );
 }
 
-/// 🧩 Main Application
+// -----------------------------------------------------------------------------
+// ✔ MAIN APPLICATION WIDGET
+// -----------------------------------------------------------------------------
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
@@ -218,6 +358,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   bool _initialized = false;
+  bool _buyerSubAttached = false; // ✅ avoid double subscription
   Widget _startPage = const Splashscreen();
 
   @override
@@ -226,46 +367,72 @@ class _MyAppState extends State<MyApp> {
     _initializeApp();
   }
 
-  /// 🔥 Initialize Firebase Auth + Role + Device Info + Start Page
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_buyerSubAttached) {
+      _buyerSubAttached = true;
+      listenBuyerNotifications(context);
+    }
+  }
+
+  /// 🔥 LOGOUT HANDLER
+  Future<void> handleLogout() async {
+    final role = await RoleManager.getLocalRole();
+
+    if (role == "buyer") {
+      final id = await RoleManager.getBuyerId();
+      if (id != null) removeBuyerFcmToken(id);
+    } else if (role == "seller") {
+      final id = await RoleManager.getSellerId();
+      if (id != null) removeSellerFcmToken(id);
+    }
+
+    await FirebaseAuth.instance.signOut();
+    await RoleManager.clearRole();
+  }
+
+  /// 🔥 APP INITIALIZATION
   Future<void> _initializeApp() async {
     try {
-      // 1️⃣ Check Firebase user
       final user = FirebaseAuth.instance.currentUser;
-      final token = user != null ? await user.getIdToken() : null;
 
-      // 2️⃣ Sync Role from Firestore → Local
       await RoleManager.syncFirestoreRole();
       final role = await RoleManager.getLocalRole();
-      print("🧩 Startup Role: $role");
-      print("🧩 user log : $user");
-      // 3️⃣ Decide the correct home page
+
+      if (user != null) {
+        if (role == "buyer") {
+          final id = await RoleManager.getBuyerId();
+          if (id != null) saveBuyerFcmToken(id);
+        } else if (role == "seller") {
+          final id = await RoleManager.getSellerId();
+          if (id != null) saveSellerFcmToken(id);
+        }
+      }
+
       if (user == null) {
-        _startPage = const Splashscreen(); // Not logged in
-      }else if (role == 'guest'){
+        _startPage = const Splashscreen();
+      } else if (role == "guest") {
         _startPage = const FlyHubSelectionPage();
       }
 
-
-      // 4️⃣ Device data (only first launch)
       await _initializeDeviceData();
     } catch (e) {
-      print("⚠ Init Error: $e");
+      print("⚠ Init error: $e");
       _startPage = const Splashscreen();
     }
 
     if (mounted) {
-      setState(() {
-        _initialized = true;
-      });
+      setState(() => _initialized = true);
     }
   }
 
-  /// 📱 Store device info only once
+  /// 📱 Store device info once
   Future<void> _initializeDeviceData() async {
     final prefs = await SharedPreferences.getInstance();
-    bool isFirstLaunch = prefs.getBool('firstLaunch') ?? true;
+    bool firstLaunch = prefs.getBool('firstLaunch') ?? true;
 
-    if (!isFirstLaunch) return;
+    if (!firstLaunch) return;
 
     try {
       var packageInfo = await PackageInfo.fromPlatform();
@@ -275,7 +442,10 @@ class _MyAppState extends State<MyApp> {
       var platform = await Utils.platform();
       var versionCode = packageInfo.buildNumber;
 
-      await FirebaseFirestore.instance.collection('devices').doc(deviceId).set({
+      await FirebaseFirestore.instance
+          .collection('devices')
+          .doc(deviceId)
+          .set({
         'model': deviceModel,
         'version': deviceVersion,
         'platform': platform,
@@ -284,9 +454,8 @@ class _MyAppState extends State<MyApp> {
       });
 
       await prefs.setBool("firstLaunch", false);
-
     } catch (e) {
-      print("⚠ Device Info Error: $e");
+      print("⚠ Device info error: $e");
     }
   }
 

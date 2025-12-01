@@ -158,6 +158,11 @@ function Sidebar() {
                             <MdLocalShipping /> DroneBookingStatus
                           </Link>
                       </li>
+                      <li>
+                          <Link to="/JobApplicationView">
+                              <MdLocalShipping /> JobBookingStatus
+                          </Link>
+                          </li>
                     </ul>
                   )}
                 </li>

@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
-import { Seller } from "./Seller.model.js"; // ✅ Use PascalCase for consistency
+import { Seller } from "./Seller.model.js";
 
-// 🔗 Subschemas
 const certificationSchema = new mongoose.Schema({
   url: { type: String, required: true },
 });
@@ -9,8 +8,6 @@ const certificationSchema = new mongoose.Schema({
 const fileSchema = new mongoose.Schema({
   url: { type: String, required: true },
 });
-
-// 🧩 Main HirePilot Schema
 const hirePilotSchema = new mongoose.Schema(
   {
     pilotId: { type: String, unique: true },
@@ -26,12 +23,9 @@ const hirePilotSchema = new mongoose.Schema(
     certifications: [certificationSchema],
     resume: fileSchema,
     description: { type: String },
-
-    // ✅ Keep same field names as GraphQL schema
     newemail: { type: String, required: true },
     newphoneNumber: { type: String, required: true },
 
-    // ✅ Dual status structure
     adminStatus: {
       type: String,
       default: "pending",
@@ -43,12 +37,11 @@ const hirePilotSchema = new mongoose.Schema(
       enum: ["pending", "confirmed", "cancelled", "completed"],
     },
 
-    sellerId: { type: String, required: true }, // store Seller.customId
+    sellerId: { type: String, required: true },
   },
   { timestamps: true }
 );
 
-// 🔢 Auto-generate pilotId per seller
 hirePilotSchema.pre("save", async function (next) {
   if (this.isNew && !this.pilotId && this.sellerId) {
     const seller = await Seller.findOne({ customId: this.sellerId });
@@ -58,15 +51,12 @@ hirePilotSchema.pre("save", async function (next) {
       sellerId: this.sellerId,
     });
     const number = String(count + 1).padStart(3, "0");
-    this.pilotId = `${seller.customId}P${number}`; // ✅ Correct backtick syntax
-
-    // Auto-fill seller contact details if not manually entered
+    this.pilotId = `${seller.customId}P${number}`;
     if (!this.newemail) this.newemail = seller.email;
     if (!this.newphoneNumber) this.newphoneNumber = seller.phoneNumber;
   }
   next();
 });
 
-// ✅ Named export for consistency with other models
 export const HirePilot =
   mongoose.models.HirePilot || mongoose.model("HirePilot", hirePilotSchema);

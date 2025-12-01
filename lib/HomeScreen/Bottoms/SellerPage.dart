@@ -30,6 +30,8 @@ import '../../add_spare_parts.dart';
 import '../../config/env.dart';
 import '../../feedback_form.dart';
 import '../../services/role_manager.dart';
+import '../../jobApplyStatus.dart';
+import '../../ServiceBookingStatus.dart';
 
 class SellerPage extends StatefulWidget {
   const SellerPage({super.key});
@@ -171,7 +173,7 @@ class _SellerPageState extends State<SellerPage> {
   Future<void> _switchToBuyer() async {
     try {
       // Update role to buyer
-      await RoleManager.updateRole("buyer");
+      // await RoleManager.getBuyerId("buyer");
       if (!mounted) return;
 
       // Show loading indicator
@@ -674,6 +676,22 @@ class _SellerPageState extends State<SellerPage> {
                 MaterialPageRoute(
                     builder: (_) =>
                         PilotRentalPage(sellerId: _sellerId!)),
+              );
+            }, locked: !_isApproved),
+
+            _buildTile("Job Apply Status", Icons.work_history, () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const JobApplyStatusPage()),
+              );
+            }, locked: !_isApproved),
+
+            _buildTile("Service Booking Status", Icons.work_history, () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const ServiceBookingStatusPage()),
               );
             }, locked: !_isApproved),
 

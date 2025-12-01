@@ -8,9 +8,6 @@ dotenv.config({ path: "./.env" });
 
 let transporter;
 
-// ============================================================
-// 🔗 Create or reuse mail transporter (supports Gmail + custom SMTP)
-// ============================================================
 const getTransporter = () => {
   if (!transporter) {
     const isGmail =

@@ -1,11 +1,8 @@
 import { gql } from "apollo-server-express";
 
 export const sellerTypeDefs = gql`
-  """
-  🧾 Seller Type
-  Represents a registered or pending seller in FlyHub.
-  Works with Firebase UID + loginIndex (email / phone / sellerId)
-  """
+  scalar JSON
+
   type Seller {
     customId: ID
     firebaseUid: String
@@ -24,27 +21,15 @@ export const sellerTypeDefs = gql`
     pickupAddresses: [String!]
     companyPan: String
     bankName: String
-
-    # Multi-device FCM support
     fcmTokens: [String!]
-    fcmToken: String
-
-    Drones: [Drone!]
   }
 
-  """
-  🔄 Seller account status enum
-  """
   enum SellerStatus {
     pending
     approved
     rejected
   }
 
-  """
-  ✏ Seller Input (Registration / Update)
-  Fields made optional because Firebase auto-creates minimal sellers
-  """
 input SellerInput {
   name: String
   companyName: String
@@ -64,29 +49,34 @@ input SellerInput {
  status: SellerStatus
 }
 
-
-  """
-  📱 FCM Token Update Response
-  """
   type UpdateTokenResponse {
     success: Boolean!
     message: String!
     seller: Seller
   }
+  type SellerNotification {
+    notificationId: String!
+    sellerId: String!
+    title: String!
+    message: String!
+    type: String
+    url: String
+    data: JSON
+    read: Boolean!
+    createdAt: String!
+  }
 
-  """
-  🔍 Query Definitions
-  """
+  type NotificationResponse {
+    success: Boolean!
+    message: String
+  }
   type Query {
     getSellersByStatus(status: SellerStatus!): [Seller!]!
     getSellers: [Seller!]!
     getSeller(customId: ID!): Seller
 
-    """
-    Firebase/Auth unified lookup:
-    email / username / phone / sellerId
-    Auto-creates pending seller if not found
-    """
+     sellerNotifications(sellerId: String!): [SellerNotification]
+
     sellerByEmail(
       email: String
       username: String
@@ -94,30 +84,25 @@ input SellerInput {
       customId: String
     ): Seller
 
-    """
-    Lookup by ANY login key (email, phone, sellerId)
-    Used by your unified login logic
-    """
     getSellerByLoginKey(key: String!): Seller
   }
 
-  """
-  🔧 Mutation Definitions
-  """
   type Mutation {
-    # 🟢 Create seller (registration form / admin)
     createSeller(input: SellerInput!): Seller!
 
-    # ✏ Update seller details
     updateSeller(customId: ID!, input: SellerInput!): Seller!
 
-    # 🔄 Change seller status
     changeSellerStatus(customId: ID!, status: SellerStatus!): Seller!
 
-    # 🗑 Delete a seller
     deleteSeller(customId: ID!): Seller
 
-    # 📲 Register FCM token
+    markSellerNotificationRead(notificationId: String!): NotificationResponse
+
     updateSellerFcmToken(customId: String!, token: String!): UpdateTokenResponse!
   }
+
+extend type Subscription {
+  sellerNotificationAdded(sellerId: String!): SellerNotification
+}
+
 `;

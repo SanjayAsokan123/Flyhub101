@@ -13,20 +13,15 @@ const rentalSchema = new mongoose.Schema(
     description: String,
     image: String,
     quantity: { type: Number, default: 1 },
-
-    // 🔥 Flutter filter-friendly fields
     insurance: { type: Boolean, default: false },
     with_pilot: { type: Boolean, default: false },
     available_today: { type: Boolean, default: false },
-
-    // Approval status for admin panel
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],
       default: "pending",
     },
 
-    // Seller -> Seller.customId
     sellerId: {
       type: String,
       required: true,
@@ -34,11 +29,6 @@ const rentalSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
-/* ============================================================
-   📌 Helper: Attach Seller Info without aggregation
-   (Used by admin panel & Flutter screens)
-============================================================ */
 rentalSchema.statics.getWithSellerInfo = async function () {
   const rentals = await this.find();
   const sellers = await mongoose.model("Seller").find();
@@ -55,10 +45,6 @@ rentalSchema.statics.getWithSellerInfo = async function () {
   });
 };
 
-/* ============================================================
-   🆔 Auto-generate RentalID per Seller
-   FLYHUBS0001R0001, FLYHUBS0001R0002, ...
-============================================================ */
 rentalSchema.pre("save", async function (next) {
   try {
     if (this.isNew && !this.rentalId && this.sellerId) {
@@ -74,7 +60,6 @@ rentalSchema.pre("save", async function (next) {
 
       const rentalNumber = String(count + 1).padStart(4, "0");
 
-      // FLYHUBS0001 → FLYHUBS0001R0001
       this.rentalId = `${seller.customId}R${rentalNumber}`;
     }
 

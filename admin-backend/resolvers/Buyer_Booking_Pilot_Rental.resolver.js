@@ -31,8 +31,6 @@ getPilotRentalsBySellerId: async (_, { sellerId }) => {
   });
 },
 
-
-
     getPilotRentalsByStatus: async (_, { status }) => {
       const valid = ["pending", "confirmed", "cancelled"];
       if (!valid.includes(String(status).toLowerCase())) throw new Error("Invalid status");
@@ -52,7 +50,6 @@ getPilotRentalsBySellerId: async (_, { sellerId }) => {
       return docs[0];
     },
 
-    // ✅ Quick filters
     getPendingRentals: async () =>
       PilotRental.aggregateWithPilotByRentalId({ status: "pending" }),
     getConfirmedRentals: async () =>
@@ -71,11 +68,9 @@ getPilotRentalsBySellerId: async (_, { sellerId }) => {
       { pubsub }
     ) => {
       try {
-        // 1️⃣ Verify pilot existence
         const pilot = await HirePilot.findOne({ pilotId }).select("_id sellerId pilotName");
         if (!pilot) throw new Error("Pilot not found with the provided pilotId");
 
-        // 2️⃣ Create rental booking
         const doc = await PilotRental.create({
           name,
           email,
@@ -90,12 +85,10 @@ getPilotRentalsBySellerId: async (_, { sellerId }) => {
           pilotId,
         });
 
-        // 3️⃣ Fetch detailed info
         const [withPilot] = await PilotRental.aggregateWithPilotByRentalId({
           pilot_rental_id: doc.pilot_rental_id,
         });
 
-        // 4️⃣ Notify the pilot’s seller
         await createSellerNotification({
           sellerId: pilot.sellerId,
           title: `🧾 New Pilot Rental Booking`,
@@ -153,7 +146,6 @@ getPilotRentalsBySellerId: async (_, { sellerId }) => {
         const pilot = await HirePilot.findOne({ pilotId: updated.pilotId });
         const seller = pilot ? await Seller.findOne({ customId: pilot.sellerId }) : null;
 
-        // ✉️ Email seller
         if (seller?.email) {
           await sendSellerStatusMail({
             to: seller.email,
@@ -163,7 +155,6 @@ getPilotRentalsBySellerId: async (_, { sellerId }) => {
           });
         }
 
-        // 🔔 In-app Notification
         await createSellerNotification({
           sellerId: pilot?.sellerId,
           title: `Pilot Rental ${status.toUpperCase()}`,

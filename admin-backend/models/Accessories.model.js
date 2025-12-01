@@ -3,7 +3,7 @@ import { Seller } from "./Seller.model.js";
 
 const accessorySchema = new mongoose.Schema(
   {
-    accessoryId: { type: String, unique: true }, // Auto-generated like SELLER0001A0001
+    accessoryId: { type: String, unique: true },
     name: { type: String, required: true },
     brand: { type: String, required: true },
     category: { type: String },
@@ -11,7 +11,7 @@ const accessorySchema = new mongoose.Schema(
     description: { type: String, required: true },
     image: { type: String },
     quantity: { type: Number, default: 1 },
-    status: { type: String, default: "pending" }, // pending / approved / rejected
+    status: { type: String, default: "pending" },
     wishlist: [
       {
         userId: {
@@ -22,12 +22,11 @@ const accessorySchema = new mongoose.Schema(
         addedAt: { type: Date, default: Date.now },
       },
     ],
-    sellerId: { type: String, required: true }, // stores Seller.customId
+    sellerId: { type: String, required: true },
   },
   { timestamps: true }
 );
 
-// 🆔 Pre-save Hook to generate Accessory ID
 accessorySchema.pre("save", async function (next) {
   try {
     if (this.isNew && !this.accessoryId && this.sellerId) {

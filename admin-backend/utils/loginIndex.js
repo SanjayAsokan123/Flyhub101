@@ -1,13 +1,35 @@
 // backend/utils/loginIndex.js
 import { firestore } from "../config/firebaseAdmin.js";
 
-/**
- * Create login index
- */
+/* -------------------------------------------------------------------------- */
+/*                               Phone Normalizer                             */
+/* -------------------------------------------------------------------------- */
+
+function normalizePhone(p) {
+  if (!p) return null;
+  const cleaned = p.replace(/\D/g, "");
+
+  // If already +91XXXXXXXXXX
+  if (p.startsWith("+") && cleaned.length === 12) return p;
+
+  // If exactly 10 digits → add +91
+  if (/^\d{10}$/.test(cleaned)) return `+91${cleaned}`;
+
+  // If starts with 91XXXXXXXXXX → convert
+  if (/^91\d{10}$/.test(cleaned)) return `+${cleaned}`;
+
+  return p; // fallback
+}
+
+/* -------------------------------------------------------------------------- */
+/*                          CREATE / UPDATE LOGIN INDEX                       */
+/* -------------------------------------------------------------------------- */
+
 export async function createLoginIndex({
   uid,
   email,
   phone,
+  buyerId,
   sellerId,
   customId,
 }) {
@@ -15,45 +37,49 @@ export async function createLoginIndex({
 
   const batch = firestore.batch();
 
-  // Normalize phone
-  const normalizePhone = (p) => {
-    if (!p) return null;
-    if (p.startsWith("+")) return p;
-    if (/^\d{10}$/.test(p)) return `+91${p}`;
-    return p;
-  };
-
+  /* ------------------------------- Email Key ------------------------------ */
   if (email) {
-    const id = `email_${email.toLowerCase()}`;
-    batch.set(firestore.doc(`loginIndex/${id}`), {
+    const key = email.toLowerCase();
+    batch.set(firestore.doc(`loginIndex/email_${key}`), {
       uid,
-      key: email.toLowerCase(),
+      key,
       keyType: "email",
     });
   }
 
+  /* ------------------------------- Phone Key ------------------------------ */
   if (phone) {
-    const p = normalizePhone(phone);
-    const id = `phone_${p}`;
-    batch.set(firestore.doc(`loginIndex/${id}`), {
+    const phoneNorm = normalizePhone(phone);
+    if (phoneNorm) {
+      batch.set(firestore.doc(`loginIndex/phone_${phoneNorm}`), {
+        uid,
+        key: phoneNorm,
+        keyType: "phone",
+      });
+    }
+  }
+
+  /* ------------------------------ BuyerId Key ----------------------------- */
+  if (buyerId) {
+    batch.set(firestore.doc(`loginIndex/buyerId_${buyerId}`), {
       uid,
-      key: p,
-      keyType: "phone",
+      key: buyerId,
+      keyType: "buyerId",
     });
   }
 
+  /* ------------------------------ SellerId Key ---------------------------- */
   if (sellerId) {
-    const id = `sellerId_${sellerId}`;
-    batch.set(firestore.doc(`loginIndex/${id}`), {
+    batch.set(firestore.doc(`loginIndex/sellerId_${sellerId}`), {
       uid,
       key: sellerId,
       keyType: "sellerId",
     });
   }
 
+  /* ------------------------------ Custom Key ------------------------------ */
   if (customId) {
-    const id = `customId_${customId}`;
-    batch.set(firestore.doc(`loginIndex/${id}`), {
+    batch.set(firestore.doc(`loginIndex/customId_${customId}`), {
       uid,
       key: customId,
       keyType: "customId",
@@ -64,60 +90,61 @@ export async function createLoginIndex({
   console.log(`✅ loginIndex created/updated for UID: ${uid}`);
 }
 
-/**
- * Delete login index entries
- * Removes:
- *   • email_xxx
- *   • phone_xxx
- *   • sellerId_xxx
- *   • customId_xxx
- */
-export async function deleteLoginIndex(email, phone, customIdOrSellerId) {
+/* -------------------------------------------------------------------------- */
+/*                                 DELETE INDEX                               */
+/* -------------------------------------------------------------------------- */
+
+export async function deleteLoginIndex({ email, phone, buyerId, sellerId, customId }) {
   const batch = firestore.batch();
 
   if (email) {
-    const id = `email_${email.toLowerCase()}`;
-    batch.delete(firestore.doc(`loginIndex/${id}`));
+    batch.delete(firestore.doc(`loginIndex/email_${email.toLowerCase()}`));
   }
 
   if (phone) {
-    const phoneNorm = phone.startsWith("+") ? phone : `+91${phone}`;
-    const id = `phone_${phoneNorm}`;
-    batch.delete(firestore.doc(`loginIndex/${id}`));
+    const phoneNorm = normalizePhone(phone);
+    if (phoneNorm) {
+      batch.delete(firestore.doc(`loginIndex/phone_${phoneNorm}`));
+    }
   }
 
-  if (customIdOrSellerId) {
-    const isSeller = customIdOrSellerId.startsWith("FLYHUBS");
-    const isBuyer = customIdOrSellerId.startsWith("FLYHUBB");
+  if (buyerId) {
+    batch.delete(firestore.doc(`loginIndex/buyerId_${buyerId}`));
+  }
 
-    if (isSeller) {
-      const id = `sellerId_${customIdOrSellerId}`;
-      batch.delete(firestore.doc(`loginIndex/${id}`));
-    }
+  if (sellerId) {
+    batch.delete(firestore.doc(`loginIndex/sellerId_${sellerId}`));
+  }
 
-    const id2 = `customId_${customIdOrSellerId}`;
-    batch.delete(firestore.doc(`loginIndex/${id2}`));
+  if (customId) {
+    batch.delete(firestore.doc(`loginIndex/customId_${customId}`));
   }
 
   await batch.commit();
-  console.log(`🗑 loginIndex removed for: ${email || phone || customIdOrSellerId}`);
+  console.log(`🗑 loginIndex removed for: ${email || phone || buyerId || sellerId || customId}`);
 }
 
-/**
- * Lookup loginIndex
- */
+/* -------------------------------------------------------------------------- */
+/*                               FIND LOGIN INDEX                             */
+/* -------------------------------------------------------------------------- */
+
 export async function findLoginIndex(input) {
   if (!input) return null;
 
-  const keys = [
+  const cleanedPhone = normalizePhone(input);
+
+  const possibleKeys = [
     `email_${input.toLowerCase()}`,
     `phone_${input}`,
-    `customId_${input}`,
+    `phone_${cleanedPhone}`,
+    `buyerId_${input}`,
     `sellerId_${input}`,
+    `customId_${input}`,
   ];
 
-  for (const docId of keys) {
-    const snap = await firestore.doc(`loginIndex/${docId}`).get();
+  for (const key of possibleKeys) {
+    const ref = firestore.doc(`loginIndex/${key}`);
+    const snap = await ref.get();
     if (snap.exists) return snap.data();
   }
 

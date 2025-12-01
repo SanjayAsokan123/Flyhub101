@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'JobsPage.dart';
+import 'JobApplyNow.dart';
 
 class NewJobPostPage extends StatelessWidget {
   const NewJobPostPage({super.key});

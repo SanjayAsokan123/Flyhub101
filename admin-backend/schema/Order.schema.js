@@ -52,25 +52,20 @@ export const orderTypeDefs = gql`
   }
 
   extend type Query {
-    """Fetch all orders"""
     orders: [Order]
 
-    """Fetch specific order by ID"""
-    order(orderId: String!): Order   # ✅ Added this
+    order(orderId: String!): Order
   }
 
   extend type Mutation {
-    """Create a new order"""
     createOrder(
       buyerData: BuyerInput!
       items: [ItemInput!]!
       paymentData: PaymentInput!
     ): Order
 
-    """Update buyer info"""
     updateOrder(orderId: String!, address: String, phone: String): Order
 
-    """Delete an order"""
     deleteOrder(orderId: String!): Order
   }
 `;

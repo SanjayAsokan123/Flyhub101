@@ -11,12 +11,10 @@ const droneSchema = new mongoose.Schema(
     description: { type: String, required: true },
     image: { type: String },
     status: { type: String, default: "pending" },
-    sellerId: { type: String, required: true }, // stores Seller.customId
+    sellerId: { type: String, required: true },
   },
   { timestamps: true }
 );
-
-// Auto-generate droneId per seller
 droneSchema.pre("save", async function (next) {
   try {
     if (this.isNew && !this.droneId && this.sellerId) {

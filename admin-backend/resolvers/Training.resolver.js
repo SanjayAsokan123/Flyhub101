@@ -5,15 +5,8 @@ import { createSellerNotification } from "../utils/createSellerNotification.js";
 import { sendSellerStatusMail, sendEnrollmentEmails } from "../utils/emailService.js";
 import { uploadSingleFile, deleteFirebaseFile } from "../utils/uploadToFirebase.js";
 
-/**
- * 🎓 Training Resolvers
- * Handles CRUD operations for training programs + student enrollments
- */
 export const trainingResolvers = {
   Query: {
-    /**
-     * 🟢 Fetch all training programs
-     */
     getTrainings: async (_, { search, sortOrder }) => {
       try {
         const filter = search
@@ -26,10 +19,6 @@ export const trainingResolvers = {
         throw new Error("Failed to fetch trainings: " + err.message);
       }
     },
-
-    /**
-     * 🟢 Fetch single training by ID
-     */
     getTrainingById: async (_, { id }) => {
       try {
         const training = await Training.findById(id);
@@ -40,10 +29,6 @@ export const trainingResolvers = {
         throw new Error("Failed to fetch training: " + err.message);
       }
     },
-
-    /**
-     * 🧾 Admin: Fetch all training enrollments
-     */
     getEnrollments: async () => {
       try {
         const enrollments = await TrainingEnroll.find().sort({ createdAt: -1 });
@@ -56,9 +41,6 @@ export const trainingResolvers = {
   },
 
   Mutation: {
-    /**
-     * 🟢 Add new training
-     */
     addTraining: async (
       _,
       { title, amount, gst, days, imageFile, imagePath, shortDescription, fullDescription },
@@ -68,7 +50,6 @@ export const trainingResolvers = {
         if (!title || !amount || !gst || !days)
           throw new Error("Missing required fields: title, amount, gst, days");
 
-        // ✅ Upload new image if provided
         let finalImagePath = imagePath;
         if (imageFile?.file) {
           finalImagePath = await uploadSingleFile(imageFile.file, "training");
@@ -89,7 +70,6 @@ export const trainingResolvers = {
         const saved = await newTraining.save();
         console.log(`✅ Training added: ${saved.title}`);
 
-        // 🔔 Notify all sellers
         const sellers = await Seller.find({});
         await Promise.all(
           sellers.map(async (seller) => {
@@ -104,8 +84,6 @@ if (createSellerNotification && typeof createSellerNotification === "function") 
     pubsub,
   });
 }
-
-
             if (seller.email) {
               await sendSellerStatusMail({
                 to: seller.email,
@@ -117,7 +95,6 @@ if (createSellerNotification && typeof createSellerNotification === "function") 
           })
         );
 
-        // 🔔 Admin log
         await createSellerNotification({
           sellerId: "ADMIN",
           title: "🆕 New Training Added",
@@ -135,9 +112,6 @@ if (createSellerNotification && typeof createSellerNotification === "function") 
       }
     },
 
-    /**
-     * ✏️ Update training
-     */
     updateTraining: async (_, { id, imageFile, ...fields }, { pubsub }) => {
       try {
         const existing = await Training.findById(id);
@@ -150,8 +124,6 @@ if (createSellerNotification && typeof createSellerNotification === "function") 
           }
           fields.imagePath = await uploadSingleFile(imageFile.file, "training");
         }
-
-        // 🧮 Recalculate totalAmount
         if (fields.amount && fields.gst) {
           fields.totalAmount = fields.amount + (fields.amount * fields.gst) / 100;
         }
@@ -160,7 +132,6 @@ if (createSellerNotification && typeof createSellerNotification === "function") 
         const updated = await existing.save();
         console.log(`✏️ Training updated: ${updated.title}`);
 
-        // 🔔 Notify sellers
         const sellers = await Seller.find({});
        await Promise.all(
          sellers.map(async (seller) => {
@@ -198,9 +169,6 @@ if (createSellerNotification && typeof createSellerNotification === "function") 
       }
     },
 
-    /**
-     * 🗑 Delete training
-     */
     deleteTraining: async (_, { id }, { pubsub }) => {
       try {
         const deleted = await Training.findByIdAndDelete(id);
@@ -240,23 +208,16 @@ if (createSellerNotification && typeof createSellerNotification === "function") 
       }
     },
 
-    /**
-     * 🧾 Enroll a student in a training program
-     */
     enrollTraining: async (_, { input }) => {
       try {
         console.log("📥 Enrollment request received:", input);
 
-        // 🛑 Validate courseId
         if (!input.courseId || !mongoose.Types.ObjectId.isValid(input.courseId)) {
           throw new Error("Invalid or missing courseId.");
         }
-
-        // 🧠 Find training
         const course = await Training.findById(input.courseId);
         if (!course) throw new Error("Training not found for provided ID.");
 
-        // 💾 Create enrollment
         const enrollment = await TrainingEnroll.create({
           ...input,
           courseTitle: course.title,
@@ -264,8 +225,6 @@ if (createSellerNotification && typeof createSellerNotification === "function") 
           totalAmount: course.totalAmount,
           status: "pending",
         });
-
-        // 📧 Send confirmation emails
         await sendEnrollmentEmails({
           studentName: input.name,
           studentEmail: input.email,

@@ -7,7 +7,7 @@ import { accessoryTypeDefs } from "../Accessories.schema.js";
 import { rentalTypeDefs } from "../Rental.schema.js";
 import { rentalBookingTypeDefs }  from "../Buyer_Booking_Pilot_Rental.schema.js";
 import { dronerentalBookingTypeDefs } from "../Buyer_Booking_Drone_Rental.schema.js";
-import { sellerDroneRentalTypeDefs } from "../Seller_Drone_Rental.schema.js";
+import { jobApplicationTypeDefs } from "../JobBooking.schema.js";
 import { hirePilotTypeDefs } from "../Hirepilot.schema.js";
 import { jobTypeDefs } from "../Hirejob.schema.js";
 import { orderTypeDefs } from "../Order.schema.js";
@@ -16,10 +16,8 @@ import { serviceTypeDefs } from "../Service.schema.js";
 import { regulatoryTypeDefs } from "../Regulatory.schema.js";
 import { buyerTypeDefs } from "../Buyer.schema.js";
 import { sellerTypeDefs } from "../Seller.schema.js";
-import { notificationTypeDefs } from "../Notification.schema.js";
-import { trainingTypeDefs } from "../Training.schema.js"; // ✅ Added Training schema
+import { trainingTypeDefs } from "../Training.schema.js";
 import { taxTypeDefs } from "../Tax.schema.js";
-// ✅ Export all typeDefs for Apollo Server
 export const typeDefs = [
   baseTypeDefs,
   droneTypeDefs,
@@ -35,9 +33,8 @@ export const typeDefs = [
   buyerTypeDefs,
   sellerTypeDefs,
   taxTypeDefs,
-  notificationTypeDefs,
-  trainingTypeDefs, // ✅ Include here
+  trainingTypeDefs,
   rentalBookingTypeDefs,
   dronerentalBookingTypeDefs,
-  sellerDroneRentalTypeDefs,
+  jobApplicationTypeDefs,
 ];

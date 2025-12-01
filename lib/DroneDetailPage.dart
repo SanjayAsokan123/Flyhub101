@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:provider/provider.dart';
 import 'BuyerDetails/MyCartPage.dart';
 import 'AddressPage.dart';
+import '../services/cart_wishlist_provider.dart';
 
 class DroneDetailPage extends StatefulWidget {
   final Map<String, dynamic> drone;
@@ -16,7 +18,6 @@ class DroneDetailPage extends StatefulWidget {
 
 class _DroneDetailPageState extends State<DroneDetailPage> {
   int quantity = 1;
-  bool isFavorite = false;
   int cartCount = 0;
 
   final Color themeColor = const Color(0xFF1A0A5B);
@@ -32,6 +33,36 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
     final saved = prefs.getString('cart') ?? '[]';
     final cartItems = jsonDecode(saved);
     setState(() => cartCount = cartItems.length);
+  }
+
+  Future<void> _toggleWishlist() async {
+    final provider = context.read<CartWishlistProvider>();
+    final name = widget.drone['name'] ?? 'Item';
+    final added = await provider.toggleWishlist(widget.drone);
+
+    // Show toast message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: themeColor,
+        content: Row(
+          children: [
+            Icon(added ? Icons.favorite : Icons.favorite_border, color: Colors.white),
+            const SizedBox(width: 10),
+            Text(
+              added ? "$name added to wishlist" : "$name removed from wishlist",
+              style: GoogleFonts.lexend(color: Colors.white),
+            ),
+          ],
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  bool _isInWishlist(BuildContext context) {
+    final provider = context.watch<CartWishlistProvider>();
+    final id = widget.drone['id']?.toString() ?? '';
+    return provider.wishlistIds.contains(id);
   }
 
   Future<void> _addToCart() async {
@@ -83,9 +114,23 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
     await _loadCartCount();
   }
 
+  // Function to show full-screen image viewer like Flipkart
+  void _showFullScreenImage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FullScreenImageViewer(
+          imageUrl: widget.drone['image'],
+          productName: widget.drone['name'],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final drone = widget.drone;
+    final isFavorite = _isInWishlist(context);
 
     final double price = (drone['price'] ?? 0).toDouble();
     final double totalAmount = price * quantity;
@@ -123,12 +168,13 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
         ),
         centerTitle: true,
         actions: [
+          // Favorite icon that syncs with provider
           IconButton(
             icon: Icon(
               isFavorite ? Icons.favorite : Icons.favorite_border,
               color: isFavorite ? Colors.redAccent : themeColor,
             ),
-            onPressed: () => setState(() => isFavorite = !isFavorite),
+            onPressed: _toggleWishlist,
           ),
           Stack(
             children: [
@@ -189,17 +235,45 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Image Section
-              Container(
-                height: 280,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: drone['image'] != null
-                        ? NetworkImage(drone['image'])
-                        : const AssetImage(
-                        'assets/images/MaskGroup34@2x.png') as ImageProvider,
-                    fit: BoxFit.cover,
+              // Image Section - Now opens full-screen viewer
+              GestureDetector(
+                onTap: _showFullScreenImage,
+                child: Container(
+                  height: 280,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    image: DecorationImage(
+                      image: drone['image'] != null
+                          ? NetworkImage(drone['image'])
+                          : const AssetImage('assets/images/MaskGroup34@2x.png') as ImageProvider,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  child: Align(
+                    alignment: Alignment.bottomRight,
+                    child: Container(
+                      margin: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.zoom_in, color: Colors.white, size: 16),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Tap to view',
+                            style: GoogleFonts.lexend(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -362,7 +436,7 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
                     MaterialPageRoute(
                       builder: (context) => AddressPage(
                         drone: widget.drone,
-                        total: totalAmount, // ✔ FIXED (no null)
+                        total: totalAmount,
                       ),
                     ),
                   );
@@ -454,5 +528,259 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
         ],
       ),
     );
+  }
+}
+
+// Full Screen Image Viewer like Flipkart
+class FullScreenImageViewer extends StatefulWidget {
+  final String? imageUrl;
+  final String? productName;
+
+  const FullScreenImageViewer({
+    super.key,
+    required this.imageUrl,
+    required this.productName,
+  });
+
+  @override
+  State<FullScreenImageViewer> createState() => _FullScreenImageViewerState();
+}
+
+class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
+  final TransformationController _transformationController = TransformationController();
+  late InteractiveViewer _interactiveViewer;
+  double _scale = 1.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _interactiveViewer = InteractiveViewer(
+      transformationController: _transformationController,
+      minScale: 0.5,
+      maxScale: 5.0,
+      child: Container(
+        decoration: BoxDecoration(
+          image: DecorationImage(
+            image: widget.imageUrl != null
+                ? NetworkImage(widget.imageUrl!)
+                : const AssetImage('assets/images/MaskGroup34@2x.png') as ImageProvider,
+            fit: BoxFit.contain,
+          ),
+        ),
+      ),
+    );
+
+    _transformationController.addListener(() {
+      setState(() {
+        _scale = _transformationController.value.getMaxScaleOnAxis();
+      });
+    });
+  }
+
+  void _resetZoom() {
+    _transformationController.value = Matrix4.identity();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // Main image with zoom capability
+          Positioned.fill(
+            child: GestureDetector(
+              onDoubleTap: () {
+                _resetZoom();
+              },
+              child: _interactiveViewer,
+            ),
+          ),
+
+          // Back button at top left
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 16,
+            left: 16,
+            child: GestureDetector(
+              onTap: () {
+                Navigator.pop(context);
+              },
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.arrow_back,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+            ),
+          ),
+
+          // Product name at top center
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 16,
+            left: 0,
+            right: 0,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  widget.productName ?? 'Product Image',
+                  style: GoogleFonts.lexend(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ),
+
+          // Reset zoom button at bottom right (single button)
+          Positioned(
+            bottom: MediaQuery.of(context).padding.bottom + 20,
+            right: 20,
+            child: GestureDetector(
+              onTap: _resetZoom,
+              child: Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.refresh,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+            ),
+          ),
+
+          // Zoom level indicator at bottom center (only shows when zoomed)
+          Positioned(
+            bottom: MediaQuery.of(context).padding.bottom + 20,
+            left: 0,
+            right: 0,
+            child: AnimatedOpacity(
+              opacity: _scale != 1.0 ? 1.0 : 0.0,
+              duration: Duration(milliseconds: 300),
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${(_scale * 100).round()}%',
+                    style: GoogleFonts.lexend(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Swipe hint at bottom center (only shows when not zoomed)
+          Positioned(
+            bottom: MediaQuery.of(context).padding.bottom + 80,
+            left: 0,
+            right: 0,
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: AnimatedOpacity(
+                opacity: _scale == 1.0 ? 1.0 : 0.0,
+                duration: Duration(milliseconds: 300),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.swipe, color: Colors.white, size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Swipe to view more images',
+                        style: GoogleFonts.lexend(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Zoom hint at bottom left (only shows when not zoomed)
+          Positioned(
+            bottom: MediaQuery.of(context).padding.bottom + 20,
+            left: 20,
+            child: AnimatedOpacity(
+              opacity: _scale == 1.0 ? 1.0 : 0.0,
+              duration: Duration(milliseconds: 300),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.zoom_in, color: Colors.white, size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Pinch to zoom',
+                      style: GoogleFonts.lexend(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
   }
 }

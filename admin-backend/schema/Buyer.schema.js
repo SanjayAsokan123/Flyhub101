@@ -1,72 +1,98 @@
 import { gql } from "apollo-server-express";
 
 export const buyerTypeDefs = gql`
+  scalar JSON
 
   type Buyer {
     id: ID
     buyerId: String
+    firebaseUid: String
     name: String
     email: String
-    phone: String
+    phoneNumber: String
     token: String
-    createdAt: String      # 🔥 Added
-    updatedAt: String      # (optional, but useful)
+    password: String
+    createdAt: String
+    updatedAt: String
+    fcmTokens: [String!]
+  }
+
+  input BuyerInput {
+    name: String
+    email: String
+    phoneNumber: String
+    firebaseUid: String
+    password: String
+  }
+
+  type UpdateTokenResponse {
+    success: Boolean!
+    message: String!
+    buyer: Buyer
+  }
+
+  type BuyerNotification {
+    notificationId: String!
+    buyerId: String!
+    title: String!
+    message: String!
+    type: String
+    url: String
+    data: JSON
+    read: Boolean!
+    createdAt: String!
+  }
+
+  type NotificationResponse {
+    success: Boolean!
+    message: String
   }
 
   type Query {
     buyers: [Buyer]
+    buyer(buyerId: ID!): Buyer
 
-    buyer(id: ID!): Buyer
-  }
+    buyerNotifications(buyerId: String!): [BuyerNotification]
 
-  # ============================================================
-  # 📌 MUTATIONS
-  # ============================================================
-  type Mutation {
-    signupBuyer(
-      name: String!
-      email: String!
-      phone: String!
-      password: String!
-      firebaseUid: String!
-    ): Buyer
-
-    """
-    🔵 Buyer Login
-    Unified login using:
-    - Email
-    - Phone
-    - BuyerID (FLYHUBB0001)
-    """
-    loginBuyer(
-      input: String!
-      password: String!
-    ): Buyer
-
-    """
-    🔵 OTP Login (Firebase UID only)
-    Used when buyer verifies OTP in mobile app
-    """
-    loginBuyerOtp(
-      firebaseUid: String!
-    ): Buyer
-
-    """
-    ✏️ Update Buyer Profile
-    Optional fields
-    """
-    updateBuyer(
-      buyerId: ID!
-      name: String
+    buyerByEmail(
       email: String
+      username: String
       phone: String
-      password: String
+      buyerId: String
     ): Buyer
 
-    """
-    🗑️ Delete Buyer Account
-    Admin or self-delete
-    """
-    deleteBuyer(buyerId: ID!): String
+    getBuyerByLoginKey(key: String!): Buyer
   }
+
+  type Mutation {
+    createBuyer(input: BuyerInput!): Buyer!
+
+     signupBuyer(
+          name: String!
+          email: String!
+          phoneNumber: String!
+          password: String!
+          firebaseUid: String!
+        ): Buyer
+
+    loginBuyer(input: String!, password: String!): Buyer!
+
+    loginBuyerGoogle(firebaseUid: String!, email: String!): Buyer!
+
+    updateBuyer(buyerId: ID!, input: BuyerInput!): Buyer!
+
+    deleteBuyer(buyerId: ID!): String
+
+    markBuyerNotificationRead(notificationId: String!): NotificationResponse
+
+    updateBuyerFcmToken(buyerId: String!, token: String!): UpdateTokenResponse
+
+     testPush: BuyerNotification
+
+  }
+
+extend type Subscription {
+  buyerNotificationAdded(buyerId: String!): BuyerNotification
+}
+
 `;

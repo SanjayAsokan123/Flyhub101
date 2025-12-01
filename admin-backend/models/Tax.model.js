@@ -2,8 +2,8 @@ import mongoose from "mongoose";
 
 const taxSchema = new mongoose.Schema(
   {
-    sgst: { type: Number, default: 5 },       // in %
-    commission: { type: Number, default: 5 }, // in %
+    sgst: { type: Number, default: 5 },
+    commission: { type: Number, default: 5 },
   },
   { timestamps: true }
 );

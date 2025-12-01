@@ -5,7 +5,7 @@ const rentalSchema = new mongoose.Schema(
     pilot_rental_id: {
       type: String,
       unique: true,
-      required: false, // auto-generated if not provided
+      required: false,
       index: true,
     },
     name: { type: String, required: true, trim: true },
@@ -20,14 +20,11 @@ const rentalSchema = new mongoose.Schema(
       endDate: { type: Date, required: true },
     },
     paymentStatus: { type: String, enum: ["pending", "failed", "completed"], default: "pending" },
-    // IMPORTANT: no ObjectId link; joining will be done via $lookup on pilot_rental_id ↔ hirepilots.pilotId
     pilotId:{type : String , required :true },
   },
 
   { timestamps: true }
 );
-
-// Auto-generate pilot_rental_id like PR1, PR2, ... if not set
 rentalSchema.pre("save", async function (next) {
   if (this.pilot_rental_id) return next();
   try {
@@ -44,15 +41,14 @@ rentalSchema.pre("save", async function (next) {
   }
 });
 
-// Static: aggregate with pilot using $lookup (pilot_rental_id -> hirepilots.pilotId)
 rentalSchema.statics.aggregateWithPilotByRentalId = function (match = {}, sort = { createdAt: -1 }) {
   const pipeline = [
     { $match: match },
     {
       $lookup: {
-        from: "hirepilots",                  // collection created by HirePilot model
-        localField: "pilotId",       // rental side
-        foreignField: "pilotId",             // hirepilots side
+        from: "hirepilots",
+        localField: "pilotId",
+        foreignField: "pilotId",
         as: "pilot",
       },
     },

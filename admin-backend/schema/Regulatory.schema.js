@@ -21,8 +21,8 @@ export const regulatoryTypeDefs = gql`
   }
 
   type Query {
-    regulatory(id: ID!): Regulatory           # fetch single record
-    regulatoryAll: [Regulatory]               # fetch all records
+    regulatory(id: ID!): Regulatory
+    regulatoryAll: [Regulatory]
   }
 
   type Mutation {

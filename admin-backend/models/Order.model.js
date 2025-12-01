@@ -2,10 +2,10 @@ import mongoose from "mongoose";
 
 const orderSchema = new mongoose.Schema(
   {
-    orderId: { type: String, unique: true, required: true }, // ✅ every order must have unique ID
+    orderId: { type: String, unique: true, required: true },
 
     buyer: {
-      buyerId: { type: String, required: true }, // from authenticated user (Firebase UID or DB ID)
+      buyerId: { type: String, required: true },
       name: { type: String },
       email: { type: String },
       phone: { type: String },
@@ -14,7 +14,7 @@ const orderSchema = new mongoose.Schema(
 
     items: [
       {
-        productId: { type: String, required: true }, // droneId / partId / accessoryId
+        productId: { type: String, required: true },
         type: {
           type: String,
           enum: ["Drone", "Part", "Accessory", "Rental", "Service"],
@@ -51,7 +51,7 @@ const orderSchema = new mongoose.Schema(
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
   },
-  { timestamps: true } // ✅ Mongoose auto-manages createdAt & updatedAt
+  { timestamps: true }
 );
 
 orderSchema.pre("save", function (next) {

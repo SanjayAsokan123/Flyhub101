@@ -1,4 +1,3 @@
-// schema/Buyer_booking_Pilot_rental.schema.js
 import { gql } from "apollo-server-express";
 
 export const rentalBookingTypeDefs = gql`
@@ -7,7 +6,6 @@ export const rentalBookingTypeDefs = gql`
     endDate: String!
   }
 
-  # Minimal pilot view for rentals
   type PilotLight {
     pilotId: String
     pilotName: String

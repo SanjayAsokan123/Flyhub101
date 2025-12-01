@@ -6,9 +6,6 @@ import { Seller } from "../models/Seller.model.js";
 import { sendSellerStatusMail } from "../utils/emailService.js";
 import { createSellerNotification } from "../utils/createSellerNotification.js";
 
-/**
- * 🧩 Dynamically fetch product details by type
- */
 async function getProductDetails(productId, type) {
   try {
     switch (type?.toLowerCase()) {
@@ -30,9 +27,6 @@ async function getProductDetails(productId, type) {
 
 export const orderResolvers = {
   Query: {
-    /**
-     * 🟢 Fetch all orders (latest first)
-     */
     orders: async () => {
       try {
         return await Order.find().sort({ createdAt: -1 });
@@ -42,9 +36,6 @@ export const orderResolvers = {
       }
     },
 
-    /**
-     * 🟢 Fetch a single order by ID
-     */
     order: async (_, { orderId }) => {
       try {
         const order = await Order.findOne({ orderId });
@@ -58,10 +49,6 @@ export const orderResolvers = {
   },
 
   Mutation: {
-    /**
-     * 🟢 Create a new order
-     * Handles product details, total calculation, and notifications
-     */
     createOrder: async (_, { buyerData, items, paymentData }, { pubsub }) => {
       try {
         if (!buyerData?.buyerId || !buyerData?.name) {
@@ -71,7 +58,6 @@ export const orderResolvers = {
           throw new Error("Order must contain at least one valid item");
         }
 
-        // 🔍 Enrich items with product info
         const detailedItems = await Promise.all(
           items.map(async (item) => {
             const product = await getProductDetails(item.productId, item.type);
@@ -86,13 +72,11 @@ export const orderResolvers = {
           })
         );
 
-        // 💰 Calculate total
         const totalAmount = detailedItems.reduce(
           (sum, i) => sum + i.price * i.quantity,
           0
         );
 
-        // 🧾 Construct Order Document
         const order = new Order({
           orderId: `FHO-${Date.now().toString().slice(-8)}`,
           buyer: buyerData,
@@ -107,7 +91,6 @@ export const orderResolvers = {
         await order.save();
         console.log(`✅ Order Created: ${order.orderId}`);
 
-        // 🔔 Notify Sellers
         const sellerIds = [
           ...new Set(detailedItems.map((i) => i.sellerId).filter(Boolean)),
         ];
@@ -115,7 +98,6 @@ export const orderResolvers = {
 
         for (const seller of sellers) {
           try {
-            // 📨 Email
             if (seller.email) {
               await sendSellerStatusMail({
                 to: seller.email,
@@ -125,7 +107,6 @@ export const orderResolvers = {
               });
             }
 
-            // 🔔 In-app notification
             await createSellerNotification({
               sellerId: seller.customId,
               title: "🛒 New Order Received",
@@ -140,7 +121,6 @@ export const orderResolvers = {
           }
         }
 
-        // 🔔 Notify Buyer
         try {
           await createSellerNotification({
             sellerId: buyerData.buyerId,
@@ -162,9 +142,6 @@ export const orderResolvers = {
       }
     },
 
-    /**
-     * ✏️ Update order buyer info (address, phone)
-     */
     updateOrder: async (_, { orderId, address, phone }) => {
       try {
         const updateFields = {};
@@ -184,15 +161,11 @@ export const orderResolvers = {
       }
     },
 
-    /**
-     * 🗑 Delete order (with notifications)
-     */
     deleteOrder: async (_, { orderId }, { pubsub }) => {
       try {
         const deletedOrder = await Order.findOneAndDelete({ orderId });
         if (!deletedOrder) throw new Error("Order not found");
 
-        // 🔔 Notify Buyer
         await createSellerNotification({
           sellerId: deletedOrder.buyer.buyerId,
           title: "🗑️ Order Deleted",

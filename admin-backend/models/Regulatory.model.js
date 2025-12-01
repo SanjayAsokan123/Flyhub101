@@ -8,9 +8,8 @@ const regulatorySchema = new mongoose.Schema(
     shortDescription: { type: String, required: true },
     fullDescription: { type: String, required: true },
   },
-  { timestamps: true } // ✅ Adds createdAt and updatedAt automatically
+  { timestamps: true }
 );
 
-// ✅ Named export (recommended)
 export const Regulatory =
   mongoose.models.Regulatory || mongoose.model("Regulatory", regulatorySchema);

@@ -7,9 +7,6 @@ import {
 
 export const regulatoryResolvers = {
   Query: {
-    /**
-     * 🟢 Fetch a single regulatory record by ID
-     */
     regulatory: async (_, { id }) => {
       const record = await Regulatory.findById(id);
       if (!record) throw new Error("Regulatory record not found");
@@ -26,9 +23,6 @@ export const regulatoryResolvers = {
       };
     },
 
-    /**
-     * 🟢 Fetch all regulatory records (latest first)
-     */
     regulatoryAll: async () => {
       const records = await Regulatory.find().sort({ createdAt: -1 });
       return records.map((r) => ({
@@ -45,9 +39,6 @@ export const regulatoryResolvers = {
   },
 
   Mutation: {
-    /**
-     * 🟢 Create a new regulatory record (with Firebase upload)
-     */
     createRegulatory: async (_, { input }, { pubsub }) => {
       try {
         const sanitizedInput = {
@@ -60,7 +51,6 @@ export const regulatoryResolvers = {
             input.fullDescription?.trim() || "No detailed description available.",
         };
 
-        // ✅ Upload new image or PDF to Firebase if provided
         if (input.imageFile?.file) {
           sanitizedInput.imagePath = await uploadSingleFile(
             input.imageFile.file,
@@ -71,7 +61,6 @@ export const regulatoryResolvers = {
         const newRecord = new Regulatory(sanitizedInput);
         await newRecord.save();
 
-        // 🔔 Notify admin dashboards or content managers
         await createSellerNotification({
           sellerId: "ADMIN",
           title: "📜 New Regulation Added",
@@ -92,9 +81,6 @@ export const regulatoryResolvers = {
       }
     },
 
-    /**
-     * ✏️ Update an existing regulatory record (with Firebase cleanup)
-     */
     updateRegulatory: async (_, { id, input }, { pubsub }) => {
       try {
         const existing = await Regulatory.findById(id);
@@ -102,7 +88,6 @@ export const regulatoryResolvers = {
 
         const updateData = { ...input };
 
-        // ✅ Replace file in Firebase if a new one is uploaded
         if (input.imageFile?.file) {
           if (existing.imagePath) {
             await deleteFirebaseFile(existing.imagePath);
@@ -118,7 +103,6 @@ export const regulatoryResolvers = {
           runValidators: true,
         });
 
-        // 🔔 Notify admin dashboard users
         await createSellerNotification({
           sellerId: "ADMIN",
           title: "📢 Regulation Updated",
@@ -139,15 +123,11 @@ export const regulatoryResolvers = {
       }
     },
 
-    /**
-     * 🗑 Delete a regulatory record (with Firebase cleanup)
-     */
     deleteRegulatory: async (_, { id }, { pubsub }) => {
       try {
         const deletedRecord = await Regulatory.findByIdAndDelete(id);
         if (!deletedRecord) throw new Error("Regulatory record not found");
 
-        // ✅ Delete file from Firebase if exists
         if (deletedRecord.imagePath) {
           await deleteFirebaseFile(deletedRecord.imagePath);
         }

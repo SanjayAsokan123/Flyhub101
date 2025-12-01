@@ -87,24 +87,24 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
     }
   }
 
-  Future<void> _switchToSeller() async {
-    HapticFeedback.selectionClick();
-    try {
-      await RoleManager.updateRole("seller");
-      if (!mounted) return;
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const SellerPage()),
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("✅ Switched to Seller Mode")),
-      );
-    } catch (e) {
-      debugPrint("⚠ Switch to seller error: $e");
-    }
-  }
+  // Future<void> _switchToSeller() async {
+  //   HapticFeedback.selectionClick();
+  //   try {
+  //     await RoleManager.updateRole("seller");
+  //     if (!mounted) return;
+  //
+  //     Navigator.pushReplacement(
+  //       context,
+  //       MaterialPageRoute(builder: (_) => const SellerPage()),
+  //     );
+  //
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text("✅ Switched to Seller Mode")),
+  //     );
+  //   } catch (e) {
+  //     debugPrint("⚠ Switch to seller error: $e");
+  //   }
+  // }
 
   Future<void> _logout() async {
     HapticFeedback.lightImpact();
@@ -180,7 +180,7 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
         elevation: 1,
         actions: [
           InkWell(
-            onTap: _switchToSeller,
+            // onTap: _switchToSeller,
             borderRadius: BorderRadius.circular(20),
             child: Container(
               margin: const EdgeInsets.only(right: 8),
