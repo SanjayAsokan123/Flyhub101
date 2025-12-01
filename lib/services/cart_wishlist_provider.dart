@@ -1,227 +1,915 @@
-// ignore_for_file: use_build_context_synchronously
+// import 'package:flutter/foundation.dart';
+// import 'package:cloud_firestore/cloud_firestore.dart';
+// import 'package:firebase_auth/firebase_auth.dart';
+// import 'package:shared_preferences/shared_preferences.dart';
+// import 'dart:convert';
+//
+// class CartWishlistProvider with ChangeNotifier {
+//   final FirebaseAuth _auth = FirebaseAuth.instance;
+//   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+//
+//   // Wishlist data
+//   List<Map<String, dynamic>> wishlistItems = [];
+//   Set<String> wishlistIds = {};
+//   int _wishlistCount = 0;
+//
+//   // Cart data
+//   List<Map<String, dynamic>> cartItems = [];
+//   Set<String> cartIds = {};
+//   int _cartCount = 0;
+//
+//   // Getters
+//   int get wishlistCount => _wishlistCount;
+//   int get cartCount => _cartCount;
+//   List<String> get wishlistIdsList => wishlistIds.toList();
+//
+//   CartWishlistProvider() {
+//     _loadInitialData();
+//   }
+//
+//   Future<void> _loadInitialData() async {
+//     print('=== PROVIDER INIT ===');
+//     await loadWishlistFromLocal();
+//     await loadCartFromLocal();
+//
+//     // Sync with Firebase if user is logged in
+//     final user = _auth.currentUser;
+//     if (user != null) {
+//       await _syncWishlistWithFirebase();
+//       await _syncCartWithFirebase();
+//     }
+//
+//     notifyListeners();
+//     print('Provider initialized with ${wishlistItems.length} wishlist items');
+//   }
+//
+//   // ========== WISHLIST METHODS ==========
+//   Future<bool> toggleWishlist(Map<String, dynamic> item) async {
+//     try {
+//       final id = item['id']?.toString() ?? item['name']?.toString() ?? 'unknown_${DateTime.now().millisecondsSinceEpoch}';
+//       final isCurrentlyInWishlist = wishlistIds.contains(id);
+//
+//       print('=== WISHLIST TOGGLE DEBUG ===');
+//       print('Item ID: $id');
+//       print('Item name: ${item['name']}');
+//       print('Item price: ${item['price']}');
+//       print('Item image: ${item['image']}');
+//       print('Currently in wishlist: $isCurrentlyInWishlist');
+//       print('Current wishlist items before: ${wishlistItems.length}');
+//       print('Current wishlist IDs before: $wishlistIds');
+//
+//       if (isCurrentlyInWishlist) {
+//         // Remove from wishlist
+//         wishlistItems.removeWhere((element) => element['id'] == id);
+//         wishlistIds.remove(id);
+//         print('REMOVED from wishlist');
+//       } else {
+//         // Add to wishlist - ensure all required fields
+//         final wishlistItem = {
+//           'id': id,
+//           'name': item['name'] ?? 'Unknown Product',
+//           'price': item['price'] ?? 0.0,
+//           'image': item['image'] ?? '',
+//           'brand': item['brand'] ?? '',
+//           'category': item['category'] ?? '',
+//           'description': item['description'] ?? '',
+//           'createdAt': DateTime.now().millisecondsSinceEpoch,
+//           ...item, // Spread the original item to include all fields
+//         };
+//         wishlistItems.add(wishlistItem);
+//         wishlistIds.add(id);
+//         print('ADDED to wishlist: ${wishlistItem['name']}');
+//       }
+//
+//       _wishlistCount = wishlistItems.length;
+//
+//       // Save to local storage
+//       await saveWishlistToLocal();
+//       print('Saved to local storage. New count: $_wishlistCount');
+//       print('Current wishlist items after: ${wishlistItems.length}');
+//       print('Current wishlist IDs after: $wishlistIds');
+//
+//       // Sync with Firebase if user is logged in
+//       final user = _auth.currentUser;
+//       if (user != null) {
+//         await _syncWishlistWithFirebase();
+//       }
+//
+//       notifyListeners();
+//       print('Notified listeners - Wishlist count: $_wishlistCount');
+//       print('==============================');
+//
+//       return !isCurrentlyInWishlist;
+//     } catch (e) {
+//       print('❌ Error toggling wishlist: $e');
+//       return false;
+//     }
+//   }
+//
+//   Future<void> saveWishlistToLocal() async {
+//     try {
+//       final prefs = await SharedPreferences.getInstance();
+//       final jsonData = jsonEncode(wishlistItems);
+//       await prefs.setString('wishlist', jsonData);
+//       print('💾 Wishlist saved to local storage: ${wishlistItems.length} items');
+//     } catch (e) {
+//       print('❌ Error saving wishlist to local: $e');
+//     }
+//   }
+//
+//   Future<void> loadWishlistFromLocal() async {
+//     try {
+//       final prefs = await SharedPreferences.getInstance();
+//       final saved = prefs.getString('wishlist') ?? '[]';
+//
+//       print('=== LOADING WISHLIST FROM LOCAL ===');
+//       print('Raw saved data: $saved');
+//
+//       final List<dynamic> decoded = jsonDecode(saved);
+//
+//       wishlistItems = List<Map<String, dynamic>>.from(decoded);
+//       wishlistIds = wishlistItems.map((item) => item['id']?.toString() ?? '').where((id) => id.isNotEmpty).toSet();
+//       _wishlistCount = wishlistItems.length;
+//
+//       print('✅ Loaded ${wishlistItems.length} items from local storage');
+//       print('📋 Item IDs: $wishlistIds');
+//       for (var item in wishlistItems) {
+//         print('   - ${item['name']} (ID: ${item['id']}) - ₹${item['price']}');
+//       }
+//       print('===================================');
+//     } catch (e) {
+//       print('❌ Error loading wishlist from local: $e');
+//       wishlistItems = [];
+//       wishlistIds = {};
+//       _wishlistCount = 0;
+//     }
+//   }
+//
+//   Future<void> _syncWishlistWithFirebase() async {
+//     try {
+//       final user = _auth.currentUser;
+//       if (user == null) return;
+//
+//       final wishlistRef = _firestore.collection('users').doc(user.uid).collection('wishlist');
+//
+//       // Get current Firebase wishlist
+//       final snapshot = await wishlistRef.get();
+//       final firebaseIds = snapshot.docs.map((doc) => doc.id).toSet();
+//
+//       // Batch write for efficiency
+//       final batch = _firestore.batch();
+//
+//       // Remove items from Firebase that are not in local
+//       for (final id in firebaseIds) {
+//         if (!wishlistIds.contains(id)) {
+//           batch.delete(wishlistRef.doc(id));
+//         }
+//       }
+//
+//       // Add/update local items to Firebase
+//       for (final item in wishlistItems) {
+//         final id = item['id']?.toString() ?? 'unknown';
+//         batch.set(wishlistRef.doc(id), {
+//           ...item,
+//           'syncedAt': FieldValue.serverTimestamp(),
+//         });
+//       }
+//
+//       await batch.commit();
+//       print('🔥 Synced ${wishlistItems.length} items with Firebase');
+//     } catch (e) {
+//       print('❌ Error syncing wishlist with Firebase: $e');
+//     }
+//   }
+//
+//   // ========== CART METHODS ==========
+//   Future<void> updateCartCount(int count) async {
+//     _cartCount = count;
+//     notifyListeners();
+//   }
+//
+//   Future<void> updateWishlistCount(int count) async {
+//     _wishlistCount = count;
+//     notifyListeners();
+//   }
+//
+//   Future<void> saveCartToLocal() async {
+//     try {
+//       final prefs = await SharedPreferences.getInstance();
+//       await prefs.setString('cart', jsonEncode(cartItems));
+//     } catch (e) {
+//       print('❌ Error saving cart to local: $e');
+//     }
+//   }
+//
+//   Future<void> loadCartFromLocal() async {
+//     try {
+//       final prefs = await SharedPreferences.getInstance();
+//       final saved = prefs.getString('cart') ?? '[]';
+//       final List<dynamic> decoded = jsonDecode(saved);
+//
+//       cartItems = List<Map<String, dynamic>>.from(decoded);
+//       cartIds = cartItems.map((item) => item['id']?.toString() ?? '').where((id) => id.isNotEmpty).toSet();
+//       _cartCount = cartItems.length;
+//     } catch (e) {
+//       print('❌ Error loading cart from local: $e');
+//       cartItems = [];
+//       cartIds = {};
+//       _cartCount = 0;
+//     }
+//   }
+//
+//   Future<void> _syncCartWithFirebase() async {
+//     try {
+//       final user = _auth.currentUser;
+//       if (user == null) return;
+//
+//       final cartRef = _firestore.collection('users').doc(user.uid).collection('cart');
+//
+//       // Similar sync logic as wishlist
+//       final snapshot = await cartRef.get();
+//       final firebaseIds = snapshot.docs.map((doc) => doc.id).toSet();
+//
+//       final batch = _firestore.batch();
+//
+//       for (final id in firebaseIds) {
+//         if (!cartIds.contains(id)) {
+//           batch.delete(cartRef.doc(id));
+//         }
+//       }
+//
+//       for (final item in cartItems) {
+//         final id = item['id']?.toString() ?? 'unknown';
+//         batch.set(cartRef.doc(id), {
+//           ...item,
+//           'syncedAt': FieldValue.serverTimestamp(),
+//         });
+//       }
+//
+//       await batch.commit();
+//     } catch (e) {
+//       print('❌ Error syncing cart with Firebase: $e');
+//     }
+//   }
+//
+//   // Clear all data (for logout)
+//   Future<void> clearAllData() async {
+//     wishlistItems.clear();
+//     wishlistIds.clear();
+//     _wishlistCount = 0;
+//
+//     cartItems.clear();
+//     cartIds.clear();
+//     _cartCount = 0;
+//
+//     final prefs = await SharedPreferences.getInstance();
+//     await prefs.remove('wishlist');
+//     await prefs.remove('cart');
+//
+//     notifyListeners();
+//   }
+//
+//   // Debug method to check current state
+//   void debugPrintState() {
+//     print('=== PROVIDER STATE DEBUG ===');
+//     print('Wishlist Items: ${wishlistItems.length}');
+//     print('Wishlist IDs: $wishlistIds');
+//     print('Wishlist Count: $_wishlistCount');
+//     print('Cart Items: ${cartItems.length}');
+//     print('Cart Count: $_cartCount');
+//     for (var item in wishlistItems) {
+//       print('Wishlist Item: ${item['name']} (ID: ${item['id']})');
+//     }
+//     print('============================');
+//   }
+// }
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 
-import 'dart:convert';
-import 'package:flutter/material.dart';
+
+
+
+
+
+
+// 2
+// import 'package:flutter/foundation.dart';
+// import 'package:cloud_firestore/cloud_firestore.dart';
+// import 'package:firebase_auth/firebase_auth.dart';
+// import 'package:shared_preferences/shared_preferences.dart';
+// import 'dart:convert';
+//
+// class CartWishlistProvider with ChangeNotifier {
+//   final FirebaseAuth _auth = FirebaseAuth.instance;
+//   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+//
+//   // Wishlist data
+//   List<Map<String, dynamic>> wishlistItems = [];
+//   Set<String> wishlistIds = {};
+//   int _wishlistCount = 0;
+//
+//   // Cart data
+//   List<Map<String, dynamic>> cartItems = [];
+//   Set<String> cartIds = {};
+//   int _cartCount = 0;
+//
+//   // Getters
+//   int get wishlistCount => _wishlistCount;
+//   int get cartCount => _cartCount;
+//   List<String> get wishlistIdsList => wishlistIds.toList();
+//
+//   CartWishlistProvider() {
+//     _loadInitialData();
+//   }
+//
+//   Future<void> _loadInitialData() async {
+//     print('=== PROVIDER INIT ===');
+//     await loadWishlistFromLocal();
+//     await loadCartFromLocal();
+//
+//     // Sync with Firebase if user is logged in
+//     final user = _auth.currentUser;
+//     if (user != null) {
+//       await _syncWishlistWithFirebase();
+//       await _syncCartWithFirebase();
+//     }
+//
+//     notifyListeners();
+//     print('Provider initialized with ${wishlistItems.length} wishlist items');
+//   }
+//
+//   // ========== WISHLIST METHODS ==========
+//   Future<bool> toggleWishlist(Map<String, dynamic> item) async {
+//     try {
+//       final id = item['id']?.toString() ?? item['name']?.toString() ?? 'unknown_${DateTime.now().millisecondsSinceEpoch}';
+//       final isCurrentlyInWishlist = wishlistIds.contains(id);
+//
+//       print('=== WISHLIST TOGGLE DEBUG ===');
+//       print('Item ID: $id');
+//       print('Item name: ${item['name']}');
+//       print('Item price: ${item['price']}');
+//       print('Item image: ${item['image']}');
+//       print('Currently in wishlist: $isCurrentlyInWishlist');
+//       print('Current wishlist items before: ${wishlistItems.length}');
+//       print('Current wishlist IDs before: $wishlistIds');
+//
+//       if (isCurrentlyInWishlist) {
+//         // Remove from wishlist
+//         wishlistItems.removeWhere((element) => element['id'] == id);
+//         wishlistIds.remove(id);
+//         print('REMOVED from wishlist');
+//       } else {
+//         // Add to wishlist - ensure all required fields
+//         final wishlistItem = {
+//           'id': id,
+//           'name': item['name'] ?? 'Unknown Product',
+//           'price': item['price'] ?? 0.0,
+//           'image': item['image'] ?? '',
+//           'brand': item['brand'] ?? '',
+//           'category': item['category'] ?? '',
+//           'description': item['description'] ?? '',
+//           'createdAt': DateTime.now().millisecondsSinceEpoch,
+//           ...item, // Spread the original item to include all fields
+//         };
+//         wishlistItems.add(wishlistItem);
+//         wishlistIds.add(id);
+//         print('ADDED to wishlist: ${wishlistItem['name']}');
+//       }
+//
+//       _wishlistCount = wishlistItems.length;
+//
+//       // Save to local storage
+//       await saveWishlistToLocal();
+//       print('Saved to local storage. New count: $_wishlistCount');
+//       print('Current wishlist items after: ${wishlistItems.length}');
+//       print('Current wishlist IDs after: $wishlistIds');
+//
+//       // Sync with Firebase if user is logged in
+//       final user = _auth.currentUser;
+//       if (user != null) {
+//         await _syncWishlistWithFirebase();
+//       }
+//
+//       notifyListeners();
+//       print('Notified listeners - Wishlist count: $_wishlistCount');
+//       print('==============================');
+//
+//       return !isCurrentlyInWishlist;
+//     } catch (e) {
+//       print('❌ Error toggling wishlist: $e');
+//       return false;
+//     }
+//   }
+//
+//   // Added: Add to wishlist by ID
+//   void addToWishlistById(String id) {
+//     if (!wishlistIds.contains(id)) {
+//       wishlistIds.add(id);
+//       _wishlistCount = wishlistIds.length;
+//       notifyListeners();
+//     }
+//   }
+//
+//   // Added: Remove from wishlist by ID
+//   void removeFromWishlistById(String id) {
+//     if (wishlistIds.contains(id)) {
+//       wishlistIds.remove(id);
+//       _wishlistCount = wishlistIds.length;
+//       notifyListeners();
+//     }
+//   }
+//
+//   Future<void> saveWishlistToLocal() async {
+//     try {
+//       final prefs = await SharedPreferences.getInstance();
+//       final jsonData = jsonEncode(wishlistItems);
+//       await prefs.setString('wishlist', jsonData);
+//       print('💾 Wishlist saved to local storage: ${wishlistItems.length} items');
+//     } catch (e) {
+//       print('❌ Error saving wishlist to local: $e');
+//     }
+//   }
+//
+//   Future<void> loadWishlistFromLocal() async {
+//     try {
+//       final prefs = await SharedPreferences.getInstance();
+//       final saved = prefs.getString('wishlist') ?? '[]';
+//
+//       print('=== LOADING WISHLIST FROM LOCAL ===');
+//       print('Raw saved data: $saved');
+//
+//       final List<dynamic> decoded = jsonDecode(saved);
+//
+//       wishlistItems = List<Map<String, dynamic>>.from(decoded);
+//       wishlistIds = wishlistItems.map((item) => item['id']?.toString() ?? '').where((id) => id.isNotEmpty).toSet();
+//       _wishlistCount = wishlistItems.length;
+//
+//       print('✅ Loaded ${wishlistItems.length} items from local storage');
+//       print('📋 Item IDs: $wishlistIds');
+//       for (var item in wishlistItems) {
+//         print('   - ${item['name']} (ID: ${item['id']}) - ₹${item['price']}');
+//       }
+//       print('===================================');
+//     } catch (e) {
+//       print('❌ Error loading wishlist from local: $e');
+//       wishlistItems = [];
+//       wishlistIds = {};
+//       _wishlistCount = 0;
+//     }
+//   }
+//
+//   Future<void> _syncWishlistWithFirebase() async {
+//     try {
+//       final user = _auth.currentUser;
+//       if (user == null) return;
+//
+//       final wishlistRef = _firestore.collection('users').doc(user.uid).collection('wishlist');
+//
+//       // Get current Firebase wishlist
+//       final snapshot = await wishlistRef.get();
+//       final firebaseIds = snapshot.docs.map((doc) => doc.id).toSet();
+//
+//       // Batch write for efficiency
+//       final batch = _firestore.batch();
+//
+//       // Remove items from Firebase that are not in local
+//       for (final id in firebaseIds) {
+//         if (!wishlistIds.contains(id)) {
+//           batch.delete(wishlistRef.doc(id));
+//         }
+//       }
+//
+//       // Add/update local items to Firebase
+//       for (final item in wishlistItems) {
+//         final id = item['id']?.toString() ?? 'unknown';
+//         batch.set(wishlistRef.doc(id), {
+//           ...item,
+//           'syncedAt': FieldValue.serverTimestamp(),
+//         });
+//       }
+//
+//       await batch.commit();
+//       print('🔥 Synced ${wishlistItems.length} items with Firebase');
+//     } catch (e) {
+//       print('❌ Error syncing wishlist with Firebase: $e');
+//     }
+//   }
+//
+//   // ========== CART METHODS ==========
+//   Future<void> updateCartCount(int count) async {
+//     _cartCount = count;
+//     notifyListeners();
+//   }
+//
+//   Future<void> updateWishlistCount(int count) async {
+//     _wishlistCount = count;
+//     notifyListeners();
+//   }
+//
+//   Future<void> saveCartToLocal() async {
+//     try {
+//       final prefs = await SharedPreferences.getInstance();
+//       await prefs.setString('cart', jsonEncode(cartItems));
+//     } catch (e) {
+//       print('❌ Error saving cart to local: $e');
+//     }
+//   }
+//
+//   Future<void> loadCartFromLocal() async {
+//     try {
+//       final prefs = await SharedPreferences.getInstance();
+//       final saved = prefs.getString('cart') ?? '[]';
+//       final List<dynamic> decoded = jsonDecode(saved);
+//
+//       cartItems = List<Map<String, dynamic>>.from(decoded);
+//       cartIds = cartItems.map((item) => item['id']?.toString() ?? '').where((id) => id.isNotEmpty).toSet();
+//       _cartCount = cartItems.length;
+//     } catch (e) {
+//       print('❌ Error loading cart from local: $e');
+//       cartItems = [];
+//       cartIds = {};
+//       _cartCount = 0;
+//     }
+//   }
+//
+//   Future<void> _syncCartWithFirebase() async {
+//     try {
+//       final user = _auth.currentUser;
+//       if (user == null) return;
+//
+//       final cartRef = _firestore.collection('users').doc(user.uid).collection('cart');
+//
+//       // Similar sync logic as wishlist
+//       final snapshot = await cartRef.get();
+//       final firebaseIds = snapshot.docs.map((doc) => doc.id).toSet();
+//
+//       final batch = _firestore.batch();
+//
+//       for (final id in firebaseIds) {
+//         if (!cartIds.contains(id)) {
+//           batch.delete(cartRef.doc(id));
+//         }
+//       }
+//
+//       for (final item in cartItems) {
+//         final id = item['id']?.toString() ?? 'unknown';
+//         batch.set(cartRef.doc(id), {
+//           ...item,
+//           'syncedAt': FieldValue.serverTimestamp(),
+//         });
+//       }
+//
+//       await batch.commit();
+//     } catch (e) {
+//       print('❌ Error syncing cart with Firebase: $e');
+//     }
+//   }
+//
+//   // Clear all data (for logout)
+//   Future<void> clearAllData() async {
+//     wishlistItems.clear();
+//     wishlistIds.clear();
+//     _wishlistCount = 0;
+//
+//     cartItems.clear();
+//     cartIds.clear();
+//     _cartCount = 0;
+//
+//     final prefs = await SharedPreferences.getInstance();
+//     await prefs.remove('wishlist');
+//     await prefs.remove('cart');
+//
+//     notifyListeners();
+//   }
+//
+//   // Debug method to check current state
+//   void debugPrintState() {
+//     print('=== PROVIDER STATE DEBUG ===');
+//     print('Wishlist Items: ${wishlistItems.length}');
+//     print('Wishlist IDs: $wishlistIds');
+//     print('Wishlist Count: $_wishlistCount');
+//     print('Cart Items: ${cartItems.length}');
+//     print('Cart Count: $_cartCount');
+//     for (var item in wishlistItems) {
+//       print('Wishlist Item: ${item['name']} (ID: ${item['id']})');
+//     }
+//     print('============================');
+//   }
+// }
+
+
+
+
+
+
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
-class CartWishlistProvider extends ChangeNotifier {
+class CartWishlistProvider with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  Set<String> _wishlistIds = {};
-  Set<String> _cartIds = {};
+  // Wishlist data
+  List<Map<String, dynamic>> wishlistItems = [];
+  Set<String> wishlistIds = {};
   int _wishlistCount = 0;
+
+  // Cart data
+  List<Map<String, dynamic>> cartItems = [];
+  Set<String> cartIds = {};
   int _cartCount = 0;
 
-  Set<String> get wishlistIds => _wishlistIds;
-  Set<String> get cartIds => _cartIds;
-
+  // Getters
   int get wishlistCount => _wishlistCount;
   int get cartCount => _cartCount;
+  List<String> get wishlistIdsList => wishlistIds.toList();
 
   CartWishlistProvider() {
-    _initializeSync();
+    _loadInitialData();
   }
 
-  // -------------------------------------------------------
-  // 🔥 INITIAL SYNC
-  // -------------------------------------------------------
-  Future<void> _initializeSync() async {
+  Future<void> _loadInitialData() async {
+    print('=== PROVIDER INIT ===');
+    await loadWishlistFromLocal();
+    await loadCartFromLocal();
+
+    // Sync with Firebase if user is logged in
     final user = _auth.currentUser;
-
-    if (user == null) {
-      await _loadLocalData();
-    } else {
-      _listenFirestoreUpdates();
-    }
-  }
-
-  // -------------------------------------------------------
-  // 🔁 REAL-TIME FIRESTORE LISTENERS
-  // -------------------------------------------------------
-  void _listenFirestoreUpdates() {
-    final user = _auth.currentUser;
-    if (user == null) return;
-
-    // Wishlist listener
-    _firestore
-        .collection('users')
-        .doc(user.uid)
-        .collection('wishlist')
-        .snapshots()
-        .listen((snapshot) {
-      _wishlistIds = snapshot.docs.map((d) => d.id).toSet();
-      _wishlistCount = _wishlistIds.length;
-      notifyListeners();
-    });
-
-    // Cart listener
-    _firestore
-        .collection('users')
-        .doc(user.uid)
-        .collection('cart')
-        .snapshots()
-        .listen((snapshot) {
-      _cartIds = snapshot.docs.map((d) => d.id).toSet();
-      _cartCount = _cartIds.length;
-      notifyListeners();
-    });
-  }
-
-  // -------------------------------------------------------
-  // 💾 LOCAL DATA FOR GUEST USERS
-  // -------------------------------------------------------
-  Future<void> _loadLocalData() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    final wishlist = prefs.getString('wishlist') ?? '[]';
-    final cart = prefs.getString('cart') ?? '[]';
-
-    try {
-      final wishlistList =
-      List<Map<String, dynamic>>.from(jsonDecode(wishlist));
-      final cartList = List<Map<String, dynamic>>.from(jsonDecode(cart));
-
-      _wishlistIds = wishlistList.map((e) => e['id'].toString()).toSet();
-      _cartIds = cartList.map((e) => e['id'].toString()).toSet();
-
-      _wishlistCount = _wishlistIds.length;
-      _cartCount = _cartIds.length;
-    } catch (_) {
-      _wishlistIds = {};
-      _cartIds = {};
-      _wishlistCount = 0;
-      _cartCount = 0;
+    if (user != null) {
+      await _syncWishlistWithFirebase();
+      await _syncCartWithFirebase();
     }
 
     notifyListeners();
+    print('Provider initialized with ${wishlistItems.length} wishlist items');
   }
 
-  // -------------------------------------------------------
-  // 💖 TOGGLE WISHLIST
-  // -------------------------------------------------------
+  // ========== WISHLIST METHODS ==========
   Future<bool> toggleWishlist(Map<String, dynamic> item) async {
-    final prefs = await SharedPreferences.getInstance();
-    final id = item['id']?.toString() ?? item['name'];
-    final user = _auth.currentUser;
+    try {
+      final id = item['id']?.toString() ?? item['name']?.toString() ?? 'unknown_${DateTime.now().millisecondsSinceEpoch}';
+      final isCurrentlyInWishlist = wishlistIds.contains(id);
 
-    if (user == null) {
-      // Guest user — store locally
-      final saved = prefs.getString('wishlist') ?? '[]';
-      final localList =
-      List<Map<String, dynamic>>.from(jsonDecode(saved));
-      final exists = localList.any((i) => i['id'] == id);
+      print('=== WISHLIST TOGGLE DEBUG ===');
+      print('Item ID: $id');
+      print('Item name: ${item['name']}');
+      print('Item price: ${item['price']}');
+      print('Item image: ${item['image']}');
+      print('Currently in wishlist: $isCurrentlyInWishlist');
+      print('Current wishlist items before: ${wishlistItems.length}');
+      print('Current wishlist IDs before: $wishlistIds');
 
-      if (exists) {
-        localList.removeWhere((i) => i['id'] == id);
+      if (isCurrentlyInWishlist) {
+        // Remove from wishlist
+        wishlistItems.removeWhere((element) => element['id'] == id);
+        wishlistIds.remove(id);
+        print('REMOVED from wishlist');
       } else {
-        localList.add(item);
+        // Add to wishlist - ensure all required fields
+        final wishlistItem = {
+          'id': id,
+          'name': item['name'] ?? 'Unknown Product',
+          'price': item['price'] ?? 0.0,
+          'image': item['image'] ?? '',
+          'brand': item['brand'] ?? '',
+          'category': item['category'] ?? '',
+          'description': item['description'] ?? '',
+          'createdAt': DateTime.now().millisecondsSinceEpoch,
+          ...item, // Spread the original item to include all fields
+        };
+        wishlistItems.add(wishlistItem);
+        wishlistIds.add(id);
+        print('ADDED to wishlist: ${wishlistItem['name']}');
       }
 
-      await prefs.setString('wishlist', jsonEncode(localList));
+      _wishlistCount = wishlistItems.length;
 
-      _wishlistIds = localList.map((e) => e['id'].toString()).toSet();
-      _wishlistCount = _wishlistIds.length;
+      // Save to local storage
+      await saveWishlistToLocal();
+      print('Saved to local storage. New count: $_wishlistCount');
+      print('Current wishlist items after: ${wishlistItems.length}');
+      print('Current wishlist IDs after: $wishlistIds');
+
+      // Sync with Firebase if user is logged in
+      final user = _auth.currentUser;
+      if (user != null) {
+        await _syncWishlistWithFirebase();
+      }
+
       notifyListeners();
-      return !exists;
+      print('Notified listeners - Wishlist count: $_wishlistCount');
+      print('==============================');
+
+      return !isCurrentlyInWishlist;
+    } catch (e) {
+      print('❌ Error toggling wishlist: $e');
+      return false;
     }
-
-    // Logged-in user — Firestore
-    final ref = _firestore
-        .collection('users')
-        .doc(user.uid)
-        .collection('wishlist')
-        .doc(id);
-
-    final exists = _wishlistIds.contains(id);
-
-    if (exists) {
-      await ref.delete();
-      _wishlistIds.remove(id);
-    } else {
-      await ref.set({
-        ...item,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      _wishlistIds.add(id);
-    }
-
-    _wishlistCount = _wishlistIds.length;
-    notifyListeners();
-    return !exists;
   }
 
-  // -------------------------------------------------------
-  // 🛒 ADD TO CART
-  // -------------------------------------------------------
-  Future<bool> addToCart(Map<String, dynamic> item) async {
-    final prefs = await SharedPreferences.getInstance();
-    final id = item['id']?.toString() ?? item['name'];
-    final user = _auth.currentUser;
-
-    if (user == null) {
-      // Guest — local save
-      final saved = prefs.getString('cart') ?? '[]';
-      final localList =
-      List<Map<String, dynamic>>.from(jsonDecode(saved));
-      final exists = localList.any((i) => i['id'] == id);
-
-      if (exists) return false;
-
-      localList.add({...item, 'quantity': 1});
-      await prefs.setString('cart', jsonEncode(localList));
-
-      _cartIds = localList.map((e) => e['id'].toString()).toSet();
-      _cartCount = _cartIds.length;
+  void addToWishlistById(String id) {
+    if (!wishlistIds.contains(id)) {
+      wishlistIds.add(id);
+      _wishlistCount = wishlistIds.length;
       notifyListeners();
-      return true;
     }
-
-    // Firebase user
-    final ref = _firestore
-        .collection('users')
-        .doc(user.uid)
-        .collection('cart')
-        .doc(id);
-
-    final exists = _cartIds.contains(id);
-    if (exists) return false;
-
-    await ref.set({
-      ...item,
-      'quantity': 1,
-      'addedAt': FieldValue.serverTimestamp(),
-    });
-
-    _cartIds.add(id);
-    _cartCount = _cartIds.length;
-    notifyListeners();
-    return true;
   }
 
-  // -------------------------------------------------------
-  // 🔄 UPDATE COUNTS FROM EXTERNAL SCREENS
-  // -------------------------------------------------------
-  void updateWishlistCount(int count) {
-    _wishlistCount = count;
-    notifyListeners();
+  void removeFromWishlistById(String id) {
+    if (wishlistIds.contains(id)) {
+      wishlistIds.remove(id);
+      _wishlistCount = wishlistIds.length;
+      notifyListeners();
+    }
   }
 
-  void updateCartCount(int count) {
+  Future<void> saveWishlistToLocal() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonData = jsonEncode(wishlistItems);
+      await prefs.setString('wishlist', jsonData);
+      print('💾 Wishlist saved to local storage: ${wishlistItems.length} items');
+    } catch (e) {
+      print('❌ Error saving wishlist to local: $e');
+    }
+  }
+
+  Future<void> loadWishlistFromLocal() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString('wishlist') ?? '[]';
+
+      print('=== LOADING WISHLIST FROM LOCAL ===');
+      print('Raw saved data: $saved');
+
+      final List<dynamic> decoded = jsonDecode(saved);
+
+      wishlistItems = List<Map<String, dynamic>>.from(decoded);
+      wishlistIds = wishlistItems.map((item) => item['id']?.toString() ?? '').where((id) => id.isNotEmpty).toSet();
+      _wishlistCount = wishlistItems.length;
+
+      print('✅ Loaded ${wishlistItems.length} items from local storage');
+      print('📋 Item IDs: $wishlistIds');
+      for (var item in wishlistItems) {
+        print('   - ${item['name']} (ID: ${item['id']}) - ₹${item['price']}');
+      }
+      print('===================================');
+    } catch (e) {
+      print('❌ Error loading wishlist from local: $e');
+      wishlistItems = [];
+      wishlistIds = {};
+      _wishlistCount = 0;
+    }
+  }
+
+  Future<void> _syncWishlistWithFirebase() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      final wishlistRef = _firestore.collection('users').doc(user.uid).collection('wishlist');
+
+      // Get current Firebase wishlist
+      final snapshot = await wishlistRef.get();
+      final firebaseIds = snapshot.docs.map((doc) => doc.id).toSet();
+
+      // Batch write for efficiency
+      final batch = _firestore.batch();
+
+      // Remove items from Firebase that are not in local
+      for (final id in firebaseIds) {
+        if (!wishlistIds.contains(id)) {
+          batch.delete(wishlistRef.doc(id));
+        }
+      }
+
+      // Add/update local items to Firebase
+      for (final item in wishlistItems) {
+        final id = item['id']?.toString() ?? 'unknown';
+        batch.set(wishlistRef.doc(id), {
+          ...item,
+          'syncedAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      await batch.commit();
+      print('🔥 Synced ${wishlistItems.length} items with Firebase');
+    } catch (e) {
+      print('❌ Error syncing wishlist with Firebase: $e');
+    }
+  }
+
+  // ========== CART METHODS ==========
+  Future<void> updateCartCount(int count) async {
     _cartCount = count;
     notifyListeners();
   }
 
-  // -------------------------------------------------------
-  // 🧹 RESET
-  // -------------------------------------------------------
-  void reset() {
-    _wishlistIds.clear();
-    _cartIds.clear();
-    _wishlistCount = 0;
-    _cartCount = 0;
+  Future<void> updateWishlistCount(int count) async {
+    _wishlistCount = count;
     notifyListeners();
+  }
+
+  Future<void> saveCartToLocal() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('cart', jsonEncode(cartItems));
+    } catch (e) {
+      print('❌ Error saving cart to local: $e');
+    }
+  }
+
+  Future<void> loadCartFromLocal() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString('cart') ?? '[]';
+      final List<dynamic> decoded = jsonDecode(saved);
+
+      cartItems = List<Map<String, dynamic>>.from(decoded);
+      cartIds = cartItems.map((item) => item['id']?.toString() ?? '').where((id) => id.isNotEmpty).toSet();
+      _cartCount = cartItems.length;
+    } catch (e) {
+      print('❌ Error loading cart from local: $e');
+      cartItems = [];
+      cartIds = {};
+      _cartCount = 0;
+    }
+  }
+
+  Future<void> _syncCartWithFirebase() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      final cartRef = _firestore.collection('users').doc(user.uid).collection('cart');
+
+      // Similar sync logic as wishlist
+      final snapshot = await cartRef.get();
+      final firebaseIds = snapshot.docs.map((doc) => doc.id).toSet();
+
+      final batch = _firestore.batch();
+
+      for (final id in firebaseIds) {
+        if (!cartIds.contains(id)) {
+          batch.delete(cartRef.doc(id));
+        }
+      }
+
+      for (final item in cartItems) {
+        final id = item['id']?.toString() ?? 'unknown';
+        batch.set(cartRef.doc(id), {
+          ...item,
+          'syncedAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      await batch.commit();
+    } catch (e) {
+      print('❌ Error syncing cart with Firebase: $e');
+    }
+  }
+
+  // Clear all data (for logout)
+  Future<void> clearAllData() async {
+    wishlistItems.clear();
+    wishlistIds.clear();
+    _wishlistCount = 0;
+
+    cartItems.clear();
+    cartIds.clear();
+    _cartCount = 0;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('wishlist');
+    await prefs.remove('cart');
+
+    notifyListeners();
+  }
+
+  // Debug method to check current state
+  void debugPrintState() {
+    print('=== PROVIDER STATE DEBUG ===');
+    print('Wishlist Items: ${wishlistItems.length}');
+    print('Wishlist IDs: $wishlistIds');
+    print('Wishlist Count: $_wishlistCount');
+    print('Cart Items: ${cartItems.length}');
+    print('Cart Count: $_cartCount');
+    for (var item in wishlistItems) {
+      print('Wishlist Item: ${item['name']} (ID: ${item['id']})');
+    }
+    print('============================');
   }
 }

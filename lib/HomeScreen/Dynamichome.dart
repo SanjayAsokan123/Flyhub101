@@ -1,19 +1,22 @@
-import  'dart:async';
+// ignore_for_file: use_build_context_synchronously
+
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 // Screens
-import 'Bottoms/homescreen.dart';
+import '../Login/FlyHubSelectionPage.dart';
+import '../services/role_manager.dart';
+import 'Bottoms/BuyerProfilePage.dart';
 import 'Bottoms/MarketPage.dart';
 import 'Bottoms/PilotPage.dart';
 import 'Bottoms/RentalsPage.dart';
-import 'Bottoms/BuyerProfilePage.dart';
 import 'Bottoms/SellerPage.dart';
-import 'Bottoms/GuestProfilePage.dart';
-
-import '../services/role_manager.dart';
+import 'Bottoms/homescreen.dart';
 
 class Dynamichome extends StatefulWidget {
   final int selectedIndex;
@@ -27,8 +30,9 @@ class _DynamichomeState extends State<Dynamichome>
     with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
   User? _user;
-  String? _role;
+  String? _role = "guest";
   bool _loading = true;
+
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _roleSubscription;
   DateTime? _lastBackPressed;
 
@@ -49,62 +53,82 @@ class _DynamichomeState extends State<Dynamichome>
     super.dispose();
   }
 
-  /// Initialize Firebase Auth + Firestore Role Listener
+  // -----------------------------------------------------------
+  // INITIALIZATION HANDLER
+  // -----------------------------------------------------------
   Future<void> _initializeHome() async {
     _user = FirebaseAuth.instance.currentUser;
 
-    if (_user == null) {
-      _role = "guest";
-      await RoleManager.setLocalRole("guest");
+    // Load cached role
+    _role = await RoleManager.getLocalRole();
+    debugPrint("Initial cached role = $_role");
+
+    // ALLOW GUEST WITHOUT FORCING LOGIN
+    if (_role == "guest") {
       setState(() => _loading = false);
       return;
     }
 
-    // Load cached role quickly
-    _role = await RoleManager.getLocalRole();
-    setState(() {});
+    if (_user == null) {
+      Future.microtask(() {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const FlyHubSelectionPage()),
+        );
+      });
+      return;
+    }
 
-    FirebaseAuth.instance.authStateChanges().listen((user) {
-      setState(() => _user = user);
-      if (user != null) {
-        _listenToRoleChanges(user.uid);
-      } else {
+    _listenToRoleChanges(_user!.uid);
+
+    FirebaseAuth.instance.authStateChanges().listen((user) async {
+      _user = user;
+      setState(() {});
+
+      if (user == null) {
         _roleSubscription?.cancel();
-        setState(() => _role = "guest");
+        _role = "guest";
+        await RoleManager.setLocalRole("guest");
+        return;
       }
+
+      _listenToRoleChanges(user.uid);
     });
 
     setState(() => _loading = false);
   }
 
-  /// Listen for real-time role changes
+  // -----------------------------------------------------------
+  // FIRESTORE ROLE WATCHER
+  // -----------------------------------------------------------
   void _listenToRoleChanges(String uid) {
-    final roleStream =
-    FirebaseFirestore.instance.collection('users').doc(uid).snapshots();
+    final stream =
+    FirebaseFirestore.instance.collection("users").doc(uid).snapshots();
 
     _roleSubscription?.cancel();
-    _roleSubscription = roleStream.listen((snapshot) async {
+
+    _roleSubscription = stream.listen((snapshot) async {
       if (!snapshot.exists) {
-        setState(() => _role = "buyer");
+        _role = "buyer";
+        setState(() {});
         await RoleManager.setLocalRole("buyer");
         return;
       }
 
       final data = snapshot.data();
-      final role = data?['role']?.toString().toLowerCase() ?? "buyer";
+      final newRole = data?["role"]?.toString().toLowerCase() ?? "buyer";
 
-      if (_role != role) {
-        setState(() => _role = role);
-        await RoleManager.setLocalRole(role);
+      if (_role != newRole) {
+        _role = newRole;
+        setState(() {});
+        await RoleManager.setLocalRole(newRole);
       }
-
-      debugPrint("👤 [Dynamichome] Role Updated → $role");
-    }, onError: (e) {
-      debugPrint("❌ Role stream error: $e");
     });
   }
 
-  /// Screens for each tab (ONLY 5 NOW)
+  // -----------------------------------------------------------
+  // SCREENS LIST
+  // -----------------------------------------------------------
   List<Widget> get _screens => [
     const HomeScreen(),
     const MarketPage(),
@@ -113,29 +137,35 @@ class _DynamichomeState extends State<Dynamichome>
     _buildProfileTab(),
   ];
 
-  /// Return correct profile based on user role
+  // FIXED PROFILE TAB
   Widget _buildProfileTab() {
-    if (_user == null || _role == "guest") return const GuestProfilePage();
-    if (_role == "seller") return const SellerPage();
+    if (_user == null || _role == "guest") {
+      return const FlyHubSelectionPage();
+    } else if (_role == "seller") {
+      return const SellerPage();
+    }
     return const BuyerProfilePage();
   }
 
-  /// Handle tab tap
+  // -----------------------------------------------------------
+  // NAVIGATION HANDLERS
+  // -----------------------------------------------------------
   void _onItemTapped(int index) {
     HapticFeedback.selectionClick();
-    setState(() => _selectedIndex = index);
+    _selectedIndex = index;
+    setState(() {});
     _pageController.jumpToPage(index);
   }
 
-  /// Sync with swipe
   void _onPageChanged(int index) {
-    setState(() => _selectedIndex = index);
+    _selectedIndex = index;
+    setState(() {});
   }
 
-  /// Double back to exit
+  // -----------------------------------------------------------
+  // BACK BUTTON EXIT
+  // -----------------------------------------------------------
   Future<bool> _onWillPop() async {
-    HapticFeedback.lightImpact();
-
     if (_selectedIndex != 0) {
       _onItemTapped(0);
       return false;
@@ -145,6 +175,7 @@ class _DynamichomeState extends State<Dynamichome>
     if (_lastBackPressed == null ||
         now.difference(_lastBackPressed!) > const Duration(seconds: 2)) {
       _lastBackPressed = now;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Press back again to exit"),
@@ -157,6 +188,9 @@ class _DynamichomeState extends State<Dynamichome>
     return true;
   }
 
+  // -----------------------------------------------------------
+  // BUILD UI
+  // -----------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -176,27 +210,58 @@ class _DynamichomeState extends State<Dynamichome>
           onPageChanged: _onPageChanged,
           children: _screens,
         ),
+
+        // -----------------------------------------------------------
+        // SVG BOTTOM NAVIGATION BAR
+        // -----------------------------------------------------------
         bottomNavigationBar: BottomNavigationBar(
           elevation: 16,
           backgroundColor: Colors.white,
           currentIndex: _selectedIndex,
           onTap: _onItemTapped,
           type: BottomNavigationBarType.fixed,
-          selectedItemColor: Colors.deepPurple,
+          selectedItemColor: const Color(0xFF1E0D51),
           unselectedItemColor: Colors.grey,
           selectedLabelStyle:
           const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
           unselectedLabelStyle:
           const TextStyle(fontWeight: FontWeight.w400, fontSize: 11),
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          items: [
             BottomNavigationBarItem(
-                icon: Icon(Icons.shopping_bag), label: 'Market'),
+              icon: SvgPicture.asset("assets/categories/home.svg",
+                  height: 24, color: Colors.grey),
+              activeIcon: SvgPicture.asset("assets/categories/home.svg",
+                  height: 26, color: const Color(0xFF1E0D51)),
+              label: "Home",
+            ),
             BottomNavigationBarItem(
-                icon: Icon(Icons.person_pin), label: 'Pilot'),
+              icon: SvgPicture.asset("assets/categories/seller.svg",
+                  height: 24, color: Colors.grey),
+              activeIcon: SvgPicture.asset("assets/categories/seller.svg",
+                  height: 26, color: const Color(0xFF1E0D51)),
+              label: "Market",
+            ),
             BottomNavigationBarItem(
-                icon: Icon(Icons.car_rental), label: 'Rentals'),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+              icon: SvgPicture.asset("assets/categories/pilots.svg",
+                  height: 24, color: Colors.grey),
+              activeIcon: SvgPicture.asset("assets/categories/pilots.svg",
+                  height: 26, color: const Color(0xFF1E0D51)),
+              label: "Pilot",
+            ),
+            BottomNavigationBarItem(
+              icon: SvgPicture.asset("assets/categories/rentals.svg",
+                  height: 24, color: Colors.grey),
+              activeIcon: SvgPicture.asset("assets/categories/rentals.svg",
+                  height: 26, color: const Color(0xFF1E0D51)),
+              label: "Rentals",
+            ),
+            BottomNavigationBarItem(
+              icon: SvgPicture.asset("assets/categories/user.svg",
+                  height: 24, color: Colors.grey),
+              activeIcon: SvgPicture.asset("assets/categories/user.svg",
+                  height: 26, color: const Color(0xFF1E0D51)),
+              label: "Profile",
+            ),
           ],
         ),
       ),

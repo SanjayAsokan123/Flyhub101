@@ -106,10 +106,10 @@ class _BookserviceState extends State<Bookservice> {
               items: ["Drone A", "Drone B", "Drone C"]
                   .map(
                     (drone) => DropdownMenuItem(
-                      value: drone,
-                      child: Text(drone, style: GoogleFonts.lexend()),
-                    ),
-                  )
+                  value: drone,
+                  child: Text(drone, style: GoogleFonts.lexend()),
+                ),
+              )
                   .toList(),
               onChanged: (value) => setState(() => selectedDrone = value),
               decoration: InputDecoration(border: OutlineInputBorder()),
@@ -179,10 +179,10 @@ class _BookserviceState extends State<Bookservice> {
               items: ["Center A", "Center B", "Center C"]
                   .map(
                     (center) => DropdownMenuItem(
-                      value: center,
-                      child: Text(center, style: GoogleFonts.lexend()),
-                    ),
-                  )
+                  value: center,
+                  child: Text(center, style: GoogleFonts.lexend()),
+                ),
+              )
                   .toList(),
               onChanged: (value) =>
                   setState(() => selectedServiceCenter = value),

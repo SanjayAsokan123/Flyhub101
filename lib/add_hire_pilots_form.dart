@@ -21,7 +21,15 @@ class _AddHirePilotFormState extends State<AddHirePilotForm> {
   bool isLoading = false;
   bool availability = true;
 
-  final Color themeColor = const Color(0xFF1A0A5B);
+  // Professional Color Scheme
+  static const Color primaryColor = Color(0xFF1A0A5B);
+  static const Color accentColor = Color(0xFF7C4DFF);
+  static const Color backgroundColor = Color(0xFFF8F9FA);
+  static const Color surfaceColor = Colors.white;
+  static const Color textColor = Color(0xFF333333);
+  static const Color subtitleColor = Color(0xFF666666);
+  static const Color successColor = Color(0xFF4CAF50);
+  static const Color errorColor = Color(0xFFF44336);
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
@@ -51,17 +59,14 @@ class _AddHirePilotFormState extends State<AddHirePilotForm> {
 
   Future<void> loadPilotCounter() async {
     final prefs = await SharedPreferences.getInstance();
-
     pilotCounter = prefs.getInt("pilotCounter_${widget.sellerId}") ?? 1;
     pilotId = "${widget.sellerId}P${formatCounter(pilotCounter)}";
   }
 
   Future<void> incrementPilotCounter() async {
     final prefs = await SharedPreferences.getInstance();
-
     pilotCounter++;
     await prefs.setInt("pilotCounter_${widget.sellerId}", pilotCounter);
-
     pilotId = "${widget.sellerId}P${formatCounter(pilotCounter)}";
   }
 
@@ -113,15 +118,16 @@ class _AddHirePilotFormState extends State<AddHirePilotForm> {
 
   Future<void> pickAndUploadFile(String folder, bool isCertification) async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom, allowedExtensions: ['pdf', 'jpg', 'png']);
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'jpg', 'png'],
+    );
 
     if (result != null) {
       final file = File(result.files.single.path!);
 
-      _showSnackBar("Uploading ${file.path.split('/').last}...", true);
+      _showSnackBar("Uploading ${file.path.split('/').last}...", false);
 
-      final uploadedUrl =
-      await uploadFileToFirebaseStorage(file, folder);
+      final uploadedUrl = await uploadFileToFirebaseStorage(file, folder);
 
       if (uploadedUrl != null) {
         setState(() {
@@ -132,9 +138,9 @@ class _AddHirePilotFormState extends State<AddHirePilotForm> {
           }
         });
 
-        _showSnackBar("✅ Uploaded Successfully", true);
+        _showSnackBar("✅ File uploaded successfully", true);
       } else {
-        _showSnackBar("❌ Upload Failed", false);
+        _showSnackBar("❌ Upload failed", false);
       }
     }
   }
@@ -154,7 +160,7 @@ class _AddHirePilotFormState extends State<AddHirePilotForm> {
   // FORM SUBMIT
   Future<void> _submitForm(RunMutation runMutation) async {
     if (!_formKey.currentState!.validate()) {
-      _showSnackBar("Fill all required fields", false);
+      _showSnackBar("Please fill all required fields", false);
       return;
     }
 
@@ -202,8 +208,22 @@ class _AddHirePilotFormState extends State<AddHirePilotForm> {
   void _showSnackBar(String msg, bool success) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg),
-        backgroundColor: success ? Colors.green : Colors.red,
+        content: Row(
+          children: [
+            Icon(
+              success ? Icons.check_circle : Icons.error_outline,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: Text(msg)),
+          ],
+        ),
+        backgroundColor: success ? successColor : errorColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
       ),
     );
   }
@@ -211,9 +231,7 @@ class _AddHirePilotFormState extends State<AddHirePilotForm> {
   Future<GraphQLClient> _buildGraphQLClient() async {
     final token = await _auth.currentUser?.getIdToken();
 
-    final authLink =
-    AuthLink(getToken: () async => "Bearer $token");
-
+    final authLink = AuthLink(getToken: () async => "Bearer $token");
     final httpLink = HttpLink(EnvConfig.baseUrl);
 
     return GraphQLClient(
@@ -230,7 +248,10 @@ class _AddHirePilotFormState extends State<AddHirePilotForm> {
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Scaffold(
-              body: Center(child: CircularProgressIndicator()));
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
         }
 
         return GraphQLProvider(
@@ -239,17 +260,11 @@ class _AddHirePilotFormState extends State<AddHirePilotForm> {
             options: MutationOptions(
               document: gql(addHirePilotMutation),
               onCompleted: (data) async {
-                _showSnackBar("Pilot Submitted Successfully!", true);
-
-                // increment counter for next pilot
+                _showSnackBar("Pilot submitted successfully!", true);
                 await incrementPilotCounter();
-
-                // Reset form
                 _formKey.currentState?.reset();
                 certificationUrls.clear();
                 resumeUrl = null;
-
-                // ⭐⭐⭐⭐⭐ Redirect back to seller profile
                 Navigator.pop(context);
               },
               onError: (error) =>
@@ -257,115 +272,286 @@ class _AddHirePilotFormState extends State<AddHirePilotForm> {
             ),
             builder: (runMutation, result) {
               return Scaffold(
+                backgroundColor: backgroundColor,
                 appBar: AppBar(
-                  title: Text("Add Hire Pilot"),
-                  backgroundColor: Colors.white,
-                  foregroundColor: themeColor,
+                  title: const Text(
+                    "Add Hire Pilot",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 18,
+                    ),
+                  ),
+                  backgroundColor: surfaceColor,
+                  foregroundColor: primaryColor,
+                  elevation: 0,
+                  centerTitle: true,
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                  ),
                 ),
-
-                body: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Form(
-                    key: _formKey,
-                    child: ListView(
+                body: SafeArea(
+                  child: SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildHeader("Pilot Information"),
-                        _buildTextField("Pilot Name *",
-                            pilotNameController, Icons.person),
-                        _buildTextField("Company Name *",
-                            companyController, Icons.business),
-                        _buildTextField("Location *",
-                            locationController, Icons.location_on),
-
-                        _buildSwitch("Available", availability,
-                                (v) => setState(() => availability = v)),
-
-                        _buildHeader("Skills"),
-                        _buildTextField("Specification *",
-                            specificationController, Icons.school,
-                            maxLines: 2),
-
-                        _buildHeader("Certification Files"),
-                        ...certificationUrls.map(
-                              (url) => ListTile(
-                            leading: const Icon(Icons.picture_as_pdf,
-                                color: Colors.green),
-                            title: Text(url),
-                          ),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: () =>
-                              pickAndUploadFile("certificates", true),
-                          icon: const Icon(Icons.upload),
-                          label: const Text("Upload Certification"),
-                        ),
-
-                        _buildHeader("Resume File"),
-                        ListTile(
-                          leading: const Icon(Icons.picture_as_pdf,
-                              color: Colors.orange),
-                          title: Text(resumeUrl ?? "No file uploaded"),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: () =>
-                              pickAndUploadFile("resumes", false),
-                          icon: const Icon(Icons.upload),
-                          label: const Text("Upload Resume"),
-                        ),
-
-                        _buildHeader("Pricing"),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildTextField(
-                                  "Per Hour (₹)",
-                                  perHourController,
-                                  Icons.currency_rupee,
-                                  type: TextInputType.number),
+                        // Header Card
+                        Container(
+                          decoration: BoxDecoration(
+                            color: primaryColor.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: primaryColor.withOpacity(0.1),
+                              width: 1,
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: _buildTextField(
-                                  "Per Day (₹)",
-                                  perDayController,
-                                  Icons.currency_rupee,
-                                  type: TextInputType.number),
+                          ),
+                          padding: const EdgeInsets.all(20),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: primaryColor,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.person_add_alt_1,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Pilot ID: $pilotId",
+                                      style: TextStyle(
+                                        color: primaryColor,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      "Add new pilot profile to your fleet",
+                                      style: TextStyle(
+                                        color: subtitleColor,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Form Container
+                        Container(
+                          decoration: BoxDecoration(
+                            color: surfaceColor,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 20,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.all(24),
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Basic Information Section
+                                _buildSectionHeader("Basic Information"),
+                                const SizedBox(height: 16),
+                                _buildTextField(
+                                  "Pilot Name *",
+                                  pilotNameController,
+                                  Icons.person_outline,
+                                ),
+                                const SizedBox(height: 16),
+                                _buildTextField(
+                                  "Company Name *",
+                                  companyController,
+                                  Icons.business_outlined,
+                                ),
+                                const SizedBox(height: 16),
+                                _buildTextField(
+                                  "Location *",
+                                  locationController,
+                                  Icons.location_on_outlined,
+                                ),
+                                const SizedBox(height: 16),
+                                _buildAvailabilitySwitch(),
+                                const SizedBox(height: 24),
+
+                                // Skills Section
+                                _buildSectionHeader("Skills & Specifications"),
+                                const SizedBox(height: 16),
+                                _buildTextField(
+                                  "Specification *",
+                                  specificationController,
+                                  Icons.school_outlined,
+                                  maxLines: 3,
+                                ),
+                                const SizedBox(height: 24),
+
+                                // Certifications Section
+                                _buildSectionHeader("Certifications"),
+                                const SizedBox(height: 12),
+                                if (certificationUrls.isNotEmpty)
+                                  ...certificationUrls.map((url) => _buildFileItem(
+                                    url,
+                                    Icons.picture_as_pdf,
+                                    Colors.green,
+                                  )),
+                                const SizedBox(height: 12),
+                                _buildUploadButton(
+                                  "Upload Certification",
+                                  Icons.cloud_upload_outlined,
+                                      () => pickAndUploadFile("certificates", true),
+                                ),
+                                const SizedBox(height: 24),
+
+                                // Resume Section
+                                _buildSectionHeader("Resume"),
+                                const SizedBox(height: 12),
+                                if (resumeUrl != null)
+                                  _buildFileItem(
+                                    resumeUrl!,
+                                    Icons.description_outlined,
+                                    Colors.orange,
+                                  ),
+                                const SizedBox(height: 12),
+                                _buildUploadButton(
+                                  "Upload Resume",
+                                  Icons.cloud_upload_outlined,
+                                      () => pickAndUploadFile("resumes", false),
+                                ),
+                                const SizedBox(height: 24),
+
+                                // Pricing Section
+                                _buildSectionHeader("Pricing"),
+                                const SizedBox(height: 16),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildTextField(
+                                        "Per Hour (₹)",
+                                        perHourController,
+                                        Icons.currency_rupee_outlined,
+                                        type: TextInputType.number,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: _buildTextField(
+                                        "Per Day (₹)",
+                                        perDayController,
+                                        Icons.currency_rupee_outlined,
+                                        type: TextInputType.number,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 24),
+
+                                // Description Section
+                                _buildSectionHeader("Description"),
+                                const SizedBox(height: 16),
+                                _buildTextField(
+                                  "Description",
+                                  descriptionController,
+                                  Icons.description_outlined,
+                                  maxLines: 4,
+                                ),
+                                const SizedBox(height: 24),
+
+                                // Contact Details Section
+                                _buildSectionHeader("Contact Details"),
+                                const SizedBox(height: 16),
+                                _buildTextField(
+                                  "Email *",
+                                  emailController,
+                                  Icons.email_outlined,
+                                  type: TextInputType.emailAddress,
+                                ),
+                                const SizedBox(height: 16),
+                                _buildTextField(
+                                  "Phone Number *",
+                                  phoneController,
+                                  Icons.phone_outlined,
+                                  type: TextInputType.phone,
+                                ),
+                                const SizedBox(height: 32),
+
+                                // Submit Button
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 56,
+                                  child: ElevatedButton(
+                                    onPressed: isLoading ? null : () => _submitForm(runMutation),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: primaryColor,
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                    ),
+                                    child: isLoading
+                                        ? Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        const Text(
+                                          "Submitting...",
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                        : Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: const [
+                                        Icon(Icons.check_circle_outline, size: 20),
+                                        SizedBox(width: 12),
+                                        Text(
+                                          "Submit Pilot Profile",
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-
-                        _buildHeader("Description"),
-                        _buildTextField("Description",
-                            descriptionController, Icons.description,
-                            maxLines: 3),
-
-                        _buildHeader("Contact Details"),
-                        _buildTextField("Email *", emailController,
-                            Icons.email, type: TextInputType.emailAddress),
-                        _buildTextField("Phone Number *", phoneController,
-                            Icons.phone, type: TextInputType.phone),
-
-                        const SizedBox(height: 25),
-
-                        ElevatedButton.icon(
-                          onPressed: isLoading
-                              ? null
-                              : () => _submitForm(runMutation),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: themeColor,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                          ),
-                          icon: isLoading
-                              ? const CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2)
-                              : const Icon(Icons.upload_rounded,
-                              color: Colors.white),
-                          label: Text(
-                            isLoading ? "Submitting..." : "Submit Pilot",
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 16),
                           ),
                         ),
+                        const SizedBox(height: 40),
                       ],
                     ),
                   ),
@@ -379,14 +565,40 @@ class _AddHirePilotFormState extends State<AddHirePilotForm> {
   }
 
   // UI Helper Widgets
-  Widget _buildHeader(String txt) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 12),
-    child: Text(txt,
-        style: TextStyle(
-            color: themeColor,
-            fontSize: 16,
-            fontWeight: FontWeight.bold)),
-  );
+  Widget _buildSectionHeader(String title) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              height: 8,
+              width: 8,
+              decoration: BoxDecoration(
+                color: primaryColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              title,
+              style: TextStyle(
+                color: primaryColor,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Container(
+          height: 1,
+          margin: const EdgeInsets.only(left: 20),
+          color: Colors.grey.shade200,
+        ),
+      ],
+    );
+  }
 
   Widget _buildTextField(
       String label,
@@ -394,31 +606,162 @@ class _AddHirePilotFormState extends State<AddHirePilotForm> {
       IconData icon, {
         int maxLines = 1,
         TextInputType type = TextInputType.text,
-      }) =>
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: TextFormField(
+      }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: subtitleColor,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
           controller: controller,
           maxLines: maxLines,
           keyboardType: type,
           validator: (value) =>
-          value == null || value.isEmpty ? "Required" : null,
+          value == null || value.isEmpty ? "This field is required" : null,
+          style: TextStyle(color: textColor, fontSize: 16),
           decoration: InputDecoration(
-            labelText: label,
-            prefixIcon: Icon(icon, color: themeColor),
+            hintText: "Enter $label",
+            hintStyle: TextStyle(color: Colors.grey.shade400),
+            prefixIcon: Icon(icon, color: primaryColor),
             border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8)),
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: primaryColor, width: 2),
+            ),
+            filled: true,
+            fillColor: Colors.grey.shade50,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           ),
         ),
-      );
+      ],
+    );
+  }
 
-  Widget _buildSwitch(
-      String label, bool value, Function(bool) onChanged) =>
-      Row(
+  Widget _buildAvailabilitySwitch() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 16)),
-          Switch(value: value, onChanged: onChanged),
+          Row(
+            children: [
+              Icon(
+                availability ? Icons.check_circle : Icons.circle_outlined,
+                color: availability ? successColor : subtitleColor,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                "Available for Hire",
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          Switch(
+            value: availability,
+            onChanged: (value) => setState(() => availability = value),
+            activeColor: primaryColor,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
         ],
-      );
+      ),
+    );
+  }
+
+  Widget _buildFileItem(String url, IconData icon, Color iconColor) {
+    final fileName = url.split('/').last;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: iconColor, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              fileName,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 14,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, size: 18),
+            onPressed: () {
+              setState(() {
+                if (icon == Icons.description_outlined) {
+                  resumeUrl = null;
+                } else {
+                  certificationUrls.remove(url);
+                }
+              });
+            },
+            color: subtitleColor,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUploadButton(String text, IconData icon, VoidCallback onPressed) {
+    return SizedBox(
+      height: 48,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: primaryColor,
+          side: BorderSide(color: primaryColor, width: 1.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              text,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

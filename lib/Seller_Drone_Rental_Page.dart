@@ -7,204 +7,123 @@ class SellerDroneRentalPage extends StatefulWidget {
   const SellerDroneRentalPage({Key? key}) : super(key: key);
 
   @override
-  State<SellerDroneRentalPage> createState() => _SellerDroneRentalPageState();
+  _SellerDroneRentalPageState createState() => _SellerDroneRentalPageState();
 }
 
 class _SellerDroneRentalPageState extends State<SellerDroneRentalPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  String sellerId = ""; // customId from backend
+  late GraphQLClient client;
 
-  late GraphQLClient _client;
-  bool _loading = true; // For main loading
-  List<Map<String, dynamic>> bookings = [];
+  String sellerId = "";
+
+  final Color themeColor = const Color(0xFF1E0E5C); // NEW THEME COLOR
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    initGraphQLClient();
-    loadSellerIdFromAdminPanel();
-  }
 
-  void initGraphQLClient() {
-    _client = GraphQLClient(
+    client = GraphQLClient(
       link: HttpLink(EnvConfig.baseUrl),
-      cache: GraphQLCache(store: HiveStore()),
+      cache: GraphQLCache(),
     );
+
+    loadSellerId();
   }
 
-  final String getSellersQuery = r'''
-    query {
-      getSellers {
-        customId
-        firebaseUid
-        name
-        email
-        phoneNumber
-        status
-      }
-    }
-  ''';
+  void loadSellerId() async {
+    User? user = FirebaseAuth.instance.currentUser;
 
-  Future<void> loadSellerIdFromAdminPanel() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    setState(() => _loading = true);
-
-    try {
-      final result = await _client.query(QueryOptions(
-        document: gql(getSellersQuery),
-        fetchPolicy: FetchPolicy.noCache,
-      ));
-
-      if (result.hasException) {
-        debugPrint("GRAPHQL ERROR getSellers: ${result.exception}");
-        setState(() => _loading = false);
-        return;
-      }
-
-      List sellers = result.data?["getSellers"] ?? [];
-
-      final seller = sellers.firstWhere(
-            (s) => s["firebaseUid"] == user.uid,
-        orElse: () => null,
-      );
-
-      if (seller == null) {
-        debugPrint("⛔ Seller not found for firebaseUid=${user.uid}");
-        setState(() => _loading = false);
-        return;
-      }
-
-      sellerId = seller["customId"];
-      debugPrint("✔ Seller Loaded: sellerId = $sellerId");
-
-      fetchBookings();
-    } catch (e) {
-      debugPrint("❌ ERROR loading sellerId: $e");
-      setState(() => _loading = false);
+    if (user != null) {
+      setState(() {
+        sellerId = user.uid;
+      });
     }
   }
 
-  final String getSellerRentalsQuery = r'''
-    query($sellerId: String!) {
-      getDroneRentalsBySellerId(sellerId: $sellerId) {
-        drone_rental_id
-        sellerId
+  static const GET_ARRIVED = r'''
+    query($sellerId: ID!) {
+      getSellerArrivedBookings(sellerId: $sellerId) {
+        _id
         name
         phone
         location
-        rentalDate
-        rentalId
-        sellerEmail
-        sellerPhone
-        status
-        createdAt
-        updatedAt
-      }
-    }
-  ''';
-
-  Future<void> fetchBookings() async {
-    if (sellerId.isEmpty) return;
-
-    setState(() => _loading = true);
-
-    try {
-      final result = await _client.query(QueryOptions(
-        document: gql(getSellerRentalsQuery),
-        variables: {"sellerId": sellerId},
-        fetchPolicy: FetchPolicy.networkOnly,
-      ));
-
-      if (result.hasException) {
-        debugPrint("❌ GRAPHQL ERROR fetchBookings: ${result.exception}");
-      } else {
-        bookings = List<Map<String, dynamic>>.from(
-            result.data?["getDroneRentalsBySellerId"] ?? []);
-      }
-    } catch (e) {
-      debugPrint("❌ ERROR FETCHING BOOKINGS: $e");
-    } finally {
-      setState(() => _loading = false);
-    }
-  }
-
-  final String updateStatusMutation = r'''
-    mutation($drone_rental_id: String!, $status: String!) {
-      updateDroneRentalStatus(drone_rental_id: $drone_rental_id, status: $status) {
-        drone_rental_id
+        price
         status
       }
     }
   ''';
 
-  Future<void> updateStatus(String rentalId, String status) async {
-    final result = await _client.mutate(MutationOptions(
-      document: gql(updateStatusMutation),
-      variables: {"drone_rental_id": rentalId, "status": status},
-    ));
-
-    if (result.hasException) {
-      debugPrint("❌ ERROR updateStatus: ${result.exception}");
-    } else {
-      int i = bookings.indexWhere((b) => b['drone_rental_id'] == rentalId);
-      if (i != -1) {
-        bookings[i]['status'] = status;
-        setState(() {});
+  static const GET_COMPLETED = r'''
+    query($sellerId: ID!) {
+      getSellerCompletedBookings(sellerId: $sellerId) {
+        _id
+        name
+        phone
+        location
+        price
+        status
       }
     }
-  }
+  ''';
 
-  String formatDate(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty) return "—";
-    try {
-      final dt = DateTime.parse(dateStr).toLocal();
-      return "${dt.day.toString().padLeft(2,'0')}-${dt.month.toString().padLeft(2,'0')}-${dt.year} "
-          "${dt.hour.toString().padLeft(2,'0')}:${dt.minute.toString().padLeft(2,'0')}";
-    } catch (e) {
-      return "—";
+  static const APPROVE_BOOKING = r'''
+    mutation($rentalId: ID!) {
+      approveSellerDroneRental(rentalId: $rentalId) {
+        status
+      }
     }
-  }
+  ''';
 
+  static const REJECT_BOOKING = r'''
+    mutation($rentalId: ID!) {
+      rejectSellerDroneRental(rentalId: $rentalId) {
+        status
+      }
+    }
+  ''';
 
-  Widget bookingCard(Map<String, dynamic> b) {
+  // ============================
+  // Booking Card UI
+  // ============================
+  Widget buildBookingCard(
+      Map<String, dynamic> booking, {
+        required VoidCallback onApprove,
+        required VoidCallback onReject,
+        required bool isCompleted,
+      }) {
     return Card(
-      margin: const EdgeInsets.all(10),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
+      color: Colors.white,
+      elevation: 4,
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(12),
+        title: Text(
+          booking['name'] ?? "",
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(b["name"],
-                style:
-                const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Text("📞 ${b['phone']}"),
-            Text("📍 ${b['location']}"),
-            Text("Rental Date: ${formatDate(b['rentalDate'])}"),
-            Text("Booked At: ${formatDate(b['createdAt'])}"),
-            Text("Status: ${b['status']}"),
-
-            Row(
-              children: [
-                ElevatedButton(
-                  onPressed: b["status"] != "confirmed"
-                      ? () => updateStatus(b["drone_rental_id"], "confirmed")
-                      : null,
-                  child: const Text("Approve"),
-                ),
-                const SizedBox(width: 10),
-                ElevatedButton(
-                  onPressed: b["status"] != "cancelled"
-                      ? () => updateStatus(b["drone_rental_id"], "cancelled")
-                      : null,
-                  style:
-                  ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                  child: const Text("Reject"),
-                ),
-              ],
+            Text("📞 ${booking['phone']}"),
+            Text("📍 ${booking['location']}"),
+            Text("💰 ${booking['price']}"),
+          ],
+        ),
+        trailing: isCompleted
+            ? Icon(Icons.check_circle, color: themeColor, size: 28)
+            : Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: Icon(Icons.check_circle, color: themeColor),
+              onPressed: onApprove,
+            ),
+            IconButton(
+              icon: Icon(Icons.cancel, color: themeColor),
+              onPressed: onReject,
             ),
           ],
         ),
@@ -212,44 +131,108 @@ class _SellerDroneRentalPageState extends State<SellerDroneRentalPage>
     );
   }
 
-  Widget buildTab(bool showCompleted) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-
-    final filtered = bookings.where((b) {
-      if (showCompleted) {
-        return b['status'] == 'completed' || b['status'] == 'cancelled';
-      }
-      return b['status'] == 'pending' || b['status'] == 'confirmed';
-    }).toList();
-
-    if (filtered.isEmpty) {
-      return const Center(child: Text("No bookings found"));
+  // ============================
+  // Tab Builder
+  // ============================
+  Widget buildTab(String query, {required bool isCompleted}) {
+    if (sellerId.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
     }
 
-    return RefreshIndicator(
-      onRefresh: fetchBookings,
-      child: ListView(children: filtered.map(bookingCard).toList()),
+    return Query(
+      options: QueryOptions(
+        document: gql(query),
+        variables: {"sellerId": sellerId},
+        fetchPolicy: FetchPolicy.networkOnly,
+      ),
+      builder: (result, {fetchMore, refetch}) {
+        if (result.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (result.hasException) {
+          return Center(
+            child: Text("Error: ${result.exception.toString()}"),
+          );
+        }
+
+        final List bookings = isCompleted
+            ? (result.data?['getSellerCompletedBookings'] ?? [])
+            : (result.data?['getSellerArrivedBookings'] ?? []);
+
+        if (bookings.isEmpty) {
+          return Center(
+            child: Text(
+              isCompleted ? "No completed bookings yet" : "No new bookings",
+            ),
+          );
+        }
+
+        return ListView.builder(
+          itemCount: bookings.length,
+          itemBuilder: (context, index) {
+            final booking = bookings[index];
+            final id = booking['_id'];
+
+            return buildBookingCard(
+              booking,
+              isCompleted: isCompleted,
+              onApprove: () async {
+                await client.mutate(
+                  MutationOptions(
+                    document: gql(APPROVE_BOOKING),
+                    variables: {"rentalId": id},
+                  ),
+                );
+                refetch!();
+              },
+              onReject: () async {
+                await client.mutate(
+                  MutationOptions(
+                    document: gql(REJECT_BOOKING),
+                    variables: {"rentalId": id},
+                  ),
+                );
+                refetch!();
+              },
+            );
+          },
+        );
+      },
     );
   }
 
+  // ============================
+  // MAIN UI BUILD
+  // ============================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFFFFFF),
       appBar: AppBar(
-        title: const Text("Seller Drone Rentals"),
+        backgroundColor: themeColor,
+        title: const Text(
+          "Seller Drone Rental",
+          style: TextStyle(color: Colors.white),
+        ),
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.white),
         bottom: TabBar(
           controller: _tabController,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
           tabs: const [
-            Tab(text: "Pending / Confirmed"),
-            Tab(text: "Completed / Cancelled"),
+            Tab(text: "Booking Arrived"),
+            Tab(text: "Completed"),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          buildTab(false),
-          buildTab(true),
+          buildTab(GET_ARRIVED, isCompleted: false),
+          buildTab(GET_COMPLETED, isCompleted: true),
         ],
       ),
     );

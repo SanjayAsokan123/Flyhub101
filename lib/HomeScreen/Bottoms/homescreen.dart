@@ -2,22 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
+
 import '../../Regulatory.dart';
 import '../../Training.dart';
-import '../../buyer/notifications/BuyerNotificationsPage.dart';
 import '../../services/graphql_client.dart';
 import '../../CommonClass/ApiClass.dart';
 import '../../CommonClass/utils.dart';
 import '../../BuyerDetails/MyCartPage.dart';
 import '../../WishlistPage.dart';
-import '../../services/role_manager.dart';
 import '../Bottoms/MarketPage.dart';
 import '../../DroneDetailPage.dart';
 import '../../Login/BuyerLoginPage.dart';
@@ -26,7 +24,7 @@ import '../../services/cart_wishlist_provider.dart';
 import '../../utils/responsive_utils.dart';
 
 import '../Bottoms/JobPage.dart';
-import '../Bottoms/ServicesPage.dart';
+import '../Bottoms/ServicesPage.dart' hide kTextSecondary;
 import '../Bottoms/RentalsPage.dart';
 import '../Bottoms/PilotPage.dart';
 
@@ -35,9 +33,7 @@ class HomeScreen extends StatefulWidget {
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
-
 }
-
 
 class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -50,7 +46,6 @@ class _HomeScreenState extends State<HomeScreen> {
   bool isUserLoading = true;
   bool _showElevation = false;
   String _searchQuery = '';
-  int _unreadNotifications = 0;
 
   bool _isCategoryExpanded = false;
 
@@ -107,7 +102,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _initializeUser();
     fetchHomeData();
-    fetchUnreadNotifications();
     _scrollController.addListener(_onScroll);
     _searchController.addListener(() {
       setState(() {
@@ -130,41 +124,6 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _showElevation = true);
     } else if (_scrollController.offset <= 10 && _showElevation) {
       setState(() => _showElevation = false);
-    }
-  }
-  Future<void> fetchUnreadNotifications() async {
-    try {
-      final buyerId = await RoleManager.getBuyerId();
-      if (buyerId == null) return;
-
-      const query = r'''
-      query($buyerId: String!) {
-        buyerNotifications(buyerId: $buyerId) {
-          read
-        }
-      }
-    ''';
-
-      final client = GraphQLProvider.of(context).value;
-
-      final result = await client.query(
-        QueryOptions(
-          document: gql(query),
-          variables: {"buyerId": buyerId},
-          fetchPolicy: FetchPolicy.networkOnly,
-        ),
-      );
-
-      final all = result.data?["buyerNotifications"] ?? [];
-      final unread = all.where((n) => n["read"] == false).length;
-
-      if (mounted) {
-        setState(() {
-          _unreadNotifications = unread;
-        });
-      }
-    } catch (e) {
-      debugPrint("🔴 Notification count error: $e");
     }
   }
 
@@ -278,6 +237,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return results;
   }
 
+  get category_ => null;
+
   Widget _buildBadge(int count) => Container(
     padding: EdgeInsets.symmetric(
       horizontal: ResponsiveUtils.getCardMargin(context) / 2,
@@ -335,7 +296,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       actions: [
-        // ❤️ Wishlist
         Container(
           margin: EdgeInsets.only(right: ResponsiveUtils.getCardMargin(context)),
           decoration: BoxDecoration(
@@ -363,41 +323,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-
-        // 🔔 NOTIFICATION BELL
-        Container(
-          margin: EdgeInsets.only(right: ResponsiveUtils.getCardMargin(context)),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              IconButton(
-                icon: Icon(Icons.notifications_none,
-                    color: Color(0xFF475569), size: ResponsiveUtils.getIconSize(context)),
-                onPressed: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const BuyerNotificationsPage()),
-                  );
-                  fetchUnreadNotifications(); // Refresh when returning
-                },
-              ),
-
-              if (_unreadNotifications > 0)
-                Positioned(
-                  right: 6,
-                  top: 6,
-                  child: _buildBadge(_unreadNotifications),
-                ),
-            ],
-          ),
-        ),
-
-        // 🛍 CART
         Container(
           margin: EdgeInsets.only(right: ResponsiveUtils.getHorizontalPadding(context)),
           decoration: BoxDecoration(
@@ -426,10 +351,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ],
-
     );
   }
-
   Widget buildSearchBar() {
     final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
 
@@ -449,55 +372,78 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Container(
         height: ResponsiveUtils.getSearchBarHeight(context),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+          color: const Color(0xFFF8FAFC), // kSurfaceColor equivalent
+          borderRadius: BorderRadius.circular(
+            ResponsiveUtils.getDynamicPadding(context, 0.025),
+          ),
+          border: Border.all(
+            color: const Color(0xFFE2E8F0), // kBorderColor equivalent
+            width: ResponsiveUtils.getBorderWidth(context) * 6,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withOpacity(0.05),
               blurRadius: 8,
-              offset: const Offset(0, 3),
+              offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Row(
           children: [
-            SizedBox(width: horizontalPadding),
-            Icon(
-              Icons.search_rounded,
-              color: Color(0xFF94A3B8),
-              size: ResponsiveUtils.getIconSize(context),
+            // Search Icon
+            Padding(
+              padding: EdgeInsets.only(
+                left: ResponsiveUtils.getDynamicPadding(context, 0.03),
+              ),
+              child: Icon(
+                Icons.search_rounded,
+                color: const Color(0xFF94A3B8), // kTextSecondary equivalent
+                size: ResponsiveUtils.getIconSize(context) * 0.8,
+              ),
             ),
-            SizedBox(width: ResponsiveUtils.getCardMargin(context)),
+
+            // Search Field
             Expanded(
-              child: TextField(
-                controller: _searchController,
-                style: GoogleFonts.inter(
-                  fontSize: ResponsiveUtils.getBodyFontSize(context),
-                  color: const Color(0xFF0F172A),
-                  fontWeight: FontWeight.w500,
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: ResponsiveUtils.getDynamicPadding(context, 0.02),
                 ),
-                decoration: InputDecoration(
-                  hintText: "Search drones, parts, services...",
-                  hintStyle: GoogleFonts.inter(
-                    color: const Color(0xFF94A3B8),
+                child: TextField(
+                  controller: _searchController,
+                  style: GoogleFonts.inter(
                     fontSize: ResponsiveUtils.getBodyFontSize(context),
-                    fontWeight: FontWeight.w400,
+                    color: const Color(0xFF0F172A), // kTextPrimary equivalent
+                    fontWeight: FontWeight.w500,
                   ),
-                  border: InputBorder.none,
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                    icon: Icon(
-                      Icons.clear,
-                      color: Color(0xFF94A3B8),
-                      size: ResponsiveUtils.getIconSize(context),
+                  decoration: InputDecoration(
+                    hintText: "Search drones, parts, accessories...",
+                    hintStyle: GoogleFonts.inter(
+                      color: kTextSecondary, // kTextSecondary
+                      fontSize: ResponsiveUtils.getBodyFontSize(context),
+                      fontWeight: FontWeight.w400,
                     ),
-                    onPressed: () {
-                      _searchController.clear();
-                      FocusScope.of(context).unfocus();
-                    },
-                  )
-                      : null,
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    isDense: true,
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                      icon: Icon(
+                        Icons.clear,
+                        color: const Color(0xFF94A3B8),
+                        size: ResponsiveUtils.getIconSize(context) * 0.8,
+                      ),
+                      onPressed: () {
+                        _searchController.clear();
+                        FocusScope.of(context).unfocus();
+                      },
+                    )
+                        : null,
+                  ),
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value;
+                    });
+                  },
                 ),
               ),
             ),
@@ -663,7 +609,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 controller: _categoryScrollController,
                 padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                 scrollDirection: Axis.horizontal,
-                itemCount: categoryList.length > collapsedCount ? collapsedCount : categoryList.length,
+                itemCount: categoryList.length > collapsedCount
+                    ? collapsedCount
+                    : categoryList.length,
                 itemBuilder: (context, index) {
                   final item = categoryList[index];
                   return _buildCategoryItem(item);
@@ -689,7 +637,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
             ),
-            crossFadeState: _isCategoryExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            crossFadeState: _isCategoryExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
             duration: const Duration(milliseconds: 300),
           ),
         ],
@@ -832,8 +782,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget buildProductCard(dynamic item, String category) {
-    String itemId = "${item['id'] ?? item['id'] ?? ''}$category";
-
+    String itemId = "${item['id'] ?? ''}$category${item['name'] ?? ''}";
     String imageUrl = "";
     if (item["image"] != null) {
       imageUrl = item["image"].toString();
@@ -859,179 +808,159 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final cardWidth = ResponsiveUtils.getProductCardWidth(context);
-    final imageHeight = cardWidth * ResponsiveUtils.getProductImageRatio(context);
+    final imageHeight = cardWidth * ResponsiveUtils.getMarketGridAspectRatio(context);
 
-    return Container(
-      width: cardWidth,
-      margin: EdgeInsets.only(right: ResponsiveUtils.getCardMargin(context)),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF1F5F9), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                child: CachedNetworkImage(
-                  imageUrl: fullImageUrl,
-                  height: imageHeight,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  placeholder: (_, __) => Container(
-                    height: imageHeight,
-                    color: const Color(0xFFF5F5F5),
-                  ),
-                  errorWidget: (_, __, ___) => Container(
-                    height: imageHeight,
-                    color: const Color(0xFFF5F5F5),
-                    child: Icon(
-                      Icons.photo,
-                      size: ResponsiveUtils.getIconSize(context) + 18,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: GestureDetector(
-                  onTap: () {
-                    _toggleWishlist(itemId);
-                  },
-                  child: Container(
-                    width: ResponsiveUtils.getButtonHeight(context) - 24,
-                    height: ResponsiveUtils.getButtonHeight(context) - 24,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      _isInWishlist(itemId) ? Icons.favorite : Icons.favorite_border,
-                      size: ResponsiveUtils.getIconSize(context) - 2,
-                      color: _isInWishlist(itemId) ? Color(0xFFEF4444) : Color(0xFF475569),
-                    ),
-                  ),
-                ),
-              ),
-              if (item["discount"] != null && item["discount"] > 0)
-                Positioned(
-                  top: 8,
-                  left: 8,
-                  child: Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: ResponsiveUtils.getCardMargin(context) / 2,
-                      vertical: ResponsiveUtils.getCardMargin(context) / 4,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      "${item["discount"]}% OFF",
-                      style: GoogleFonts.inter(
-                        color: Colors.white,
-                        fontSize: ResponsiveUtils.getSmallFontSize(context) - 1,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          Padding(
-            padding: EdgeInsets.all(ResponsiveUtils.getCardMargin(context)),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  productName,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w600,
-                    fontSize: ResponsiveUtils.getBodyFontSize(context),
-                    color: const Color(0xFF0F172A),
-                    height: 1.3,
-                  ),
-                ),
-                SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
-                Row(
-                  children: [
-                    Text(
-                      "₹${item["price"] ?? 0}",
-                      style: GoogleFonts.inter(
-                        color: const Color(0xFF0F172A),
-                        fontWeight: FontWeight.w800,
-                        fontSize: ResponsiveUtils.getBodyFontSize(context) + 2,
-                      ),
-                    ),
-                    if (item["originalPrice"] != null && item["originalPrice"] > item["price"])
-                      SizedBox(width: ResponsiveUtils.getCardMargin(context) / 2),
-                    if (item["originalPrice"] != null && item["originalPrice"] > item["price"])
-                      Text(
-                        "₹${item["originalPrice"]}",
-                        style: GoogleFonts.inter(
-                          color: const Color(0xFF94A3B8),
-                          fontWeight: FontWeight.w500,
-                          fontSize: ResponsiveUtils.getSmallFontSize(context),
-                          decoration: TextDecoration.lineThrough,
-                        ),
-                      ),
-                  ],
-                ),
-                SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.star_rounded,
-                      color: Color(0xFFF59E0B),
-                      size: ResponsiveUtils.getIconSize(context) - 6,
-                    ),
-                    SizedBox(width: ResponsiveUtils.getCardMargin(context) / 4),
-                    Text(
-                      "${item["rating"] ?? 4.5}",
-                      style: GoogleFonts.inter(
-                        fontSize: ResponsiveUtils.getSmallFontSize(context),
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF475569),
-                      ),
-                    ),
-                    SizedBox(width: ResponsiveUtils.getCardMargin(context) / 4),
-                    Text(
-                      "(${item["reviews"] ?? 0})",
-                      style: GoogleFonts.inter(
-                        fontSize: ResponsiveUtils.getSmallFontSize(context),
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF94A3B8),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+    return GestureDetector(
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DroneDetailPage(
+              drone: item,
+              initialIsFavorite: _isInWishlist(itemId),
+              Drone: null,
             ),
           ),
-        ],
+        );
+
+        if (result is Map && result['wishlistChanged'] == true) {
+          final bool isFav = result['isFavorite'] == true;
+          setState(() {
+            if (isFav) {
+              _wishlistItems.add(itemId);
+            } else {
+              _wishlistItems.remove(itemId);
+            }
+          });
+        }
+      },
+      child: Container(
+        width: cardWidth,
+        margin: EdgeInsets.only(right: ResponsiveUtils.getCardMargin(context)),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFF1F5F9), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 15,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  child: CachedNetworkImage(
+                    imageUrl: fullImageUrl,
+                    height: imageHeight,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => Container(
+                      height: imageHeight,
+                      color: const Color(0xFFF5F5F5),
+                    ),
+                    errorWidget: (_, __, ___) => Container(
+                      height: imageHeight,
+                      color: const Color(0xFFF5F5F5),
+                      child: Icon(
+                        Icons.photo,
+                        size: ResponsiveUtils.getIconSize(context) + 18,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ),
+                ),
+                if (item["discount"] != null && item["discount"] > 0)
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: ResponsiveUtils.getCardMargin(context) / 2,
+                        vertical: ResponsiveUtils.getCardMargin(context) / 4,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        "${item["discount"]}% OFF",
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontSize: ResponsiveUtils.getSmallFontSize(context) - 1,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            Padding(
+              padding: EdgeInsets.all(ResponsiveUtils.getCardMargin(context)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // FIXED: Product name with flexible height and text wrapping
+                  Container(
+                    constraints: BoxConstraints(
+                      minHeight: ResponsiveUtils.getBodyFontSize(context) * 1.3 * 2, // Minimum height for 2 lines
+                    ),
+                    child: Text(
+                      productName,
+                      maxLines: 2, // Allow up to 2 lines
+                      overflow: TextOverflow.ellipsis, // Show ... if still too long after 2 lines
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w600,
+                        fontSize: ResponsiveUtils.getBodyFontSize(context),
+                        color: const Color(0xFF0F172A),
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
+                  Row(
+                    children: [
+                      Text(
+                        "₹${item["price"] ?? 0}",
+                        style: GoogleFonts.inter(
+                          color: const Color(0xFF0F172A),
+                          fontWeight: FontWeight.w800,
+                          fontSize: ResponsiveUtils.getBodyFontSize(context) + 2,
+                        ),
+                      ),
+                      if (item["originalPrice"] != null && item["originalPrice"] > item["price"])
+                        SizedBox(width: ResponsiveUtils.getCardMargin(context) / 2),
+                      if (item["originalPrice"] != null && item["originalPrice"] > item["price"])
+                        Text(
+                          "₹${item["originalPrice"]}",
+                          style: GoogleFonts.inter(
+                            color: const Color(0xFF94A3B8),
+                            fontWeight: FontWeight.w500,
+                            fontSize: ResponsiveUtils.getSmallFontSize(context),
+                            decoration: TextDecoration.lineThrough,
+                          ),
+                        ),
+                    ],
+                  ),
+                  SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
+                  Row(
+                    children: [
+                      SizedBox(width: ResponsiveUtils.getCardMargin(context) / 4),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1044,7 +973,7 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         buildSectionHeader(title, onViewAll),
         SizedBox(
-          height: ResponsiveUtils.getProductCardHeight(context) + ResponsiveUtils.getCardMargin(context) * 2,
+          height: ResponsiveUtils.getProductCardHeight(context) + ResponsiveUtils.getCardMargin(context) * 3, // Increased height for text wrapping
           child: ListView.builder(
             padding: EdgeInsets.only(left: ResponsiveUtils.getHorizontalPadding(context)),
             scrollDirection: Axis.horizontal,
@@ -1095,8 +1024,6 @@ class _HomeScreenState extends State<HomeScreen> {
     String salary = job["salary"] ?? job["salaryRange"] ?? "Competitive Salary";
     String jobType = job["jobType"] ?? job["type"] ?? "Full Time";
 
-    String imageAsset = "assets/images/jobback.jpg";
-
     bool isUrgent = job["urgent"] == true ||
         job["jobType"]?.toString().toLowerCase() == "urgent" ||
         job["applicationDeadline"] != null;
@@ -1109,7 +1036,7 @@ class _HomeScreenState extends State<HomeScreen> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           image: const DecorationImage(
-            image: AssetImage("assets/images/jobback.jpg"),
+            image: AssetImage("assets/images/jobpic.png"),
             fit: BoxFit.cover,
           ),
           boxShadow: [
@@ -1127,7 +1054,7 @@ class _HomeScreenState extends State<HomeScreen> {
               begin: Alignment.bottomCenter,
               end: Alignment.topCenter,
               colors: [
-                Color(0xFF7AC9EC).withOpacity(0.8),
+                Color(0xFFF8F6F6).withOpacity(0.8),
                 Color(0xFFF8F6F6).withOpacity(0.5),
                 Color(0x00000000),
               ],
@@ -1281,6 +1208,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   "30-day policy",
                   Icons.assignment_return_rounded,
                   Color(0xFF733486),
+                ),
+                _buildFeatureCard(
+                  "Refund Policy",
+                  "7-10 days",
+                  Icons.receipt_long_rounded ,
+                  Color(0xFF3F35DD),
                 ),
                 _buildFeatureCard(
                   "24/7 Support",
@@ -1498,7 +1431,10 @@ class _HomeScreenState extends State<HomeScreen> {
             buildProductCarousel(
               "Drone Services",
               marketplaceData["Services"]!,
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ServicesPage())),
+                  () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ServicesPage()),
+              ),
             ),
             SizedBox(height: ResponsiveUtils.getSectionSpacing(context) * 2),
           ],
@@ -1513,7 +1449,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return ListView(
       padding: EdgeInsets.zero,
       children: [
-        // Search Bar Shimmer
         Container(
           padding: EdgeInsets.all(horizontalPadding),
           color: Colors.white,
@@ -1530,8 +1465,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-
-        // Banner Shimmer
         Shimmer.fromColors(
           baseColor: const Color(0xFFE2E8F0),
           highlightColor: const Color(0xFFF8FAFC),
@@ -1545,8 +1478,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-
-        // Categories Shimmer
         Shimmer.fromColors(
           baseColor: const Color(0xFFE2E8F0),
           highlightColor: const Color(0xFFF8FAFC),
@@ -1602,47 +1533,48 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ),
-
-        // Product Carousels Shimmer
-        ...List.generate(4, (index) => Shimmer.fromColors(
-          baseColor: const Color(0xFFE2E8F0),
-          highlightColor: const Color(0xFFF8FAFC),
-          child: Container(
-            margin: EdgeInsets.only(top: ResponsiveUtils.getSectionSpacing(context)),
-            color: Colors.white,
-            child: Column(
-              children: [
-                Container(
-                  height: ResponsiveUtils.getTitleFontSize(context),
-                  width: 180,
-                  margin: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
+        ...List.generate(
+          4,
+              (index) => Shimmer.fromColors(
+            baseColor: const Color(0xFFE2E8F0),
+            highlightColor: const Color(0xFFF8FAFC),
+            child: Container(
+              margin: EdgeInsets.only(top: ResponsiveUtils.getSectionSpacing(context)),
+              color: Colors.white,
+              child: Column(
+                children: [
+                  Container(
+                    height: ResponsiveUtils.getTitleFontSize(context),
+                    width: 180,
+                    margin: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
-                ),
-                SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-                SizedBox(
-                  height: ResponsiveUtils.getProductCardHeight(context) + ResponsiveUtils.getCardMargin(context) * 2,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.only(left: horizontalPadding),
-                    itemCount: 3,
-                    itemBuilder: (_, __) => Container(
-                      width: ResponsiveUtils.getProductCardWidth(context),
-                      margin: EdgeInsets.only(right: ResponsiveUtils.getCardMargin(context)),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
+                  SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
+                  SizedBox(
+                    height: ResponsiveUtils.getProductCardHeight(context) + ResponsiveUtils.getCardMargin(context) * 2,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: EdgeInsets.only(left: horizontalPadding),
+                      itemCount: 3,
+                      itemBuilder: (_, __) => Container(
+                        width: ResponsiveUtils.getProductCardWidth(context),
+                        margin: EdgeInsets.only(right: ResponsiveUtils.getCardMargin(context)),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-              ],
+                  SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
+                ],
+              ),
             ),
           ),
-        )),
+        ),
       ],
     );
   }

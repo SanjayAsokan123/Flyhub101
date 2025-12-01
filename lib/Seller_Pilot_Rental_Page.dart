@@ -22,6 +22,8 @@ class _PilotRentalPageState extends State<PilotRentalPage>
   bool _loading = false;
   String? _error;
 
+  final Color themeColor = const Color(0xFF1E0E5C);
+
   List<Map<String, dynamic>> bookings = [];
 
   @override
@@ -37,7 +39,7 @@ class _PilotRentalPageState extends State<PilotRentalPage>
     return dt == null ? "—" : DateFormat('dd MMM yyyy').format(dt.toLocal());
   }
 
-  /// FETCH BOOKINGS FOR SPECIFIC SELLER
+  /// FETCH BOOKINGS
   Future<void> _fetchBookings() async {
     setState(() {
       _loading = true;
@@ -82,7 +84,6 @@ class _PilotRentalPageState extends State<PilotRentalPage>
       );
 
       final json = jsonDecode(res.body);
-
       if (json['errors'] != null) throw Exception(json['errors'][0]['message']);
 
       final list = (json['data']?['getPilotRentalsBySellerId'] ?? []) as List;
@@ -102,7 +103,7 @@ class _PilotRentalPageState extends State<PilotRentalPage>
   List<Map<String, dynamic>> get completedBookings =>
       bookings.where((b) => (b['status'] ?? '').toLowerCase() == 'completed').toList();
 
-  /// CARD UI WIDGET
+  /// CARD UI
   Widget buildBookingCard(Map<String, dynamic> b) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -123,15 +124,12 @@ class _PilotRentalPageState extends State<PilotRentalPage>
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const CircleAvatar(
+            CircleAvatar(
               radius: 22,
-              backgroundColor: Colors.deepPurple,
-              child: Icon(Icons.person, color: Colors.white),
+              backgroundColor: themeColor,
+              child: const Icon(Icons.person, color: Colors.white),
             ),
-
             const SizedBox(width: 12),
-
-            // MAIN INFO
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -143,29 +141,22 @@ class _PilotRentalPageState extends State<PilotRentalPage>
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-
                   const SizedBox(height: 6),
-
                   Text("Phone: ${b['phone'] ?? 'N/A'}",
                       style: const TextStyle(fontSize: 14)),
-
                   Text("Pilot: ${b['pilot']?['pilotName'] ?? 'N/A'}",
                       style: const TextStyle(fontSize: 14)),
-
                   Text("Amount: ₹${b['amount'] ?? '0'} / day",
                       style: const TextStyle(fontSize: 14)),
-
                   Text("Date: ${formatDate(b['rentalDate'])}",
                       style: const TextStyle(fontSize: 14)),
                 ],
               ),
             ),
-
-            // STATUS
             Text(
               (b['status'] ?? '').toString().toUpperCase(),
               style: TextStyle(
-                color: b['status'] == 'completed' ? Colors.green : Colors.orange,
+                color: b['status'] == 'completed' ? Colors.green : themeColor,
                 fontWeight: FontWeight.bold,
               ),
             )
@@ -178,23 +169,29 @@ class _PilotRentalPageState extends State<PilotRentalPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFFFFFF),
+
       appBar: AppBar(
-        title: const Text('Pilot Rental'),
+        title: const Text(
+          'Pilot Rental',
+          style: TextStyle(color: Colors.white),
+        ),
         centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: themeColor,
+        iconTheme: const IconThemeData(color: Colors.white),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.black,
-          indicatorColor: Colors.blue,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
           tabs: const [
             Tab(text: 'Bookings Arrived'),
             Tab(text: 'Completed'),
           ],
         ),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchBookings)
-        ],
+
+        // ❌ Removed Refresh Icon
+        actions: [],
       ),
 
       body: _loading
@@ -204,20 +201,26 @@ class _PilotRentalPageState extends State<PilotRentalPage>
           : TabBarView(
         controller: _tabController,
         children: [
-          arrivedBookings.isEmpty
-              ? const Center(child: Text('No Bookings Found'))
-              : ListView.builder(
-            itemCount: arrivedBookings.length,
-            itemBuilder: (ctx, i) =>
-                buildBookingCard(arrivedBookings[i]),
+          RefreshIndicator(
+            onRefresh: _fetchBookings,
+            child: arrivedBookings.isEmpty
+                ? const Center(child: Text('No Bookings Found'))
+                : ListView.builder(
+              itemCount: arrivedBookings.length,
+              itemBuilder: (ctx, i) =>
+                  buildBookingCard(arrivedBookings[i]),
+            ),
           ),
 
-          completedBookings.isEmpty
-              ? const Center(child: Text('No Completed Bookings'))
-              : ListView.builder(
-            itemCount: completedBookings.length,
-            itemBuilder: (ctx, i) =>
-                buildBookingCard(completedBookings[i]),
+          RefreshIndicator(
+            onRefresh: _fetchBookings,
+            child: completedBookings.isEmpty
+                ? const Center(child: Text('No Completed Bookings'))
+                : ListView.builder(
+              itemCount: completedBookings.length,
+              itemBuilder: (ctx, i) =>
+                  buildBookingCard(completedBookings[i]),
+            ),
           ),
         ],
       ),

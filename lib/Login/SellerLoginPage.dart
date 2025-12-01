@@ -1,13 +1,15 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
+
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+
 import '../../HomeScreen/Dynamichome.dart';
 import '../../services/role_manager.dart';
 import '../config/env.dart';
+import './ForgotPasswordPage.dart'; // ✅ NEW
 import './SellerRegisterPage.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 
 class SellerLoginPage extends StatefulWidget {
   const SellerLoginPage({super.key});
@@ -28,37 +30,7 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
   static const Color themeColor = Color(0xFF1A0A5B);
 
   // -------------------------------------------------------------
-  // ⭐ SAVE FCM TOKEN FOR SELLER
-  // -------------------------------------------------------------
-  Future<void> saveSellerFcmToken(String sellerId) async {
-    try {
-      String? token = await FirebaseMessaging.instance.getToken();
-
-      if (token == null) {
-        print("❌ No FCM token generated");
-        return;
-      }
-
-      final url = Uri.parse(
-          "${EnvConfig.baseUrl.replaceAll('/graphql', '')}/saveSellerFcmToken");
-
-      final res = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "sellerId": sellerId,
-          "fcmToken": token,
-        }),
-      );
-
-      print("FCM token saved: ${res.body}");
-    } catch (e) {
-      print("❌ Error saving FCM token: $e");
-    }
-  }
-
-  // -------------------------------------------------------------
-  // 🔥 GRAPHQL → Get Seller Details from MongoDB
+  // 🔥 GRAPHQL → Check seller status ONLY from MongoDB
   // -------------------------------------------------------------
   Future<Map<String, dynamic>?> fetchSellerFromAPI(String value) async {
     final String url = EnvConfig.baseUrl;
@@ -106,10 +78,12 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
     setState(() => loading = true);
 
     try {
-      // 1️⃣ Check seller in MongoDB (GraphQL)
+      // 1️⃣ CHECK SELLER IN MONGODB (GraphQL)
       final seller = await fetchSellerFromAPI(enteredInput);
+
       if (seller == null) {
         showMessage("No seller found");
+        setState(() => loading = false);
         return;
       }
 
@@ -117,47 +91,46 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
       final String email = seller["email"] ?? "";
       final String status = seller["status"] ?? "pending";
 
-      // 2️⃣ Status validation
+      // 2️⃣ STATUS CHECK
       if (status == "pending") {
         showMessage("Seller account is pending approval");
+        setState(() => loading = false);
         return;
       }
 
       if (status == "rejected") {
         showMessage("Seller account is rejected");
+        setState(() => loading = false);
         return;
       }
 
       if (status != "approved") {
         showMessage("Invalid status: $status");
+        setState(() => loading = false);
         return;
       }
 
       if (email.isEmpty) {
-        showMessage("Account missing email. Contact support.");
+        showMessage("Account has no email. Contact support.");
+        setState(() => loading = false);
         return;
       }
 
-      // 3️⃣ Firebase Email/Password Login
+      // 3️⃣ LOGIN USING FIREBASE EMAIL/PASSWORD
       await _auth.signInWithEmailAndPassword(
         email: email,
         password: enteredPass,
       );
 
-      // ⭐ 4️⃣ SAVE FCM TOKEN (AFTER SUCCESSFUL LOGIN)
-      await saveSellerFcmToken(customId);
-
-      // 5️⃣ Save role locally
+      // 4️⃣ SAVE ROLE
       await RoleManager.setLocalRole("seller");
 
       showMessage("Login Successful!");
 
-      // 6️⃣ Navigate to Seller Dashboard
+      // 5️⃣ NAVIGATE
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => const Dynamichome(selectedIndex: 0),
-        ),
+        MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
       );
     } catch (e) {
       debugPrint("Login error: $e");
@@ -171,7 +144,15 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
     final s = e.toString();
     if (s.contains("wrong-password")) return "Incorrect password";
     if (s.contains("user-not-found")) return "User not found";
+    if (s.contains("invalid-credential")) return "Invalid credentials";
     return s;
+  }
+
+  @override
+  void dispose() {
+    input.dispose();
+    password.dispose();
+    super.dispose();
   }
 
   // -------------------------------------------------------------
@@ -183,6 +164,14 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: themeColor),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.08),
@@ -201,6 +190,7 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
 
               const SizedBox(height: 20),
 
+              // INPUT
               TextField(
                 controller: input,
                 decoration: InputDecoration(
@@ -209,11 +199,16 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: themeColor, width: 2),
+                  ),
                 ),
               ),
 
               const SizedBox(height: 15),
 
+              // PASSWORD
               TextField(
                 controller: password,
                 obscureText: !showPassword,
@@ -225,19 +220,48 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
                       showPassword ? Icons.visibility : Icons.visibility_off,
                       color: themeColor,
                     ),
-                    onPressed: () =>
-                        setState(() => showPassword = !showPassword),
+                    onPressed: () {
+                      setState(() => showPassword = !showPassword);
+                    },
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: themeColor, width: 2),
+                  ),
                 ),
               ),
 
-              const SizedBox(height: 20),
+              // ✅ Forgot Password Link
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ForgotPasswordPage(),
+                      ),
+                    );
+                  },
+                  child: Text(
+                    "Forgot Password?",
+                    style: TextStyle(
+                      color: themeColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 10),
 
               loading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const Center(
+                  child: CircularProgressIndicator(color: themeColor))
                   : ElevatedButton(
                 onPressed: sellerLogin,
                 style: ElevatedButton.styleFrom(
@@ -249,10 +273,7 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
                 ),
                 child: const Text(
                   "Login",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                  ),
+                  style: TextStyle(color: Colors.white, fontSize: 16),
                 ),
               ),
 
@@ -285,7 +306,11 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
 
   void showMessage(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: msg.contains("Successful") ? Colors.green : null,
+      ),
+    );
   }
 }

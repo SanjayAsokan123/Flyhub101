@@ -232,7 +232,7 @@ class _FlyHubSelectionPageState extends State<FlyHubSelectionPage>
                 size: 14, color: Color(0xFF9CA3AF)),
             const SizedBox(width: 6),
             Text(
-              "Trusted by 10,000+ users",
+              "Trusted",
               style: GoogleFonts.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w400,
@@ -243,7 +243,7 @@ class _FlyHubSelectionPageState extends State<FlyHubSelectionPage>
         ),
         const SizedBox(height: 10),
         Text(
-          "FlyHub Technologies Pvt. Ltd. • Version 1.0.0",
+          "Version 1.0.0",
           style: GoogleFonts.inter(
             fontSize: 11,
             color: const Color(0xFF9CA3AF),

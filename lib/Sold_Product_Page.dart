@@ -11,7 +11,7 @@ class _SoldProductsPageState extends State<SoldProductsPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // ✅ Theme color
+  // Theme color
   final Color themeColor = const Color(0xFF1A0A5B);
 
   @override
@@ -29,15 +29,17 @@ class _SoldProductsPageState extends State<SoldProductsPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFFFFFF),
       appBar: AppBar(
+        iconTheme: const IconThemeData(color: Colors.white),
         title: const Text(
           "Sold Products",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
         backgroundColor: themeColor,
-        iconTheme: const IconThemeData(
-          color: Colors.white, // ✅ Back arrow color
-        ),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
@@ -71,37 +73,38 @@ class CategoryListView extends StatelessWidget {
   final String title;
   const CategoryListView({super.key, required this.title});
 
-  // ✅ Theme color
   final Color themeColor = const Color(0xFF1A0A5B);
 
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
       padding: const EdgeInsets.all(12),
-      itemCount: 5, // placeholder
+      itemCount: 5, // placeholder count
       itemBuilder: (context, index) {
         return Card(
-          elevation: 2,
+          color: Colors.white,
+          elevation: 0, // removed shadow for clean border look
           margin: const EdgeInsets.symmetric(vertical: 6),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(
+              color: Color(0xFFE5E7EB), // Light border
+              width: 1,
+            ),
           ),
           child: ListTile(
-            leading: Icon(Icons.shopping_cart, color: themeColor),
+            leading: Icon(Icons.shopping_bag, color: themeColor, size: 28),
             title: Text(
               "$title ${index + 1}",
-              style: TextStyle(fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
             ),
-            subtitle: const Text("Successfully sold to the customer."),
-            trailing: Icon(Icons.info_outline, color: themeColor),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text("$title ${index + 1} details coming soon"),
-                  backgroundColor: themeColor,
-                ),
-              );
-            },
+            subtitle: const Text(
+              "Successfully sold to the customer.",
+              style: TextStyle(fontSize: 14),
+            ),
           ),
         );
       },

@@ -126,9 +126,9 @@ class _MyOrderPageState extends State<MyOrderPage> with SingleTickerProviderStat
                             ElevatedButton(
                               onPressed: () {},
                               style: ElevatedButton.styleFrom(
-                                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                backgroundColor: Colors.green,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))
+                                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                  backgroundColor: Colors.green,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))
                               ),
                               child: Padding(
                                 padding: const EdgeInsets.fromLTRB(20, 5, 20, 5),
@@ -155,8 +155,8 @@ class _MyOrderPageState extends State<MyOrderPage> with SingleTickerProviderStat
                               onPressed: () {},
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.purple,
-                                  shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(6)),
                               ),
                               child: Text("Accept",style: TextStyle(color: Colors.white),),
                             )

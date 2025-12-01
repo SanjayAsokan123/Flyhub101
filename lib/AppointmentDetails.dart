@@ -234,10 +234,10 @@ class _AppointmentdetailsState extends State<Appointmentdetails> {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Container(
-          padding: EdgeInsets.all(10),
+            padding: EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Color(0xffF1F3F3),
-              borderRadius: BorderRadius.circular(8)
+                color: Color(0xffF1F3F3),
+                borderRadius: BorderRadius.circular(8)
             ),
             child: Icon(icon, size: 24, color: Colors.black54)),
         SizedBox(width: 12),

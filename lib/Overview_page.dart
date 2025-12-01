@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'OrderSuccessPage.dart';
 
-
 class OverviewPage extends StatelessWidget {
   final Map<String, dynamic> drone ;
 
@@ -49,7 +48,7 @@ class OverviewPage extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Image.asset(
-                      'assets/images/drone.png',
+                      'assets/images/profiles.svg',
                       fit: BoxFit.contain,
                     ),
                   ),

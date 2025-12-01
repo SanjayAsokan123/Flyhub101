@@ -6,9 +6,12 @@ import 'package:flyhub/Help_Support_Page.dart';
 import 'package:flyhub/PrivacyPolicy.dart';
 import 'package:flyhub/Terms_Conditions.dart';
 import 'package:flyhub/feedback_form.dart';
+import '../../Buyer_Shipping_Policy.dart';
 import '../../HomeScreen/Dynamichome.dart';
 import '../../HomeScreen/Bottoms/SellerPage.dart';
 import '../../HomeScreen/Bottoms/GuestProfilePage.dart';
+import '../../Buyer_Return_Refund_Policy.dart';
+import '../../Seller_Shipping_Policy.dart';
 import '../../services/role_manager.dart';
 import '../../WishlistPage.dart';
 import '../../BuyerDetails/MyCartPage.dart';
@@ -16,6 +19,9 @@ import '../../Login/SellerLoginPage.dart';
 import '../../BuyerDetails/DroneRentalConfirmation.dart';
 import '../../BuyerDetails/MyCartPage.dart';
 import '../../BuyerDetails/Pilot_Booking_Status.dart';
+import '../../BuyerServiceBookingStatus.dart';
+import '../../BuyerJobApplyStatus.dart';
+
 class BuyerProfilePage extends StatefulWidget {
   const BuyerProfilePage({super.key});
 
@@ -87,24 +93,24 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
     }
   }
 
-  // Future<void> _switchToSeller() async {
-  //   HapticFeedback.selectionClick();
-  //   try {
-  //     await RoleManager.updateRole("seller");
-  //     if (!mounted) return;
-  //
-  //     Navigator.pushReplacement(
-  //       context,
-  //       MaterialPageRoute(builder: (_) => const SellerPage()),
-  //     );
-  //
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(content: Text("✅ Switched to Seller Mode")),
-  //     );
-  //   } catch (e) {
-  //     debugPrint("⚠ Switch to seller error: $e");
-  //   }
-  // }
+  Future<void> _switchToSeller() async {
+    HapticFeedback.selectionClick();
+    try {
+      // await RoleManager.updateRole("seller");
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const SellerPage()),
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("✅ Switched to Seller Mode")),
+      );
+    } catch (e) {
+      debugPrint("⚠ Switch to seller error: $e");
+    }
+  }
 
   Future<void> _logout() async {
     HapticFeedback.lightImpact();
@@ -180,7 +186,7 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
         elevation: 1,
         actions: [
           InkWell(
-            // onTap: _switchToSeller,
+            onTap: _switchToSeller,
             borderRadius: BorderRadius.circular(20),
             child: Container(
               margin: const EdgeInsets.only(right: 8),
@@ -248,6 +254,20 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
               );
             }),
 
+            _buildTile("Job Apply Status", Icons.flight, () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const BuyerJobApplyStatusPage()),
+              );
+            }),
+
+            _buildTile("Service Booking Status", Icons.flight, () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const BuyerServiceBookingStatusPage()),
+              );
+            }),
+
             _buildSection("Account Settings"),
             _buildTile("Register as Seller", Icons.storefront, () {
 
@@ -273,6 +293,22 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                 MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()),
               );
             }),
+
+            _buildTile("Shipping Policy", Icons.privacy_tip_outlined, () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const  BuyerShippingPolicyPage()),
+              );
+            }),
+
+
+            _buildTile("Return & Refund Policy", Icons.privacy_tip_outlined, () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const  RRPolicy()),
+              );
+            }),
+
             _buildTile("Help and Support", Icons.help_outline, () {
               Navigator.push(
                 context,

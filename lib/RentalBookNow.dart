@@ -434,7 +434,6 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
     final dronePurpose =
         rental['purpose'] ?? widget.drone?['purpose'] ?? 'General Use';
     final dronePrice = rental['price'] ?? widget.drone?['price'] ?? 1500;
-    final droneRating = rental['rating'] ?? widget.drone?['rating'] ?? 4.8;
 
     // Decide which seller email/phone to show in details card:
     // priority: listingSellerEmail (fetched) > widget.rental['sellerEmail'] > widget.drone?['sellerEmail']
@@ -477,7 +476,7 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
                           color: Colors.white, size: 20),
                     ),
                     const SizedBox(height: 12),
-                    Text("Rent your drone 🚁",
+                    Text("Rent your drone",
                         style: GoogleFonts.poppins(
                             fontSize: 20,
                             color: Colors.white,
@@ -529,12 +528,6 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              Icon(Icons.star,
-                                  color: Colors.amber.shade600, size: 18),
-                              const SizedBox(width: 6),
-                              Text("$droneRating / 5.0",
-                                  style: GoogleFonts.poppins(fontSize: 13)),
-                              const Spacer(),
                               Text("₹$dronePrice/day",
                                   style: GoogleFonts.poppins(
                                       fontSize: 15,

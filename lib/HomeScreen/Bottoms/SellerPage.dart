@@ -17,9 +17,12 @@ import '../../Pending_Products_Page.dart';
 import '../../Rejected_Products_Page.dart';
 import '../../Return_Product_Page.dart';
 // Rental pages
+import '../../Buyer_Return_Refund_Policy.dart';
 import '../../Seller_Drone_Rental_Page.dart';
 import '../../Seller_Pilot_Rental_Page.dart';
 // Product Status Pages
+import '../../Seller_Return_Refund_Policy.dart';
+import '../../Seller_Shipping_Policy.dart';
 import '../../Sold_Product_Page.dart';
 import '../../add_accessories_form.dart';
 import '../../add_drone_rental_form.dart';
@@ -173,7 +176,7 @@ class _SellerPageState extends State<SellerPage> {
   Future<void> _switchToBuyer() async {
     try {
       // Update role to buyer
-      // await RoleManager.getBuyerId("buyer");
+      // await RoleManager.updateRole("buyer");
       if (!mounted) return;
 
       // Show loading indicator
@@ -714,6 +717,20 @@ class _SellerPageState extends State<SellerPage> {
               Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()));
             }),
+
+            _buildTile("Shipping Policy", Icons.description_outlined, () {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const SellerShippingPolicyPage ()));
+            }),
+            _buildTile("Return & Refund Policy", Icons.description_outlined, () {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const SRRPolicy ()));
+            }),
+
 
             _buildTile("Help & Support", Icons.help_outline, () {
               Navigator.push(

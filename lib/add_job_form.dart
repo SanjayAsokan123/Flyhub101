@@ -1,11 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-
-import 'config/env.dart';
+import 'package:flyhub/config/env.dart';
 
 class AddJobForm extends StatefulWidget {
-  final String sellerId; // ✅ Link job post to seller
+  final String sellerId;
   const AddJobForm({required this.sellerId, super.key});
 
   @override
@@ -24,10 +23,15 @@ class _AddJobFormState extends State<AddJobForm> {
 
   String jobType = 'Full-time';
   String experience = 'Fresher';
-  bool _isSubmitting = false;
+  bool isLoading = false;
 
-  final Color themeColor = const Color(0xFF1A0A5B);
-  final String graphqlUrl = EnvConfig.baseUrl;
+  // Clean Color Scheme
+  static const Color primaryColor = Color(0xFF1A0A5B);
+  static const Color backgroundColor = Color(0xFFFAFAFA);
+  static const Color surfaceColor = Colors.white;
+  static const Color textColor = Color(0xFF1A1A1A);
+  static const Color subtitleColor = Color(0xFF666666);
+  static const Color borderColor = Color(0xFFE5E5E5);
 
   @override
   void dispose() {
@@ -40,7 +44,7 @@ class _AddJobFormState extends State<AddJobForm> {
     super.dispose();
   }
 
-  /// 🔐 Ensure Firebase authentication
+  /// 🔐 Ensure Firebase Authentication
   Future<void> _ensureFirebaseAuth() async {
     final auth = FirebaseAuth.instance;
     if (auth.currentUser == null) {
@@ -48,204 +52,496 @@ class _AddJobFormState extends State<AddJobForm> {
     }
   }
 
-  /// 🚀 Submit Job Post (matches backend)
-  Future<void> _submitForm() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _isSubmitting = true);
+  /// 🔗 Build GraphQL Client
+  Future<GraphQLClient> _buildGraphQLClient() async {
     await _ensureFirebaseAuth();
+    final token = await FirebaseAuth.instance.currentUser!.getIdToken();
+
+    final authLink = AuthLink(getToken: () async => "Bearer $token");
+    final httpLink = HttpLink(EnvConfig.baseUrl);
+
+    return GraphQLClient(
+      link: authLink.concat(httpLink),
+      cache: GraphQLCache(),
+    );
+  }
+
+  /// 🔥 GraphQL Mutation
+  final String addJobMutation = """
+    mutation AddJob(\$input: JobInput!) {
+      addJob(input: \$input) {
+        jobId
+        jobName
+        companyName
+        status
+        sellerId
+      }
+    }
+  """;
+
+  /// 🚀 Submit Job Form
+  Future<void> _submitForm(RunMutation runMutation) async {
+    if (!_formKey.currentState!.validate()) {
+      _showSnackBar("Please fill all required fields", false);
+      return;
+    }
+
+    setState(() => isLoading = true);
+
+    final input = {
+      "jobName": jobNameController.text.trim(),
+      "companyName": companyNameController.text.trim(),
+      "jobType": jobType,
+      "experience": experience,
+      "location": locationController.text.trim(),
+      "salary": salaryController.text.trim(),
+      "description": descriptionController.text.trim(),
+      "requirement": requirementController.text.trim(),
+      "sellerId": widget.sellerId,
+    };
 
     try {
-      final client = GraphQLClient(
-        link: HttpLink(graphqlUrl),
-        cache: GraphQLCache(store: InMemoryStore()),
-      );
-
-      final mutation = gql("""
-        mutation AddJob(\$input: JobInput!) {
-          addJob(input: \$input) {
-            jobId
-            jobName
-            companyName
-            jobType
-            experience
-            location
-            salary
-            description
-            requirement
-            status
-            sellerId
-          }
-        }
-      """);
-
-      final variables = {
-        "input": {
-          "jobName": jobNameController.text,
-          "companyName": companyNameController.text,
-          "jobType": jobType,
-          "experience": experience,
-          "location": locationController.text,
-          "salary": salaryController.text,
-          "description": descriptionController.text,
-          "requirement": requirementController.text,
-          "sellerId": widget.sellerId,
-        }
-      };
-
-      final result = await client.mutate(MutationOptions(document: mutation, variables: variables));
-
-      if (result.hasException) {
-        final err = result.exception!.graphqlErrors.isNotEmpty
-            ? result.exception!.graphqlErrors.first.message
-            : result.exception!.linkException.toString();
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text("❌ Error: $err"), backgroundColor: Colors.red));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("✅ Job posted successfully!"), backgroundColor: Colors.green),
-        );
-        _formKey.currentState!.reset();
-      }
+      await runMutation({"input": input}).networkResult;
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("⚠️ Unexpected error: $e"), backgroundColor: Colors.red));
-    } finally {
-      setState(() => _isSubmitting = false);
+      _showSnackBar("Error: $e", false);
     }
+
+    setState(() => isLoading = false);
+  }
+
+  /// 🔔 Clean Snackbar
+  void _showSnackBar(String msg, bool success) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          msg,
+          style: const TextStyle(color: Colors.white),
+        ),
+        backgroundColor: success ? Colors.green : Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: Text("Add Job / Gig", style: TextStyle(color: themeColor)),
-        backgroundColor: Colors.white,
-        foregroundColor: themeColor,
-        elevation: 1,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              _buildTextField("Job Name", icon: Icons.work, controller: jobNameController),
-              _buildTextField("Company Name", icon: Icons.business, controller: companyNameController),
+    return FutureBuilder<GraphQLClient>(
+      future: _buildGraphQLClient(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return Scaffold(
+            backgroundColor: backgroundColor,
+            body: Center(
+              child: CircularProgressIndicator(color: primaryColor),
+            ),
+          );
+        }
 
-              _buildDropdown(
-                label: "Job Type",
-                value: jobType,
-                items: ['Full-time', 'Part-time', 'Contract', 'Internship'],
-                onChanged: (v) => setState(() => jobType = v!),
+        return GraphQLProvider(
+          client: ValueNotifier(snapshot.data!),
+          child: Mutation(
+            options: MutationOptions(
+              document: gql(addJobMutation),
+              onCompleted: (data) {
+                _showSnackBar("Job posted successfully!", true);
+                _formKey.currentState?.reset();
+                Navigator.pop(context);
+              },
+              onError: (error) => _showSnackBar(
+                "Error: ${error.toString()}",
+                false,
               ),
-
-              _buildDropdown(
-                label: "Experience Level",
-                value: experience,
-                items: ['Fresher', '1-2 years', '3-5 years', '5+ years'],
-                onChanged: (v) => setState(() => experience = v!),
-              ),
-
-              _buildTextField("Location", icon: Icons.location_on, controller: locationController),
-              _buildTextField("Salary Range (₹)", icon: Icons.currency_rupee, controller: salaryController),
-              _buildTextField("Job Description",
-                  icon: Icons.description, controller: descriptionController, maxLines: 3),
-              _buildTextField("Requirements / Skills",
-                  icon: Icons.check_circle, controller: requirementController, maxLines: 3),
-
-              const SizedBox(height: 25),
-              ElevatedButton.icon(
-                onPressed: _isSubmitting ? null : _submitForm,
-                icon: _isSubmitting
-                    ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                )
-                    : const Icon(Icons.upload_rounded, color: Colors.white),
-                label: Text(
-                  _isSubmitting ? "Posting..." : "Post Job",
-                  style: const TextStyle(fontSize: 16, color: Colors.white),
+            ),
+            builder: (runMutation, result) {
+              return Scaffold(
+                backgroundColor: backgroundColor,
+                appBar: AppBar(
+                  backgroundColor: surfaceColor,
+                  elevation: 0.5,
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.black),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  title: Text(
+                    "Post Job",
+                    style: TextStyle(
+                      color: textColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 18,
+                    ),
+                  ),
+                  centerTitle: true,
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: themeColor,
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                body: Form(
+                  key: _formKey,
+                  child: ListView(
+                    padding: const EdgeInsets.all(20),
+                    children: [
+                      // Form Title
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: surfaceColor,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Job Information",
+                              style: TextStyle(
+                                color: textColor,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "Fill in the details to create your job posting",
+                              style: TextStyle(
+                                color: subtitleColor,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Job Title
+                      _buildFormField(
+                        label: "Job Title",
+                        controller: jobNameController,
+                        hint: "Enter job title",
+                        isRequired: true,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Company Name
+                      _buildFormField(
+                        label: "Company Name",
+                        controller: companyNameController,
+                        hint: "Enter company name",
+                        isRequired: true,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Job Type & Experience
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildDropdown(
+                              label: "Job Type",
+                              value: jobType,
+                              items: const [
+                                'Full-time',
+                                'Part-time',
+                                'Contract',
+                                'Internship',
+                                'Freelance',
+                              ],
+                              onChanged: (v) => setState(() => jobType = v!),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildDropdown(
+                              label: "Experience",
+                              value: experience,
+                              items: const [
+                                'Fresher',
+                                '1-2 years',
+                                '3-5 years',
+                                '5+ years',
+                                'Executive',
+                              ],
+                              onChanged: (v) => setState(() => experience = v!),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Location
+                      _buildFormField(
+                        label: "Location",
+                        controller: locationController,
+                        hint: "e.g., Remote, Mumbai",
+                        isRequired: true,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Salary
+                      _buildFormField(
+                        label: "Salary (₹)",
+                        controller: salaryController,
+                        hint: "e.g., 8-12 LPA",
+                        isRequired: true,
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Job Description
+                      _buildFormField(
+                        label: "Job Description",
+                        controller: descriptionController,
+                        hint: "Describe the role and responsibilities",
+                        isRequired: true,
+                        maxLines: 4,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Requirements
+                      _buildFormField(
+                        label: "Requirements",
+                        controller: requirementController,
+                        hint: "Required skills and qualifications",
+                        isRequired: true,
+                        maxLines: 4,
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Info Box
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: primaryColor.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: primaryColor.withOpacity(0.1),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: primaryColor,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                "Job will be reviewed by admin before going live",
+                                style: TextStyle(
+                                  color: subtitleColor,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Submit Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: isLoading ? null : () => _submitForm(runMutation),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: isLoading
+                              ? SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                              : Text(
+                            "Post Job",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // Cancel Button
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: Text(
+                            "Cancel",
+                            style: TextStyle(
+                              color: subtitleColor,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                "Your job post will be visible to pilots and technicians after admin approval.",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              ),
-            ],
+              );
+            },
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  // ✳ Custom TextField
-  Widget _buildTextField(
-      String label, {
-        required IconData icon,
-        required TextEditingController controller,
-        TextInputType keyboardType = TextInputType.text,
-        int maxLines = 1,
-      }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: TextFormField(
-        controller: controller,
-        keyboardType: keyboardType,
-        validator: (v) => v == null || v.isEmpty ? "Please enter $label" : null,
-        maxLines: maxLines,
-        decoration: InputDecoration(
-          prefixIcon: Icon(icon, color: themeColor),
-          labelText: label,
-          labelStyle: TextStyle(color: themeColor),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: themeColor),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: themeColor.withOpacity(0.5)),
+  // Clean Form Field Widget
+  Widget _buildFormField({
+    required String label,
+    required TextEditingController controller,
+    required String hint,
+    bool isRequired = false,
+    int maxLines = 1,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (isRequired)
+              Padding(
+                padding: const EdgeInsets.only(left: 2),
+                child: Text(
+                  "*",
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          validator: (value) {
+            if (isRequired && (value == null || value.isEmpty)) {
+              return "Required field";
+            }
+            return null;
+          },
+          maxLines: maxLines,
+          keyboardType: keyboardType,
+          style: TextStyle(color: textColor, fontSize: 15),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: subtitleColor.withOpacity(0.7)),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: borderColor),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: borderColor),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: primaryColor, width: 1.5),
+            ),
+            filled: true,
+            fillColor: surfaceColor,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 
-  // ✳ Dropdown Builder
+  // Clean Dropdown Widget
   Widget _buildDropdown({
     required String label,
     required String value,
     required List<String> items,
     required void Function(String?) onChanged,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: DropdownButtonFormField<String>(
-        value: value,
-        onChanged: onChanged,
-        items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-        decoration: InputDecoration(
-          prefixIcon: Icon(Icons.arrow_drop_down_circle, color: themeColor),
-          labelText: label,
-          labelStyle: TextStyle(color: themeColor),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: themeColor),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: themeColor.withOpacity(0.5)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: textColor,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
           ),
         ),
-      ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: borderColor),
+            color: surfaceColor,
+          ),
+          child: DropdownButtonFormField<String>(
+            value: value,
+            onChanged: onChanged,
+            icon: Icon(Icons.arrow_drop_down, color: primaryColor),
+            decoration: InputDecoration(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              border: InputBorder.none,
+              filled: true,
+              fillColor: surfaceColor,
+            ),
+            dropdownColor: surfaceColor,
+            style: TextStyle(color: textColor, fontSize: 15),
+            borderRadius: BorderRadius.circular(10),
+            items: items.map((item) {
+              return DropdownMenuItem<String>(
+                value: item,
+                child: Text(
+                  item,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 15,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
     );
   }
 }

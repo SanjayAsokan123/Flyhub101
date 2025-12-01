@@ -266,7 +266,7 @@ class _ServicecenterState extends State<Servicecenter> {
                 ,
                 children: List.generate(
                   5,
-                  (index) =>
+                      (index) =>
                       Icon(Icons.star_border, size: 32, color: Colors.grey),
                 ),
               ),
@@ -434,7 +434,7 @@ class InfoItem extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            padding: EdgeInsets.all(8.0),
+              padding: EdgeInsets.all(8.0),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(5),
                 color: Color(0xffF1F3F3),
@@ -457,27 +457,27 @@ class ServiceTypeChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xff7D7D7D)),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 22),
-          const SizedBox(width: 10),
-          Flexible(
-            child: Text(
-              label,
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xff7D7D7D)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 22),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                label,
+                style: GoogleFonts.lexend(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+
               ),
-             
             ),
-          ),
-        ],
-      )
+          ],
+        )
     );
   }
 }

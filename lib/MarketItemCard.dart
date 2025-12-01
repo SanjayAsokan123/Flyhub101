@@ -36,11 +36,11 @@ class _SplashscreenState extends State<Splashscreen> {
     bool otpCompleted = pref.getBool('OTP_completed') ?? false;
 
     // if (!otpCompleted) {
-      // Navigator.pushReplacement(
-        // context,
-        // MaterialPageRoute(builder: (context) => Selectlanguage()),
-      // );
- {
+    // Navigator.pushReplacement(
+    // context,
+    // MaterialPageRoute(builder: (context) => Selectlanguage()),
+    // );
+        {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => Dynamichome(selectedIndex: 0)),

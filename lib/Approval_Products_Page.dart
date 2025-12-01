@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
-
 import 'config/env.dart';
 
 class ApprovalProductsPage extends StatefulWidget {
@@ -25,12 +24,13 @@ class _ApprovalProductsPageState extends State<ApprovalProductsPage>
   List<dynamic> approvedAccessories = [];
   List<dynamic> approvedServices = [];
   List<dynamic> approvedJobs = [];
+
   late GraphQLClient client;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this); // 6 tabs
+    _tabController = TabController(length: 6, vsync: this);
 
     final HttpLink link = HttpLink(backendUrl);
     client = GraphQLClient(
@@ -123,10 +123,16 @@ class _ApprovalProductsPageState extends State<ApprovalProductsPage>
     setState(() => loading = false);
   }
 
-  // Updated buildList function: handles Jobs separately
   Widget buildList(List<dynamic> items, String type) {
     if (loading) return const Center(child: CircularProgressIndicator());
-    if (items.isEmpty) return Center(child: Text("No approved $type found"));
+    if (items.isEmpty) {
+      return Center(
+        child: Text(
+          "No approved $type found",
+          style: const TextStyle(fontSize: 16, color: Colors.black54),
+        ),
+      );
+    }
 
     return ListView.builder(
       padding: const EdgeInsets.all(12),
@@ -138,29 +144,47 @@ class _ApprovalProductsPageState extends State<ApprovalProductsPage>
         String subtitle = "";
 
         if (type == "jobs") {
-          // ✅ Correct fields for Jobs
           title = item['jobName'] ?? "";
-          subtitle = "Salary: ₹${item['salary']} · Status: ${item['status']}";
+          subtitle = "Salary: ₹${item['salary']}  ·  Status: ${item['status']}";
         } else if (type == "rentals") {
           title = item['name'] ?? "";
           subtitle =
-          "Price/hr: ₹${item['pricePerHour']} · Status: ${item['status']}";
+          "Price/hr: ₹${item['pricePerHour']}  ·  Status: ${item['status']}";
         } else {
-          // Other product types
           title = item['name'] ?? "";
-          subtitle = "Price: ₹${item['price']} · Status: ${item['status']}";
+          subtitle = "Price: ₹${item['price']}  ·  Status: ${item['status']}";
         }
 
         return Card(
-          elevation: 2,
+          color: Colors.white,
+          elevation: 0,
           margin: const EdgeInsets.symmetric(vertical: 6),
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(
+              color: Color(0xFFE5E7EB),
+              width: 1,
+            ),
+          ),
           child: ListTile(
-            leading: Icon(Icons.verified, color: themeColor),
-            title: Text(title),
-            subtitle: Text(subtitle),
-            trailing: Icon(Icons.check_circle_outline, color: themeColor),
+            leading: Icon(Icons.check_circle, color: themeColor, size: 30),
+            title: Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            subtitle: Text(
+              subtitle,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.black87,
+              ),
+            ),
+
+            // ✅ Right-side approval icon removed
+            trailing: null,
           ),
         );
       },
@@ -176,10 +200,15 @@ class _ApprovalProductsPageState extends State<ApprovalProductsPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFFFFFF),
       appBar: AppBar(
+        iconTheme: const IconThemeData(color: Colors.white),
         title: const Text(
           "Approved Products",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
         backgroundColor: themeColor,
         bottom: TabBar(

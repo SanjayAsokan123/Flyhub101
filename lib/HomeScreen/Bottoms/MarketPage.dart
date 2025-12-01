@@ -925,6 +925,8 @@ class _MarketPageState extends State<MarketPage>
                     color: kTextPrimary,
                     fontWeight: FontWeight.w600,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: ResponsiveUtils.getCardMargin(context)),
                 Text(
@@ -933,6 +935,9 @@ class _MarketPageState extends State<MarketPage>
                     fontSize: ResponsiveUtils.getBodyFontSize(context),
                     color: kTextSecondary,
                   ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
                 ElevatedButton(
@@ -954,6 +959,8 @@ class _MarketPageState extends State<MarketPage>
                       fontWeight: FontWeight.w600,
                       fontSize: ResponsiveUtils.getBodyFontSize(context),
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -1064,11 +1071,13 @@ class _MarketPageState extends State<MarketPage>
                             ),
                             SizedBox(height: ResponsiveUtils.getCardMargin(context) / 4),
                             Text(
-                                'No Image',
-                                style: GoogleFonts.inter(
-                                    color: kTextSecondary,
-                                    fontSize: ResponsiveUtils.getSmallFontSize(context)
-                                )
+                              'No Image',
+                              style: GoogleFonts.inter(
+                                  color: kTextSecondary,
+                                  fontSize: ResponsiveUtils.getSmallFontSize(context)
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
@@ -1084,6 +1093,7 @@ class _MarketPageState extends State<MarketPage>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Brand name with ellipsis
                         Text(
                           item['brand'] ?? '',
                           style: GoogleFonts.inter(
@@ -1095,47 +1105,33 @@ class _MarketPageState extends State<MarketPage>
                           overflow: TextOverflow.ellipsis,
                         ),
                         SizedBox(height: ResponsiveUtils.getCardMargin(context) / 4),
-                        Text(
-                          item['name'] ?? '',
-                          style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w600,
-                            fontSize: ResponsiveUtils.getBodyFontSize(context),
-                            color: kTextPrimary,
+
+                        // Drone/Product name with ellipsis - FIXED
+                        Expanded(
+                          child: Text(
+                            item['name'] ?? '',
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600,
+                              fontSize: ResponsiveUtils.getBodyFontSize(context),
+                              color: kTextPrimary,
+                            ),
+                            maxLines: 2, // Show 2 lines maximum
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: ResponsiveUtils.getMarketProductNameLines(context),
-                          overflow: TextOverflow.ellipsis,
                         ),
-                        const Spacer(),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              "₹${(item['price'] ?? 0).round()}",
-                              style: GoogleFonts.inter(
-                                fontWeight: FontWeight.w800,
-                                fontSize: ResponsiveUtils.getBodyFontSize(context) + 2,
-                                color: kPrimaryColor,
-                              ),
-                            ),
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: ResponsiveUtils.getCardMargin(context) / 2,
-                                  vertical: ResponsiveUtils.getCardMargin(context) / 4
-                              ),
-                              decoration: BoxDecoration(
-                                color: kAccentColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                "In Stock",
-                                style: GoogleFonts.inter(
-                                  fontSize: ResponsiveUtils.getSmallFontSize(context),
-                                  color: kAccentColor,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
+
+                        SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
+
+                        // Price
+                        Text(
+                          "₹${(item['price'] ?? 0).round()}",
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w800,
+                            fontSize: ResponsiveUtils.getBodyFontSize(context) + 2,
+                            color: kPrimaryColor,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),

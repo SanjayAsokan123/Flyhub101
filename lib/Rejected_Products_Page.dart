@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
-
 import 'config/env.dart';
 
 class RejectedProductsPage extends StatefulWidget {
@@ -34,8 +33,10 @@ class _RejectedProductsPageState extends State<RejectedProductsPage>
     _tabController = TabController(length: 6, vsync: this);
 
     final HttpLink link = HttpLink(backendUrl);
-    client =
-        GraphQLClient(link: link, cache: GraphQLCache(store: InMemoryStore()));
+    client = GraphQLClient(
+      link: link,
+      cache: GraphQLCache(store: InMemoryStore()),
+    );
 
     fetchRejectedProducts();
   }
@@ -86,34 +87,75 @@ class _RejectedProductsPageState extends State<RejectedProductsPage>
     setState(() => loading = false);
   }
 
+  // -------------------------
+  //   CARD DESIGN SAME AS SoldProductsPage WITHOUT ARROW
+  // -------------------------
+  Widget buildCardUI({
+    required String title,
+    required String subtitle,
+  }) {
+    return Card(
+      color: Colors.white,
+      elevation: 0,
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0xFFE5E7EB), width: 1),
+      ),
+      child: ListTile(
+        leading: Icon(Icons.cancel, color: themeColor, size: 28),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(fontSize: 14),
+        ),
+        // Removed trailing arrow
+      ),
+    );
+  }
+
+  // -------------------------
+  //   LIST BUILDER
+  // -------------------------
   Widget buildList(List<dynamic> items, String type) {
-    if (loading) return const Center(child: CircularProgressIndicator());
-    if (items.isEmpty) return Center(child: Text("No rejected $type found"));
+    if (loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (items.isEmpty) {
+      return Center(
+        child: Text(
+          "No rejected $type found",
+          style: const TextStyle(fontSize: 16, color: Colors.black54),
+        ),
+      );
+    }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.zero,
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
-        String title =
-        type == "jobs" ? item['jobName'] ?? "" : item['name'] ?? "";
-        String subtitle = type == "jobs"
-            ? "Salary: ₹${item['salary']} · Status: ${item['status']}"
-            : type == "rentals"
-            ? "Price/hr: ₹${item['pricePerHour']} · Status: ${item['status']}"
-            : "Price: ₹${item['price']} · Status: ${item['status']}";
 
-        return Card(
-          elevation: 2,
-          margin: const EdgeInsets.symmetric(vertical: 6),
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: ListTile(
-            leading: Icon(Icons.cancel, color: themeColor),
-            title: Text(title),
-            subtitle: Text(subtitle),
-            trailing: Icon(Icons.cancel_outlined, color: themeColor),
-          ),
+        String title = type == "jobs"
+            ? (item["jobName"] ?? "")
+            : (item["name"] ?? "");
+
+        String subtitle = type == "jobs"
+            ? "Salary: ₹${item['salary']}  •  Status: ${item['status']}"
+            : type == "rentals"
+            ? "Price/hr: ₹${item['pricePerHour']}  •  Status: ${item['status']}"
+            : "Price: ₹${item['price']}  •  Status: ${item['status']}";
+
+        return buildCardUI(
+          title: title,
+          subtitle: subtitle,
         );
       },
     );
@@ -128,12 +170,17 @@ class _RejectedProductsPageState extends State<RejectedProductsPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFFFFFF),
       appBar: AppBar(
+        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: themeColor,
         title: const Text(
           "Rejected Products",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
-        backgroundColor: themeColor,
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flyhub/FindJobs.dart';
 import 'package:flyhub/MaintenancePage.dart';
 import 'package:flyhub/Training_Enroll_Form.dart';
-import 'package:flyhub/DroneServicesPage.dart';
+
 import '../HomeScreen/Dynamichome.dart';
 import '../category_tile.dart';
 import '../../CommonClass/utils.dart';
@@ -72,12 +72,7 @@ class _Template1State extends State<Template1> {
                 _navigateIfSeller(context, () => AddHirePilotForm(sellerId: _sellerId!));
                 break;
 
-              case "drone_services":
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) =>  DroneServicesPage()),
-                );
-                break;
+
 
               case "jobs_portal":
                 Navigator.push(

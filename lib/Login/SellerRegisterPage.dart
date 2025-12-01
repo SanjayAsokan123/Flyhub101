@@ -108,7 +108,6 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
     }
   }
 
-
   // ═════════════════════════════════════════════════════════════
   // STEP 2: VERIFY OTP AND CREATE ACCOUNT (FIREBASE)
   // ═════════════════════════════════════════════════════════════
@@ -131,30 +130,28 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
       return;
     }
 
-
     String phoneWithCode = ph.startsWith('+') ? ph : '+91$ph';
+
     setState(() => loading = true);
 
     try {
-      // 1️⃣ VERIFY OTP
-      final PhoneAuthCredential credential  = PhoneAuthProvider.credential(
+      // 1️⃣ Verify OTP with Firebase
+      final PhoneAuthCredential credential = PhoneAuthProvider.credential(
         verificationId: verificationId!,
         smsCode: code,
       );
 
+      // 2️⃣ Create email/password account first
       final userCredential =
       await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: pass,
       );
 
-
-
-
       final user = userCredential.user;
       if (user == null) throw Exception("User creation failed");
 
-      // ⿣ Link phone credential to the account
+      // 3️⃣ Link phone credential to the account
       try {
         await user.linkWithCredential(credential);
         print("✅ Phone linked to account");
@@ -168,18 +165,24 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
         }
       }
 
-      // 3️⃣ UPDATE SELLER OTP DOCUMENT
-      await _firestore.collection("SellerOtp").doc(phoneWithCode).set({
-        "uid": user.uid,
-        "phoneVerified": true,
-        "updatedAt": FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      // 4️⃣ Create Firestore document
+      await _firestore.collection('users').doc(user.uid).set({
+        'uid': user.uid,
+        'email': email,
+        'phone': phoneWithCode,
+        'firstName': firstName.text.trim(),
+        'lastName': lastName.text.trim(),
+        'role': 'seller',
+        'phoneVerified': true,
+        'emailVerified': false, // Will be verified by admin
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
 
       setState(() {
         phoneVerified = true;
         accountCreated = true;
       });
-
 
       showMessage("✅ Account created! Complete your business profile.");
     } catch (e) {
@@ -192,51 +195,60 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
       } catch (_) {}
 
       showMessage("❌ ${e.toString().replaceAll('Exception: ', '')}");
-    }finally {
-      setState(() => loading = false);
-    }
-  }
-
-
-  // ═════════════════════════════════════════════════════════════
-  // STEP 3: SUBMIT SELLER FORM (FIREBASE)
-  // ═════════════════════════════════════════════════════════════
-  Future<void> submitSellerForm() async {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      showMessage("User not logged in");
-      return;
-    }
-
-    setState(() => loading = true);
-
-    try {
-      final phoneNumber = phone.text.startsWith("+")
-          ? phone.text.trim()
-          : "+91${phone.text.trim()}";
-
-      // 👉 First: Send all data to MongoDB and get customId
-      final String? customId =
-      await saveSellerToMongoAndMirror(user, phoneNumber);
-
-      if (customId == null) {
-        throw Exception("Failed to get customId from MongoDB");
-      }
-
-      await RoleManager.setLocalRole("seller");
-
-      // 👉 Success Dialog
-      await _showSubmissionConfirmationDialog();
-
-    } catch (e) {
-      showMessage("Error: ${e.toString()}");
     } finally {
       setState(() => loading = false);
     }
   }
 
+  // ═════════════════════════════════════════════════════════════
+  // STEP 3: SUBMIT SELLER FORM (FIREBASE)
+  // ═════════════════════════════════════════════════════════════
 
+  Future<void> submitSellerForm() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => loading = true);
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception("No user logged in");
+
+      String phoneWithCode = phone.text.trim().startsWith('+')
+          ? phone.text.trim()
+          : '+91${phone.text.trim()}';
+
+      final sellerIdLocal = "SELLER_${user.uid.substring(0, 6).toUpperCase()}";
+
+      await _firestore.collection("users").doc(user.uid).set({
+        "sellerId": sellerIdLocal,
+        "role": "seller",
+        "sellerStatus": "pending",
+        "phoneNumber": phoneWithCode,
+        "phoneVerified": true,
+        "updatedAt": FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      await _firestore
+          .collection("loginIndex")
+          .doc("phone_$phoneWithCode")
+          .set({"uid": user.uid});
+
+      await _firestore
+          .collection("loginIndex")
+          .doc("sellerId_$sellerIdLocal")
+          .set({"uid": user.uid});
+
+      await saveSellerToMongoAndMirror(user, sellerIdLocal, phoneWithCode);
+
+      await RoleManager.setLocalRole("seller");
+
+      // Show submission confirmation dialog
+      await _showSubmissionConfirmationDialog();
+    } catch (e) {
+      showMessage("❌ ${e.toString().replaceAll('Exception: ', '')}");
+      setState(() => loading = false);
+    }
+  }
 
   /// Show confirmation dialog after submission
   Future<void> _showSubmissionConfirmationDialog() async {
@@ -321,39 +333,48 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
 
   Future<String?> saveSellerToMongoAndMirror(
       User user,
-      String phoneNumber,
+      String fallbackSellerId,
+      String phoneWithCode,
       ) async {
     final token = await user.getIdToken();
 
-    final client = GraphQLClient(
+    final AuthLink authLink = AuthLink(
+      getToken: () async => "Bearer $token",
+    );
+
+    final HttpLink httpLink = HttpLink(graphqlUrl);
+    final Link link = authLink.concat(httpLink);
+
+    final GraphQLClient client = GraphQLClient(
       cache: GraphQLCache(),
-      link: AuthLink(getToken: () async => "Bearer $token")
-          .concat(HttpLink(graphqlUrl)),
+      link: link,
     );
 
     const String mutation = r'''
-    mutation CreateSeller($input: SellerInput!) {
-      createSeller(input: $input) {
-        customId
-        status
-        companyName
+      mutation CreateSeller($input: SellerInput!) {
+        createSeller(input: $input) {
+         customId
+          companyName
+          email
+          status
+        }
       }
-    }
-  ''';
+    ''';
 
-    // -------------------- Address Logic --------------------
+    // ✅ Get shipping and pickup addresses
     String finalShippingAddress = shippingAddress.text.trim();
     String finalPickupAddress = pickupAddress.text.trim();
 
+    // If "Same as Business Address" is checked, use business address
     if (sameAsBusinessAddress && finalShippingAddress.isEmpty) {
       finalShippingAddress = address.text.trim();
     }
 
+    // If "Pickup same as Shipping" is checked, use shipping address
     if (pickupSameAsShipping && finalPickupAddress.isEmpty) {
       finalPickupAddress = finalShippingAddress;
     }
 
-    // -------------------- SEND TO MONGO --------------------
     final variables = {
       "input": {
         "name": "${firstName.text.trim()} ${lastName.text.trim()}",
@@ -361,13 +382,14 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
         "PANnumber": pan.text.trim(),
         "gstNumber": gst.text.trim(),
         "address": address.text.trim(),
-        "phoneNumber": phoneNumber,
+        "phoneNumber": phoneWithCode,
         "authorized": storeName.text.trim(),
         "email": user.email,
         "bankName": bank.text.trim(),
         "bankAccountNumber": account.text.trim(),
         "bankIFCnumber": ifsc.text.trim(),
         "companyPan": pan.text.trim(),
+        // ✅ NEW: Include shipping and pickup addresses
         "shippingAddresses": [finalShippingAddress],
         "pickupAddresses": [finalPickupAddress],
         "firebaseUid": user.uid,
@@ -384,42 +406,36 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
     }
 
     final created = result.data?['createSeller'];
-    final customId = created?['customId'];
-    final status = created?['status'] ?? "pending";
+    final customId = created?['customId'] as String?;
+    final status = created?['status'] as String? ?? 'pending';
 
-    if (customId == null) throw Exception("No customId returned from server");
+    final sellerDocId = customId ?? fallbackSellerId;
 
-    // -------------------- SAVE TO sellers COLLECTION --------------------
-    await _firestore.collection("sellers").doc(customId).set({
-      "customId": customId,
-      "firebaseUid": user.uid,
+    await _firestore.collection("sellers").doc(sellerDocId).set({
+      "customId": sellerDocId,
       "companyName": storeName.text.trim(),
-      "gstNumber": gst.text.trim(),
-      "panNumber": pan.text.trim(),
-      "address": address.text.trim(),
-      "shippingAddresses": [finalShippingAddress],
-      "pickupAddresses": [finalPickupAddress],
-      "bankName": bank.text.trim(),
-      "accountNumber": account.text.trim(),
-      "ifsc": ifsc.text.trim(),
-      "phoneNumber": phoneNumber,
       "email": user.email,
+      "phoneNumber": phoneWithCode,
+      "firebaseUid": user.uid,
       "status": status,
       "createdAt": FieldValue.serverTimestamp(),
-      "updatedAt": FieldValue.serverTimestamp(),
-    });
-
-    // -------------------- UPDATE SellerOtp --------------------
-    await _firestore.collection("SellerOtp").doc(phoneNumber).set({
-      "phone": phoneNumber,
-      "uid": user.uid,
-      "phoneVerified": true,
-      "updatedAt": FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+
+    await _firestore.collection("users").doc(user.uid).set({
+      "sellerId": sellerDocId,
+      "customId": sellerDocId,
+      "sellerStatus": status,
+    }, SetOptions(merge: true));
+
+    if (customId != null && customId != fallbackSellerId) {
+      await _firestore
+          .collection("loginIndex")
+          .doc("sellerId_$customId")
+          .set({"uid": user.uid});
+    }
 
     return customId;
   }
-
 
   // ═════════════════════════════════════════════════════════════
   // UI - SINGLE PAGE WITH PROGRESSIVE SECTIONS

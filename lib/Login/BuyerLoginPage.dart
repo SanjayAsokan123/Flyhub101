@@ -5,13 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../HomeScreen/Dynamichome.dart';
 import '../../services/role_manager.dart';
 import '../../services/graphql_client.dart';
 import '../../config/env.dart';
 import './BuyerRegisterPage.dart';
-import './forgot_password_page.dart';
+import './ForgotPasswordPage.dart';
 
 class BuyerLoginPage extends StatefulWidget {
   final String? logoPath;
@@ -31,6 +32,10 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
   bool showPassword = false;
 
   static const Color themeColor = Color(0xFF1A0A5B);
+  static const Color backgroundColor = Color(0xFFF8FAFC);
+  static const Color surfaceColor = Colors.white;
+  static const Color borderColor = Color(0xFFE5E7EB);
+  static const Color textSecondary = Color(0xFF6B7280);
 
   // =============================================================
   // ⭐ Save FCM Token after Login
@@ -108,7 +113,6 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
 
       final buyerId = buyerData["buyerId"];
       final email = buyerData["email"] ?? "";
-
 
       // Step 3 → Firebase email/password login (only if email exists)
       if (email.isNotEmpty) {
@@ -204,126 +208,308 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
     }
   }
 
-
   // =============================================================
-  // UI
+  // SIMPLE & PROFESSIONAL UI
   // =============================================================
   @override
   Widget build(BuildContext context) {
-    final h = MediaQuery.of(context).size.height;
-
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: backgroundColor,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 30),
-          child: Column(
-            children: [
-              SizedBox(height: h * 0.07),
-              Text("Welcome Back",
-                  style: TextStyle(
-                      fontSize: 28, fontWeight: FontWeight.bold, color: themeColor)),
-              const SizedBox(height: 10),
-              Text("Login to explore FlyHub marketplace",
-                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
-              const SizedBox(height: 40),
-
-              // Input
-              TextField(
-                controller: input,
-                decoration: InputDecoration(
-                  hintText: "Email / Phone / Buyer ID",
-                  prefixIcon: const Icon(Icons.person_outline),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              const SizedBox(height: 15),
-
-              // Password
-              TextField(
-                controller: password,
-                obscureText: !showPassword,
-                decoration: InputDecoration(
-                  hintText: "Password",
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  suffixIcon: IconButton(
-                    icon: Icon(showPassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined),
-                    onPressed: () => setState(() => showPassword = !showPassword),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Welcome Text
+                  Column(
+                    children: [
+                      Text(
+                        "Welcome Back",
+                        style: GoogleFonts.inter(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w700,
+                          color: themeColor,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "Login to explore Flyhub marketplace",
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          color: textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
+                  const SizedBox(height: 40),
 
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ForgotPasswordPage()),
+                  // Input Fields Card
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: surfaceColor,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: borderColor),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        // Email/Phone/Buyer ID
+                        TextField(
+                          controller: input,
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            color: Colors.black87,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: "Email / Phone / Buyer ID",
+                            hintStyle: GoogleFonts.inter(color: textSecondary),
+                            prefixIcon: const Icon(
+                              Icons.person_outline_rounded,
+                              color: textSecondary,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: borderColor),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: borderColor),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: themeColor),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 16,
+                              horizontal: 16,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Password
+                        TextField(
+                          controller: password,
+                          obscureText: !showPassword,
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            color: Colors.black87,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: "Password",
+                            hintStyle: GoogleFonts.inter(color: textSecondary),
+                            prefixIcon: const Icon(
+                              Icons.lock_outlined,
+                              color: textSecondary,
+                            ),
+                            suffixIcon: IconButton(
+                              onPressed: () => setState(() => showPassword = !showPassword),
+                              icon: Icon(
+                                showPassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                                color: textSecondary,
+                              ),
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: borderColor),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: borderColor),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: themeColor),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 16,
+                              horizontal: 16,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Forgot Password
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const ForgotPasswordPage()),
+                            ),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                            ),
+                            child: Text(
+                              "Forgot Password?",
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                color: themeColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Login Button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: _isLoading
+                              ? Center(
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(themeColor),
+                            ),
+                          )
+                              : ElevatedButton(
+                            onPressed: buyerLogin,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: themeColor,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            child: Text(
+                              "Login",
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Divider
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Divider(color: borderColor),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text(
+                                "or",
+                                style: GoogleFonts.inter(
+                                  color: textSecondary,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Divider(color: borderColor),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Google Login
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: OutlinedButton.icon(
+                            onPressed: _signInWithGoogle,
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: borderColor),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            icon: Image.asset(
+                              'assets/google_logo.png',
+                              height: 24,
+                              width: 24,
+                            ),
+                            label: Text(
+                              "Continue with Google",
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: const Text("Forgot Password?", style: TextStyle(color: themeColor)),
-                ),
-              ),
+                  const SizedBox(height: 32),
 
-              const SizedBox(height: 20),
-
-              _isLoading
-                  ? const CircularProgressIndicator()
-                  : ElevatedButton(
-                onPressed: buyerLogin,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: themeColor,
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                child: const Text("Login",
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold)),
-              ),
-
-              const SizedBox(height: 20),
-
-              Row(children: const [
-                Expanded(child: Divider()),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8.0),
-                  child: Text("or"),
-                ),
-                Expanded(child: Divider()),
-              ]),
-              const SizedBox(height: 20),
-
-              // Google Login
-              ElevatedButton.icon(
-                onPressed: _signInWithGoogle,
-                icon: Image.asset('assets/google_logo.png', height: 24),
-                label: const Text("Continue with Google",
-                    style: TextStyle(color: Colors.black)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 50),
-                  side: const BorderSide(color: Colors.grey),
-                ),
-              ),
-
-              const SizedBox(height: 25),
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                const Text("New user? "),
-                GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const BuyerRegisterPage()),
+                  // Sign Up Link
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        "New user? ",
+                        style: GoogleFonts.inter(
+                          color: textSecondary,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const BuyerRegisterPage()),
+                        ),
+                        child: Text(
+                          "Create account",
+                          style: GoogleFonts.inter(
+                            color: themeColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  child: const Text("Register here",
-                      style: TextStyle(
-                          color: themeColor, fontWeight: FontWeight.bold)),
-                ),
-              ]),
-              SizedBox(height: h * 0.05),
-            ],
+                  const SizedBox(height: 24),
+
+                  // Security Note
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.shield_outlined,
+                          color: themeColor,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            "Your login is secured with end-to-end encryption",
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: themeColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -331,7 +517,18 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
   }
 
   void showMessage(String msg) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          msg,
+          style: GoogleFonts.inter(),
+        ),
+        backgroundColor: themeColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
   }
 }

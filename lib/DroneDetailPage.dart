@@ -1,3 +1,5 @@
+// 3
+import 'CommonClass/utils.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,7 +12,13 @@ import '../services/cart_wishlist_provider.dart';
 
 class DroneDetailPage extends StatefulWidget {
   final Map<String, dynamic> drone;
-  const DroneDetailPage({super.key, required this.drone, required Drone});
+  final bool initialIsFavorite;
+
+  const DroneDetailPage({
+    super.key,
+    required this.drone,
+    this.initialIsFavorite = false, required Drone,
+  });
 
   @override
   State<DroneDetailPage> createState() => _DroneDetailPageState();
@@ -19,6 +27,8 @@ class DroneDetailPage extends StatefulWidget {
 class _DroneDetailPageState extends State<DroneDetailPage> {
   int quantity = 1;
   int cartCount = 0;
+  bool _localIsFavorite = false;
+  bool _wishlistChanged = false;
 
   final Color themeColor = const Color(0xFF1A0A5B);
 
@@ -26,6 +36,7 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
   void initState() {
     super.initState();
     _loadCartCount();
+    _localIsFavorite = widget.initialIsFavorite;
   }
 
   Future<void> _loadCartCount() async {
@@ -38,18 +49,28 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
   Future<void> _toggleWishlist() async {
     final provider = context.read<CartWishlistProvider>();
     final name = widget.drone['name'] ?? 'Item';
+
     final added = await provider.toggleWishlist(widget.drone);
 
-    // Show toast message
+    setState(() {
+      _localIsFavorite = added;
+      _wishlistChanged = true;
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: themeColor,
         content: Row(
           children: [
-            Icon(added ? Icons.favorite : Icons.favorite_border, color: Colors.white),
+            Icon(
+              added ? Icons.favorite : Icons.favorite_border,
+              color: Colors.white,
+            ),
             const SizedBox(width: 10),
             Text(
-              added ? "$name added to wishlist" : "$name removed from wishlist",
+              added
+                  ? "$name added to wishlist"
+                  : "$name removed from wishlist",
               style: GoogleFonts.lexend(color: Colors.white),
             ),
           ],
@@ -59,11 +80,14 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
     );
   }
 
+
+
   bool _isInWishlist(BuildContext context) {
     final provider = context.watch<CartWishlistProvider>();
     final id = widget.drone['id']?.toString() ?? '';
     return provider.wishlistIds.contains(id);
   }
+
 
   Future<void> _addToCart() async {
     final prefs = await SharedPreferences.getInstance();
@@ -79,7 +103,8 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
       'quantity': quantity,
     };
 
-    final exists = cartItems.any((item) => item['id'] == currentDrone['id']);
+    final exists =
+    cartItems.any((item) => item['id'] == currentDrone['id']);
     if (exists) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -101,8 +126,10 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
           children: [
             const Icon(Icons.check_circle, color: Colors.white),
             const SizedBox(width: 10),
-            Text("Added to cart successfully!",
-                style: GoogleFonts.lexend(color: Colors.white)),
+            Text(
+              "Added to cart successfully!",
+              style: GoogleFonts.lexend(color: Colors.white),
+            ),
           ],
         ),
       ),
@@ -114,7 +141,6 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
     await _loadCartCount();
   }
 
-  // Function to show full-screen image viewer like Flipkart
   void _showFullScreenImage() {
     Navigator.push(
       context,
@@ -127,10 +153,17 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
     );
   }
 
+  void _popWithResult() {
+    Navigator.pop(context, {
+      'wishlistChanged': _wishlistChanged,
+      'isFavorite': _localIsFavorite,
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final drone = widget.drone;
-    final isFavorite = _isInWishlist(context);
+    final isFavorite = _isInWishlist(context) || _localIsFavorite;
 
     final double price = (drone['price'] ?? 0).toDouble();
     final double totalAmount = price * quantity;
@@ -154,300 +187,364 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
       },
     ];
 
-    return Scaffold(
-      backgroundColor: const Color(0xfff7f7f7),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 1,
-        title: Text(
-          drone['name'] ?? 'Drone Details',
-          style: GoogleFonts.lexend(
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
+    return WillPopScope(
+      onWillPop: () async {
+        _popWithResult();
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xfff7f7f7),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 1,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: _popWithResult,
           ),
-        ),
-        centerTitle: true,
-        actions: [
-          // Favorite icon that syncs with provider
-          IconButton(
-            icon: Icon(
-              isFavorite ? Icons.favorite : Icons.favorite_border,
-              color: isFavorite ? Colors.redAccent : themeColor,
+          title: Text(
+            drone['name'] ?? 'Drone Details',
+            style: GoogleFonts.lexend(
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
             ),
-            onPressed: _toggleWishlist,
           ),
-          Stack(
-            children: [
-              IconButton(
-                icon: Icon(Icons.shopping_cart_outlined, color: themeColor),
-                onPressed: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const MyCartPage()),
-                  );
-                  _loadCartCount();
-                },
+          centerTitle: true,
+          actions: [
+            IconButton(
+              icon: Icon(
+                isFavorite ? Icons.favorite : Icons.favorite_border,
+                color: isFavorite ? Colors.redAccent : themeColor,
               ),
-              if (cartCount > 0)
-                Positioned(
-                  right: 6,
-                  top: 6,
-                  child: Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      color: Colors.redAccent,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    constraints:
-                    const BoxConstraints(minWidth: 16, minHeight: 16),
-                    child: Text(
-                      '$cartCount',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+              onPressed: _toggleWishlist,
+            ),
+            Stack(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.shopping_cart_outlined,
+                      color: themeColor),
+                  onPressed: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const MyCartPage()),
+                    );
+                    _loadCartCount();
+                  },
+                ),
+                if (cartCount > 0)
+                  Positioned(
+                    right: 6,
+                    top: 6,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent,
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      textAlign: TextAlign.center,
+                      constraints: const BoxConstraints(
+                          minWidth: 16, minHeight: 16),
+                      child: Text(
+                        '$cartCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            IconButton(
+              icon: Icon(Icons.share, color: themeColor),
+              onPressed: () {
+                final text =
+                    "🚀 Check out this drone!\n${drone['name']} - ₹${drone['price']}\n${drone['description'] ?? "Amazing performance and great quality!"}";
+                Share.share(text);
+              },
+            ),
+          ],
+        ),
+        body: RefreshIndicator(
+          onRefresh: _handleRefresh,
+          color: themeColor,
+          backgroundColor: Colors.white,
+          displacement: 70,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                GestureDetector(
+                  onTap: _showFullScreenImage,
+                  child: Container(
+                    height: 280,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      image: DecorationImage(
+                        image: drone['image'] != null
+                            ? NetworkImage(drone['image'])
+                            : const AssetImage(
+                            'assets/images/MaskGroup34@2x.png')
+                        as ImageProvider,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    child: Align(
+                      alignment: Alignment.bottomRight,
+                      child: Container(
+                        margin: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.zoom_in,
+                                color: Colors.white, size: 16),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Tap to view',
+                              style: GoogleFonts.lexend(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
-            ],
-          ),
-          IconButton(
-            icon: Icon(Icons.share, color: themeColor),
-            onPressed: () {
-              final text =
-                  "🚀 Check out this drone!\n${drone['name']} - ₹${drone['price']}\n${drone['description'] ?? "Amazing performance and great quality!"}";
-              Share.share(text);
-            },
-          ),
-        ],
-      ),
+                const SizedBox(height: 20),
 
-      // Pull-to-refresh wrapper
-      body: RefreshIndicator(
-        onRefresh: _handleRefresh,
-        color: themeColor,
-        backgroundColor: Colors.white,
-        displacement: 70,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Image Section - Now opens full-screen viewer
-              GestureDetector(
-                onTap: _showFullScreenImage,
-                child: Container(
-                  height: 280,
-                  width: double.infinity,
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  margin:
+                  const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
-                    image: DecorationImage(
-                      image: drone['image'] != null
-                          ? NetworkImage(drone['image'])
-                          : const AssetImage('assets/images/MaskGroup34@2x.png') as ImageProvider,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  child: Align(
-                    alignment: Alignment.bottomRight,
-                    child: Container(
-                      margin: const EdgeInsets.all(12),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(20),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.shade300,
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        drone['name'] ?? "Drone",
+                        style: GoogleFonts.lexend(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        drone['brand'] ?? "Drone Brand",
+                        style: GoogleFonts.lexend(
+                            color: Colors.black87),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
                         children: [
-                          Icon(Icons.zoom_in, color: Colors.white, size: 16),
-                          const SizedBox(width: 4),
                           Text(
-                            'Tap to view',
+                            "₹${drone['price'] ?? 0}",
                             style: GoogleFonts.lexend(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: themeColor,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            "₹${(drone['price'] ?? 0) + 2000}",
+                            style: GoogleFonts.lexend(
+                              fontSize: 16,
+                              color: Colors.grey,
+                              decoration:
+                              TextDecoration.lineThrough,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding:
+                            const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent,
+                              borderRadius:
+                              BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              "10% OFF",
+                              style: GoogleFonts.lexend(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ],
                       ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Text(
+                            "Quantity:",
+                            style: GoogleFonts.lexend(
+                              fontSize: 16,
+                              color: Colors.black,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius:
+                              BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons
+                                      .remove_circle_outline),
+                                  onPressed: () {
+                                    if (quantity > 1) {
+                                      setState(
+                                              () => quantity--);
+                                    }
+                                  },
+                                ),
+                                Text(
+                                  '$quantity',
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 16,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                      Icons.add_circle_outline),
+                                  onPressed: () {
+                                    setState(
+                                            () => quantity++);
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                _sectionTitle("Description"),
+                _sectionText(
+                  drone['description'] ??
+                      "Experience high-speed performance, stability and HD imaging with this advanced drone.",
+                ),
+
+                const SizedBox(height: 20),
+
+                _sectionTitle("Available Offers"),
+                _offerTile(Icons.local_offer,
+                    "10% Instant Discount on HDFC Cards"),
+                _offerTile(Icons.local_offer,
+                    "No Cost EMI for 6 Months"),
+                _offerTile(Icons.local_offer,
+                    "Exchange old drone for up to ₹5000"),
+
+                const SizedBox(height: 20),
+
+                _sectionTitle("Customer Reviews"),
+                ...reviews.map((r) => _reviewTile(r)),
+
+                const SizedBox(height: 40),
+              ],
+            ),
+          ),
+        ),
+        bottomNavigationBar: Container(
+          padding: const EdgeInsets.all(12),
+          color: Colors.white,
+          child: Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: themeColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 14),
+                  ),
+                  onPressed: _addToCart,
+                  icon: const Icon(
+                    Icons.shopping_cart_outlined,
+                    color: Colors.white,
+                  ),
+                  label: Text(
+                    "Add to Cart",
+                    style: GoogleFonts.lexend(
+                      fontSize: 16,
+                      color: Colors.white,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
-
-              // Info
-              Container(
-                padding: const EdgeInsets.all(20),
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.shade300,
-                      blurRadius: 12,
-                      offset: const Offset(0, 6),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orangeAccent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(drone['name'] ?? "Drone",
-                        style: GoogleFonts.lexend(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black)),
-                    const SizedBox(height: 4),
-                    Text(drone['brand'] ?? "Drone Brand",
-                        style: GoogleFonts.lexend(color: Colors.black87)),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Text("₹${drone['price'] ?? 0}",
-                            style: GoogleFonts.lexend(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: themeColor)),
-                        const SizedBox(width: 8),
-                        Text("₹${(drone['price'] ?? 0) + 2000}",
-                            style: GoogleFonts.lexend(
-                                fontSize: 16,
-                                color: Colors.grey,
-                                decoration: TextDecoration.lineThrough)),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.redAccent,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text("10% OFF",
-                              style: GoogleFonts.lexend(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold)),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 14),
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AddressPage(
+                          drone: widget.drone,
+                          total: totalAmount,
                         ),
-                      ],
+                      ),
+                    );
+                  },
+                  icon: const Icon(
+                    Icons.flash_on,
+                    color: Colors.white,
+                  ),
+                  label: Text(
+                    "Buy Now",
+                    style: GoogleFonts.lexend(
+                      fontSize: 16,
+                      color: Colors.white,
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Text("Quantity:",
-                            style: GoogleFonts.lexend(
-                                fontSize: 16, color: Colors.black)),
-                        const SizedBox(width: 10),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.remove_circle_outline),
-                                onPressed: () {
-                                  if (quantity > 1) {
-                                    setState(() => quantity--);
-                                  }
-                                },
-                              ),
-                              Text('$quantity',
-                                  style: GoogleFonts.lexend(
-                                      fontSize: 16, color: Colors.black)),
-                              IconButton(
-                                icon: const Icon(Icons.add_circle_outline),
-                                onPressed: () {
-                                  setState(() => quantity++);
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
               ),
-
-              const SizedBox(height: 20),
-
-              _sectionTitle("Description"),
-              _sectionText(drone['description'] ??
-                  "Experience high-speed performance, stability and HD imaging with this advanced drone."),
-
-              const SizedBox(height: 20),
-
-              _sectionTitle("Available Offers"),
-              _offerTile(Icons.local_offer, "10% Instant Discount on HDFC Cards"),
-              _offerTile(Icons.local_offer, "No Cost EMI for 6 Months"),
-              _offerTile(Icons.local_offer, "Exchange old drone for up to ₹5000"),
-
-              const SizedBox(height: 20),
-
-              _sectionTitle("Customer Reviews"),
-              ...reviews.map((r) => _reviewTile(r)),
-
-              const SizedBox(height: 40),
             ],
           ),
-        ),
-      ),
-
-      // Bottom Buttons
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(12),
-        color: Colors.white,
-        child: Row(
-          children: [
-            Expanded(
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: themeColor,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                onPressed: _addToCart,
-                icon: const Icon(Icons.shopping_cart_outlined,
-                    color: Colors.white),
-                label: Text("Add to Cart",
-                    style:
-                    GoogleFonts.lexend(fontSize: 16, color: Colors.white)),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orangeAccent,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => AddressPage(
-                        drone: widget.drone,
-                        total: totalAmount,
-                      ),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.flash_on, color: Colors.white),
-                label: Text("Buy Now",
-                    style:
-                    GoogleFonts.lexend(fontSize: 16, color: Colors.white)),
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -455,18 +552,27 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
 
   Widget _sectionTitle(String text) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 20),
-    child: Text(text,
-        style: GoogleFonts.lexend(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.black)),
+    child: Text(
+      text,
+      style: GoogleFonts.lexend(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+        color: Colors.black,
+      ),
+    ),
   );
 
   Widget _sectionText(String text) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-    child: Text(text,
-        style: GoogleFonts.lexend(
-            color: Colors.black87, height: 1.6, fontSize: 14)),
+    padding:
+    const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+    child: Text(
+      text,
+      style: GoogleFonts.lexend(
+        color: Colors.black87,
+        height: 1.6,
+        fontSize: 14,
+      ),
+    ),
   );
 
   Widget _offerTile(IconData icon, String text) {
@@ -477,9 +583,13 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
           Icon(icon, color: Colors.green, size: 20),
           const SizedBox(width: 6),
           Expanded(
-            child: Text(text,
-                style:
-                GoogleFonts.lexend(color: Colors.black87, fontSize: 14)),
+            child: Text(
+              text,
+              style: GoogleFonts.lexend(
+                color: Colors.black87,
+                fontSize: 14,
+              ),
+            ),
           ),
         ],
       ),
@@ -488,11 +598,13 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
 
   Widget _reviewTile(Map<String, dynamic> review) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      margin:
+      const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius:
+        BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.shade200,
@@ -502,36 +614,48 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+        CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text(review["name"],
-                  style: GoogleFonts.lexend(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: Colors.black)),
+              Text(
+                review["name"],
+                style: GoogleFonts.lexend(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: Colors.black,
+                ),
+              ),
               const Spacer(),
               Row(
                 children: List.generate(
                   review["rating"],
-                      (index) =>
-                  const Icon(Icons.star, color: Colors.amber, size: 16),
+                      (index) => const Icon(
+                    Icons.star,
+                    color: Colors.amber,
+                    size: 16,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 6),
-          Text(review["comment"],
-              style: GoogleFonts.lexend(
-                  fontSize: 13, color: Colors.black87, height: 1.5)),
+          Text(
+            review["comment"],
+            style: GoogleFonts.lexend(
+              fontSize: 13,
+              color: Colors.black87,
+              height: 1.5,
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-// Full Screen Image Viewer like Flipkart
+// Full Screen Image Viewer
 class FullScreenImageViewer extends StatefulWidget {
   final String? imageUrl;
   final String? productName;
@@ -543,11 +667,14 @@ class FullScreenImageViewer extends StatefulWidget {
   });
 
   @override
-  State<FullScreenImageViewer> createState() => _FullScreenImageViewerState();
+  State<FullScreenImageViewer> createState() =>
+      _FullScreenImageViewerState();
 }
 
-class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
-  final TransformationController _transformationController = TransformationController();
+class _FullScreenImageViewerState
+    extends State<FullScreenImageViewer> {
+  final TransformationController _transformationController =
+  TransformationController();
   late InteractiveViewer _interactiveViewer;
   double _scale = 1.0;
 
@@ -563,7 +690,9 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
           image: DecorationImage(
             image: widget.imageUrl != null
                 ? NetworkImage(widget.imageUrl!)
-                : const AssetImage('assets/images/MaskGroup34@2x.png') as ImageProvider,
+                : const AssetImage(
+                'assets/images/MaskGroup34@2x.png')
+            as ImageProvider,
             fit: BoxFit.contain,
           ),
         ),
@@ -572,7 +701,8 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
 
     _transformationController.addListener(() {
       setState(() {
-        _scale = _transformationController.value.getMaxScaleOnAxis();
+        _scale =
+            _transformationController.value.getMaxScaleOnAxis();
       });
     });
   }
@@ -583,36 +713,33 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
 
   @override
   Widget build(BuildContext context) {
+    final paddingTop = MediaQuery.of(context).padding.top;
+    final paddingBottom =
+        MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Main image with zoom capability
           Positioned.fill(
             child: GestureDetector(
-              onDoubleTap: () {
-                _resetZoom();
-              },
+              onDoubleTap: _resetZoom,
               child: _interactiveViewer,
             ),
           ),
-
-          // Back button at top left
           Positioned(
-            top: MediaQuery.of(context).padding.top + 16,
+            top: paddingTop + 16,
             left: 16,
             child: GestureDetector(
-              onTap: () {
-                Navigator.pop(context);
-              },
+              onTap: () => Navigator.pop(context),
               child: Container(
                 width: 44,
                 height: 44,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: Colors.black54,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.arrow_back,
                   color: Colors.white,
                   size: 24,
@@ -620,19 +747,19 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
               ),
             ),
           ),
-
-          // Product name at top center
           Positioned(
-            top: MediaQuery.of(context).padding.top + 16,
+            top: paddingTop + 16,
             left: 0,
             right: 0,
             child: Align(
               alignment: Alignment.topCenter,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius:
+                  BorderRadius.circular(20),
                 ),
                 child: Text(
                   widget.productName ?? 'Product Image',
@@ -647,10 +774,8 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
               ),
             ),
           ),
-
-          // Reset zoom button at bottom right (single button)
           Positioned(
-            bottom: MediaQuery.of(context).padding.bottom + 20,
+            bottom: paddingBottom + 20,
             right: 20,
             child: GestureDetector(
               onTap: _resetZoom,
@@ -662,13 +787,14 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
+                      color:
+                      Colors.black.withOpacity(0.3),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
                   ],
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.refresh,
                   color: Colors.white,
                   size: 24,
@@ -676,22 +802,24 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
               ),
             ),
           ),
-
-          // Zoom level indicator at bottom center (only shows when zoomed)
           Positioned(
-            bottom: MediaQuery.of(context).padding.bottom + 20,
+            bottom: paddingBottom + 20,
             left: 0,
             right: 0,
             child: AnimatedOpacity(
               opacity: _scale != 1.0 ? 1.0 : 0.0,
-              duration: Duration(milliseconds: 300),
+              duration:
+              const Duration(milliseconds: 300),
               child: Align(
                 alignment: Alignment.bottomCenter,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                  const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: Colors.black54,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius:
+                    BorderRadius.circular(20),
                   ),
                   child: Text(
                     '${(_scale * 100).round()}%',
@@ -705,34 +833,38 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
               ),
             ),
           ),
-
-          // Swipe hint at bottom center (only shows when not zoomed)
           Positioned(
-            bottom: MediaQuery.of(context).padding.bottom + 80,
+            bottom: paddingBottom + 80,
             left: 0,
             right: 0,
             child: Align(
               alignment: Alignment.bottomCenter,
               child: AnimatedOpacity(
                 opacity: _scale == 1.0 ? 1.0 : 0.0,
-                duration: Duration(milliseconds: 300),
+                duration:
+                const Duration(milliseconds: 300),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                  const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: Colors.black54,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius:
+                    BorderRadius.circular(20),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.swipe, color: Colors.white, size: 16),
-                      const SizedBox(width: 8),
+                    children: const [
+                      Icon(Icons.swipe,
+                          color: Colors.white, size: 16),
+                      SizedBox(width: 8),
                       Text(
                         'Swipe to view more images',
-                        style: GoogleFonts.lexend(
+                        style: TextStyle(
                           color: Colors.white,
                           fontSize: 12,
-                          fontWeight: FontWeight.w500,
+                          fontWeight:
+                          FontWeight.w500,
                         ),
                       ),
                     ],
@@ -741,31 +873,34 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
               ),
             ),
           ),
-
-          // Zoom hint at bottom left (only shows when not zoomed)
           Positioned(
-            bottom: MediaQuery.of(context).padding.bottom + 20,
+            bottom: paddingBottom + 20,
             left: 20,
             child: AnimatedOpacity(
               opacity: _scale == 1.0 ? 1.0 : 0.0,
-              duration: Duration(milliseconds: 300),
+              duration:
+              const Duration(milliseconds: 300),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius:
+                  BorderRadius.circular(20),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.zoom_in, color: Colors.white, size: 16),
-                    const SizedBox(width: 8),
+                  children: const [
+                    Icon(Icons.zoom_in,
+                        color: Colors.white, size: 16),
+                    SizedBox(width: 8),
                     Text(
                       'Pinch to zoom',
-                      style: GoogleFonts.lexend(
+                      style: TextStyle(
                         color: Colors.white,
                         fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                        fontWeight:
+                        FontWeight.w500,
                       ),
                     ),
                   ],

@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/role_manager.dart';
 import '../../services/cart_wishlist_provider.dart';
+import '../../utils/responsive_utils.dart';
 
 class WishlistPage extends StatefulWidget {
   const WishlistPage({super.key});
@@ -16,222 +17,203 @@ class WishlistPage extends StatefulWidget {
   State<WishlistPage> createState() => _WishlistPageState();
 }
 
-class _WishlistPageState extends State<WishlistPage> with SingleTickerProviderStateMixin {
+class _WishlistPageState extends State<WishlistPage> {
   final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
 
-  List<Map<String, dynamic>> wishlistItems = [];
-  Stream<QuerySnapshot<Map<String, dynamic>>>? _wishlistStream;
-
-  bool isLoading = true;
   String role = "buyer";
-  late AnimationController _animationController;
 
-  final Color themeColor = const Color(0xFF4C1D95);
-  final Color accentColor = const Color(0xFF6366F1);
+  // Premium Color Scheme
+  final Color primaryColor = const Color(0xFF1A0A5B);
+  final Color secondaryColor = const Color(0xFF6C63FF);
+  final Color accentColor = const Color(0xFF00BFA6);
+  final Color surfaceColor = Colors.white;
+  final Color backgroundColor = const Color(0xFFF8FAFC);
+  final Color textPrimary = const Color(0xFF1F2937);
+  final Color textSecondary = const Color(0xFF6B7280);
+  final Color borderColor = const Color(0xFFF0F0F0);
+  final Color errorColor = const Color(0xFFEF4444);
+  final Color successColor = const Color(0xFF10B981);
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
     _initWishlist();
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
   }
 
   Future<void> _initWishlist() async {
     role = await RoleManager.getLocalRole() ?? "guest";
     final user = _auth.currentUser;
 
-    if (user == null) {
-      await _loadLocalWishlist();
-    } else {
-      _wishlistStream = _firestore
+    try {
+      if (user != null) {
+        await _syncWithFirebase();
+      }
+
+      final provider = context.read<CartWishlistProvider>();
+      await provider.loadWishlistFromLocal();
+
+    } catch (e) {
+      debugPrint('Error initializing wishlist: $e');
+    }
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _syncWithFirebase() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      final provider = context.read<CartWishlistProvider>();
+
+      final snapshot = await _firestore
           .collection('users')
           .doc(user.uid)
           .collection('wishlist')
           .orderBy('createdAt', descending: true)
-          .snapshots();
+          .get();
 
-      _wishlistStream!.listen((snapshot) async {
-        final data = snapshot.docs.map((d) => d.data()).toList();
-        setState(() => wishlistItems = List<Map<String, dynamic>>.from(data));
+      if (snapshot.docs.isNotEmpty) {
+        final firebaseItems = snapshot.docs.map((doc) => doc.data()).toList();
 
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('wishlist', jsonEncode(wishlistItems));
+        provider.wishlistItems = List<Map<String, dynamic>>.from(firebaseItems);
+        provider.wishlistIds = provider.wishlistItems
+            .map((item) => item['id']?.toString() ?? '')
+            .where((id) => id.isNotEmpty)
+            .toSet();
+        provider.updateWishlistCount(provider.wishlistItems.length);
 
-        // Update provider count
-        if (mounted) {
-          context.read<CartWishlistProvider>().updateWishlistCount(wishlistItems.length);
-        }
-      });
+        await provider.saveWishlistToLocal();
+      }
+    } catch (e) {
+      debugPrint('Error syncing with Firebase: $e');
     }
-
-    if (mounted) {
-      setState(() => isLoading = false);
-      _animationController.forward();
-    }
-  }
-
-  Future<void> _loadLocalWishlist() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString('wishlist') ?? '[]';
-    try {
-      wishlistItems = List<Map<String, dynamic>>.from(jsonDecode(saved));
-    } catch (_) {
-      wishlistItems = [];
-    }
-
-    // Update provider count
-    if (mounted) {
-      context.read<CartWishlistProvider>().updateWishlistCount(wishlistItems.length);
-    }
-  }
-
-  Future<void> _saveLocalWishlist() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('wishlist', jsonEncode(wishlistItems));
-
-    // Update provider count
-    context.read<CartWishlistProvider>().updateWishlistCount(wishlistItems.length);
   }
 
   Future<void> _removeItem(int index) async {
-    final item = wishlistItems[index];
-    final id = item['id']?.toString() ?? item['name'];
+    final provider = context.read<CartWishlistProvider>();
 
-    setState(() => wishlistItems.removeAt(index));
-    await _saveLocalWishlist();
+    if (index < 0 || index >= provider.wishlistItems.length) return;
+
+    final item = provider.wishlistItems[index];
+    final id = item['id']?.toString() ?? item['name']?.toString() ?? 'unknown';
+    final itemName = item['name'] ?? 'Item';
+
+    provider.wishlistItems.removeAt(index);
+    provider.wishlistIds.remove(id);
+    provider.updateWishlistCount(provider.wishlistItems.length);
+
+    await provider.saveWishlistToLocal();
 
     if (role != "guest") {
       final user = _auth.currentUser;
       if (user != null) {
-        await _firestore
-            .collection('users')
-            .doc(user.uid)
-            .collection('wishlist')
-            .doc(id)
-            .delete();
+        try {
+          await _firestore
+              .collection('users')
+              .doc(user.uid)
+              .collection('wishlist')
+              .doc(id)
+              .delete();
+        } catch (e) {
+          debugPrint('Error removing from Firebase: $e');
+        }
       }
     }
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.check_circle, color: Colors.white, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  "Removed from wishlist",
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
+          content: Text(
+            "Removed from wishlist",
+            style: GoogleFonts.inter(
+              fontSize: ResponsiveUtils.getBodyFontSize(context),
+              fontWeight: FontWeight.w500,
+            ),
           ),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          backgroundColor: Colors.black87,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          backgroundColor: primaryColor,
           duration: const Duration(seconds: 2),
-          margin: const EdgeInsets.all(16),
         ),
       );
     }
   }
 
   Future<void> _moveToCart(int index) async {
-    final item = wishlistItems[index];
-    final prefs = await SharedPreferences.getInstance();
-    final id = item['id']?.toString() ?? item['name'];
+    final provider = context.read<CartWishlistProvider>();
 
-    final savedCart = prefs.getString('cart') ?? '[]';
-    final localCart = List<Map<String, dynamic>>.from(jsonDecode(savedCart));
+    if (index < 0 || index >= provider.wishlistItems.length) return;
 
-    if (!localCart.any((e) => e['id'] == id)) {
-      localCart.add({...item, 'quantity': 1});
-      await prefs.setString('cart', jsonEncode(localCart));
+    final item = provider.wishlistItems[index];
+    final id = item['id']?.toString() ?? item['name']?.toString() ?? 'unknown';
+    final itemName = item['name'] ?? 'Item';
 
-      // Update cart count
-      if (mounted) {
-        context.read<CartWishlistProvider>().updateCartCount(localCart.length);
-      }
+    if (!provider.cartIds.contains(id)) {
+      final cartItem = {
+        ...item,
+        'quantity': 1,
+        'addedAt': DateTime.now().millisecondsSinceEpoch,
+      };
+      provider.cartItems.add(cartItem);
+      provider.cartIds.add(id);
+      provider.updateCartCount(provider.cartItems.length);
+      await provider.saveCartToLocal();
     }
+
+    provider.wishlistItems.removeAt(index);
+    provider.wishlistIds.remove(id);
+    provider.updateWishlistCount(provider.wishlistItems.length);
+    await provider.saveWishlistToLocal();
 
     final user = _auth.currentUser;
     if (user != null) {
-      final wishlistRef = _firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('wishlist')
-          .doc(id);
-      final cartRef =
-      _firestore.collection('users').doc(user.uid).collection('cart').doc(id);
+      try {
+        final wishlistRef = _firestore
+            .collection('users')
+            .doc(user.uid)
+            .collection('wishlist')
+            .doc(id);
+        final cartRef = _firestore
+            .collection('users')
+            .doc(user.uid)
+            .collection('cart')
+            .doc(id);
 
-      final batch = _firestore.batch();
-      batch.delete(wishlistRef);
-      batch.set(cartRef, {
-        ...item,
-        'quantity': 1,
-        'addedAt': FieldValue.serverTimestamp(),
-      });
-      await batch.commit();
+        final batch = _firestore.batch();
+        batch.delete(wishlistRef);
+        batch.set(cartRef, {
+          ...item,
+          'quantity': 1,
+          'addedAt': FieldValue.serverTimestamp(),
+        });
+        await batch.commit();
+      } catch (e) {
+        debugPrint('Error syncing with Firebase: $e');
+      }
     }
-
-    setState(() => wishlistItems.removeAt(index));
-    await _saveLocalWishlist();
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.white.withOpacity(0.3), Colors.white.withOpacity(0.1)],
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.shopping_cart, color: Colors.white, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  "'${item['name']}' moved to cart!",
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+          content: Text(
+            "'$itemName' moved to cart",
+            style: GoogleFonts.inter(
+              fontWeight: FontWeight.w500,
+              fontSize: ResponsiveUtils.getBodyFontSize(context),
+            ),
           ),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          backgroundColor: Colors.green.shade600,
-          duration: const Duration(seconds: 3),
-          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          backgroundColor: successColor,
+          duration: const Duration(seconds: 2),
         ),
       );
     }
@@ -241,20 +223,22 @@ class _WishlistPageState extends State<WishlistPage> with SingleTickerProviderSt
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        contentPadding: const EdgeInsets.all(24),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        contentPadding: const EdgeInsets.all(16),
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.orange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
                 Icons.warning_amber_rounded,
                 color: Colors.orange,
-                size: 28,
+                size: 24,
               ),
             ),
             const SizedBox(width: 12),
@@ -262,8 +246,9 @@ class _WishlistPageState extends State<WishlistPage> with SingleTickerProviderSt
               child: Text(
                 "Clear Wishlist?",
                 style: GoogleFonts.inter(
-                  fontSize: 20,
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
+                  color: textPrimary,
                 ),
               ),
             ),
@@ -272,40 +257,34 @@ class _WishlistPageState extends State<WishlistPage> with SingleTickerProviderSt
         content: Text(
           "This will remove all items from your wishlist. This action cannot be undone.",
           style: GoogleFonts.inter(
-            fontSize: 15,
-            color: const Color(0xFF64748B),
+            fontSize: 14,
+            color: textSecondary,
             height: 1.5,
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
             child: Text(
               "Cancel",
               style: GoogleFonts.inter(
-                color: Colors.grey.shade600,
+                color: textSecondary,
                 fontWeight: FontWeight.w600,
+                fontSize: 14,
               ),
             ),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+              backgroundColor: errorColor,
             ),
             child: Text(
               "Clear All",
-              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
             ),
           ),
         ],
@@ -314,46 +293,49 @@ class _WishlistPageState extends State<WishlistPage> with SingleTickerProviderSt
 
     if (confirm != true) return;
 
-    setState(() => wishlistItems.clear());
-    await _saveLocalWishlist();
+    final provider = context.read<CartWishlistProvider>();
+
+    provider.wishlistItems.clear();
+    provider.wishlistIds.clear();
+    provider.updateWishlistCount(0);
+    await provider.saveWishlistToLocal();
 
     if (role != "guest") {
       final user = _auth.currentUser;
       if (user != null) {
-        final docs = await _firestore
-            .collection('users')
-            .doc(user.uid)
-            .collection('wishlist')
-            .get();
-        final batch = _firestore.batch();
-        for (var d in docs.docs) {
-          batch.delete(d.reference);
+        try {
+          final docs = await _firestore
+              .collection('users')
+              .doc(user.uid)
+              .collection('wishlist')
+              .get();
+          final batch = _firestore.batch();
+          for (var d in docs.docs) {
+            batch.delete(d.reference);
+          }
+          await batch.commit();
+        } catch (e) {
+          debugPrint('Error clearing Firebase wishlist: $e');
         }
-        await batch.commit();
       }
     }
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.delete_sweep, color: Colors.white, size: 20),
-              const SizedBox(width: 12),
-              Text(
-                "Wishlist cleared",
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+          content: Text(
+            "Wishlist cleared",
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          backgroundColor: Colors.black87,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          backgroundColor: primaryColor,
           duration: const Duration(seconds: 2),
-          margin: const EdgeInsets.all(16),
         ),
       );
     }
@@ -361,197 +343,121 @@ class _WishlistPageState extends State<WishlistPage> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [accentColor, themeColor],
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Icon(Icons.favorite, color: Colors.white, size: 48),
-              ),
-              const SizedBox(height: 24),
-              CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(themeColor),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final user = _auth.currentUser;
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [accentColor, themeColor],
-                ),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.favorite, color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  "My Wishlist",
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 20,
-                    color: const Color(0xFF0F172A),
-                  ),
-                ),
-                if (wishlistItems.isNotEmpty)
-                  Text(
-                    "${wishlistItems.length} ${wishlistItems.length == 1 ? 'item' : 'items'}",
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: const Color(0xFF64748B),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: IconThemeData(color: themeColor),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(
-            height: 1,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.transparent,
-                  themeColor.withOpacity(0.1),
-                  Colors.transparent
-                ],
-              ),
-            ),
+        title: Text(
+          "My Wishlist",
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+            color: textPrimary,
           ),
+        ),
+        backgroundColor: surfaceColor,
+        elevation: 1,
+        surfaceTintColor: surfaceColor,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: textSecondary,
+            size: 20,
+          ),
+          onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
-          if (wishlistItems.isNotEmpty)
-            Container(
-              margin: const EdgeInsets.only(right: 12),
-              child: TextButton.icon(
+          Consumer<CartWishlistProvider>(
+            builder: (context, provider, child) {
+              if (provider.wishlistItems.isEmpty) return const SizedBox();
+              return IconButton(
                 onPressed: _clearWishlist,
-                icon: const Icon(Icons.delete_outline, size: 20),
-                label: Text(
-                  "Clear",
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                icon: Icon(
+                  Icons.delete_sweep_rounded,
+                  color: textSecondary,
+                  size: 22,
                 ),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.red.shade600,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    side: BorderSide(color: Colors.red.shade200),
-                  ),
-                ),
-              ),
-            ),
+                tooltip: "Clear Wishlist",
+              );
+            },
+          ),
         ],
       ),
-      body: (user != null && _wishlistStream != null)
-          ? StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: _wishlistStream,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(themeColor),
-              ),
-            );
-          }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+      body: Consumer<CartWishlistProvider>(
+        builder: (context, provider, child) {
+          if (provider.wishlistItems.isEmpty) {
             return _buildEmptyState();
           }
-          final docs = snapshot.data!.docs;
-          wishlistItems = docs.map((e) => e.data()).toList();
-          return _buildWishlistGrid();
+          return _buildWishlistGrid(provider);
         },
-      )
-          : _buildWishlistGrid(),
+      ),
     );
   }
 
   Widget _buildEmptyState() {
+    final width = MediaQuery.of(context).size.width;
+    final iconSize = width * 0.3;
+
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32.0),
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(40),
+              padding: EdgeInsets.all(iconSize * 0.3),
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
+                color: surfaceColor,
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.grey.shade200, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Icon(
-                Icons.favorite_border,
-                size: 80,
-                color: Colors.grey.shade400,
+                Icons.favorite_border_rounded,
+                size: iconSize,
+                color: textSecondary,
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
             Text(
               "Your Wishlist is Empty",
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF0F172A),
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: textPrimary,
               ),
             ),
             const SizedBox(height: 12),
             Text(
-              "Save items you love for later!\nExplore products and add them to your wishlist.",
+              "Save items you love for later\nExplore products and add them to your wishlist",
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
-                fontSize: 15,
-                color: const Color(0xFF64748B),
+                fontSize: 14,
+                color: textSecondary,
                 height: 1.5,
               ),
             ),
-            const SizedBox(height: 32),
-            FilledButton.icon(
+            const SizedBox(height: 24),
+            FilledButton(
               onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.shopping_bag_outlined, size: 20),
-              label: Text(
-                "Continue Shopping",
-                style: GoogleFonts.inter(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
               style: FilledButton.styleFrom(
-                backgroundColor: themeColor,
+                backgroundColor: primaryColor,
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                elevation: 2,
+              ),
+              child: Text(
+                "Continue Shopping",
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -560,229 +466,380 @@ class _WishlistPageState extends State<WishlistPage> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildWishlistGrid() {
-    if (wishlistItems.isEmpty) {
-      return _buildEmptyState();
-    }
+  Widget _buildWishlistGrid(CartWishlistProvider provider) {
+    final width = MediaQuery.of(context).size.width;
+    final crossAxisCount = width < 400 ? 2 : width < 600 ? 2 : width < 800 ? 3 : width < 1200 ? 4 : 5;
+    final spacing = width * 0.02;
+    final padding = width * 0.04;
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(20),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.65,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-      ),
-      itemCount: wishlistItems.length,
-      itemBuilder: (context, index) {
-        final item = wishlistItems[index];
-        return _buildWishlistCard(item, index);
-      },
+    return Column(
+      children: [
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: padding, vertical: 16),
+          child: Row(
+            children: [
+              Text(
+                "Saved Items",
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: textPrimary,
+                ),
+              ),
+              SizedBox(width: spacing * 0.5),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  "${provider.wishlistItems.length}",
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: primaryColor,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              if (width > 400)
+                Text(
+                  "Tap to view details",
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: textSecondary,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: padding, vertical: spacing),
+            child: GridView.builder(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                childAspectRatio: 0.65,
+                crossAxisSpacing: spacing,
+                mainAxisSpacing: spacing,
+              ),
+              itemCount: provider.wishlistItems.length,
+              itemBuilder: (context, index) {
+                final item = provider.wishlistItems[index];
+                return _buildWishlistCard(item, index, crossAxisCount, width);
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildWishlistCard(Map<String, dynamic> item, int index) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
+  Widget _buildWishlistCard(Map<String, dynamic> item, int index, int crossAxisCount, double screenWidth) {
+    final cardWidth = _calculateCardWidth(screenWidth, crossAxisCount);
+    final isSmallScreen = screenWidth < 400;
+
+    return GestureDetector(
+      onTap: () {
+        // Add navigation to product detail page
+        // Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailPage(product: item)));
+      },
+      child: Container(
+        margin: EdgeInsets.all(screenWidth * 0.01),
+        decoration: BoxDecoration(
+          color: surfaceColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: borderColor,
+            width: 0.5,
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Image Container
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                child: Container(
-                  height: 160,
-                  width: double.infinity,
-                  color: Colors.grey.shade100,
-                  child: CachedNetworkImage(
-                    imageUrl: item['image'] ?? 'https://via.placeholder.com/300',
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: Colors.grey.shade200,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(themeColor),
-                        ),
-                      ),
-                    ),
-                    errorWidget: (_, __, ___) => Icon(
-                      Icons.image_not_supported,
-                      size: 50,
-                      color: Colors.grey.shade400,
-                    ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                // Product Image
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(12),
                   ),
-                ),
-              ),
-              // Remove Button
-              Positioned(
-                top: 10,
-                right: 10,
-                child: GestureDetector(
-                  onTap: () => _removeItem(index),
                   child: Container(
-                    padding: const EdgeInsets.all(8),
+                    height: cardWidth * 0.55,
+                    width: double.infinity,
+                    color: backgroundColor,
+                    child: _buildProductImage(item, cardWidth),
+                  ),
+                ),
+
+                // Remove Button
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: GestureDetector(
+                    onTap: () => _removeItem(index),
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: surfaceColor.withOpacity(0.95),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 16,
+                        color: errorColor,
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Saved Badge
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      Icons.close,
-                      size: 18,
-                      color: Colors.grey.shade700,
-                    ),
-                  ),
-                ),
-              ),
-              // Wishlist Badge
-              Positioned(
-                top: 10,
-                left: 10,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [accentColor, themeColor],
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: themeColor.withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                      gradient: LinearGradient(
+                        colors: [primaryColor, secondaryColor],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.favorite, color: Colors.white, size: 12),
-                      const SizedBox(width: 4),
-                      Text(
-                        "Saved",
-                        style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          // Product Details
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item['name'] ?? "Unnamed Item",
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      height: 1.3,
-                      color: const Color(0xFF0F172A),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Text(
-                        "₹${item['price'] ?? 0}",
-                        style: GoogleFonts.inter(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: themeColor,
-                        ),
-                      ),
-                      if (item['originalPrice'] != null &&
-                          item['originalPrice'] > item['price']) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          "₹${item['originalPrice']}",
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF94A3B8),
-                            decoration: TextDecoration.lineThrough,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  if (item['rating'] != null) ...[
-                    const SizedBox(height: 6),
-                    Row(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.star_rounded,
-                            color: Color(0xFFF59E0B), size: 14),
-                        const SizedBox(width: 4),
-                        Text(
-                          "${item['rating']}",
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF64748B),
+                        Icon(
+                          Icons.favorite_rounded,
+                          color: surfaceColor,
+                          size: 14,
+                        ),
+                        if (!isSmallScreen)
+                          const SizedBox(width: 4),
+                        if (!isSmallScreen)
+                          Text(
+                            "Saved",
+                            style: GoogleFonts.inter(
+                              color: surfaceColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            // Product Details
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Brand and Name
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Brand Name
+                        if (item['brand'] != null && item['brand'].toString().isNotEmpty)
+                          Text(
+                            item['brand'].toString().toUpperCase(),
+                            style: GoogleFonts.inter(
+                              color: secondaryColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+
+                        const SizedBox(height: 4),
+
+                        // Product Name
+                        Text(
+                          item['name']?.toString() ?? "Unnamed Product",
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: textPrimary,
+                            height: 1.3,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
+                    ),
+
+                    // Price
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              "₹${(item['price'] ?? 0).toStringAsFixed(0)}",
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: primaryColor,
+                              ),
+                            ),
+                            if (item['originalPrice'] != null && item['originalPrice'] > item['price'])
+                              Padding(
+                                padding: const EdgeInsets.only(left: 4),
+                                child: Text(
+                                  "₹${(item['originalPrice']).toStringAsFixed(0)}",
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: textSecondary,
+                                    decoration: TextDecoration.lineThrough,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+
+                    // Add to Cart Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 40,
+                      child: FilledButton(
+                        onPressed: () => _moveToCart(index),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.shopping_cart_outlined,
+                              size: 16,
+                              color: surfaceColor,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              "Add to Cart",
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
-                  const Spacer(),
-                  // Add to Cart Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: () => _moveToCart(index),
-                      icon: const Icon(Icons.shopping_cart, size: 16),
-                      label: Text(
-                        "Add to Cart",
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: themeColor,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        elevation: 2,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  double _calculateCardWidth(double screenWidth, int crossAxisCount) {
+    final padding = screenWidth * 0.04;
+    final spacing = screenWidth * 0.02;
+    final availableWidth = screenWidth - (padding * 2) - (spacing * (crossAxisCount - 1));
+    return (availableWidth / crossAxisCount).clamp(120, double.infinity);
+  }
+
+  Widget _buildProductImage(Map<String, dynamic> item, double cardWidth) {
+    final imageUrl = item['image']?.toString();
+    final imageHeight = cardWidth * 0.55;
+
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return Container(
+        height: imageHeight,
+        color: backgroundColor,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.photo_camera_back_rounded,
+              color: textSecondary,
+              size: 32,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'No Image',
+              style: GoogleFonts.inter(
+                color: textSecondary,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return CachedNetworkImage(
+      imageUrl: imageUrl,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: imageHeight,
+      placeholder: (context, url) => Container(
+        height: imageHeight,
+        color: backgroundColor,
+        child: Center(
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: primaryColor,
           ),
-        ],
+        ),
+      ),
+      errorWidget: (context, url, error) => Container(
+        height: imageHeight,
+        color: backgroundColor,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.broken_image_rounded,
+              color: textSecondary,
+              size: 32,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Image Error',
+              style: GoogleFonts.inter(
+                color: textSecondary,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

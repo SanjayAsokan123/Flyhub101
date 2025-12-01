@@ -288,7 +288,7 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      "Let’s book your pilot ✈",
+                      "Let’s book your pilot ",
                       style: GoogleFonts.poppins(
                         fontSize: 22,
                         color: Colors.white,
@@ -348,12 +348,8 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              const Icon(Icons.star,
-                                  color: Colors.amber, size: 20),
                               const SizedBox(width: 4),
-                              Text("4.8 / 5.0",
-                                  style: GoogleFonts.poppins(
-                                      fontSize: 13, color: Colors.black87)),
+
                               const Spacer(),
                               Text("₹$pilotPrice/hr",
                                   style: GoogleFonts.poppins(

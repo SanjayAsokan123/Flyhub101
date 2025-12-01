@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
-
 import 'config/env.dart';
 
 class PendingProductsPage extends StatefulWidget {
@@ -14,7 +13,10 @@ class PendingProductsPage extends StatefulWidget {
 class _PendingProductsPageState extends State<PendingProductsPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final Color themeColor = const Color(0xFF1A0A5B);
+
+  final Color themeColor = const Color(0xFF1E0E5C);
+  final Color borderColor = const Color(0xFFE5E7EB);
+
   final String backendUrl = EnvConfig.baseUrl;
 
   bool loading = true;
@@ -34,8 +36,10 @@ class _PendingProductsPageState extends State<PendingProductsPage>
     _tabController = TabController(length: 6, vsync: this);
 
     final HttpLink link = HttpLink(backendUrl);
-    client =
-        GraphQLClient(link: link, cache: GraphQLCache(store: InMemoryStore()));
+    client = GraphQLClient(
+      link: link,
+      cache: GraphQLCache(store: InMemoryStore()),
+    );
 
     fetchPendingProducts();
   }
@@ -55,17 +59,21 @@ class _PendingProductsPageState extends State<PendingProductsPage>
     ''';
 
     try {
-      final result = await client.query(QueryOptions(
-        document: gql(query),
-        variables: {"sellerId": widget.sellerCustomId},
-        fetchPolicy: FetchPolicy.networkOnly,
-      ));
+      final result = await client.query(
+        QueryOptions(
+          document: gql(query),
+          variables: {"sellerId": widget.sellerCustomId},
+          fetchPolicy: FetchPolicy.networkOnly,
+        ),
+      );
 
       if (result.hasException) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text("❌ ${result.exception.toString()}"),
-          backgroundColor: Colors.redAccent,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("❌ ${result.exception.toString()}"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
       } else {
         setState(() {
           pendingDrones = result.data?['pendingDrones'] ?? [];
@@ -77,10 +85,12 @@ class _PendingProductsPageState extends State<PendingProductsPage>
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text("❌ Error fetching products: $e"),
-        backgroundColor: Colors.redAccent,
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("❌ Error fetching products: $e"),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
     }
 
     setState(() => loading = false);
@@ -88,15 +98,24 @@ class _PendingProductsPageState extends State<PendingProductsPage>
 
   Widget buildList(List<dynamic> items, String type) {
     if (loading) return const Center(child: CircularProgressIndicator());
-    if (items.isEmpty) return Center(child: Text("No pending $type found"));
+    if (items.isEmpty) {
+      return Center(
+        child: Text(
+          "No pending $type found",
+          style: const TextStyle(fontSize: 15, color: Colors.black54),
+        ),
+      );
+    }
 
     return ListView.builder(
       padding: const EdgeInsets.all(12),
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
+
         String title =
-        type == "jobs" ? item['jobName'] ?? "" : item['name'] ?? "";
+        type == "jobs" ? (item['jobName'] ?? "") : (item['name'] ?? "");
+
         String subtitle = type == "jobs"
             ? "Salary: ₹${item['salary']} · Status: ${item['status']}"
             : type == "rentals"
@@ -104,15 +123,29 @@ class _PendingProductsPageState extends State<PendingProductsPage>
             : "Price: ₹${item['price']} · Status: ${item['status']}";
 
         return Card(
-          elevation: 2,
-          margin: const EdgeInsets.symmetric(vertical: 6),
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          color: Colors.white,
+          elevation: 0,
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: borderColor, width: 1),
+          ),
           child: ListTile(
-            leading: Icon(Icons.pending, color: themeColor),
-            title: Text(title),
-            subtitle: Text(subtitle),
-            trailing: Icon(Icons.hourglass_empty, color: themeColor),
+            leading: Icon(Icons.schedule, color: themeColor),
+            title: Text(
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: themeColor,
+              ),
+            ),
+            subtitle: Text(
+              subtitle,
+              style: const TextStyle(color: Colors.black87),
+            ),
+
+            // ❌ Removed the pending icon from the right side
+            trailing: null,
           ),
         );
       },
@@ -128,12 +161,17 @@ class _PendingProductsPageState extends State<PendingProductsPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text(
           "Pending Products",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
         backgroundColor: themeColor,
+        iconTheme: const IconThemeData(color: Colors.white),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
