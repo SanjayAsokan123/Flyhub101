@@ -42,15 +42,50 @@ class _HomeScreenState extends State<HomeScreen> {
   final ScrollController _categoryScrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
 
-  bool isLoading = true;
+  bool isLoading = false; // Changed from true to false since we're using section-wise loading
   bool isUserLoading = true;
   bool _showElevation = false;
   String _searchQuery = '';
+  bool _showWelcomePopup = false;
 
   bool _isCategoryExpanded = false;
 
   User? _user;
   String? _role;
+
+  // Section-wise loading states
+  Map<String, bool> _sectionLoadingStates = {
+    'categories': false,
+    'promoBanners': false,
+    'drones': false,
+    'featured': false,
+    'parts': false,
+    'accessories': false,
+    'jobs': false,
+    'services': false,
+  };
+
+  // Section error states
+  Map<String, String?> _sectionErrorStates = {
+    'categories': null,
+    'promoBanners': null,
+    'drones': null,
+    'featured': null,
+    'parts': null,
+    'accessories': null,
+    'jobs': null,
+    'services': null,
+  };
+
+  // Dynamic popup data - can be fetched from API or Firebase
+  Map<String, dynamic> _popupData = {
+    "title": "Welcome to FlyHub! ✨",
+    "description": "Discover the world of drones - buy, sell, rent, and get services all in one place. Start your drone journey with us!",
+    "imageUrl": "https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=800&auto=format&fit=crop",
+    "buttonText": "Get Started",
+    "showCloseButton": true,
+    "showOnlyOnce": true,
+  };
 
   Map<String, List<dynamic>> marketplaceData = {
     "Drones": [],
@@ -101,13 +136,255 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _initializeUser();
-    fetchHomeData();
+    _loadInitialSections();
+    _checkAndShowPopup();
     _scrollController.addListener(_onScroll);
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text;
       });
     });
+  }
+
+  Future<void> _loadInitialSections() async {
+    // Load immediately visible sections first
+    await Future.wait([
+      _loadCategories(),
+      _loadPromoBanners(),
+      _loadDrones(),
+    ]);
+
+    // Load remaining sections in background
+    _loadBackgroundSections();
+  }
+
+  Future<void> _loadBackgroundSections() async {
+    // Load less critical sections in background
+    await Future.wait([
+      _loadParts(),
+      _loadAccessories(),
+      _loadJobs(),
+      _loadServices(),
+    ]);
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      setState(() {
+        _sectionLoadingStates['categories'] = true;
+        _sectionErrorStates['categories'] = null;
+      });
+
+      // Simulate API call delay for categories
+      await Future.delayed(Duration(milliseconds: 300));
+
+      // Categories are static data, so no actual API call needed
+      setState(() {
+        _sectionLoadingStates['categories'] = false;
+      });
+    } catch (e) {
+      setState(() {
+        _sectionLoadingStates['categories'] = false;
+        _sectionErrorStates['categories'] = 'Failed to load categories';
+      });
+      debugPrint("❌ Categories load error: $e");
+    }
+  }
+
+  Future<void> _loadPromoBanners() async {
+    try {
+      setState(() {
+        _sectionLoadingStates['promoBanners'] = true;
+        _sectionErrorStates['promoBanners'] = null;
+      });
+
+      // Promo banners are static, simulate delay
+      await Future.delayed(Duration(milliseconds: 200));
+
+      setState(() {
+        _sectionLoadingStates['promoBanners'] = false;
+      });
+    } catch (e) {
+      setState(() {
+        _sectionLoadingStates['promoBanners'] = false;
+        _sectionErrorStates['promoBanners'] = 'Failed to load banners';
+      });
+      debugPrint("❌ Promo banners load error: $e");
+    }
+  }
+
+  Future<void> _loadDrones() async {
+    try {
+      setState(() {
+        _sectionLoadingStates['drones'] = true;
+        _sectionErrorStates['drones'] = null;
+      });
+
+      final drones = await _apiClass.getDrones();
+
+      if (!mounted) return;
+
+      setState(() {
+        marketplaceData["Drones"] =
+            (drones.data ?? []).where((p) => p["status"] == "approved").toList();
+        _sectionLoadingStates['drones'] = false;
+      });
+    } catch (e) {
+      setState(() {
+        _sectionLoadingStates['drones'] = false;
+        _sectionErrorStates['drones'] = 'Failed to load drones';
+      });
+      debugPrint("❌ Drones load error: $e");
+      Utils.bottomToast(context, "Error loading drones.");
+    }
+  }
+
+  Future<void> _loadParts() async {
+    try {
+      setState(() {
+        _sectionLoadingStates['parts'] = true;
+        _sectionErrorStates['parts'] = null;
+      });
+
+      final parts = await _apiClass.getParts();
+
+      if (!mounted) return;
+
+      setState(() {
+        marketplaceData["Parts"] =
+            (parts.data ?? []).where((p) => p["status"] == "approved").toList();
+        _sectionLoadingStates['parts'] = false;
+      });
+    } catch (e) {
+      setState(() {
+        _sectionLoadingStates['parts'] = false;
+        _sectionErrorStates['parts'] = 'Failed to load parts';
+      });
+      debugPrint("❌ Parts load error: $e");
+    }
+  }
+
+  Future<void> _loadAccessories() async {
+    try {
+      setState(() {
+        _sectionLoadingStates['accessories'] = true;
+        _sectionErrorStates['accessories'] = null;
+      });
+
+      final accessories = await _apiClass.getAccessories();
+
+      if (!mounted) return;
+
+      setState(() {
+        marketplaceData["Accessories"] =
+            (accessories.data ?? []).where((p) => p["status"] == "approved").toList();
+        _sectionLoadingStates['accessories'] = false;
+      });
+    } catch (e) {
+      setState(() {
+        _sectionLoadingStates['accessories'] = false;
+        _sectionErrorStates['accessories'] = 'Failed to load accessories';
+      });
+      debugPrint("❌ Accessories load error: $e");
+    }
+  }
+
+  Future<void> _loadJobs() async {
+    try {
+      setState(() {
+        _sectionLoadingStates['jobs'] = true;
+        _sectionErrorStates['jobs'] = null;
+      });
+
+      final jobs = await _apiClass.getJobs();
+
+      if (!mounted) return;
+
+      setState(() {
+        marketplaceData["Jobs"] =
+            (jobs.data ?? []).where((p) => p["status"] == "approved").toList();
+        _sectionLoadingStates['jobs'] = false;
+      });
+    } catch (e) {
+      setState(() {
+        _sectionLoadingStates['jobs'] = false;
+        _sectionErrorStates['jobs'] = 'Failed to load jobs';
+      });
+      debugPrint("❌ Jobs load error: $e");
+    }
+  }
+
+  Future<void> _loadServices() async {
+    try {
+      setState(() {
+        _sectionLoadingStates['services'] = true;
+        _sectionErrorStates['services'] = null;
+      });
+
+      final services = await _apiClass.getServices();
+
+      if (!mounted) return;
+
+      setState(() {
+        marketplaceData["Services"] =
+            (services.data ?? []).where((p) => p["status"] == "approved").toList();
+        _sectionLoadingStates['services'] = false;
+      });
+    } catch (e) {
+      setState(() {
+        _sectionLoadingStates['services'] = false;
+        _sectionErrorStates['services'] = 'Failed to load services';
+      });
+      debugPrint("❌ Services load error: $e");
+    }
+  }
+
+  Future<void> _retryLoadSection(String section) async {
+    switch (section) {
+      case 'drones':
+        await _loadDrones();
+        break;
+      case 'parts':
+        await _loadParts();
+        break;
+      case 'accessories':
+        await _loadAccessories();
+        break;
+      case 'jobs':
+        await _loadJobs();
+        break;
+      case 'services':
+        await _loadServices();
+        break;
+      case 'categories':
+        await _loadCategories();
+        break;
+      case 'promoBanners':
+        await _loadPromoBanners();
+        break;
+    }
+  }
+
+  Future<void> _checkAndShowPopup() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final bool hasSeenPopup = prefs.getBool('hasSeenHomePopup') ?? false;
+
+      if (!hasSeenPopup) {
+        await Future.delayed(Duration(milliseconds: 500));
+        if (mounted) {
+          setState(() {
+            _showWelcomePopup = true;
+          });
+        }
+
+        if (_popupData["showOnlyOnce"] == true) {
+          await prefs.setBool('hasSeenHomePopup', true);
+        }
+      }
+    } catch (e) {
+      debugPrint("Error checking popup: $e");
+    }
   }
 
   @override
@@ -152,39 +429,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (mounted) setState(() => isUserLoading = false);
-  }
-
-  Future<void> fetchHomeData() async {
-    setState(() => isLoading = true);
-    try {
-      final results = await Future.wait([
-        _apiClass.getDrones(),
-        _apiClass.getParts(),
-        _apiClass.getAccessories(),
-        _apiClass.getJobs(),
-        _apiClass.getServices(),
-      ]);
-
-      if (!mounted) return;
-
-      setState(() {
-        marketplaceData["Drones"] =
-            (results[0].data ?? []).where((p) => p["status"] == "approved").toList();
-        marketplaceData["Parts"] =
-            (results[1].data ?? []).where((p) => p["status"] == "approved").toList();
-        marketplaceData["Accessories"] =
-            (results[2].data ?? []).where((p) => p["status"] == "approved").toList();
-        marketplaceData["Jobs"] =
-            (results[3].data ?? []).where((p) => p["status"] == "approved").toList();
-        marketplaceData["Services"] =
-            (results[4].data ?? []).where((p) => p["status"] == "approved").toList();
-        isLoading = false;
-      });
-    } catch (e) {
-      debugPrint("❌ fetchHomeData Error: $e");
-      setState(() => isLoading = false);
-      Utils.bottomToast(context, "Error loading data.");
-    }
   }
 
   void _toggleWishlist(String itemId) {
@@ -236,8 +480,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return results;
   }
-
-  get category_ => null;
 
   Widget _buildBadge(int count) => Container(
     padding: EdgeInsets.symmetric(
@@ -353,6 +595,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
     );
   }
+
   Widget buildSearchBar() {
     final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
 
@@ -372,12 +615,12 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Container(
         height: ResponsiveUtils.getSearchBarHeight(context),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC), // kSurfaceColor equivalent
+          color: const Color(0xFFF8FAFC),
           borderRadius: BorderRadius.circular(
             ResponsiveUtils.getDynamicPadding(context, 0.025),
           ),
           border: Border.all(
-            color: const Color(0xFFE2E8F0), // kBorderColor equivalent
+            color: const Color(0xFFE2E8F0),
             width: ResponsiveUtils.getBorderWidth(context) * 6,
           ),
           boxShadow: [
@@ -390,19 +633,16 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: Row(
           children: [
-            // Search Icon
             Padding(
               padding: EdgeInsets.only(
                 left: ResponsiveUtils.getDynamicPadding(context, 0.03),
               ),
               child: Icon(
                 Icons.search_rounded,
-                color: const Color(0xFF94A3B8), // kTextSecondary equivalent
+                color: const Color(0xFF94A3B8),
                 size: ResponsiveUtils.getIconSize(context) * 0.8,
               ),
             ),
-
-            // Search Field
             Expanded(
               child: Padding(
                 padding: EdgeInsets.symmetric(
@@ -412,13 +652,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   controller: _searchController,
                   style: GoogleFonts.inter(
                     fontSize: ResponsiveUtils.getBodyFontSize(context),
-                    color: const Color(0xFF0F172A), // kTextPrimary equivalent
+                    color: const Color(0xFF0F172A),
                     fontWeight: FontWeight.w500,
                   ),
                   decoration: InputDecoration(
                     hintText: "Search drones, parts, accessories...",
                     hintStyle: GoogleFonts.inter(
-                      color: kTextSecondary, // kTextSecondary
+                      color: const Color(0xFF94A3B8),
                       fontSize: ResponsiveUtils.getBodyFontSize(context),
                       fontWeight: FontWeight.w400,
                     ),
@@ -453,7 +693,238 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildWelcomePopup() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final popupWidth = screenWidth * 0.9;
+    final popupHeight = screenHeight * 0.7;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.all(ResponsiveUtils.getHorizontalPadding(context)),
+      child: Container(
+        width: popupWidth,
+        height: popupHeight,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 30,
+              spreadRadius: 5,
+              offset: Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Container(
+              height: popupHeight * 0.6,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+                child: CachedNetworkImage(
+                  imageUrl: _popupData["imageUrl"],
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    color: Color(0xFF1E0E5C).withOpacity(0.1),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1E0E5C)),
+                      ),
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    color: Color(0xFF1E0E5C).withOpacity(0.1),
+                    child: Icon(
+                      Icons.photo_camera,
+                      size: 60,
+                      color: Color(0xFF1E0E5C).withOpacity(0.5),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                height: popupHeight * 0.45,
+                padding: EdgeInsets.all(ResponsiveUtils.getHorizontalPadding(context) * 1.5),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(24),
+                    bottomRight: Radius.circular(24),
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      _popupData["title"],
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                        fontSize: ResponsiveUtils.getTitleFontSize(context) + 4,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1E0E5C),
+                        height: 1.2,
+                      ),
+                    ),
+
+                    SizedBox(height: ResponsiveUtils.getCardMargin(context)),
+
+                    Text(
+                      _popupData["description"],
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                        fontSize: ResponsiveUtils.getBodyFontSize(context),
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF64748B),
+                        height: 1.5,
+                      ),
+                    ),
+
+                    SizedBox(height: ResponsiveUtils.getCardMargin(context) * 1.5),
+
+                    Container(
+                      width: double.infinity,
+                      height: ResponsiveUtils.getSearchBarHeight(context),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF1E0E5C), Color(0xFF4338CA)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0xFF1E0E5C).withOpacity(0.3),
+                            blurRadius: 15,
+                            offset: Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () {
+                            setState(() {
+                              _showWelcomePopup = false;
+                            });
+                          },
+                          child: Center(
+                            child: Text(
+                              _popupData["buttonText"],
+                              style: GoogleFonts.inter(
+                                fontSize: ResponsiveUtils.getBodyFontSize(context) + 2,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(height: ResponsiveUtils.getCardMargin(context)),
+
+                    if (_popupData["showOnlyOnce"] == true)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            size: ResponsiveUtils.getIconSize(context) * 0.8,
+                            color: Color(0xFF94A3B8),
+                          ),
+                          SizedBox(width: ResponsiveUtils.getCardMargin(context) / 2),
+                          Text(
+                            "Shown once per app installation",
+                            style: GoogleFonts.inter(
+                              fontSize: ResponsiveUtils.getSmallFontSize(context),
+                              color: Color(0xFF94A3B8),
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ),
+
+            if (_popupData["showCloseButton"] == true)
+              Positioned(
+                top: ResponsiveUtils.getCardMargin(context),
+                right: ResponsiveUtils.getCardMargin(context),
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _showWelcomePopup = false;
+                    });
+                  },
+                  child: Container(
+                    width: ResponsiveUtils.getIconSize(context) * 1.5,
+                    height: ResponsiveUtils.getIconSize(context) * 1.5,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.close,
+                      color: Color(0xFF64748B),
+                      size: ResponsiveUtils.getIconSize(context),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget buildPromoBanner() {
+    if (_sectionLoadingStates['promoBanners'] == true) {
+      return _buildSectionShimmer(
+        height: ResponsiveUtils.getBannerHeight(context),
+        margin: EdgeInsets.symmetric(
+          horizontal: ResponsiveUtils.getHorizontalPadding(context),
+          vertical: ResponsiveUtils.getSectionSpacing(context),
+        ),
+      );
+    }
+
+    if (_sectionErrorStates['promoBanners'] != null) {
+      return _buildErrorSection(
+        error: _sectionErrorStates['promoBanners']!,
+        onRetry: () => _retryLoadSection('promoBanners'),
+        height: ResponsiveUtils.getBannerHeight(context),
+      );
+    }
+
     final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
     final bannerHeight = ResponsiveUtils.getBannerHeight(context);
 
@@ -549,6 +1020,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget buildCategorySection() {
+    if (_sectionLoadingStates['categories'] == true) {
+      return _buildCategoryShimmer();
+    }
+
+    if (_sectionErrorStates['categories'] != null) {
+      return _buildErrorSection(
+        error: _sectionErrorStates['categories']!,
+        onRetry: () => _retryLoadSection('categories'),
+        height: ResponsiveUtils.getScreenWidth(context) * 0.3,
+      );
+    }
+
     final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
     const int collapsedCount = 9;
 
@@ -908,15 +1391,14 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // FIXED: Product name with flexible height and text wrapping
                   Container(
                     constraints: BoxConstraints(
-                      minHeight: ResponsiveUtils.getBodyFontSize(context) * 1.3 * 2, // Minimum height for 2 lines
+                      minHeight: ResponsiveUtils.getBodyFontSize(context) * 1.3 * 2,
                     ),
                     child: Text(
                       productName,
-                      maxLines: 2, // Allow up to 2 lines
-                      overflow: TextOverflow.ellipsis, // Show ... if still too long after 2 lines
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.inter(
                         fontWeight: FontWeight.w600,
                         fontSize: ResponsiveUtils.getBodyFontSize(context),
@@ -965,7 +1447,21 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget buildProductCarousel(String title, List<dynamic> products, VoidCallback onViewAll) {
+  Widget buildProductCarousel(String title, List<dynamic> products, VoidCallback onViewAll, String sectionKey) {
+    if (_sectionLoadingStates[sectionKey] == true) {
+      return _buildProductCarouselShimmer(title);
+    }
+
+    if (_sectionErrorStates[sectionKey] != null) {
+      return _buildErrorSection(
+        error: _sectionErrorStates[sectionKey]!,
+        onRetry: () => _retryLoadSection(sectionKey),
+        height: ResponsiveUtils.getProductCardHeight(context) + ResponsiveUtils.getCardMargin(context) * 3,
+        title: title,
+        onViewAll: onViewAll,
+      );
+    }
+
     if (products.isEmpty) return const SizedBox();
 
     return Column(
@@ -973,7 +1469,7 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         buildSectionHeader(title, onViewAll),
         SizedBox(
-          height: ResponsiveUtils.getProductCardHeight(context) + ResponsiveUtils.getCardMargin(context) * 3, // Increased height for text wrapping
+          height: ResponsiveUtils.getProductCardHeight(context) + ResponsiveUtils.getCardMargin(context) * 3,
           child: ListView.builder(
             padding: EdgeInsets.only(left: ResponsiveUtils.getHorizontalPadding(context)),
             scrollDirection: Axis.horizontal,
@@ -988,6 +1484,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget buildJobOpportunities() {
+    if (_sectionLoadingStates['jobs'] == true) {
+      return _buildJobOpportunitiesShimmer();
+    }
+
+    if (_sectionErrorStates['jobs'] != null) {
+      return _buildErrorSection(
+        error: _sectionErrorStates['jobs']!,
+        onRetry: () => _retryLoadSection('jobs'),
+        height: ResponsiveUtils.getJobBannerHeight(context),
+        title: "Job Opportunities",
+        onViewAll: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const JobsPage())),
+      );
+    }
+
     if (marketplaceData["Jobs"]!.isEmpty) return const SizedBox();
 
     return Container(
@@ -1212,7 +1722,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildFeatureCard(
                   "Refund Policy",
                   "7-10 days",
-                  Icons.receipt_long_rounded ,
+                  Icons.receipt_long_rounded,
                   Color(0xFF3F35DD),
                 ),
                 _buildFeatureCard(
@@ -1364,6 +1874,299 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildSectionShimmer({required double height, required EdgeInsets margin}) {
+    return Container(
+      height: height,
+      margin: margin,
+      child: Shimmer.fromColors(
+        baseColor: const Color(0xFFE2E8F0),
+        highlightColor: const Color(0xFFF8FAFC),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryShimmer() {
+    final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
+
+    return Container(
+      color: Colors.white,
+      padding: EdgeInsets.symmetric(vertical: ResponsiveUtils.getSectionSpacing(context)),
+      child: Shimmer.fromColors(
+        baseColor: const Color(0xFFE2E8F0),
+        highlightColor: const Color(0xFFF8FAFC),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+              child: Container(
+                height: ResponsiveUtils.getTitleFontSize(context),
+                width: 120,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+            SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
+            SizedBox(
+              height: ResponsiveUtils.getScreenWidth(context) * 0.3,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                itemCount: 7,
+                itemBuilder: (_, __) => Container(
+                  width: ResponsiveUtils.getScreenWidth(context) * 0.2,
+                  margin: EdgeInsets.symmetric(horizontal: ResponsiveUtils.getCardMargin(context) / 3),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: ResponsiveUtils.getScreenWidth(context) * 0.15,
+                        height: ResponsiveUtils.getScreenWidth(context) * 0.15,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
+                      Container(
+                        height: ResponsiveUtils.getSmallFontSize(context),
+                        width: 60,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductCarouselShimmer(String title) {
+    final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
+
+    return Shimmer.fromColors(
+      baseColor: const Color(0xFFE2E8F0),
+      highlightColor: const Color(0xFFF8FAFC),
+      child: Container(
+        color: Colors.white,
+        child: Column(
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                ResponsiveUtils.getSectionSpacing(context) + 8,
+                horizontalPadding,
+                ResponsiveUtils.getSectionSpacing(context),
+              ),
+              child: Container(
+                height: ResponsiveUtils.getTitleFontSize(context),
+                width: 180,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+            SizedBox(
+              height: ResponsiveUtils.getProductCardHeight(context) + ResponsiveUtils.getCardMargin(context) * 2,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.only(left: horizontalPadding),
+                itemCount: 3,
+                itemBuilder: (_, __) => Container(
+                  width: ResponsiveUtils.getProductCardWidth(context),
+                  margin: EdgeInsets.only(right: ResponsiveUtils.getCardMargin(context)),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildJobOpportunitiesShimmer() {
+    final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
+
+    return Shimmer.fromColors(
+      baseColor: const Color(0xFFE2E8F0),
+      highlightColor: const Color(0xFFF8FAFC),
+      child: Container(
+        color: Colors.white,
+        padding: EdgeInsets.symmetric(vertical: ResponsiveUtils.getSectionSpacing(context)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                ResponsiveUtils.getSectionSpacing(context) + 8,
+                horizontalPadding,
+                ResponsiveUtils.getSectionSpacing(context),
+              ),
+              child: Container(
+                height: ResponsiveUtils.getTitleFontSize(context),
+                width: 180,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+            SizedBox(
+              height: ResponsiveUtils.getJobBannerHeight(context),
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.only(left: horizontalPadding),
+                itemCount: 2,
+                itemBuilder: (_, __) => Container(
+                  width: ResponsiveUtils.getJobBannerWidth(context),
+                  margin: EdgeInsets.only(right: ResponsiveUtils.getCardMargin(context)),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorSection({
+    required String error,
+    required VoidCallback onRetry,
+    required double height,
+    String? title,
+    VoidCallback? onViewAll,
+  }) {
+    final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
+
+    return Container(
+      height: height,
+      color: Colors.white,
+      padding: EdgeInsets.symmetric(vertical: ResponsiveUtils.getSectionSpacing(context)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (title != null && onViewAll != null)
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                ResponsiveUtils.getSectionSpacing(context) + 8,
+                horizontalPadding,
+                ResponsiveUtils.getSectionSpacing(context),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.inter(
+                      fontSize: ResponsiveUtils.getTitleFontSize(context),
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0F172A),
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: onViewAll,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: ResponsiveUtils.getCardMargin(context),
+                        vertical: ResponsiveUtils.getCardMargin(context) / 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Text(
+                        "View All",
+                        style: GoogleFonts.inter(
+                          color: const Color(0xFF475569),
+                          fontSize: ResponsiveUtils.getBodyFontSize(context),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: ResponsiveUtils.getIconSize(context) * 2,
+                    color: const Color(0xFFEF4444),
+                  ),
+                  SizedBox(height: ResponsiveUtils.getCardMargin(context)),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                    child: Text(
+                      error,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                        fontSize: ResponsiveUtils.getBodyFontSize(context),
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: ResponsiveUtils.getCardMargin(context)),
+                  ElevatedButton(
+                    onPressed: onRetry,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E0E5C),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: ResponsiveUtils.getCardMargin(context) * 1.5,
+                        vertical: ResponsiveUtils.getCardMargin(context),
+                      ),
+                    ),
+                    child: Text(
+                      "Retry",
+                      style: GoogleFonts.inter(
+                        fontSize: ResponsiveUtils.getBodyFontSize(context),
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (isUserLoading) {
@@ -1381,201 +2184,89 @@ class _HomeScreenState extends State<HomeScreen> {
       key: _scaffoldKey,
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: buildAppBar(context),
-      body: isLoading
-          ? shimmerContent(context)
-          : RefreshIndicator(
-        color: const Color(0xFF1E0D51),
-        onRefresh: fetchHomeData,
-        child: _searchQuery.isNotEmpty
-            ? ListView(
-          controller: _scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            buildSearchBar(),
-            _buildSearchResults(),
-          ],
-        )
-            : ListView(
-          controller: _scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            buildSearchBar(),
-            buildCategorySection(),
-            buildPromoBanner(),
-            buildProductCarousel(
-              "Popular Drones",
-              marketplaceData["Drones"]!,
-                  () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const MarketPage(initialTab: 0)),
-              ),
-            ),
-            buildFeaturedSection(),
-            buildProductCarousel(
-              "Drone Parts",
-              marketplaceData["Parts"]!,
-                  () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const MarketPage(initialTab: 1)),
-              ),
-            ),
-            buildProductCarousel(
-              "Accessories",
-              marketplaceData["Accessories"]!,
-                  () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const MarketPage(initialTab: 2)),
-              ),
-            ),
-            buildJobOpportunities(),
-            buildProductCarousel(
-              "Drone Services",
-              marketplaceData["Services"]!,
-                  () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ServicesPage()),
-              ),
-            ),
-            SizedBox(height: ResponsiveUtils.getSectionSpacing(context) * 2),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget shimmerContent(BuildContext context) {
-    final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
-
-    return ListView(
-      padding: EdgeInsets.zero,
-      children: [
-        Container(
-          padding: EdgeInsets.all(horizontalPadding),
-          color: Colors.white,
-          child: Shimmer.fromColors(
-            baseColor: const Color(0xFFE2E8F0),
-            highlightColor: const Color(0xFFF8FAFC),
-            child: Container(
-              height: ResponsiveUtils.getSearchBarHeight(context),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-          ),
-        ),
-        SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-        Shimmer.fromColors(
-          baseColor: const Color(0xFFE2E8F0),
-          highlightColor: const Color(0xFFF8FAFC),
-          child: Container(
-            height: ResponsiveUtils.getBannerHeight(context),
-            margin: EdgeInsets.symmetric(horizontal: horizontalPadding),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
-        ),
-        SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-        Shimmer.fromColors(
-          baseColor: const Color(0xFFE2E8F0),
-          highlightColor: const Color(0xFFF8FAFC),
-          child: Container(
-            padding: EdgeInsets.symmetric(vertical: ResponsiveUtils.getSectionSpacing(context)),
-            color: Colors.white,
-            child: Column(
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            color: const Color(0xFF1E0D51),
+            onRefresh: () async {
+              // Reload all sections
+              await Future.wait([
+                _loadCategories(),
+                _loadPromoBanners(),
+                _loadDrones(),
+                _loadParts(),
+                _loadAccessories(),
+                _loadJobs(),
+                _loadServices(),
+              ]);
+            },
+            child: _searchQuery.isNotEmpty
+                ? ListView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
               children: [
-                Container(
-                  height: ResponsiveUtils.getTitleFontSize(context),
-                  width: 120,
-                  margin: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
+                buildSearchBar(),
+                _buildSearchResults(),
+              ],
+            )
+                : ListView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                buildSearchBar(),
+                buildCategorySection(),
+                buildPromoBanner(),
+                buildProductCarousel(
+                  "Popular Drones",
+                  marketplaceData["Drones"]!,
+                      () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MarketPage(initialTab: 0)),
                   ),
+                  'drones',
                 ),
-                SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-                SizedBox(
-                  height: ResponsiveUtils.getScreenWidth(context) * 0.3,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                    itemCount: 7,
-                    itemBuilder: (_, __) => Container(
-                      width: ResponsiveUtils.getScreenWidth(context) * 0.2,
-                      margin: EdgeInsets.symmetric(horizontal: ResponsiveUtils.getCardMargin(context) / 3),
-                      child: Column(
-                        children: [
-                          Container(
-                            width: ResponsiveUtils.getScreenWidth(context) * 0.15,
-                            height: ResponsiveUtils.getScreenWidth(context) * 0.15,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                          SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
-                          Container(
-                            height: ResponsiveUtils.getSmallFontSize(context),
-                            width: 60,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                buildFeaturedSection(),
+                buildProductCarousel(
+                  "Drone Parts",
+                  marketplaceData["Parts"]!,
+                      () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MarketPage(initialTab: 1)),
                   ),
+                  'parts',
                 ),
+                buildProductCarousel(
+                  "Accessories",
+                  marketplaceData["Accessories"]!,
+                      () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MarketPage(initialTab: 2)),
+                  ),
+                  'accessories',
+                ),
+                buildJobOpportunities(),
+                buildProductCarousel(
+                  "Drone Services",
+                  marketplaceData["Services"]!,
+                      () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ServicesPage()),
+                  ),
+                  'services',
+                ),
+                SizedBox(height: ResponsiveUtils.getSectionSpacing(context) * 2),
               ],
             ),
           ),
-        ),
-        ...List.generate(
-          4,
-              (index) => Shimmer.fromColors(
-            baseColor: const Color(0xFFE2E8F0),
-            highlightColor: const Color(0xFFF8FAFC),
-            child: Container(
-              margin: EdgeInsets.only(top: ResponsiveUtils.getSectionSpacing(context)),
-              color: Colors.white,
-              child: Column(
-                children: [
-                  Container(
-                    height: ResponsiveUtils.getTitleFontSize(context),
-                    width: 180,
-                    margin: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-                  SizedBox(
-                    height: ResponsiveUtils.getProductCardHeight(context) + ResponsiveUtils.getCardMargin(context) * 2,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: EdgeInsets.only(left: horizontalPadding),
-                      itemCount: 3,
-                      itemBuilder: (_, __) => Container(
-                        width: ResponsiveUtils.getProductCardWidth(context),
-                        margin: EdgeInsets.only(right: ResponsiveUtils.getCardMargin(context)),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-                ],
-              ),
+
+          // Welcome Popup Overlay
+          if (_showWelcomePopup)
+            Container(
+              color: Colors.black.withOpacity(0.5),
+              child: _buildWelcomePopup(),
             ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

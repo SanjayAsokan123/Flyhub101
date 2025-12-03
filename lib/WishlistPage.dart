@@ -10,6 +10,9 @@ import '../../services/role_manager.dart';
 import '../../services/cart_wishlist_provider.dart';
 import '../../utils/responsive_utils.dart';
 
+// IMPORT YOUR ACTUAL PRODUCT DETAIL PAGE
+import '../../DroneDetailPage.dart'; // Make sure this path is correct
+
 class WishlistPage extends StatefulWidget {
   const WishlistPage({super.key});
 
@@ -341,6 +344,59 @@ class _WishlistPageState extends State<WishlistPage> {
     }
   }
 
+  void _navigateToProductDetail(Map<String, dynamic> product) async {
+    // Navigate to the actual product detail page
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DroneDetailPage(
+          drone: product,
+          initialIsFavorite: true, // Since it's in wishlist, it should be favorite
+          Drone: null, // This parameter might be needed for your DroneDetailPage
+        ),
+      ),
+    );
+
+    // Handle the result if needed (e.g., if wishlist status changed)
+    if (result is Map && result['wishlistChanged'] == true) {
+      // If the product was removed from wishlist in the detail page,
+      // refresh the wishlist
+      final provider = context.read<CartWishlistProvider>();
+      final id = product['id']?.toString() ?? product['name']?.toString() ?? 'unknown';
+
+      if (result['isFavorite'] == false) {
+        // Remove from local wishlist if it was unfavorited in detail page
+        final index = provider.wishlistItems.indexWhere((item) =>
+        (item['id']?.toString() ?? item['name']?.toString() ?? '') == id
+        );
+
+        if (index != -1) {
+          provider.wishlistItems.removeAt(index);
+          provider.wishlistIds.remove(id);
+          provider.updateWishlistCount(provider.wishlistItems.length);
+          await provider.saveWishlistToLocal();
+
+          // Also remove from Firebase if logged in
+          if (role != "guest") {
+            final user = _auth.currentUser;
+            if (user != null) {
+              try {
+                await _firestore
+                    .collection('users')
+                    .doc(user.uid)
+                    .collection('wishlist')
+                    .doc(id)
+                    .delete();
+              } catch (e) {
+                debugPrint('Error removing from Firebase: $e');
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -541,10 +597,7 @@ class _WishlistPageState extends State<WishlistPage> {
     final isSmallScreen = screenWidth < 400;
 
     return GestureDetector(
-      onTap: () {
-        // Add navigation to product detail page
-        // Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailPage(product: item)));
-      },
+      onTap: () => _navigateToProductDetail(item),
       child: Container(
         margin: EdgeInsets.all(screenWidth * 0.01),
         decoration: BoxDecoration(
@@ -565,91 +618,95 @@ class _WishlistPageState extends State<WishlistPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Stack(
-              children: [
-                // Product Image
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(12),
-                  ),
-                  child: Container(
-                    height: cardWidth * 0.55,
-                    width: double.infinity,
-                    color: backgroundColor,
-                    child: _buildProductImage(item, cardWidth),
-                  ),
-                ),
-
-                // Remove Button
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: GestureDetector(
-                    onTap: () => _removeItem(index),
+            // Product Image Section
+            GestureDetector(
+              onTap: () => _navigateToProductDetail(item),
+              child: Stack(
+                children: [
+                  // Product Image
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(12),
+                    ),
                     child: Container(
-                      width: 28,
-                      height: 28,
+                      height: cardWidth * 0.55,
+                      width: double.infinity,
+                      color: backgroundColor,
+                      child: _buildProductImage(item, cardWidth),
+                    ),
+                  ),
+
+                  // Remove Button
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: GestureDetector(
+                      onTap: () => _removeItem(index),
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: surfaceColor.withOpacity(0.95),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 16,
+                          color: errorColor,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Saved Badge
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: surfaceColor.withOpacity(0.95),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
+                        gradient: LinearGradient(
+                          colors: [primaryColor, secondaryColor],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.favorite_rounded,
+                            color: surfaceColor,
+                            size: 14,
                           ),
+                          if (!isSmallScreen)
+                            const SizedBox(width: 4),
+                          if (!isSmallScreen)
+                            Text(
+                              "Saved",
+                              style: GoogleFonts.inter(
+                                color: surfaceColor,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                         ],
                       ),
-                      child: Icon(
-                        Icons.close_rounded,
-                        size: 16,
-                        color: errorColor,
-                      ),
                     ),
                   ),
-                ),
-
-                // Saved Badge
-                Positioned(
-                  top: 8,
-                  left: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [primaryColor, secondaryColor],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.favorite_rounded,
-                          color: surfaceColor,
-                          size: 14,
-                        ),
-                        if (!isSmallScreen)
-                          const SizedBox(width: 4),
-                        if (!isSmallScreen)
-                          Text(
-                            "Saved",
-                            style: GoogleFonts.inter(
-                              color: surfaceColor,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
 
-            // Product Details
+            // Product Details Section
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -657,71 +714,77 @@ class _WishlistPageState extends State<WishlistPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Brand and Name
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Brand Name
-                        if (item['brand'] != null && item['brand'].toString().isNotEmpty)
-                          Text(
-                            item['brand'].toString().toUpperCase(),
-                            style: GoogleFonts.inter(
-                              color: secondaryColor,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.5,
+                    // Brand and Name Section
+                    GestureDetector(
+                      onTap: () => _navigateToProductDetail(item),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Brand Name
+                          if (item['brand'] != null && item['brand'].toString().isNotEmpty)
+                            Text(
+                              item['brand'].toString().toUpperCase(),
+                              style: GoogleFonts.inter(
+                                color: secondaryColor,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.5,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
+
+                          const SizedBox(height: 4),
+
+                          // Product Name
+                          Text(
+                            item['name']?.toString() ?? "Unnamed Product",
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: textPrimary,
+                              height: 1.3,
+                            ),
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-
-                        const SizedBox(height: 4),
-
-                        // Product Name
-                        Text(
-                          item['name']?.toString() ?? "Unnamed Product",
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: textPrimary,
-                            height: 1.3,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
 
-                    // Price
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              "₹${(item['price'] ?? 0).toStringAsFixed(0)}",
-                              style: GoogleFonts.inter(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                color: primaryColor,
-                              ),
-                            ),
-                            if (item['originalPrice'] != null && item['originalPrice'] > item['price'])
-                              Padding(
-                                padding: const EdgeInsets.only(left: 4),
-                                child: Text(
-                                  "₹${(item['originalPrice']).toStringAsFixed(0)}",
-                                  style: GoogleFonts.inter(
-                                    fontSize: 12,
-                                    color: textSecondary,
-                                    decoration: TextDecoration.lineThrough,
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                    // Price Section
+                    GestureDetector(
+                      onTap: () => _navigateToProductDetail(item),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                "₹${(item['price'] ?? 0).toStringAsFixed(0)}",
+                                style: GoogleFonts.inter(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: primaryColor,
                                 ),
                               ),
-                          ],
-                        ),
-                      ],
+                              if (item['originalPrice'] != null && item['originalPrice'] > item['price'])
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 4),
+                                  child: Text(
+                                    "₹${(item['originalPrice']).toStringAsFixed(0)}",
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      color: textSecondary,
+                                      decoration: TextDecoration.lineThrough,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
 
                     // Add to Cart Button
@@ -780,65 +843,71 @@ class _WishlistPageState extends State<WishlistPage> {
     final imageHeight = cardWidth * 0.55;
 
     if (imageUrl == null || imageUrl.isEmpty) {
-      return Container(
-        height: imageHeight,
-        color: backgroundColor,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.photo_camera_back_rounded,
-              color: textSecondary,
-              size: 32,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'No Image',
-              style: GoogleFonts.inter(
+      return GestureDetector(
+        onTap: () => _navigateToProductDetail(item),
+        child: Container(
+          height: imageHeight,
+          color: backgroundColor,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.photo_camera_back_rounded,
                 color: textSecondary,
-                fontSize: 12,
+                size: 32,
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                'No Image',
+                style: GoogleFonts.inter(
+                  color: textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
 
-    return CachedNetworkImage(
-      imageUrl: imageUrl,
-      fit: BoxFit.cover,
-      width: double.infinity,
-      height: imageHeight,
-      placeholder: (context, url) => Container(
+    return GestureDetector(
+      onTap: () => _navigateToProductDetail(item),
+      child: CachedNetworkImage(
+        imageUrl: imageUrl,
+        fit: BoxFit.cover,
+        width: double.infinity,
         height: imageHeight,
-        color: backgroundColor,
-        child: Center(
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: primaryColor,
+        placeholder: (context, url) => Container(
+          height: imageHeight,
+          color: backgroundColor,
+          child: Center(
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: primaryColor,
+            ),
           ),
         ),
-      ),
-      errorWidget: (context, url, error) => Container(
-        height: imageHeight,
-        color: backgroundColor,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.broken_image_rounded,
-              color: textSecondary,
-              size: 32,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Image Error',
-              style: GoogleFonts.inter(
+        errorWidget: (context, url, error) => Container(
+          height: imageHeight,
+          color: backgroundColor,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.broken_image_rounded,
                 color: textSecondary,
-                fontSize: 12,
+                size: 32,
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                'Image Error',
+                style: GoogleFonts.inter(
+                  color: textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -76,7 +76,7 @@ flutter:
   assets:
     - assets/
     - assets/images/
-    - assets/categories
+    - assets/categories/
     - assets/jsonFiles/Fly.json
     - assets/jsonFiles/spalshScreenJson.json
 #    - assets/sounds/success.mp3

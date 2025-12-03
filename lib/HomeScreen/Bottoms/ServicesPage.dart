@@ -3,19 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../CommonClass/utils.dart';
 import '../../CommonClass/ApiClass.dart';
-import '../../ServiceBookNow.dart';
-import '../../utils/responsive_utils.dart';
-
-// --- Professional Theme/Style Constants ---
-const Color kPrimaryColor = Color(0xFF1A0A5B);
-const Color kSecondaryColor = Color(0xFF6C63FF);
-const Color kAccentColor = Color(0xFF00BFA6);
-const Color kTextPrimary = Color(0xFF1F2937);
-const Color kTextSecondary = Color(0xFF6B7280);
-const Color kSurfaceColor = Colors.white;
-const Color kBorderColor = Color(0xFFE5E7EB);
-const Color kShimmerColor = Color(0xFFF9FAFB);
-const Color kLightBackground = Color(0xFFF8FAFC);
+import '../../ServiceBookNow.dart' hide ApiClass;
 
 class ServicesPage extends StatefulWidget {
   const ServicesPage({super.key});
@@ -26,7 +14,6 @@ class ServicesPage extends StatefulWidget {
 
 class _ServicesPageState extends State<ServicesPage> {
   final ApiClass _apiClass = ApiClass();
-  final TextEditingController _searchController = TextEditingController();
 
   bool isLoading = true;
   List<dynamic> serviceList = [];
@@ -34,27 +21,18 @@ class _ServicesPageState extends State<ServicesPage> {
   String searchQuery = '';
 
   List<String> locations = [];
+  List<String> experiences = [];
   List<String> priceRanges = ["0-5000", "5000-10000", "10000-20000", "20000+"];
 
   String selectedLocation = "";
   String selectedPriceRange = "";
 
+  final Color primaryColor = const Color(0xFF1A0A5B);
+
   @override
   void initState() {
     super.initState();
     fetchServices();
-    _searchController.addListener(() {
-      setState(() {
-        searchQuery = _searchController.text;
-      });
-      applyFilters();
-    });
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 
   Future<void> fetchServices() async {
@@ -70,6 +48,9 @@ class _ServicesPageState extends State<ServicesPage> {
       locations = approved.map((s) => (s["location"] ?? "").toString())
           .where((e) => e.isNotEmpty).toSet().toList();
 
+      experiences = approved.map((s) => (s["experience"] ?? "").toString())
+          .where((e) => e.isNotEmpty).toSet().toList();
+
       setState(() {
         serviceList = approved;
         filteredList = List.from(serviceList);
@@ -79,6 +60,13 @@ class _ServicesPageState extends State<ServicesPage> {
       Utils.bottomToast(context, "Error: ${res.message}");
       setState(() => isLoading = false);
     }
+  }
+
+  void _searchServices(String query) {
+    setState(() {
+      searchQuery = query.toLowerCase();
+      applyFilters();
+    });
   }
 
   void applyFilters() {
@@ -103,532 +91,157 @@ class _ServicesPageState extends State<ServicesPage> {
     setState(() {});
   }
 
-  void _resetFilters() {
-    setState(() {
-      selectedLocation = "";
-      selectedPriceRange = "";
-      _searchController.clear();
-    });
-    applyFilters();
-  }
-
+  /// FILTER SHEET
   void _openFilterSheet() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: kSurfaceColor,
-      isScrollControlled: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(ResponsiveUtils.getOptimalCardRadius(context)),
-        ),
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Container(
-              padding: ResponsiveUtils.getOptimalPadding(
-                context,
-                horizontalScale: 0.05,
-                verticalScale: 0.03,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header
-                  Center(
-                    child: Container(
-                      width: ResponsiveUtils.getDynamicWidth(context, 0.12),
-                      height: ResponsiveUtils.getDynamicHeight(context, 0.005),
-                      decoration: BoxDecoration(
-                        color: kBorderColor,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
+        return Padding(
+          padding: const EdgeInsets.all(18),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 50,
+                    height: 5,
+                    decoration: BoxDecoration(
+                        color: Colors.grey[400],
+                        borderRadius: BorderRadius.circular(10)),
                   ),
+                ),
 
-                  SizedBox(height: ResponsiveUtils.getVerticalPadding(context)),
+                const SizedBox(height: 20),
+                Text("Filters",
+                    style: GoogleFonts.lexend(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
 
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "Filter Services",
-                        style: GoogleFonts.inter(
-                          fontSize: ResponsiveUtils.getTitleFontSize(context),
-                          fontWeight: FontWeight.w600,
-                          color: kTextPrimary,
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: Icon(
-                          Icons.close_rounded,
-                          color: kTextSecondary,
-                          size: ResponsiveUtils.getIconSize(context) * 0.9,
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 20),
+
+                DropdownButtonFormField(
+                  decoration: const InputDecoration(labelText: "Location"),
+                  value: selectedLocation.isEmpty ? null : selectedLocation,
+                  items: locations
+                      .map((loc) => DropdownMenuItem(value: loc, child: Text(loc)))
+                      .toList(),
+                  onChanged: (value) => selectedLocation = value.toString(),
+                ),
+                const SizedBox(height: 15),
+
+                DropdownButtonFormField(
+                  decoration: const InputDecoration(labelText: "Price Range"),
+                  value:
+                  selectedPriceRange.isEmpty ? null : selectedPriceRange,
+                  items: priceRanges
+                      .map((range) =>
+                      DropdownMenuItem(value: range, child: Text(range)))
+                      .toList(),
+                  onChanged: (value) => selectedPriceRange = value.toString(),
+                ),
+
+                const SizedBox(height: 25),
+
+                ElevatedButton(
+                  onPressed: () {
+                    applyFilters();
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    minimumSize: const Size(double.infinity, 45),
                   ),
+                  child: const Text("Apply Filters",
+                      style: TextStyle(color: Colors.white)),
+                ),
 
-                  SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-
-                  // Location Filter
-                  _buildFilterSection(
-                    title: "Location",
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: kLightBackground,
-                        borderRadius: BorderRadius.circular(ResponsiveUtils.getOptimalCardRadius(context)),
-                        border: Border.all(color: kBorderColor),
-                      ),
-                      child: DropdownButtonFormField<String>(
-                        decoration: InputDecoration(
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: ResponsiveUtils.getHorizontalPadding(context) * 0.8,
-                            vertical: ResponsiveUtils.getVerticalPadding(context) * 0.8,
-                          ),
-                          border: InputBorder.none,
-                          hintText: "All locations",
-                          hintStyle: GoogleFonts.inter(
-                            color: kTextSecondary,
-                            fontSize: ResponsiveUtils.getBodyFontSize(context),
-                          ),
-                        ),
-                        value: selectedLocation.isEmpty ? null : selectedLocation,
-                        items: locations.map((loc) =>
-                            DropdownMenuItem(
-                              value: loc,
-                              child: Text(
-                                loc,
-                                style: GoogleFonts.inter(
-                                  color: kTextPrimary,
-                                  fontSize: ResponsiveUtils.getBodyFontSize(context),
-                                ),
-                              ),
-                            )
-                        ).toList(),
-                        onChanged: (value) => setModalState(() => selectedLocation = value ?? ""),
-                        icon: Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          color: kTextSecondary,
-                          size: ResponsiveUtils.getIconSize(context) * 0.8,
-                        ),
-                        dropdownColor: kSurfaceColor,
-                        style: GoogleFonts.inter(
-                          color: kTextPrimary,
-                          fontSize: ResponsiveUtils.getBodyFontSize(context),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: ResponsiveUtils.getVerticalPadding(context)),
-
-                  // Price Range Filter
-                  _buildFilterSection(
-                    title: "Price Range",
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: kLightBackground,
-                        borderRadius: BorderRadius.circular(ResponsiveUtils.getOptimalCardRadius(context)),
-                        border: Border.all(color: kBorderColor),
-                      ),
-                      child: DropdownButtonFormField<String>(
-                        decoration: InputDecoration(
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: ResponsiveUtils.getHorizontalPadding(context) * 0.8,
-                            vertical: ResponsiveUtils.getVerticalPadding(context) * 0.8,
-                          ),
-                          border: InputBorder.none,
-                          hintText: "All prices",
-                          hintStyle: GoogleFonts.inter(
-                            color: kTextSecondary,
-                            fontSize: ResponsiveUtils.getBodyFontSize(context),
-                          ),
-                        ),
-                        value: selectedPriceRange.isEmpty ? null : selectedPriceRange,
-                        items: priceRanges.map((range) =>
-                            DropdownMenuItem(
-                              value: range,
-                              child: Text(
-                                "₹$range",
-                                style: GoogleFonts.inter(
-                                  color: kTextPrimary,
-                                  fontSize: ResponsiveUtils.getBodyFontSize(context),
-                                ),
-                              ),
-                            )
-                        ).toList(),
-                        onChanged: (value) => setModalState(() => selectedPriceRange = value ?? ""),
-                        icon: Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          color: kTextSecondary,
-                          size: ResponsiveUtils.getIconSize(context) * 0.8,
-                        ),
-                        dropdownColor: kSurfaceColor,
-                        style: GoogleFonts.inter(
-                          color: kTextPrimary,
-                          fontSize: ResponsiveUtils.getBodyFontSize(context),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-
-                  // Action Buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: _resetFilters,
-                          style: OutlinedButton.styleFrom(
-                            padding: EdgeInsets.symmetric(
-                              vertical: ResponsiveUtils.getButtonHeight(context) * 0.7,
-                            ),
-                            side: BorderSide(color: kBorderColor),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(ResponsiveUtils.getOptimalCardRadius(context)),
-                            ),
-                          ),
-                          child: Text(
-                            "Reset",
-                            style: GoogleFonts.inter(
-                              color: kTextSecondary,
-                              fontWeight: FontWeight.w600,
-                              fontSize: ResponsiveUtils.getBodyFontSize(context),
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: ResponsiveUtils.getHorizontalPadding(context) * 0.5),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            applyFilters();
-                            Navigator.pop(context);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: kPrimaryColor,
-                            padding: EdgeInsets.symmetric(
-                              vertical: ResponsiveUtils.getButtonHeight(context) * 0.7,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(ResponsiveUtils.getOptimalCardRadius(context)),
-                            ),
-                          ),
-                          child: Text(
-                            "Apply Filters",
-                            style: GoogleFonts.inter(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: ResponsiveUtils.getBodyFontSize(context),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  SizedBox(height: MediaQuery.of(context).viewInsets.bottom + ResponsiveUtils.getVerticalPadding(context)),
-                ],
-              ),
-            );
-          },
+                TextButton(
+                  onPressed: () {
+                    selectedLocation = "";
+                    selectedPriceRange = "";
+                    applyFilters();
+                    Navigator.pop(context);
+                  },
+                  child: const Text("Clear Filters",
+                      style: TextStyle(color: Colors.red)),
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
   }
-
-  Widget _buildFilterSection({required String title, required Widget child}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: GoogleFonts.inter(
-            fontSize: ResponsiveUtils.getBodyFontSize(context) * 1.1,
-            fontWeight: FontWeight.w600,
-            color: kTextPrimary,
-          ),
-        ),
-        SizedBox(height: ResponsiveUtils.getVerticalPadding(context) * 0.4),
-        child,
-      ],
-    );
-  }
-
-  // Dynamic service card that adapts to all screen sizes
-  Widget _buildServiceCard(Map<String, dynamic> service) {
-    final imageUrl = (service['image'] ?? '').toString();
+  Widget buildServiceCard(Map<String, dynamic> s) {
+    final imageUrl = (s['image'] ?? '').toString();
     final img = imageUrl.startsWith('http')
         ? imageUrl
         : 'https://flyhub-storage.s3.ap-south-1.amazonaws.com/uploads/$imageUrl';
 
     return Container(
-      margin: EdgeInsets.symmetric(
-        horizontal: ResponsiveUtils.getHorizontalPadding(context) * 0.8,
-        vertical: ResponsiveUtils.getVerticalPadding(context) * 0.3,
-      ),
       decoration: BoxDecoration(
-        color: kSurfaceColor,
-        borderRadius: BorderRadius.circular(ResponsiveUtils.getOptimalCardRadius(context)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: ResponsiveUtils.getElevation(context) * 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final bool isCompact = constraints.maxWidth < 400;
-          final bool isTablet = ResponsiveUtils.isTablet(context);
-
-          return Row(
-            children: [
-              // Dynamic Service Image - Adapts to screen size
-              ClipRRect(
-                borderRadius: BorderRadius.horizontal(
-                  left: Radius.circular(ResponsiveUtils.getOptimalCardRadius(context)),
-                ),
-                child: Container(
-                  width: isTablet
-                      ? ResponsiveUtils.getDynamicWidth(context, 0.25)
-                      : ResponsiveUtils.getDynamicWidth(context, isCompact ? 0.32 : 0.28),
-                  height: isTablet
-                      ? ResponsiveUtils.getDynamicHeight(context, 0.12)
-                      : ResponsiveUtils.getDynamicHeight(context, isCompact ? 0.14 : 0.13),
-                  child: CachedNetworkImage(
-                    imageUrl: img,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: kShimmerColor,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: kPrimaryColor.withOpacity(0.3),
-                        ),
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      color: kShimmerColor,
-                      child: Icon(
-                        Icons.photo_camera_back_rounded,
-                        color: kTextSecondary,
-                        size: ResponsiveUtils.getIconSize(context) * 0.8,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.all(ResponsiveUtils.getHorizontalPadding(context) * 0.6),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Service Info - Dynamic text sizing
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            service['name'] ?? 'Service Name',
-                            style: GoogleFonts.inter(
-                              fontSize: ResponsiveUtils.getOptimalFontSize(
-                                context,
-                                minSize: 14,
-                                maxSize: 18,
-                                scaleFactor: 0.04,
-                              ),
-                              fontWeight: FontWeight.w600,
-                              color: kTextPrimary,
-                              height: 1.3,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-
-                          SizedBox(height: ResponsiveUtils.getVerticalPadding(context) * 0.3),
-
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.flight_rounded,
-                                size: ResponsiveUtils.getServicesFeatureIconSize(context),
-                                color: kTextSecondary,
-                              ),
-                              SizedBox(width: ResponsiveUtils.getDynamicWidth(context, 0.015)),
-                              Expanded(
-                                child: Text(
-                                  service['specificDrone'] ?? 'Not specified',
-                                  style: GoogleFonts.inter(
-                                    fontSize: ResponsiveUtils.getSmallFontSize(context),
-                                    color: kTextSecondary,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          SizedBox(height: ResponsiveUtils.getVerticalPadding(context) * 0.2),
-
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.location_on_rounded,
-                                size: ResponsiveUtils.getServicesFeatureIconSize(context),
-                                color: kTextSecondary,
-                              ),
-                              SizedBox(width: ResponsiveUtils.getDynamicWidth(context, 0.015)),
-                              Expanded(
-                                child: Text(
-                                  service['location'] ?? 'Location not specified',
-                                  style: GoogleFonts.inter(
-                                    fontSize: ResponsiveUtils.getSmallFontSize(context),
-                                    color: kTextSecondary,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-
-                      SizedBox(height: ResponsiveUtils.getVerticalPadding(context) * 0.4),
-
-                      // Price and Action - REMOVED price container
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // Clean price text without container
-                          Text(
-                            "₹${service['price'] ?? 'Contact'}",
-                            style: GoogleFonts.inter(
-                              color: kPrimaryColor,
-                              fontSize: ResponsiveUtils.getOptimalFontSize(
-                                context,
-                                minSize: 16,
-                                maxSize: 20,
-                                scaleFactor: 0.04,
-                              ),
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-
-                          ElevatedButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ServiceBookNow(service: service),
-                                ),
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: kPrimaryColor,
-                              padding: EdgeInsets.symmetric(
-                                horizontal: ResponsiveUtils.getHorizontalPadding(context) * 0.8,
-                                vertical: ResponsiveUtils.getButtonHeight(context) * 0.4,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(ResponsiveUtils.getOptimalCardRadius(context) * 0.8),
-                              ),
-                            ),
-                            child: Text(
-                              "Book Now",
-                              style: GoogleFonts.inter(
-                                color: Colors.white,
-                                fontSize: ResponsiveUtils.getSmallFontSize(context),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  // Dynamic search bar that adapts to screen size
-  Widget _buildSearchBar() {
-    return Container(
-      height: ResponsiveUtils.getSearchBarHeight(context),
-      margin: EdgeInsets.symmetric(
-        horizontal: ResponsiveUtils.getHorizontalPadding(context),
-        vertical: ResponsiveUtils.getVerticalPadding(context) * 0.6,
-      ),
-      decoration: BoxDecoration(
-        color: kSurfaceColor,
-        borderRadius: BorderRadius.circular(ResponsiveUtils.getOptimalCardRadius(context)),
-        border: Border.all(color: kBorderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: ResponsiveUtils.getHorizontalPadding(context) * 0.8),
-          Icon(
-            Icons.search_rounded,
-            color: kTextSecondary,
-            size: ResponsiveUtils.getIconSize(context) * 0.8,
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            child: CachedNetworkImage(
+              imageUrl: img,
+              height: 110,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
           ),
-          SizedBox(width: ResponsiveUtils.getHorizontalPadding(context) * 0.5),
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              style: GoogleFonts.inter(
-                fontSize: ResponsiveUtils.getBodyFontSize(context),
-                color: kTextPrimary,
-                fontWeight: FontWeight.w500,
-              ),
-              decoration: InputDecoration(
-                hintText: "Search drone services...",
-                hintStyle: GoogleFonts.inter(
-                  color: kTextSecondary,
-                  fontSize: ResponsiveUtils.getBodyFontSize(context),
+
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(s['name'] ?? '',
+                    style: GoogleFonts.lexend(
+                        fontSize: 13, fontWeight: FontWeight.bold)),
+
+                const SizedBox(height: 3),
+
+                Text(s['specificDrone'] ?? '',
+                    style: GoogleFonts.lexend(fontSize: 11, color: Colors.grey)),
+
+                const SizedBox(height: 5),
+
+                Text("₹${s['price'] ?? 'Contact'}",
+                    style: GoogleFonts.lexend(
+                        color: primaryColor, fontSize: 12)),
+
+                const SizedBox(height: 10),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => ServiceBookNowPage(service: s)),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    child: const Text("Book Now",
+                        style: TextStyle(color: Colors.white, fontSize: 12)),
+                  ),
                 ),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ),
-          Container(
-            width: ResponsiveUtils.getSearchBarHeight(context) * 0.7,
-            height: ResponsiveUtils.getSearchBarHeight(context) * 0.7,
-            margin: EdgeInsets.only(right: ResponsiveUtils.getHorizontalPadding(context) * 0.5),
-            decoration: BoxDecoration(
-              color: kPrimaryColor,
-              borderRadius: BorderRadius.circular(ResponsiveUtils.getOptimalCardRadius(context) * 0.8),
-            ),
-            child: IconButton(
-              icon: Icon(
-                Icons.tune_rounded,
-                color: Colors.white,
-                size: ResponsiveUtils.getIconSize(context) * 0.7,
-              ),
-              onPressed: _openFilterSheet,
-              padding: EdgeInsets.zero,
+              ],
             ),
           ),
         ],
@@ -636,62 +249,67 @@ class _ServicesPageState extends State<ServicesPage> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: SingleChildScrollView(
-        child: Container(
-          width: ResponsiveUtils.getSafeContainerWidth(context, percentage: 0.8),
-          padding: EdgeInsets.all(ResponsiveUtils.getHorizontalPadding(context)),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.search_off_rounded,
-                size: ResponsiveUtils.getServicesEmptyStateIconSize(context),
-                color: kBorderColor,
-              ),
-              SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-              Text(
-                "No Services Found",
-                style: GoogleFonts.inter(
-                  fontSize: ResponsiveUtils.getTitleFontSize(context),
-                  fontWeight: FontWeight.w600,
-                  color: kTextPrimary,
-                ),
-              ),
-              SizedBox(height: ResponsiveUtils.getCardMargin(context)),
-              Text(
-                "Try adjusting your search or filters",
-                style: GoogleFonts.inter(
-                  fontSize: ResponsiveUtils.getBodyFontSize(context),
-                  color: kTextSecondary,
+  // ✨ NEW SEARCH BAR UI (as per your sample image)
+  Widget buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Container(
+        height: 52,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(40),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: 12),
 
-                ),
-              ),
-              SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-              ElevatedButton(
-                onPressed: _resetFilters,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: kPrimaryColor,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: ResponsiveUtils.getCardMargin(context) * 2,
-                    vertical: ResponsiveUtils.getCardMargin(context),
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(ResponsiveUtils.getOptimalCardRadius(context)),
-                  ),
-                ),
-                child: Text(
-                  "Reset Filters",
-                  style: GoogleFonts.inter(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: ResponsiveUtils.getBodyFontSize(context),
+            Icon(Icons.search, color: Colors.grey[600], size: 22),
+
+            const SizedBox(width: 10),
+
+            Expanded(
+              child: TextField(
+                onChanged: _searchServices,
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  hintText: "Search drones, brands, ...",
+                  hintStyle: GoogleFonts.lexend(
+                    color: Colors.grey[500],
+                    fontSize: 14,
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+
+            // FILTER BUTTON (rounded like your image)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              height: 40,
+              width: 40,
+              decoration: BoxDecoration(
+                color: primaryColor,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: primaryColor.withOpacity(0.4),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.tune, color: Colors.white, size: 20),
+                onPressed: _openFilterSheet,
+              ),
+            )
+          ],
         ),
       ),
     );
@@ -700,82 +318,41 @@ class _ServicesPageState extends State<ServicesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kLightBackground,
+      backgroundColor: Colors.white,
+
       appBar: AppBar(
-        backgroundColor: kSurfaceColor,
-        elevation: 0.5,
-        surfaceTintColor: kSurfaceColor,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: kTextPrimary,
-            size: ResponsiveUtils.getIconSize(context) * 0.9,
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          "Drone Services",
-          style: GoogleFonts.inter(
-            fontSize: ResponsiveUtils.getTitleFontSize(context),
-            fontWeight: FontWeight.w600,
-            color: kTextPrimary,
-          ),
-        ),
-        centerTitle: false,
+        title: const Text("Drone Services"),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0.6,
       ),
+
       body: isLoading
-          ? Center(
-        child: CircularProgressIndicator(
-          color: kPrimaryColor,
-          strokeWidth: 2,
-        ),
-      )
-          : Column(
-        children: [
-          // Search Bar
-          _buildSearchBar(),
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+        onRefresh: fetchServices,
+        child: Column(
+          children: [
 
-          // Results Count
-          if (filteredList.isNotEmpty)
-            Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: ResponsiveUtils.getHorizontalPadding(context),
-              ),
-              child: Row(
-                children: [
-                  Text(
-                    "${filteredList.length} services available",
-                    style: GoogleFonts.inter(
-                      fontSize: ResponsiveUtils.getSmallFontSize(context),
-                      color: kTextSecondary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            /// NEW SEARCH BAR
+            buildSearchBar(),
 
-          SizedBox(height: ResponsiveUtils.getVerticalPadding(context) * 0.3),
-
-          // Services List
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: fetchServices,
-              color: kPrimaryColor,
-              backgroundColor: kSurfaceColor,
-              child: filteredList.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                padding: EdgeInsets.only(
-                  bottom: ResponsiveUtils.getVerticalPadding(context),
-                ),
+            Expanded(
+              child: GridView.builder(
+                padding: const EdgeInsets.all(12),
+                gridDelegate:
+                const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.62,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10),
                 itemCount: filteredList.length,
-                itemBuilder: (context, index) =>
-                    _buildServiceCard(filteredList[index]),
+                itemBuilder: (context, i) =>
+                    buildServiceCard(filteredList[i]),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

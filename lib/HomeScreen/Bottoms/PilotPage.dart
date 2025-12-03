@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flyhub/add_hire_pilots_form.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +12,7 @@ import '../../CommonClass/ApiClass.dart';
 import '../../services/graphql_client.dart';
 import '../../BuyerDetails/MyCartPage.dart';
 import '../../PilotBookNow.dart';
+import '../../PilotRegistration.dart';
 import '../Dynamichome.dart';
 import '../../utils/responsive_utils.dart';
 
@@ -253,24 +255,7 @@ class _PilotPageState extends State<PilotPage> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: primaryColor,
-        elevation: ResponsiveUtils.getElevation(context),
-        onPressed: () => Navigator.pushNamed(context, '/Pilotregistration'),
-        icon: Icon(
-          Icons.person_add_outlined,
-          color: Colors.white,
-          size: ResponsiveUtils.getIconSize(context),
-        ),
-        label: Text(
-          'Become a Pilot',
-          style: GoogleFonts.inter(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-            fontSize: ResponsiveUtils.getBodyFontSize(context),
-          ),
-        ),
-      ),
+      // Remove the floating action button from here
     );
   }
 
@@ -341,6 +326,49 @@ class _PilotPageState extends State<PilotPage> {
                   ),
                 ),
 
+                // Become a Pilot Button
+                Container(
+                  margin: EdgeInsets.only(
+                    right: ResponsiveUtils.getDynamicPadding(context, 0.02),
+                  ),
+                  height: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => AddHirePilotForm(sellerId: '',)
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
+                      elevation: 2,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: ResponsiveUtils.getDynamicPadding(context, 0.02),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          ResponsiveUtils.getDynamicPadding(context, 0.02),
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.person_add_outlined,
+                          size: ResponsiveUtils.getIconSize(context) * 0.7,
+                          color: Colors.white,
+                        ),
+                        SizedBox(width: ResponsiveUtils.getDynamicPadding(context, 0.001)),
+
+                      ],
+                    ),
+                  ),
+                ),
+
                 // Cart Icon with Badge
                 Container(
                   width: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.06),
@@ -357,9 +385,9 @@ class _PilotPageState extends State<PilotPage> {
                     children: [
                       IconButton(
                         icon: Icon(
-                          Icons.shopping_cart_outlined,
+                          Icons.shopping_bag_outlined,
                           color: primaryColor,
-                          size: ResponsiveUtils.getIconSize(context) * 0.8,
+                          size: ResponsiveUtils.getIconSize(context) * 0.9,
                         ),
                         onPressed: () async {
                           await Navigator.push(

@@ -1,157 +1,148 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
+import 'config/env.dart';
+
+final String GRAPHQL_URL = EnvConfig.baseUrl;
 
 class ServiceBookingStatusPage extends StatefulWidget {
-  const ServiceBookingStatusPage({super.key});
+  final String sellerId;
+
+  const ServiceBookingStatusPage({Key? key, required this.sellerId}) : super(key: key);
 
   @override
-  State<ServiceBookingStatusPage> createState() =>
-      _ServiceBookingStatusPageState();
+  State<ServiceBookingStatusPage> createState() => _ServiceBookingStatusPageState();
 }
 
 class _ServiceBookingStatusPageState extends State<ServiceBookingStatusPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  bool _loading = false;
+  String? _error;
 
-  List<Map<String, String>> bookings = [
-    {
-      "id": "SB101",
-      "name": "AC Service",
-      "customer": "John Doe",
-      "status": "Pending"
-    },
-    {
-      "id": "SB102",
-      "name": "Plumbing Fix",
-      "customer": "Anitha",
-      "status": "Approved"
-    },
-    {
-      "id": "SB103",
-      "name": "Painting Work",
-      "customer": "Suresh",
-      "status": "Rejected"
-    },
-  ];
+  List<Map<String, dynamic>> bookings = [];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 3, vsync: this); // Confirmed, Pending, Cancelled
+    fetchBookings();
   }
 
-  void updateStatus(int index, String newStatus) {
+  /// FORMAT DATE
+  String formatDate(String? dateString) {
+    if (dateString == null) return "—";
+    DateTime? dt = DateTime.tryParse(dateString);
+    return dt == null ? "—" : DateFormat('dd MMM yyyy').format(dt.toLocal());
+  }
+
+  /// FETCH BOOKINGS FOR SELLER
+  Future<void> fetchBookings() async {
     setState(() {
-      bookings[index]["status"] = newStatus;
+      _loading = true;
+      _error = null;
     });
-  }
 
-  void deleteBooking(int index) {
-    setState(() {
-      bookings.removeAt(index);
-    });
-  }
+    const query = r'''
+      query GetContactsBySeller($sellerId: String!) {
+        getContactsBySellerId(sellerId: $sellerId) {
+          id
+          name
+          email
+          location
+          information
+          status
+          date
+          phone
+          serviceBookingId
+        }
+      }
+    ''';
 
-  Color getStatusColor(String status) {
-    switch (status) {
-      case "Approved":
-        return Colors.green;
-      case "Rejected":
-        return Colors.red;
-      default:
-        return const Color(0xFF1A0A5B);
+    try {
+      final res = await http.post(
+        Uri.parse(GRAPHQL_URL),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'query': query,
+          'variables': {'sellerId': widget.sellerId},
+        }),
+      );
+
+      final json = jsonDecode(res.body);
+
+      if (json['errors'] != null) {
+        throw Exception(json['errors'][0]['message']);
+      }
+
+      final list = (json['data']?['getContactsBySellerId'] ?? []) as List;
+      bookings = list.map((e) => Map<String, dynamic>.from(e)).toList();
+    } catch (e) {
+      _error = e.toString();
+      bookings = [];
+    } finally {
+      setState(() => _loading = false);
     }
   }
 
-  List<Map<String, String>> getFilteredBookings(String status) {
-    return bookings.where((b) => b["status"] == status).toList();
-  }
+  /// FILTER BOOKINGS BY STATUS
+  List<Map<String, dynamic>> getFiltered(String status) =>
+      bookings.where((b) => (b['status'] ?? '').toLowerCase() == status.toLowerCase()).toList();
 
-  // ---------------------------
-  // UPDATED CARD UI (MENU ICON)
-  // ---------------------------
-  Widget buildBookingCard(Map<String, String> booking, int index) {
-    return Container(
+  /// BOOKING CARD UI
+  Widget buildBookingCard(Map<String, dynamic> b) {
+    final status = (b['status'] ?? '').toLowerCase();
+
+    Color statusColor;
+    if (status == "confirmed") {
+      statusColor = Colors.green;
+    } else if (status == "pending") {
+      statusColor = Colors.orange;
+    } else {
+      statusColor = Colors.red; // cancelled
+    }
+
+    return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Color(0xFFE5E7EB), width: 1),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // LEFT ICON BOX
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1A0A5B),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.miscellaneous_services,
-                color: Colors.white, size: 24),
-          ),
-
-          const SizedBox(width: 12),
-
-          // TEXT AREA
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  booking["name"]!,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text("Booking ID: ${booking['id']}"),
-                Text("Customer: ${booking['customer']}"),
-              ],
-            ),
-          ),
-
-          // MENU BAR ICON (⋮)
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert,
-                size: 26, color: Color(0xFF1A0A5B)),
-            onSelected: (value) {
-              if (value == "Delete") {
-                deleteBooking(index);
-              } else {
-                updateStatus(index, value);
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: "Approved", child: Text("Approve")),
-              PopupMenuItem(value: "Rejected", child: Text("Reject")),
-              PopupMenuItem(value: "Pending", child: Text("Mark Pending")),
-              PopupMenuItem(value: "Delete", child: Text("Delete")),
-            ],
-          ),
-        ],
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: CircleAvatar(
+          radius: 22,
+          backgroundColor: statusColor,
+          child: const Icon(Icons.miscellaneous_services, color: Colors.white),
+        ),
+        title: Text(
+          b['name'] ?? 'Unknown',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Email: ${b['email'] ?? 'N/A'}'),
+            Text('Phone: ${b['phone'] ?? 'N/A'}'),
+            Text('Location: ${b['location'] ?? 'N/A'}'),
+            Text('Info: ${b['information'] ?? 'N/A'}'),
+            Text('Date: ${formatDate(b['date'])}'),
+            Text('Booking ID: ${b['serviceBookingId'] ?? 'N/A'}'),
+          ],
+        ),
+        trailing: Text(
+          b['status'].toUpperCase(),
+          style: TextStyle(color: statusColor, fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }
 
-  Widget buildListView(String status) {
-    var filtered = getFilteredBookings(status);
-
-    if (filtered.isEmpty) {
-      return const Center(
-        child: Text(
-          "No bookings found",
-          style: TextStyle(fontSize: 16, color: Colors.grey),
-        ),
-      );
-    }
-
+  /// TAB LIST
+  Widget buildList(String status) {
+    final filtered = getFiltered(status);
+    if (filtered.isEmpty) return const Center(child: Text('No bookings found'));
     return ListView.builder(
       itemCount: filtered.length,
-      itemBuilder: (context, index) =>
-          buildBookingCard(filtered[index], index),
+      itemBuilder: (ctx, i) => buildBookingCard(filtered[i]),
     );
   }
 
@@ -160,32 +151,34 @@ class _ServiceBookingStatusPageState extends State<ServiceBookingStatusPage>
     const themeColor = Color(0xFF1A0A5B);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFFFF),
       appBar: AppBar(
-        title: const Text(
-          "Service Booking Status",
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Service Booking Status'),
         backgroundColor: themeColor,
-        iconTheme: const IconThemeData(color: Colors.white),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
           tabs: const [
-            Tab(text: "Approved"),
-            Tab(text: "Pending"),
-            Tab(text: "Rejected"),
+            Tab(text: 'Confirmed'),
+            Tab(text: 'Pending'),
+            Tab(text: 'Cancelled'),
           ],
         ),
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: fetchBookings),
+        ],
       ),
-      body: TabBarView(
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Center(child: Text('Error: $_error'))
+          : TabBarView(
         controller: _tabController,
         children: [
-          buildListView("Approved"),
-          buildListView("Pending"),
-          buildListView("Rejected"),
+          buildList('confirmed'),
+          buildList('pending'),
+          buildList('cancelled'),
         ],
       ),
     );

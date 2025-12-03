@@ -17,13 +17,13 @@ const Color kPrimaryColor = Color(0xFF1A0A5B);
 const Color kSecondaryColor = Color(0xFF6C63FF);
 const Color kAccentColor = Color(0xFF00BFA6);
 const Color kTextPrimary = Color(0xFF1F2937);
-const Color kTextSecondary = Color(0xFF6B7280);
+const Color kTextSecondary = Color(0xFF1A0A5B);
 const Color kSurfaceColor = Colors.white;
 const Color kBorderColor = Color(0xFFF0F0F0);
 const Color kShimmerColor = Color(0xFFF5F5F5);
 const Color kLightBackground = Color(0xFFF8FAFC);
 const Color kCardShadow = Color(0x0A000000);
-
+// Add this with your other color constants at the top of the file
 class MarketPage extends StatefulWidget {
   final int initialTab;
   const MarketPage({super.key, this.initialTab = 0});

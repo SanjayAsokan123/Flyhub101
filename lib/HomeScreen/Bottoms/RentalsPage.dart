@@ -1128,7 +1128,7 @@ class _RentalsPageState extends State<RentalsPage> {
                             children: [
                               IconButton(
                                 icon: Icon(
-                                  Icons.shopping_cart_outlined,
+                                  Icons.shopping_bag_outlined,
                                   color: primaryColor,
                                   size: ResponsiveUtils.getIconSize(context) * 0.8,
                                 ),

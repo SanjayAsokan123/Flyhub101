@@ -78,10 +78,11 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
       }
     ''';
 
+
     final variables = {
       "email": inputText.contains("@") ? inputText : null,
       "username": null,
-      "phone": inputText.length >= 8 ? inputText : null,
+      "phone": inputText.replaceAll(RegExp(r'\D'), ''),
       "buyerId": inputText
     };
 
@@ -224,7 +225,6 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Welcome Text
                   Column(
                     children: [
                       Text(
@@ -247,7 +247,6 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
                   ),
                   const SizedBox(height: 40),
 
-                  // Input Fields Card
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(24),

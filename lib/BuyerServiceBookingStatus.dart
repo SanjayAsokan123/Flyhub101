@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+import '../config/env.dart';
 
 class BuyerServiceBookingStatusPage extends StatefulWidget {
   const BuyerServiceBookingStatusPage({super.key});
@@ -12,240 +14,156 @@ class _BuyerServiceBookingStatusPageState
     extends State<BuyerServiceBookingStatusPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
-  final List<Map<String, String>> bookings = [
-    {
-      "id": "SB201",
-      "serviceName": "Home Cleaning",
-      "provider": "CleanPro Services",
-      "status": "Pending",
-      "date": "2025-01-11"
-    },
-    {
-      "id": "SB202",
-      "serviceName": "AC Repair",
-      "provider": "AirFix Experts",
-      "status": "Approved",
-      "date": "2025-01-07"
-    },
-    {
-      "id": "SB203",
-      "serviceName": "Electrician Work",
-      "provider": "PowerMan Services",
-      "status": "Rejected",
-      "date": "2025-01-05",
-      "reason": "Unavailable on selected date"
-    },
-  ];
+  late GraphQLClient client;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-  }
 
-  List<Map<String, String>> getFilteredBookings(String status) {
-    return bookings.where((b) => b["status"] == status).toList();
-  }
-
-  Color getStatusColor(String status) {
-    switch (status) {
-      case "Approved":
-        return Colors.green;
-      case "Rejected":
-        return Colors.red;
-      default:
-        return const Color(0xFF1A0A5B);
-    }
-  }
-
-  /// UPDATED UI — Single Outer Layer Premium Card
-  Widget buildBookingCard(Map<String, String> booking) {
-    Color statusColor = getStatusColor(booking["status"]!);
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      padding: const EdgeInsets.all(3), // Outer Layer
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(
-          color: const Color(0xFFE7E3FA),
-          width: 1.4,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            spreadRadius: 1,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.all(0),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: Colors.grey.shade200, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.07),
-              blurRadius: 18,
-              spreadRadius: 1,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(22),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(22),
-            onTap: () {
-              showDialog(
-                context: context,
-                builder: (_) => AlertDialog(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  title: Text(
-                    booking["serviceName"]!,
-                    style: const TextStyle(
-                        color: Color(0xFF1A0A5B),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18),
-                  ),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("Provider: ${booking['provider']}"),
-                      Text("Booking ID: ${booking['id']}"),
-                      Text("Date: ${booking['date']}"),
-                      Text("Status: ${booking['status']}",
-                          style: TextStyle(
-                              color: statusColor,
-                              fontWeight: FontWeight.bold)),
-                      if (booking["status"] == "Rejected" &&
-                          booking.containsKey("reason"))
-                        Text("Reason: ${booking['reason']}",
-                            style: const TextStyle(color: Colors.red)),
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text(
-                        "Close",
-                        style: TextStyle(color: Color(0xFF1A0A5B)),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  /// ICON
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Icons.home_repair_service,
-                        size: 30, color: statusColor),
-                  ),
-
-                  const SizedBox(width: 18),
-
-                  /// TEXT SECTION
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          booking["serviceName"]!,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF1A0A5B),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-
-                        Text(
-                          "Provider: ${booking['provider']}",
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade700,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-
-                        Text("Booking ID: ${booking['id']}",
-                            style: TextStyle(color: Colors.grey.shade600)),
-                        Text("Date: ${booking['date']}",
-                            style: TextStyle(color: Colors.grey.shade600)),
-                      ],
-                    ),
-                  ),
-
-                  /// STATUS PILL
-                  Container(
-                    padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: statusColor.withOpacity(0.25),
-                        width: 1,
-                      ),
-                    ),
-                    child: Text(
-                      booking["status"]!,
-                      style: TextStyle(
-                        color: statusColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12.5,
-                        letterSpacing: 0.4,
-                      ),
-                    ),
-                  )
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+    client = GraphQLClient(
+      link: HttpLink(EnvConfig.baseUrl),
+      cache: GraphQLCache(),
     );
   }
 
-  Widget buildListView(String status) {
-    var filtered = getFilteredBookings(status);
-    if (filtered.isEmpty) {
-      return const Center(
-        child: Text(
-          "No bookings found",
-          style: TextStyle(fontSize: 16, color: Colors.grey),
-        ),
-      );
+  // ==================== GraphQL Queries ====================
+  static const GET_CONFIRMED = r'''
+    query {
+      getConfirmedContact {
+        id
+        name
+        phone
+        email
+        date
+        status
+        location
+        serviceId
+        serviceBookingId
+      }
     }
+  ''';
 
-    return ListView.builder(
-      itemCount: filtered.length,
-      itemBuilder: (context, index) => buildBookingCard(filtered[index]),
+  static const GET_PENDING = r'''
+    query {
+      getPendingContact {
+        id
+        name
+        phone
+        email
+        date
+        status
+        location
+        serviceId
+        serviceBookingId
+      }
+    }
+  ''';
+
+  static const GET_CANCELLED = r'''
+    query {
+      getCancelledContact {
+        id
+        name
+        phone
+        email
+        date
+        status
+        location
+        serviceId
+        serviceBookingId
+      }
+    }
+  ''';
+
+  Widget buildStatusTab(String queryName, String query) {
+    return FutureBuilder<QueryResult>(
+      future: client.query(QueryOptions(document: gql(query))),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.data!.hasException) {
+          return Center(child: Text("Error: ${snapshot.data!.exception}"));
+        }
+
+        final bookings = snapshot.data!.data?[queryName] ?? [];
+
+        if (bookings.isEmpty) {
+          return const Center(child: Text("No bookings found"));
+        }
+
+        return ListView.builder(
+          itemCount: bookings.length,
+          itemBuilder: (context, index) =>
+              buildBookingCard(bookings[index]),
+        );
+      },
+    );
+  }
+
+  // ==================== Booking Card ====================
+  Widget buildBookingCard(dynamic booking) {
+    final status = booking['status'] ?? 'pending';
+
+    Color color = Colors.blue;
+    if (status == "confirmed") color = Colors.green;
+    if (status == "cancelled") color = Colors.red;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 3,
+      child: ListTile(
+        leading: Icon(Icons.miscellaneous_services,
+            size: 40, color: color),
+        title: Text(
+          booking['name'] ?? "Service Booking",
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        subtitle: Text(
+          "Phone: ${booking['phone']}\nDate: ${booking['date']}",
+          style: const TextStyle(height: 1.5),
+        ),
+        trailing: Text(
+          status.toUpperCase(),
+          style: TextStyle(color: color, fontWeight: FontWeight.bold),
+        ),
+        onTap: () {
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: Text(
+                booking['name'] ?? "Details",
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Booking ID: ${booking['serviceBookingId']}"),
+                  Text("Name: ${booking['name']}"),
+                  Text("Phone: ${booking['phone']}"),
+                  Text("Email: ${booking['email']}"),
+                  Text("Location: ${booking['location']}"),
+                  Text("Date: ${booking['date']}"),
+                  Text(
+                    "Status: ${booking['status']}",
+                    style: TextStyle(color: color),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Close"))
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -254,32 +172,29 @@ class _BuyerServiceBookingStatusPageState
     const themeColor = Color(0xFF1A0A5B);
 
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text(
-          "Service Booking Status",
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text("Service Booking Status",
+            style: TextStyle(color: Colors.white)),
         backgroundColor: themeColor,
         iconTheme: const IconThemeData(color: Colors.white),
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.white,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
           tabs: const [
-            Tab(text: "Approved"),
+            Tab(text: "Confirmed"),
             Tab(text: "Pending"),
-            Tab(text: "Rejected"),
+            Tab(text: "Cancelled"),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          buildListView("Approved"),
-          buildListView("Pending"),
-          buildListView("Rejected"),
+          buildStatusTab("getConfirmedContact", GET_CONFIRMED),
+          buildStatusTab("getPendingContact", GET_PENDING),
+          buildStatusTab("getCancelledContact", GET_CANCELLED),
         ],
       ),
     );

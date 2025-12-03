@@ -1,23 +1,22 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+
 // Settings Pages
 import 'package:flyhub/Help_Support_Page.dart';
 import 'package:flyhub/PrivacyPolicy.dart';
 import 'package:flyhub/Terms_Conditions.dart';
-import 'package:graphql_flutter/graphql_flutter.dart';
 
 // Add Product Pages
 import '../../AddDrone.dart';
 import '../../Approval_Products_Page.dart';
 import '../../HomeScreen/Bottoms/BuyerProfilePage.dart';
-// import '../../HomeScreen/Bottoms/GuestProfilePage.dart';
 import '../../Login/SellerLoginPage.dart';
 import '../../Login/splashscreen.dart';
 import '../../Pending_Products_Page.dart';
 import '../../Rejected_Products_Page.dart';
 import '../../Return_Product_Page.dart';
 // Rental pages
-import '../../Buyer_Return_Refund_Policy.dart';
 import '../../Seller_Drone_Rental_Page.dart';
 import '../../Seller_Pilot_Rental_Page.dart';
 // Product Status Pages
@@ -52,7 +51,21 @@ class _SellerPageState extends State<SellerPage> {
 
   bool _loading = true;
 
-  static const Color themeColor = Color(0xFF1A0A5B);
+  // Modern color palette
+  static const Color primaryColor = Color(0xFF1E0E5C); // Dark blue-purple
+  static const Color primaryLight = Color(0xFF2A1A6E);
+  static const Color secondaryColor = Color(0xFF10B981); // Emerald green
+  static const Color accentColor = Color(0xFFF59E0B); // Amber
+  static const Color backgroundColor = Color(0xFFF8FAFC); // Light background
+  static const Color cardColor = Colors.white;
+  static const Color textPrimary = Color(0xFF1F2937); // Dark gray
+  static const Color textSecondary = Color(0xFF6B7280); // Medium gray
+  static const Color textLight = Color(0xFF9CA3AF); // Light gray
+  static const Color borderColor = Color(0xFFE5E7EB);
+  static const Color errorColor = Color(0xFFEF4444); // Red
+  static const Color warningColor = Color(0xFFF59E0B);
+  static const Color successColor = Color(0xFF10B981);
+
   final String graphqlUrl = EnvConfig.baseUrl;
 
   @override
@@ -175,26 +188,53 @@ class _SellerPageState extends State<SellerPage> {
 
   Future<void> _switchToBuyer() async {
     try {
-      // Update role to buyer
       // await RoleManager.updateRole("buyer");
       if (!mounted) return;
 
-      // Show loading indicator
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(color: themeColor),
+        builder: (context) => Center(
+          child: Container(
+            width: 140,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  "Switching to Buyer...",
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       );
 
-      // Create GraphQL client
       final client = GraphQLClient(
         link: HttpLink(graphqlUrl),
         cache: GraphQLCache(),
       );
 
-      // Check if buyer exists with this email
       const String query = r'''
       query BuyerByEmail($email: String!) {
         buyerByEmail(email: $email) {
@@ -212,34 +252,34 @@ class _SellerPageState extends State<SellerPage> {
         ),
       );
 
-      // Close loading dialog
       if (mounted) Navigator.pop(context);
 
       final buyer = result.data?['buyerByEmail'];
 
       if (buyer != null) {
-        // Buyer exists, go directly to Buyer Profile Page
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const BuyerProfilePage()),
         );
       } else {
-        // Buyer doesn't exist, need to verify/login as buyer first
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const SellerLoginPage()),
         );
 
-        // Show message after navigation
         Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("Please verify as a buyer to continue"),
-                backgroundColor: Colors.orange,
-                duration: Duration(seconds: 3),
+              SnackBar(
+                content: const Text("Please verify as a buyer to continue"),
+                backgroundColor: warningColor,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 2,
               ),
             );
           }
@@ -248,24 +288,26 @@ class _SellerPageState extends State<SellerPage> {
     } catch (e) {
       debugPrint("❌ Switch to Buyer Error: $e");
 
-      // Close loading dialog if open
       if (mounted) Navigator.pop(context);
 
-      // On error, send to login page for safety
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const SellerLoginPage()),
       );
 
-      // Show error message
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content:
-              Text("Error switching to buyer mode. Please login again."),
-              backgroundColor: Colors.red,
+            SnackBar(
+              content: const Text(
+                  "Error switching to buyer mode. Please login again."),
+              backgroundColor: errorColor,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 2,
             ),
           );
         }
@@ -274,45 +316,224 @@ class _SellerPageState extends State<SellerPage> {
   }
 
   Future<void> _logout() async {
-    await _auth.signOut();
-    await RoleManager.clearRole();
-    if (!mounted) return;
-
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const SellerLoginPage()),
-          (route) => false,
-    );
-  }
-
-  void _showMissingSellerSnack() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("⚠ Seller ID not found")),
-    );
-  }
-
-  void _showNotApprovedDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Container(
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: errorColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.logout,
+                    color: errorColor,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  "Logout",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  "Are you sure you want to logout?",
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: textSecondary,
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 28),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: textSecondary,
+                          side: BorderSide(color: borderColor, width: 1),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text("Cancel"),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          Navigator.pop(context);
+                          await _auth.signOut();
+                          await RoleManager.clearRole();
+                          if (!mounted) return;
+
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const SellerLoginPage()),
+                                (route) => false,
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: errorColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: const Text("Logout"),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingScreen() {
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.lock, color: themeColor),
-            const SizedBox(width: 10),
-            const Text("Account Not Verified"),
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: primaryColor.withOpacity(0.2),
+                  width: 2,
+                ),
+              ),
+              child: ClipOval(
+                child: Image.asset(
+                  'assets/images/profile.jpg', // Your image path
+                  fit: BoxFit.cover,
+                  width: 80,
+                  height: 80,
+                  errorBuilder: (context, error, stackTrace) {
+                    debugPrint("❌ Loading screen image error: $error");
+                    return Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [primaryColor, primaryLight],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.store_mall_directory_rounded,
+                        color: Colors.white,
+                        size: 36,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              "Loading Dashboard",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: textPrimary,
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: 200,
+              child: LinearProgressIndicator(
+                backgroundColor: borderColor,
+                valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                borderRadius: BorderRadius.circular(10),
+                minHeight: 6,
+              ),
+            ),
           ],
         ),
-        content: const Text(
-          "After verifying your details, we will send your ID and email. "
-              "My Store and Product Status sections will be enabled once approved.",
-          style: TextStyle(fontSize: 14),
+      ),
+    );
+  }
+
+  Widget _buildAvatar(String? companyName, {double size = 60}) {
+    final String initials = companyName != null && companyName.isNotEmpty
+        ? companyName[0].toUpperCase()
+        : "S";
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: primaryColor.withOpacity(0.2),
+          width: 2,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text("OK", style: TextStyle(color: themeColor)),
-          ),
-        ],
+      ),
+      child: ClipOval(
+        child: Image.asset(
+          'assets/images/profile.jpg', // Your image path
+          fit: BoxFit.cover,
+          width: size,
+          height: size,
+          errorBuilder: (context, error, stackTrace) {
+            debugPrint("❌ Avatar image error: $error");
+            debugPrint("❌ Stack trace: $stackTrace");
+            // Fallback to gradient avatar if image fails to load
+            return Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [primaryColor, primaryLight],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  initials,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: size * 0.4,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -323,431 +544,311 @@ class _SellerPageState extends State<SellerPage> {
     final status = _sellerData?['status'] ?? "";
     final customId = _sellerData?['customId'] ?? "";
 
-    return Column(
-      children: [
-        Stack(
-          children: [
-            CircleAvatar(
-              radius: 45,
-              backgroundColor: themeColor,
-              child: Text(
-                name[0].toUpperCase(),
-                style: const TextStyle(color: Colors.white, fontSize: 24),
-              ),
-            ),
-            if (!_isApproved)
-              Positioned(
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.orange,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                  child: const Icon(Icons.lock, color: Colors.white, size: 16),
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text(name,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        Text(email, style: const TextStyle(fontSize: 13, color: Colors.grey)),
-
-        // Show customId only when status is "approved"
-        if (_isApproved) ...[
-          const SizedBox(height: 5),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: themeColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: themeColor.withOpacity(0.3)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.verified, color: themeColor, size: 16),
-                const SizedBox(width: 6),
-                Text(
-                  "ID: $customId",
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: themeColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ] else ...[
-          const SizedBox(height: 5),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: Colors.orange.withOpacity(0.3)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.pending, color: Colors.orange, size: 16),
-                const SizedBox(width: 6),
-                Text(
-                  status.isEmpty
-                      ? "Pending Verification"
-                      : status.toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.orange,
-                  ),
-                ),
-              ],
-            ),
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
-
-        const SizedBox(height: 15),
-      ],
-    );
-  }
-
-  Widget _buildTile(String label, IconData icon, VoidCallback onTap,
-      {bool locked = false}) {
-    return Opacity(
-      opacity: locked ? 0.5 : 1.0,
-      child: ListTile(
-        leading: Icon(icon, color: locked ? Colors.grey : themeColor),
-        title: Row(
-          children: [
-            Text(label,
-                style: TextStyle(color: locked ? Colors.grey : Colors.black)),
-            if (locked) ...[
-              const SizedBox(width: 8),
-              const Icon(Icons.lock, size: 14, color: Colors.grey),
-            ],
-          ],
-        ),
-        trailing: Icon(Icons.arrow_forward_ios,
-            size: 14, color: locked ? Colors.grey : null),
-        onTap: locked ? _showNotApprovedDialog : onTap,
       ),
-    );
-  }
-
-  Widget _buildSection(String title, {bool locked = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: locked ? Colors.grey : Colors.black,
-            ),
-          ),
-          if (locked) ...[
-            const SizedBox(width: 8),
-            const Icon(Icons.lock, size: 18, color: Colors.grey),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // PROFILE PAGE
-  Widget buildProfilePage() {
-    if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(color: themeColor),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text("Seller Dashboard"),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 1,
-        actions: [
-          InkWell(
-            onTap: _switchToBuyer,
-            child: Container(
-              margin: const EdgeInsets.only(right: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: themeColor,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.swap_horiz, color: Colors.white, size: 18),
-                  SizedBox(width: 6),
-                  Text("Buyer Mode",
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600)),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(vertical: 15),
-        child: Column(
-          children: [
-            _buildHeader(),
-
-            // Show warning banner if not approved
-            if (!_isApproved) ...[
-              Container(
-                margin:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
-                ),
-                child: Row(
+          Row(
+            children: [
+              // Default avatar
+              _buildAvatar(name),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_outline,
-                        color: Colors.orange, size: 20),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        "Your account is pending verification. My Store and Product Status will be enabled after approval.",
-                        style: TextStyle(
-                            fontSize: 12, color: Colors.orange.shade800),
+                    Text(
+                      name,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: textPrimary,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      email,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: textSecondary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
+              if (!_isApproved)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: warningColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: warningColor.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.lock,
+                        color: warningColor,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "Pending",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: warningColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Seller Status",
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      _isApproved ? Icons.verified : Icons.pending,
+                      color: _isApproved ? successColor : warningColor,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _isApproved ? "Verified Seller" : "Pending Verification",
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: _isApproved ? successColor : warningColor,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (_isApproved && customId.isNotEmpty)
+                      Text(
+                        "ID: $customId",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: textSecondary,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-            _buildSection("My Store", locked: !_isApproved),
+  Widget _buildSectionHeader(String title, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: primaryColor,
+            size: 22,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-            _buildTile("Add Drone for Sale", Icons.airplanemode_active, () {
-              _sellerId == null
-                  ? _showMissingSellerSnack()
-                  : Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => AddDronePage(sellerId: _sellerId!)),
-              );
-            }, locked: !_isApproved),
+  Widget _buildMenuItem({
+    required String title,
+    required IconData icon,
+    required VoidCallback onTap,
+    Color? iconColor,
+    bool disabled = false,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: disabled ? null : onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: borderColor,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: (iconColor ?? primaryColor).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: disabled ? textLight : (iconColor ?? primaryColor),
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: disabled ? textLight : textPrimary,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: disabled ? textLight : textSecondary,
+                  size: 14,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
-            _buildTile("Add Spare Parts", Icons.build, () {
-              _sellerId == null
-                  ? _showMissingSellerSnack()
-                  : Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) =>
-                        AddSparePartForm(sellerId: _sellerId!)),
-              );
-            }, locked: !_isApproved),
+  Widget _buildCategoryGrid(List<Map<String, dynamic>> items) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: 0.99, // Smaller aspect ratio for smaller containers
+      ),
+      itemCount: items.length,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return _buildCategoryItem(
+          icon: item['icon'],
+          label: item['label'],
+          onTap: item['onTap'],
+          color: item['color'],
+          disabled: item['disabled'] ?? false,
+        );
+      },
+    );
+  }
 
-            _buildTile("Add Accessories", Icons.memory, () {
-              _sellerId == null
-                  ? _showMissingSellerSnack()
-                  : Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) =>
-                        AddAccessoryForm(sellerId: _sellerId!)),
-              );
-            }, locked: !_isApproved),
-
-            _buildTile("Add Rental Drone", Icons.precision_manufacturing, () {
-              _sellerId == null
-                  ? _showMissingSellerSnack()
-                  : Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) =>
-                        AddDroneRentalForm(sellerId: _sellerId!)),
-              );
-            }, locked: !_isApproved),
-
-            _buildTile("Add Drone Services", Icons.design_services, () {
-              _sellerId == null
-                  ? _showMissingSellerSnack()
-                  : Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => AddServiceForm(sellerId: _sellerId!)),
-              );
-            }, locked: !_isApproved),
-
-            _buildTile("Add Jobs / Gigs", Icons.work_outline, () {
-              _sellerId == null
-                  ? _showMissingSellerSnack()
-                  : Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => AddJobForm(sellerId: _sellerId!)),
-              );
-            }, locked: !_isApproved),
-
-            _buildTile("Add Hire Pilot", Icons.flight_takeoff, () {
-              _sellerId == null
-                  ? _showMissingSellerSnack()
-                  : Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) =>
-                        AddHirePilotForm(sellerId: _sellerId!)),
-              );
-            }, locked: !_isApproved),
-
-            const SizedBox(height: 20),
-
-            // Product Status
-            _buildSection("Product Status", locked: !_isApproved),
-
-            _buildTile("Sold Products", Icons.check_circle_outline, () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SoldProductsPage()),
-              );
-            }, locked: !_isApproved),
-
-            _buildTile("Rejected Products", Icons.cancel_outlined, () {
-              _sellerId == null
-                  ? _showMissingSellerSnack()
-                  : Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) =>
-                        RejectedProductsPage(sellerCustomId: _sellerId!)),
-              );
-            }, locked: !_isApproved),
-
-            _buildTile("Pending Products", Icons.pending_actions_outlined, () {
-              _sellerId == null
-                  ? _showMissingSellerSnack()
-                  : Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) =>
-                        PendingProductsPage(sellerCustomId: _sellerId!)),
-              );
-            }, locked: !_isApproved),
-
-            _buildTile("Approval Products", Icons.verified_outlined, () {
-              _sellerId == null
-                  ? _showMissingSellerSnack()
-                  : Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) =>
-                        ApprovalProductsPage(sellerCustomId: _sellerId!)),
-              );
-            }, locked: !_isApproved),
-
-            _buildTile("Return Products", Icons.keyboard_return_outlined, () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ReturnedProductsPage()),
-              );
-            }, locked: !_isApproved),
-
-            _buildTile("Rental Drones", Icons.air_outlined, () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const SellerDroneRentalPage()),
-              );
-            }, locked: !_isApproved),
-
-            _buildTile("Pilot Rental", Icons.person_pin_circle_rounded, () {
-              _sellerId == null
-                  ? _showMissingSellerSnack()
-                  : Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) =>
-                        PilotRentalPage(sellerId: _sellerId!)),
-              );
-            }, locked: !_isApproved),
-
-            _buildTile("Job Apply Status", Icons.work_history, () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const JobApplyStatusPage()),
-              );
-            }, locked: !_isApproved),
-
-            _buildTile("Service Booking Status", Icons.work_history, () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const ServiceBookingStatusPage()),
-              );
-            }, locked: !_isApproved),
-
-            const SizedBox(height: 20),
-
-            _buildSection("Account Settings"),
-
-            _buildTile("Logout", Icons.logout, _logout),
-
-            _buildSection("Legal & Support"),
-
-            _buildTile("Terms & Conditions", Icons.description_outlined, () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const TermsAndConditionsPage()));
-            }),
-
-            _buildTile("Privacy Policy", Icons.privacy_tip_outlined, () {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()));
-            }),
-
-            _buildTile("Shipping Policy", Icons.description_outlined, () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const SellerShippingPolicyPage ()));
-            }),
-            _buildTile("Return & Refund Policy", Icons.description_outlined, () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const SRRPolicy ()));
-            }),
-
-
-            _buildTile("Help & Support", Icons.help_outline, () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const HelpAndSupportPage()));
-            }),
-
-            _buildTile("Send Feedback", Icons.feedback_outlined, () {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const FeedbackFormPage()));
-            }),
-
-            const SizedBox(height: 10),
-            const Text("Version 1.0.0",
-                style: TextStyle(fontSize: 12, color: Colors.grey)),
-            const SizedBox(height: 20),
+  Widget _buildCategoryItem({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required Color color,
+    bool disabled = false,
+  }) {
+    return GestureDetector(
+      onTap: disabled ? null : onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: borderColor,
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                icon,
+                color: disabled ? textLight : color,
+                size: 22,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: disabled ? textLight : textPrimary,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       ),
@@ -756,6 +857,420 @@ class _SellerPageState extends State<SellerPage> {
 
   @override
   Widget build(BuildContext context) {
-    return buildProfilePage(); // NO BOTTOM NAVIGATION
+    if (_loading) {
+      return _buildLoadingScreen();
+    }
+
+    final storeItems = [
+      {
+        'icon': Icons.done,
+        'label': 'Add Drone',
+        'color': Colors.blue,
+        'disabled': !_isApproved,
+        'onTap': () {
+          if (_sellerId == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text("Seller ID not found"),
+                backgroundColor: warningColor,
+              ),
+            );
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddDronePage(sellerId: _sellerId!),
+            ),
+          );
+        },
+      },
+      {
+        'icon': Icons.build,
+        'label': 'Spare Parts',
+        'color': Colors.green,
+        'disabled': !_isApproved,
+        'onTap': () {
+          if (_sellerId == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text("Seller ID not found"),
+                backgroundColor: warningColor,
+              ),
+            );
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddSparePartForm(sellerId: _sellerId!),
+            ),
+          );
+        },
+      },
+      {
+        'icon': Icons.memory,
+        'label': 'Accessories',
+        'color': Colors.orange,
+        'disabled': !_isApproved,
+        'onTap': () {
+          if (_sellerId == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text("Seller ID not found"),
+                backgroundColor: warningColor,
+              ),
+            );
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddAccessoryForm(sellerId: _sellerId!),
+            ),
+          );
+        },
+      },
+      {
+        'icon': Icons.airplanemode_active,
+        'label': 'Rental Drone',
+        'color': Colors.purple,
+        'disabled': !_isApproved,
+        'onTap': () {
+          if (_sellerId == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text("Seller ID not found"),
+                backgroundColor: warningColor,
+              ),
+            );
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddDroneRentalForm(sellerId: _sellerId!),
+            ),
+          );
+        },
+      },
+      {
+        'icon': Icons.design_services,
+        'label': 'Services',
+        'color': Colors.teal,
+        'disabled': !_isApproved,
+        'onTap': () {
+          if (_sellerId == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text("Seller ID not found"),
+                backgroundColor: warningColor,
+              ),
+            );
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddServiceForm(sellerId: _sellerId!),
+            ),
+          );
+        },
+      },
+      {
+        'icon': Icons.work_outline,
+        'label': 'Jobs/Gigs',
+        'color': Colors.red,
+        'disabled': !_isApproved,
+        'onTap': () {
+          if (_sellerId == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text("Seller ID not found"),
+                backgroundColor: warningColor,
+              ),
+            );
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddJobForm(sellerId: _sellerId!),
+            ),
+          );
+        },
+      },
+    ];
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        title: Text(
+          "Seller Dashboard",
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: textPrimary,
+          ),
+        ),
+        backgroundColor: cardColor,
+        elevation: 0,
+        centerTitle: false,
+        actions: [
+          IconButton(
+            onPressed: _switchToBuyer,
+            icon: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.swap_horiz,
+                color: primaryColor,
+                size: 20,
+              ),
+            ),
+            tooltip: "Switch to Buyer",
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 16), // Reduced bottom padding
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(),
+            const SizedBox(height: 16),
+
+            // My Store Section
+            _buildSectionHeader("My Store", Icons.storefront),
+            const SizedBox(height: 4),
+            _buildCategoryGrid(storeItems),
+
+            // Product Status Section
+            const SizedBox(height: 16),
+            _buildSectionHeader("Product Status", Icons.analytics_outlined),
+            const SizedBox(height: 4),
+            ..._buildProductStatusItems(),
+
+            // Legal & Support Section
+            const SizedBox(height: 16),
+            _buildSectionHeader("Legal & Support", Icons.gavel),
+            const SizedBox(height: 4),
+            ..._buildLegalSupportItems(),
+
+            // Account Settings Section (Only Logout)
+            const SizedBox(height: 16),
+            _buildSectionHeader("Account Settings", Icons.settings),
+            const SizedBox(height: 4),
+            _buildLogoutItem(),
+
+            // Footer
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+              child: Column(
+                children: [
+                  const SizedBox(height: 4),
+                  Center(
+                    child: Text(
+                      "Version 1.0.0",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: textLight,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildProductStatusItems() {
+    return [
+      _buildMenuItem(
+        title: "Sold Products",
+        icon: Icons.check_circle_outline,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const SoldProductsPage()),
+        ),
+        disabled: !_isApproved,
+        iconColor: primaryColor,
+      ),
+      _buildMenuItem(
+        title: "Pending Products",
+        icon: Icons.pending_outlined,
+        onTap: () {
+          if (_sellerId == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text("Seller ID not found"),
+                backgroundColor: warningColor,
+              ),
+            );
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PendingProductsPage(sellerCustomId: _sellerId!),
+            ),
+          );
+        },
+        disabled: !_isApproved,
+        iconColor: primaryColor,
+      ),
+      _buildMenuItem(
+        title: "Approved Products",
+        icon: Icons.verified_outlined,
+        onTap: () {
+          if (_sellerId == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text("Seller ID not found"),
+                backgroundColor: warningColor,
+              ),
+            );
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ApprovalProductsPage(sellerCustomId: _sellerId!),
+            ),
+          );
+        },
+        disabled: !_isApproved,
+        iconColor: primaryColor,
+      ),
+      _buildMenuItem(
+        title: "Rejected Products",
+        icon: Icons.cancel_outlined,
+        onTap: () {
+          if (_sellerId == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text("Seller ID not found"),
+                backgroundColor: warningColor,
+              ),
+            );
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RejectedProductsPage(sellerCustomId: _sellerId!),
+            ),
+          );
+        },
+        disabled: !_isApproved,
+        iconColor: primaryColor,
+      ),
+    ];
+  }
+
+  List<Widget> _buildLegalSupportItems() {
+    return [
+      _buildMenuItem(
+        title: "Terms & Conditions",
+        icon: Icons.description_outlined,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const TermsAndConditionsPage()),
+        ),
+        iconColor: primaryColor,
+      ),
+      _buildMenuItem(
+        title: "Privacy Policy",
+        icon: Icons.privacy_tip_outlined,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()),
+        ),
+        iconColor: primaryColor,
+      ),
+      _buildMenuItem(
+        title: "Help & Support",
+        icon: Icons.help_outline,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const HelpAndSupportPage()),
+        ),
+        iconColor: primaryColor,
+      ),
+      _buildMenuItem(
+        title: "Send Feedback",
+        icon: Icons.feedback_outlined,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const FeedbackFormPage()),
+        ),
+        iconColor: primaryColor,
+      ),
+    ];
+  }
+
+  Widget _buildLogoutItem() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _logout,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: errorColor.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: errorColor.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: errorColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.logout,
+                    color: errorColor,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    "Logout",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: errorColor,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: errorColor,
+                  size: 14,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

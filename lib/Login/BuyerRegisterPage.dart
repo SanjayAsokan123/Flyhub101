@@ -224,7 +224,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
       final serverResult = await _signupOnServer(
         name: "${_firstName.text.trim()} ${_lastName.text.trim()}",
         email: email,
-        phone: "$_selectedCountryCode${_phone.text.trim()}",
+        phone: _phone.text.trim(),
         password: pass,
         firebaseUid: uid,
       );

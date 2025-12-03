@@ -1,454 +1,762 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flyhub/HomeScreen/Dynamichome.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:http/http.dart' as http;
 
-import '../../HomeScreen/Dynamichome.dart';
-import '../../config/env.dart';
-import '../../services/role_manager.dart';
-import '../auth/auth_service.dart';
+// ============================================
+// SELLER REGISTRATION FLOW MAIN SCREEN
+// ============================================
 
-class SellerRegisterPage extends StatefulWidget {
-  const SellerRegisterPage({super.key});
+class SellerRegistrationFlow extends StatefulWidget {
+  const SellerRegistrationFlow({Key? key}) : super(key: key);
 
   @override
-  State<SellerRegisterPage> createState() => _SellerRegisterPageState();
+  State<SellerRegistrationFlow> createState() => _SellerRegistrationFlowState();
 }
 
-class _SellerRegisterPageState extends State<SellerRegisterPage> {
-  final AuthService _authService = AuthService();
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+class _SellerRegistrationFlowState extends State<SellerRegistrationFlow> {
+  int currentStep = 0; // 0: Email Verification, 1: Seller Details, 2: Success
+  String? _verifiedEmail; // ✅ Store verified email in parent
 
-  // Form key
-  final _formKey = GlobalKey<FormState>();
-
-  // All form fields
-  final TextEditingController regEmail = TextEditingController();
-  final TextEditingController regPassword = TextEditingController();
-  final TextEditingController phone = TextEditingController();
-  final TextEditingController otpCode = TextEditingController();
-  final TextEditingController firstName = TextEditingController();
-  final TextEditingController lastName = TextEditingController();
-  final TextEditingController storeName = TextEditingController();
-  final TextEditingController gst = TextEditingController();
-  final TextEditingController pan = TextEditingController();
-  final TextEditingController address = TextEditingController();
-  final TextEditingController bank = TextEditingController();
-  final TextEditingController ifsc = TextEditingController();
-  final TextEditingController account = TextEditingController();
-  final TextEditingController description = TextEditingController();
-
-  // ✅ NEW: Shipping and Pickup Address Controllers
-  final TextEditingController shippingAddress = TextEditingController();
-  final TextEditingController pickupAddress = TextEditingController();
-
-  // State
-  bool otpSent = false;
-  bool phoneVerified = false;
-  bool accountCreated = false;
-  bool loading = false;
-  bool regPassVisible = false;
-
-  // ✅ NEW: Checkbox states
-  bool sameAsBusinessAddress = false;
-  bool pickupSameAsShipping = false;
-
-  static const Color themeColor = Color(0xFF1A0A5B);
-  late final String graphqlUrl = "${EnvConfig.baseUrl}/graphql";
-
-  String? verificationId;
-
-  // ═════════════════════════════════════════════════════════════
-  // STEP 1: SEND OTP (FIREBASE PHONE AUTH)
-  // ═════════════════════════════════════════════════════════════
-
-  Future<void> sendOTP() async {
-    final ph = phone.text.trim();
-
-    if (ph.isEmpty || ph.length < 10) {
-      showMessage("Enter valid phone number");
-      return;
-    }
-
-    String phoneWithCode = ph.startsWith('+') ? ph : '+91$ph';
-
-    setState(() => loading = true);
-
-    try {
-      await FirebaseAuth.instance.verifyPhoneNumber(
-        phoneNumber: phoneWithCode,
-        verificationCompleted: (PhoneAuthCredential credential) async {
-          // Auto-verification (Android)
-          setState(() {
-            otpSent = true;
-            phoneVerified = true;
-          });
-          showMessage("✅ Phone verified automatically");
-        },
-        verificationFailed: (FirebaseAuthException e) {
-          setState(() => loading = false);
-          showMessage("❌ Verification failed: ${e.message}");
-        },
-        codeSent: (String verId, int? resendToken) {
-          setState(() {
-            verificationId = verId;
-            otpSent = true;
-            loading = false;
-          });
-          showMessage("📲 OTP sent to $phoneWithCode");
-        },
-        codeAutoRetrievalTimeout: (String verId) {
-          verificationId = verId;
-        },
-        timeout: const Duration(seconds: 60),
-      );
-    } catch (e) {
-      setState(() => loading = false);
-      showMessage("❌ ${e.toString().replaceAll('Exception: ', '')}");
-    }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(
+        index: currentStep,
+        children: [
+          EmailVerificationScreen(
+            onEmailVerified: (email) {
+              setState(() {
+                _verifiedEmail = email; // ✅ Capture verified email
+                currentStep = 1;
+              });
+            },
+          ),
+          SellerDetailsScreen(
+            verifiedEmail: _verifiedEmail, // ✅ Pass email to next screen
+            onDetailsSubmitted: () {
+              setState(() {
+                currentStep = 2;
+              });
+            },
+            onBackToEmail: () {
+              setState(() {
+                _verifiedEmail = null;
+                currentStep = 0;
+              });
+            },
+          ),
+          const SellerVerificationSuccessScreen(
+            onExploreApp: _defaultExploreApp,
+          ),
+        ],
+      ),
+    );
   }
 
-  // ═════════════════════════════════════════════════════════════
-  // STEP 2: VERIFY OTP AND CREATE ACCOUNT (FIREBASE)
-  // ═════════════════════════════════════════════════════════════
+  static void _defaultExploreApp() {
+    // Placeholder - will be overridden by parent navigation
+  }
+}
 
-  Future<void> createAccountWithOTP() async {
-    if (!_formKey.currentState!.validate()) return;
+// ============================================
+// STEP 1: EMAIL VERIFICATION SCREEN
+// ============================================
 
-    final email = regEmail.text.trim();
-    final pass = regPassword.text.trim();
-    final ph = phone.text.trim();
-    final code = otpCode.text.trim();
+class EmailVerificationScreen extends StatefulWidget {
+  final Function(String) onEmailVerified; // ✅ Changed to pass email
 
-    if (code.isEmpty || code.length != 6) {
-      showMessage("Enter 6-digit OTP");
+  const EmailVerificationScreen({
+    Key? key,
+    required this.onEmailVerified,
+  }) : super(key: key);
+
+  @override
+  State<EmailVerificationScreen> createState() =>
+      _EmailVerificationScreenState();
+}
+
+class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+  TextEditingController();
+
+  bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+  String? _errorMessage;
+  bool _emailVerified = false;
+  late Timer _verificationCheckTimer;
+
+  // ✅ NAVY BLUE COLOR SCHEME
+  static const Color _primaryColor = Color(0xFF001F3F); // Navy Blue
+  static const Color _accentColor = Color(0xFF0074D9); // Bright Blue
+  static const Color _lightColor = Color(0xFFF5F8FB); // Light Blue-Gray
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    if (_verificationCheckTimer.isActive) {
+      _verificationCheckTimer.cancel();
+    }
+    super.dispose();
+  }
+
+  Future<void> _sendVerificationEmail() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    final confirmPassword = _confirmPasswordController.text.trim();
+
+    // Validation
+    if (email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+      setState(() {
+        _errorMessage = 'All fields are required';
+      });
       return;
     }
 
-    if (verificationId == null) {
-      showMessage("Please send OTP first");
+    if (!email.contains('@') || !email.contains('.')) {
+      setState(() {
+        _errorMessage = 'Please enter a valid email';
+      });
       return;
     }
 
-    String phoneWithCode = ph.startsWith('+') ? ph : '+91$ph';
+    if (password.length < 6) {
+      setState(() {
+        _errorMessage = 'Password must be at least 6 characters';
+      });
+      return;
+    }
 
-    setState(() => loading = true);
+    if (password != confirmPassword) {
+      setState(() {
+        _errorMessage = 'Passwords do not match';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
     try {
-      // 1️⃣ Verify OTP with Firebase
-      final PhoneAuthCredential credential = PhoneAuthProvider.credential(
-        verificationId: verificationId!,
-        smsCode: code,
-      );
-
-      // 2️⃣ Create email/password account first
-      final userCredential =
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      // Create user in Firebase Auth
+      final UserCredential userCredential =
+      await _auth.createUserWithEmailAndPassword(
         email: email,
-        password: pass,
+        password: password,
       );
 
-      final user = userCredential.user;
-      if (user == null) throw Exception("User creation failed");
+      // Send verification email
+      await userCredential.user!.sendEmailVerification();
 
-      // 3️⃣ Link phone credential to the account
-      try {
-        await user.linkWithCredential(credential);
-        print("✅ Phone linked to account");
-      } on FirebaseAuthException catch (e) {
-        if (e.code == 'provider-already-linked') {
-          print("⚠ Phone already linked");
-        } else if (e.code == 'credential-already-in-use') {
-          throw Exception("This phone number is already in use");
-        } else {
-          throw Exception("Phone linking failed: ${e.message}");
-        }
-      }
+      // Store email & password temporarily in secure storage or session
+      // For now, save to Firebase user metadata
+      await userCredential.user!.updateDisplayName(email);
 
-      // 4️⃣ Create Firestore document
-      await _firestore.collection('users').doc(user.uid).set({
-        'uid': user.uid,
-        'email': email,
-        'phone': phoneWithCode,
-        'firstName': firstName.text.trim(),
-        'lastName': lastName.text.trim(),
-        'role': 'seller',
-        'phoneVerified': true,
-        'emailVerified': false, // Will be verified by admin
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Verification email sent. Check your inbox!'),
+          backgroundColor: Color(0xFF27AE60),
+          duration: Duration(seconds: 3),
+        ),
+      );
+
+      // Poll for email verification every 3 seconds
+      _startVerificationCheck(userCredential.user!, email);
 
       setState(() {
-        phoneVerified = true;
-        accountCreated = true;
+        _isLoading = false;
       });
-
-      showMessage("✅ Account created! Complete your business profile.");
-    } catch (e) {
-      // If account creation fails, delete the user
-      try {
-        final currentUser = FirebaseAuth.instance.currentUser;
-        if (currentUser != null) {
-          await currentUser.delete();
-        }
-      } catch (_) {}
-
-      showMessage("❌ ${e.toString().replaceAll('Exception: ', '')}");
-    } finally {
-      setState(() => loading = false);
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _errorMessage = e.message ?? 'Failed to create account';
+        _isLoading = false;
+      });
     }
   }
 
-  // ═════════════════════════════════════════════════════════════
-  // STEP 3: SUBMIT SELLER FORM (FIREBASE)
-  // ═════════════════════════════════════════════════════════════
+  void _startVerificationCheck(User user, String email) {
+    int retryCount = 0;
+    const int maxRetries = 180; // 10 minutes with 3-second interval
 
-  Future<void> submitSellerForm() async {
-    if (!_formKey.currentState!.validate()) return;
+    _verificationCheckTimer =
+        Timer.periodic(Duration(seconds: 3), (timer) async {
+          try {
+            // ✅ METHOD 1: Reload and check immediately
+            await user.reload();
+            final updatedUser = FirebaseAuth.instance.currentUser;
 
-    setState(() => loading = true);
+            if (updatedUser?.emailVerified ?? false) {
+              timer.cancel();
+              setState(() {
+                _emailVerified = true;
+              });
 
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw Exception("No user logged in");
-
-      String phoneWithCode = phone.text.trim().startsWith('+')
-          ? phone.text.trim()
-          : '+91${phone.text.trim()}';
-
-      final sellerIdLocal = "SELLER_${user.uid.substring(0, 6).toUpperCase()}";
-
-      await _firestore.collection("users").doc(user.uid).set({
-        "sellerId": sellerIdLocal,
-        "role": "seller",
-        "sellerStatus": "pending",
-        "phoneNumber": phoneWithCode,
-        "phoneVerified": true,
-        "updatedAt": FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      await _firestore
-          .collection("loginIndex")
-          .doc("phone_$phoneWithCode")
-          .set({"uid": user.uid});
-
-      await _firestore
-          .collection("loginIndex")
-          .doc("sellerId_$sellerIdLocal")
-          .set({"uid": user.uid});
-
-      await saveSellerToMongoAndMirror(user, sellerIdLocal, phoneWithCode);
-
-      await RoleManager.setLocalRole("seller");
-
-      // Show submission confirmation dialog
-      await _showSubmissionConfirmationDialog();
-    } catch (e) {
-      showMessage("❌ ${e.toString().replaceAll('Exception: ', '')}");
-      setState(() => loading = false);
-    }
-  }
-
-  /// Show confirmation dialog after submission
-  Future<void> _showSubmissionConfirmationDialog() async {
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-          title: Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.green, size: 30),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Text(
-                  "Application Submitted!",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('✅ Email verified successfully!'),
+                  backgroundColor: Color(0xFF27AE60),
+                  duration: Duration(seconds: 2),
                 ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "Thank you for registering as a seller!",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 15),
-              const Text(
-                "Your details will be verified by FlyHub Private Company. You will receive a notification and email once your account is approved.",
-                style: TextStyle(fontSize: 14, height: 1.5),
-              ),
-              const SizedBox(height: 15),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.blue.shade700),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text(
-                        "You can explore the app while we review your application.",
-                        style: TextStyle(fontSize: 13),
-                      ),
+              );
+
+              // ✅ AUTO NAVIGATE after 1.5 seconds - Pass verified email
+              Future.delayed(Duration(milliseconds: 1500), () {
+                if (mounted) {
+                  widget.onEmailVerified(email); // ✅ Pass email
+                }
+              });
+            } else {
+              retryCount++;
+              if (retryCount >= maxRetries) {
+                timer.cancel();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                          '⏱ Verification timeout. Please verify your email and try again.'),
+                      backgroundColor: Color(0xFFF39C12),
+                      duration: Duration(seconds: 3),
                     ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                // Navigate to home
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const Dynamichome(selectedIndex: 0)),
-                      (route) => false,
-                );
-              },
-              child: const Text(
-                "Explore App",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        );
-      },
-    );
+                  );
+                }
+              }
+            }
+          } catch (e) {
+            print('❌ Error checking email verification: $e');
+          }
+        });
   }
-
-  Future<String?> saveSellerToMongoAndMirror(
-      User user,
-      String fallbackSellerId,
-      String phoneWithCode,
-      ) async {
-    final token = await user.getIdToken();
-
-    final AuthLink authLink = AuthLink(
-      getToken: () async => "Bearer $token",
-    );
-
-    final HttpLink httpLink = HttpLink(graphqlUrl);
-    final Link link = authLink.concat(httpLink);
-
-    final GraphQLClient client = GraphQLClient(
-      cache: GraphQLCache(),
-      link: link,
-    );
-
-    const String mutation = r'''
-      mutation CreateSeller($input: SellerInput!) {
-        createSeller(input: $input) {
-         customId
-          companyName
-          email
-          status
-        }
-      }
-    ''';
-
-    // ✅ Get shipping and pickup addresses
-    String finalShippingAddress = shippingAddress.text.trim();
-    String finalPickupAddress = pickupAddress.text.trim();
-
-    // If "Same as Business Address" is checked, use business address
-    if (sameAsBusinessAddress && finalShippingAddress.isEmpty) {
-      finalShippingAddress = address.text.trim();
-    }
-
-    // If "Pickup same as Shipping" is checked, use shipping address
-    if (pickupSameAsShipping && finalPickupAddress.isEmpty) {
-      finalPickupAddress = finalShippingAddress;
-    }
-
-    final variables = {
-      "input": {
-        "name": "${firstName.text.trim()} ${lastName.text.trim()}",
-        "companyName": storeName.text.trim(),
-        "PANnumber": pan.text.trim(),
-        "gstNumber": gst.text.trim(),
-        "address": address.text.trim(),
-        "phoneNumber": phoneWithCode,
-        "authorized": storeName.text.trim(),
-        "email": user.email,
-        "bankName": bank.text.trim(),
-        "bankAccountNumber": account.text.trim(),
-        "bankIFCnumber": ifsc.text.trim(),
-        "companyPan": pan.text.trim(),
-        // ✅ NEW: Include shipping and pickup addresses
-        "shippingAddresses": [finalShippingAddress],
-        "pickupAddresses": [finalPickupAddress],
-        "firebaseUid": user.uid,
-        "status": "pending",
-      }
-    };
-
-    final result = await client.mutate(
-      MutationOptions(document: gql(mutation), variables: variables),
-    );
-
-    if (result.hasException) {
-      throw Exception("MongoDB Error: ${result.exception.toString()}");
-    }
-
-    final created = result.data?['createSeller'];
-    final customId = created?['customId'] as String?;
-    final status = created?['status'] as String? ?? 'pending';
-
-    final sellerDocId = customId ?? fallbackSellerId;
-
-    await _firestore.collection("sellers").doc(sellerDocId).set({
-      "customId": sellerDocId,
-      "companyName": storeName.text.trim(),
-      "email": user.email,
-      "phoneNumber": phoneWithCode,
-      "firebaseUid": user.uid,
-      "status": status,
-      "createdAt": FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-
-    await _firestore.collection("users").doc(user.uid).set({
-      "sellerId": sellerDocId,
-      "customId": sellerDocId,
-      "sellerStatus": status,
-    }, SetOptions(merge: true));
-
-    if (customId != null && customId != fallbackSellerId) {
-      await _firestore
-          .collection("loginIndex")
-          .doc("sellerId_$customId")
-          .set({"uid": user.uid});
-    }
-
-    return customId;
-  }
-
-  // ═════════════════════════════════════════════════════════════
-  // UI - SINGLE PAGE WITH PROGRESSIVE SECTIONS
-  // ═════════════════════════════════════════════════════════════
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Seller Registration"),
-        backgroundColor: themeColor,
-        foregroundColor: Colors.white,
+        title: const Text(
+          'Email Verification',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        elevation: 0,
+        backgroundColor: _primaryColor,
+        centerTitle: true,
       ),
+      backgroundColor: _lightColor,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 20),
+            const Text(
+              'Step 1: Email & Password',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: _primaryColor,
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Enter your Company\'s email and set a secure password. We\'ll send a verification link. All updates will be sent to this email.',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 30),
+            // Email Field
+            TextField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(
+                labelText: 'Email',
+                hintText: 'seller@example.com',
+                hintStyle: TextStyle(
+                  color: Colors.grey.shade400,
+                  fontSize: 14,
+                ),
+                prefixIcon: const Icon(
+                  Icons.email,
+                  color: _accentColor,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Colors.grey, width: 1),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: _accentColor, width: 2),
+                ),
+                filled: true,
+                fillColor: Colors.white,
+                labelStyle: const TextStyle(color: _primaryColor),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Password Field
+            TextField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              decoration: InputDecoration(
+                labelText: 'Password',
+                hintText: 'At least 6 characters',
+                hintStyle: TextStyle(
+                  color: Colors.grey.shade400,
+                  fontSize: 14,
+                ),
+                prefixIcon: const Icon(
+                  Icons.lock,
+                  color: _accentColor,
+                ),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    color: _accentColor,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _obscurePassword = !_obscurePassword;
+                    });
+                  },
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Colors.grey, width: 1),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: _accentColor, width: 2),
+                ),
+                filled: true,
+                fillColor: Colors.white,
+                labelStyle: const TextStyle(color: _primaryColor),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Confirm Password Field
+            TextField(
+              controller: _confirmPasswordController,
+              obscureText: _obscureConfirmPassword,
+              decoration: InputDecoration(
+                labelText: 'Confirm Password',
+                hintText: 'Re-enter password',
+                hintStyle: TextStyle(
+                  color: Colors.grey.shade400,
+                  fontSize: 14,
+                ),
+                prefixIcon: const Icon(
+                  Icons.lock,
+                  color: _accentColor,
+                ),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscureConfirmPassword
+                        ? Icons.visibility_off
+                        : Icons.visibility,
+                    color: _accentColor,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _obscureConfirmPassword = !_obscureConfirmPassword;
+                    });
+                  },
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Colors.grey, width: 1),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: _accentColor, width: 2),
+                ),
+                filled: true,
+                fillColor: Colors.white,
+                labelStyle: const TextStyle(color: _primaryColor),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Error Message
+            if (_errorMessage != null)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Color(0xFFFFEBEE),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Color(0xFFC62828)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error, color: Color(0xFFC62828)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: Color(0xFFC62828)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 24),
+            // Send Verification Email Button
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _sendVerificationEmail,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _accentColor,
+                  disabledBackgroundColor: Colors.grey,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 4,
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    valueColor:
+                    AlwaysStoppedAnimation<Color>(Colors.white),
+                    strokeWidth: 2,
+                  ),
+                )
+                    : const Text(
+                  'Send Verification Email',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Center(
+              child: Text(
+                _emailVerified
+                    ? '✅ Email Verified'
+                    : '⏳ Waiting for email verification...',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: _emailVerified ? Color(0xFF27AE60) : Colors.orange,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================
+// STEP 2: SELLER DETAILS SCREEN
+// ============================================
+
+class SellerDetailsScreen extends StatefulWidget {
+  final String? verifiedEmail; // ✅ Accept verified email from parent
+  final VoidCallback onDetailsSubmitted;
+  final VoidCallback onBackToEmail;
+
+  const SellerDetailsScreen({
+    Key? key,
+    this.verifiedEmail,
+    required this.onDetailsSubmitted,
+    required this.onBackToEmail,
+  }) : super(key: key);
+
+  @override
+  State<SellerDetailsScreen> createState() => _SellerDetailsScreenState();
+}
+
+class _SellerDetailsScreenState extends State<SellerDetailsScreen> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  bool _isLoading = false;
+  String? _errorMessage;
+  String? _successMessage;
+
+  late TextEditingController _nameController;
+  late TextEditingController _companyNameController;
+  late TextEditingController _panController;
+  late TextEditingController _gstController;
+  late TextEditingController _addressController;
+  late TextEditingController _bankAccountController;
+  late TextEditingController _bankIFCController;
+  late TextEditingController _phoneController;
+  late TextEditingController _shippingAddressController;
+  late TextEditingController _pickupAddressController;
+  late TextEditingController _companyPanController;
+  late TextEditingController _bankNameController;
+  late TextEditingController _emailController;
+
+  // ✅ NAVY BLUE COLOR SCHEME
+  static const Color _primaryColor = Color(0xFF001F3F); // Navy Blue
+  static const Color _accentColor = Color(0xFF0074D9); // Bright Blue
+  static const Color _lightColor = Color(0xFFF5F8FB); // Light Blue-Gray
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeControllers();
+  }
+
+  void _initializeControllers() {
+    _nameController = TextEditingController();
+    _companyNameController = TextEditingController();
+    _panController = TextEditingController();
+    _gstController = TextEditingController();
+    _addressController = TextEditingController();
+    _bankAccountController = TextEditingController();
+    _bankIFCController = TextEditingController();
+    _phoneController = TextEditingController();
+    _shippingAddressController = TextEditingController();
+    _pickupAddressController = TextEditingController();
+    _companyPanController = TextEditingController();
+    _bankNameController = TextEditingController();
+
+    // ✅ METHOD 2: Use passed email OR fallback to Firebase
+    String emailToUse = widget.verifiedEmail ??
+        FirebaseAuth.instance.currentUser?.email ??
+        '';
+
+    _emailController = TextEditingController(text: emailToUse);
+
+    print('✅ Email initialized in SellerDetailsScreen: $emailToUse');
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _companyNameController.dispose();
+    _panController.dispose();
+    _gstController.dispose();
+    _addressController.dispose();
+    _bankAccountController.dispose();
+    _bankIFCController.dispose();
+    _phoneController.dispose();
+    _shippingAddressController.dispose();
+    _pickupAddressController.dispose();
+    _companyPanController.dispose();
+    _bankNameController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitSellerDetails() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _successMessage = null;
+    });
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception("❌ User not logged in");
+
+      print('════════════════════════════════════════');
+      print('📋 SELLER REGISTRATION - DEBUG START');
+      print('════════════════════════════════════════');
+      print('👤 Firebase UID: ${user.uid}');
+      print('📧 Email: ${user.email}');
+      print('✓ Email Verified: ${user.emailVerified}');
+
+      final idToken = await user.getIdToken();
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+
+      // ✅ Prepare seller input
+      final sellerInput = {
+        'firebaseUid': user.uid, // ← REQUIRED
+        'name': _nameController.text.trim(),
+        'companyName': _companyNameController.text.trim(),
+        'PANnumber': _panController.text.trim(),
+        'gstNumber': _gstController.text.trim(),
+        'address': _addressController.text.trim(),
+        'bankAccountNumber': _bankAccountController.text.trim(),
+        'bankIFCnumber': _bankIFCController.text.trim(),
+        'phoneNumber': _phoneController.text.trim(),
+        'shippingAddresses': [_shippingAddressController.text.trim()],
+        'pickupAddresses': [_pickupAddressController.text.trim()],
+        'companyPan': _companyPanController.text.trim(),
+        'bankName': _bankNameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'fcmToken': fcmToken,
+      };
+
+      print('\n📦 SELLER INPUT:');
+      print('   Name: ${sellerInput['name']}');
+      print('   Company: ${sellerInput['companyName']}');
+      print('   Email: ${sellerInput['email']}');
+      print('   Phone: ${sellerInput['phoneNumber']}');
+      print('   Firebase UID: ${sellerInput['firebaseUid']}');
+
+      const String createSellerMutation = '''
+      mutation CreateSeller(\$input: SellerInput!) {
+        createSeller(input: \$input) {
+          customId
+          name
+          companyName
+          email
+          status
+          firebaseUid
+        }
+      }
+    ''';
+
+      print('\n🌐 BACKEND URL: http://192.168.1.13:5001/graphql');
+
+      final client = GraphQLClient(
+        cache: GraphQLCache(),
+        link: HttpLink(
+          "http://192.168.1.169:5001/graphql",
+          httpClient: http.Client(),
+          defaultHeaders: {
+            'Authorization': 'Bearer $idToken',
+          },
+        ),
+      );
+
+      // ✅ TEST CONNECTION FIRST
+      print('\n🔌 Testing backend connection...');
+
+      // ✅ SUBMIT MUTATION
+      print('\n🚀 Submitting mutation to backend...');
+      final result = await client.mutate(
+        MutationOptions(
+          document: gql(createSellerMutation),
+          variables: {'input': sellerInput},
+        ),
+      ).timeout(
+        Duration(seconds: 30),
+        onTimeout: () => throw TimeoutException('Mutation timeout after 30s'),
+      );
+
+      if (result.hasException) {
+        print(result.exception.toString());
+      }
+      // ✅ CHECK RESPONSE
+      print('\n📊 GRAPHQL RESPONSE:');
+      print('   Has Exception: ${result.hasException}');
+      print('   Data: ${result.data}');
+
+      if (result.hasException) {
+        print('   ❌ Exception: ${result.exception}');
+        throw Exception('${result.exception}');
+      }
+
+      if (result.data == null) {
+        print('   ❌ ERROR: Null data from backend!');
+        throw Exception('Backend returned null data');
+      }
+
+      final customId = result.data!['createSeller']['customId'];
+      print('   ✅ customId: $customId');
+
+      if (customId == null) {
+        throw Exception('No customId returned');
+      }
+
+      // ✅ SAVE TO FIRESTORE
+      print('\n💾 Saving to Firestore...');
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
+        {
+          'customId': customId,
+          'role': 'seller',
+          'status': 'pending',
+          'createdAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+      print('✅ Firestore saved!');
+
+      print('\n✅ SELLER REGISTRATION COMPLETE!');
+      print('════════════════════════════════════════\n');
+
+      setState(() {
+        _successMessage = 'Seller created successfully!';
+        _isLoading = false;
+      });
+
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) widget.onDetailsSubmitted();
+      });
+    } on TimeoutException catch (e) {
+      print('❌ TIMEOUT: $e');
+      setState(() {
+        _errorMessage = '⏱ Backend timeout. Server not responding.';
+        _isLoading = false;
+      });
+    } on SocketException catch (e) {
+      print('❌ SOCKET ERROR: $e');
+      setState(() {
+        _errorMessage =
+        '🌐 Cannot connect to backend at http://192.168.1.169:5001/graphql';
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('❌ ERROR: $e');
+      setState(() {
+        _errorMessage = 'Failed: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Seller Details',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        elevation: 0,
+        backgroundColor: _primaryColor,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Go Back?'),
+                content: const Text(
+                    'Are you sure? You\'ll need to verify your email again.'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Cancel',
+                        style: TextStyle(color: _accentColor)),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      widget.onBackToEmail();
+                    },
+                    child: const Text('Go Back',
+                        style: TextStyle(color: _accentColor)),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+      backgroundColor: _lightColor,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Form(
@@ -456,30 +764,136 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Progress Indicator
-              _buildProgressIndicator(),
-
+              const SizedBox(height: 20),
+              const Text(
+                'Step 2: Seller Details',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: _primaryColor,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Fill in your business and banking details. This information will be verified within 24-48 hours.',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
               const SizedBox(height: 30),
-
-              // Step 1: Phone Verification
-              _buildPhoneVerificationSection(),
-
-              if (otpSent && !accountCreated) ...[
-                const SizedBox(height: 20),
-                _buildOTPSection(),
-              ],
-
-              // Step 2: Account Creation
-              if (!accountCreated) ...[
-                const SizedBox(height: 20),
-                _buildAccountSection(),
-              ],
-
-              // Step 3: Business Information
-              if (accountCreated) ...[
-                const SizedBox(height: 30),
-                _buildBusinessInfoSection(),
-              ],
+              // Personal Information Section
+              _buildSectionHeader('Personal Information'),
+              _buildTextField(_nameController, 'Full Name', 'John Doe'),
+              _buildTextField(_phoneController, 'Phone Number', '9944745755'),
+              _buildTextField(_emailController, 'Email (Auto-filled)',
+                'seller@example.com',
+              ),
+              const SizedBox(height: 24),
+              // Company Information Section
+              _buildSectionHeader('Company Information'),
+              _buildTextField(
+                  _companyNameController, 'Company Name', 'FlyHub '),
+              _buildTextField(_panController, 'PAN Number', 'AAAPZ5055K'),
+              _buildTextField(_gstController, 'GST Number', '18AABCT1234A1Z0'),
+              _buildTextField(
+                  _companyPanController, 'Company PAN', 'AAAPZ5055K'),
+              const SizedBox(height: 24),
+              // Address Information Section
+              _buildSectionHeader('Address Information'),
+              _buildTextField(
+                  _addressController, 'Business Address', '123 Main St, City'),
+              _buildTextField(_shippingAddressController, 'Shipping Address',
+                  '123 Main St, City'),
+              _buildTextField(_pickupAddressController, 'Pickup Address',
+                  '123 Main St, City'),
+              const SizedBox(height: 24),
+              // Banking Information Section
+              _buildSectionHeader('Banking Information'),
+              _buildTextField(_bankNameController, 'Bank Name', 'ICICI Bank'),
+              _buildTextField(
+                  _bankAccountController, 'Account Number', '1234567890123456'),
+              _buildTextField(
+                  _bankIFCController, 'Bank IFSC Code', 'ICIC0000001'),
+              const SizedBox(height: 16),
+              // Error Message
+              if (_errorMessage != null)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Color(0xFFFFEBEE),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Color(0xFFC62828)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error, color: Color(0xFFC62828)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(color: Color(0xFFC62828)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 16),
+              // Success Message
+              if (_successMessage != null)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Color(0xFFF1F8E9),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Color(0xFF558B2F)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle, color: Color(0xFF558B2F)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _successMessage!,
+                          style: const TextStyle(color: Color(0xFF558B2F)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 24),
+              // Submit Button
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _submitSellerDetails,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _accentColor,
+                    disabledBackgroundColor: Colors.grey,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 4,
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      valueColor:
+                      AlwaysStoppedAnimation<Color>(Colors.white),
+                      strokeWidth: 2,
+                    ),
+                  )
+                      : const Text(
+                    'Submit Seller Details',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -487,432 +901,257 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
     );
   }
 
-  // Progress Indicator
-  Widget _buildProgressIndicator() {
-    int currentStep = 1;
-    if (otpSent && !accountCreated) currentStep = 2;
-    if (accountCreated) currentStep = 3;
-
+  Widget _buildSectionHeader(String title) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            _buildStepIndicator(1, "Phone", currentStep >= 1),
-            _buildStepLine(currentStep >= 2),
-            _buildStepIndicator(2, "Account", currentStep >= 2),
-            _buildStepLine(currentStep >= 3),
-            _buildStepIndicator(3, "Profile", currentStep >= 3),
-          ],
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: _accentColor,
+          ),
         ),
+        const SizedBox(height: 16),
       ],
     );
   }
 
-  Widget _buildStepIndicator(int step, String label, bool isActive) {
-    return Expanded(
-      child: Column(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: isActive ? themeColor : Colors.grey.shade300,
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                "$step",
-                style: TextStyle(
-                  color: isActive ? Colors.white : Colors.grey.shade600,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: isActive ? themeColor : Colors.grey.shade600,
-              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStepLine(bool isActive) {
-    return Expanded(
-      child: Container(
-        height: 2,
-        color: isActive ? themeColor : Colors.grey.shade300,
-        margin: const EdgeInsets.only(bottom: 30),
-      ),
-    );
-  }
-
-  // Section 1: Phone Verification
-  Widget _buildPhoneVerificationSection() {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  phoneVerified ? Icons.check_circle : Icons.phone_android,
-                  color: phoneVerified ? Colors.green : themeColor,
-                  size: 28,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  "Step 1: Phone Verification",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: phoneVerified ? Colors.green : themeColor,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 15),
-            Row(
-              children: [
-                Expanded(
-                  child: input(
-                    phone,
-                    "Phone Number",
-                    keyboardType: TextInputType.phone,
-                    enabled: !phoneVerified,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: phoneVerified ? Colors.green : themeColor,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 15),
-                  ),
-                  onPressed: phoneVerified ? null : (loading ? null : sendOTP),
-                  child: Text(
-                    phoneVerified ? "✓ Sent" : "Send OTP",
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Section 2: OTP Input
-  Widget _buildOTPSection() {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Enter OTP",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            input(otpCode, "6-digit OTP", keyboardType: TextInputType.number),
-            const SizedBox(height: 10),
-            TextButton(
-              onPressed: loading ? null : sendOTP,
-              child: const Text("Resend OTP"),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Section 3: Account Details
-  Widget _buildAccountSection() {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  accountCreated ? Icons.check_circle : Icons.person_add,
-                  color: accountCreated ? Colors.green : themeColor,
-                  size: 28,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  "Step 2: Create Account",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: accountCreated ? Colors.green : themeColor,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 15),
-            input(firstName, "First Name", enabled: !accountCreated),
-            input(lastName, "Last Name", enabled: !accountCreated),
-            input(regEmail, "Email",
-                keyboardType: TextInputType.emailAddress,
-                enabled: !accountCreated),
-            input(
-              regPassword,
-              "Password",
-              isPass: true,
-              isPasswordVisible: regPassVisible,
-              onEyeTap: () => setState(() => regPassVisible = !regPassVisible),
-              enabled: !accountCreated,
-            ),
-            const SizedBox(height: 20),
-            button("Create Account", createAccountWithOTP),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Section 4: Business Information
-  Widget _buildBusinessInfoSection() {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.business, color: themeColor, size: 28),
-                const SizedBox(width: 10),
-                const Text(
-                  "Step 3: Business Information",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // Business Details Section
-            const Text("Business Details",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            input(storeName, "Company/Store Name"),
-            input(gst, "GST Number"),
-            input(pan, "PAN Number"),
-            input(address, "Business Address", maxLines: 2),
-            input(description, "Business Description", maxLines: 3),
-
-            const SizedBox(height: 20),
-
-            // ✅ NEW: Shipping Address Section
-            const Text("Shipping Address",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-
-            // Checkbox for same as business address
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text(
-                "Same as Business Address",
-                style: TextStyle(fontSize: 14),
-              ),
-              value: sameAsBusinessAddress,
-              activeColor: themeColor,
-              onChanged: (bool? value) {
-                setState(() {
-                  sameAsBusinessAddress = value ?? false;
-                  if (sameAsBusinessAddress) {
-                    shippingAddress.text = address.text.trim();
-                  } else {
-                    shippingAddress.clear();
-                  }
-                });
-              },
-            ),
-
-            input(
-              shippingAddress,
-              "Shipping Address",
-              maxLines: 2,
-              enabled: !sameAsBusinessAddress,
-            ),
-
-            const SizedBox(height: 20),
-
-            // ✅ NEW: Pickup Address Section
-            const Text("Pickup Address",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-
-            // Checkbox for same as shipping address
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text(
-                "Same as Shipping Address",
-                style: TextStyle(fontSize: 14),
-              ),
-              value: pickupSameAsShipping,
-              activeColor: themeColor,
-              onChanged: (bool? value) {
-                setState(() {
-                  pickupSameAsShipping = value ?? false;
-                  if (pickupSameAsShipping) {
-                    pickupAddress.text = sameAsBusinessAddress
-                        ? address.text.trim()
-                        : shippingAddress.text.trim();
-                  } else {
-                    pickupAddress.clear();
-                  }
-                });
-              },
-            ),
-
-            input(
-              pickupAddress,
-              "Pickup Address",
-              maxLines: 2,
-              enabled: !pickupSameAsShipping,
-            ),
-
-            const SizedBox(height: 20),
-
-            // Banking Information Section
-            const Text("Banking Information",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            input(bank, "Bank Name"),
-            input(ifsc, "IFSC Code"),
-            input(account, "Account Number"),
-
-            const SizedBox(height: 30),
-            button("Submit Application", submitSellerForm),
-            const SizedBox(height: 15),
-
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange.shade200),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline,
-                      color: Colors.orange.shade700, size: 20),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text(
-                      "Your application will be reviewed by our team within 24-48 hours.",
-                      style: TextStyle(fontSize: 12),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget input(
+  Widget _buildTextField(
       TextEditingController controller,
-      String label, {
-        bool isPass = false,
-        bool isPasswordVisible = false,
-        VoidCallback? onEyeTap,
-        int maxLines = 1,
-        TextInputType? keyboardType,
-        bool enabled = true,
+      String label,
+      String hint, {
+        bool readOnly = false,
       }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: TextFormField(
-        controller: controller,
-        obscureText: isPass && !isPasswordVisible,
-        maxLines: maxLines,
-        keyboardType: keyboardType,
-        enabled: enabled,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-          filled: !enabled,
-          fillColor: !enabled ? Colors.grey.shade100 : null,
-          suffixIcon: isPass
-              ? IconButton(
-            icon: Icon(
-              isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+    return Column(
+      children: [
+        TextFormField(
+          controller: controller,
+          readOnly: readOnly,
+          decoration: InputDecoration(
+            labelText: label,
+            hintText: hint,
+            hintStyle: TextStyle(
+              color: Colors.grey.shade400,
+              fontSize: 14,
             ),
-            onPressed: onEyeTap,
-          )
-              : null,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.grey, width: 1),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: _accentColor, width: 2),
+            ),
+            filled: true,
+            fillColor: readOnly ? Colors.grey.shade100 : Colors.white,
+            labelStyle: const TextStyle(color: _primaryColor),
+            prefixIconColor: _accentColor,
+          ),
+          validator: (value) {
+            if (value?.isEmpty ?? true) {
+              return '$label is required';
+            }
+            return null;
+          },
         ),
-        validator: (v) => v!.isEmpty ? "Enter $label" : null,
-      ),
+        const SizedBox(height: 16),
+      ],
     );
   }
+}
 
-  Widget button(String text, Function() onTap) {
-    return ElevatedButton(
-      onPressed: loading ? null : onTap,
-      style: ElevatedButton.styleFrom(
-        minimumSize: const Size(double.infinity, 50),
-        backgroundColor: themeColor,
-      ),
-      child: loading
-          ? const SizedBox(
-        height: 24,
-        width: 24,
-        child: CircularProgressIndicator(
-          color: Colors.white,
-          strokeWidth: 2,
-        ),
-      )
-          : Text(text, style: const TextStyle(color: Colors.white)),
-    );
-  }
+// ============================================
+// STEP 3: VERIFICATION SUCCESS SCREEN
+// ============================================
 
-  void showMessage(String msg) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
-    );
-  }
+class SellerVerificationSuccessScreen extends StatelessWidget {
+  final VoidCallback? onExploreApp;
+
+  // ✅ NAVY BLUE COLOR SCHEME
+  static const Color _primaryColor = Color(0xFF001F3F); // Navy Blue
+  static const Color _accentColor = Color(0xFF0074D9); // Bright Blue
+  static const Color _lightColor = Color(0xFFF5F8FB); // Light Blue-Gray
+
+  const SellerVerificationSuccessScreen({
+    Key? key,
+    this.onExploreApp,
+  }) : super(key: key);
 
   @override
-  void dispose() {
-    regEmail.dispose();
-    regPassword.dispose();
-    phone.dispose();
-    otpCode.dispose();
-    firstName.dispose();
-    lastName.dispose();
-    storeName.dispose();
-    gst.dispose();
-    pan.dispose();
-    address.dispose();
-    bank.dispose();
-    ifsc.dispose();
-    account.dispose();
-    description.dispose();
-    shippingAddress.dispose(); // ✅ NEW
-    pickupAddress.dispose(); // ✅ NEW
-    super.dispose();
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return Scaffold(
+      backgroundColor: _lightColor,
+      body: Center(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(
+              horizontal: screenWidth * 0.05, vertical: screenHeight * 0.02),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Banner Image with rounded corners
+              ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Image.asset(
+                  'assets/categories/Flyhub_banner.png',
+                  height: screenHeight * 0.3,
+                  width: screenWidth * 0.8,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              SizedBox(height: screenHeight * 0.03),
+
+              // Success Icon in Circle
+              Container(
+                width: screenWidth * 0.25,
+                height: screenWidth * 0.25,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFC8E6C9),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_circle,
+                  size: 80,
+                  color: Color(0xFF27AE60),
+                ),
+              ),
+              SizedBox(height: screenHeight * 0.02),
+
+              // Success Message
+              const Text(
+                'Your seller details have been submitted successfully.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                ),
+              ),
+              SizedBox(height: screenHeight * 0.03),
+
+              // Verification Info Box
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(screenWidth * 0.05),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE3F2FD),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Color(0xFF1A0A5B)),
+                ),
+                child: Column(
+                  children: [
+                    const Text(
+                      '⏳ Your Files Are Being Verified',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1A0A5B),
+                      ),
+                    ),
+                    SizedBox(height: screenHeight * 0.015),
+                    const Text(
+                      'Our team will review your documents within 24-48 hours. You\'ll receive an email and in-app notification once your account is approved.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    SizedBox(height: screenHeight * 0.02),
+
+                    // Status Rows inlined
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.check, color: Color(0xFF27AE60), size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Email Verified ✓',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF27AE60),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: screenHeight * 0.01),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.check, color: Color(0xFF27AE60), size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Details Submitted ✓',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF27AE60),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: screenHeight * 0.01),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.schedule, color: Color(0xFFF39C12), size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Awaiting Admin Review',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFFF39C12),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: screenHeight * 0.05),
+
+              // Explore App Button
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) =>
+                          const Dynamichome(selectedIndex: 0)),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _accentColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 4,
+                  ),
+                  child: const Text(
+                    'Explore App',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: screenHeight * 0.02),
+            ],
+          ),
+        ),
+      ),
+    );
   }
+
+
 }

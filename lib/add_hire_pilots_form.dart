@@ -275,7 +275,7 @@ class _AddHirePilotFormState extends State<AddHirePilotForm> {
                 backgroundColor: backgroundColor,
                 appBar: AppBar(
                   title: const Text(
-                    "Add Hire Pilot",
+                    "Pilot Registration",
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 18,

@@ -2,7 +2,9 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'CommonClass/utils.dart'; // adjust relative path if needed
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+import '../../config/env.dart';
 
 class JobApplyNow extends StatefulWidget {
   final Map<String, dynamic> job;
@@ -22,38 +24,124 @@ class _JobApplyNowState extends State<JobApplyNow> {
   PlatformFile? pickedResume;
   bool submitting = false;
 
+  final String graphqlUrl = EnvConfig.baseUrl;
+
+  /// Show snackbar without Utils
+  void showSnack(String msg, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: error ? Colors.red : Colors.green,
+        content: Text(msg, style: const TextStyle(color: Colors.white)),
+      ),
+    );
+  }
+
+  /// --------------------------------------------------------
+  /// 1️⃣ PICK RESUME (PDF)
+  /// --------------------------------------------------------
   Future<void> _pickResume() async {
     final res = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
+      allowMultiple: false,
       withData: false,
     );
 
     if (res != null && res.files.isNotEmpty) {
       final file = res.files.first;
       if (file.extension?.toLowerCase() != 'pdf') {
-        Utils.bottomToast(context, "Please select a PDF file.");
+        showSnack("Please select a PDF file.", error: true);
         return;
       }
       setState(() => pickedResume = file);
     }
   }
 
+  /// --------------------------------------------------------
+  /// 2️⃣ Upload Resume to Firebase Storage
+  /// --------------------------------------------------------
+  Future<String> uploadResumeToFirebase(File resume) async {
+    final ref = FirebaseStorage.instance
+        .ref()
+        .child('resumes/${DateTime.now().millisecondsSinceEpoch}.pdf');
+
+    await ref.putFile(resume);
+    return await ref.getDownloadURL();
+  }
+
+  /// --------------------------------------------------------
+  /// 3️⃣ GraphQL Mutation
+  /// --------------------------------------------------------
+  static const String submitJobApplicationMutation = r'''
+mutation SubmitJobApplication($input: JobApplicationInput!) {
+  submitJobApplication(input: $input) {
+    success
+    message
+    application {
+      id
+      jobId
+      name
+      email
+      phoneNumber
+      resumeUrl
+      status
+      createdAt
+      updatedAt
+    }
+  }
+}
+''';
+
+  /// --------------------------------------------------------
+  /// 4️⃣ SUBMIT APPLICATION
+  /// --------------------------------------------------------
   Future<void> _submitApplication() async {
     if (!_formKey.currentState!.validate()) return;
+
     if (pickedResume == null) {
-      Utils.bottomToast(context, "Please upload your resume (PDF).");
+      showSnack("Please upload your resume (PDF).", error: true);
       return;
     }
 
     setState(() => submitting = true);
 
     try {
-      await Future.delayed(const Duration(seconds: 1));
-      Utils.bottomToast(context, "Application submitted successfully!");
+      final resumeFile = File(pickedResume!.path!);
+      final resumeUrl = await uploadResumeToFirebase(resumeFile);
+
+      final client = GraphQLProvider.of(context).value;
+
+      final input = {
+        "jobId": widget.job['jobId'], // FIXED
+        "name": _nameC.text.trim(),
+        "email": _emailC.text.trim(),
+        "phoneNumber": _mobileC.text.trim(),
+        "resumeUrl": resumeUrl,
+      };
+
+      final response = await client.mutate(
+        MutationOptions(
+          document: gql(submitJobApplicationMutation),
+          variables: {"input": input},
+        ),
+      );
+
+      if (response.hasException) {
+        showSnack(response.exception.toString(), error: true);
+        return;
+      }
+
+      final data = response.data?['submitJobApplication'];
+      if (data == null || data['success'] == false) {
+        showSnack(data?['message'] ?? "Application failed", error: true);
+        return;
+      }
+
+      showSnack(data['message']);
       Navigator.pop(context);
+
     } catch (e) {
-      Utils.bottomToast(context, "Failed to submit: $e");
+      showSnack("Error: $e", error: true);
     } finally {
       if (mounted) setState(() => submitting = false);
     }
@@ -77,9 +165,7 @@ class _JobApplyNowState extends State<JobApplyNow> {
       appBar: AppBar(
         backgroundColor: primaryColor,
         elevation: 3,
-        iconTheme: const IconThemeData(
-          color: Colors.white, // <-- NAVIGATION ICON WHITE
-        ),
+        iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
           "Apply — ${job['jobName'] ?? job['title'] ?? 'Job'}",
           style: GoogleFonts.lexend(color: Colors.white, fontSize: 18),
@@ -91,22 +177,14 @@ class _JobApplyNowState extends State<JobApplyNow> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
-            /// -----------------------------------
-            /// JOB DETAILS — PREMIUM CARD
-            /// -----------------------------------
+            /// JOB CARD
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(22),
                 gradient: LinearGradient(
-                  colors: [
-                    Colors.white,
-                    Colors.grey.shade50,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+                  colors: [Colors.white, Colors.grey.shade50],
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -115,10 +193,7 @@ class _JobApplyNowState extends State<JobApplyNow> {
                     offset: const Offset(0, 6),
                   )
                 ],
-                border: Border.all(
-                  color: const Color(0xFFE5E2F8),
-                  width: 1.4,
-                ),
+                border: Border.all(color: const Color(0xFFE5E2F8), width: 1.4),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -132,7 +207,6 @@ class _JobApplyNowState extends State<JobApplyNow> {
                     ),
                   ),
                   const SizedBox(height: 6),
-
                   Text(
                     job['companyName'] ?? job['company'] ?? '',
                     style: GoogleFonts.lexend(
@@ -141,7 +215,6 @@ class _JobApplyNowState extends State<JobApplyNow> {
                     ),
                   ),
                   const SizedBox(height: 14),
-
                   Row(
                     children: [
                       Chip(
@@ -177,8 +250,8 @@ class _JobApplyNowState extends State<JobApplyNow> {
                       color: primaryColor,
                     ),
                   ),
-                  const SizedBox(height: 12),
 
+                  const SizedBox(height: 12),
                   if ((job['description'] ?? "").toString().isNotEmpty)
                     Text(
                       job['description'] ?? '',
@@ -194,22 +267,17 @@ class _JobApplyNowState extends State<JobApplyNow> {
 
             const SizedBox(height: 26),
 
-            /// -----------------------------------
             /// APPLICATION FORM
-            /// -----------------------------------
             Form(
               key: _formKey,
               child: Column(
                 children: [
-
                   _inputField(
                     controller: _nameC,
                     label: "Full Name",
                     icon: Icons.person_rounded,
                     validator: (v) =>
-                    (v == null || v.trim().isEmpty)
-                        ? "Please enter your name"
-                        : null,
+                    (v == null || v.trim().isEmpty) ? "Please enter your name" : null,
                   ),
 
                   const SizedBox(height: 14),
@@ -220,12 +288,8 @@ class _JobApplyNowState extends State<JobApplyNow> {
                     icon: Icons.phone_rounded,
                     keyboard: TextInputType.phone,
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty) {
-                        return "Please enter mobile number";
-                      }
-                      if (v.trim().length < 7) {
-                        return "Enter a valid number";
-                      }
+                      if (v == null || v.trim().isEmpty) return "Please enter mobile number";
+                      if (v.trim().length < 7) return "Enter a valid number";
                       return null;
                     },
                   ),
@@ -238,9 +302,7 @@ class _JobApplyNowState extends State<JobApplyNow> {
                     icon: Icons.email_rounded,
                     keyboard: TextInputType.emailAddress,
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty) {
-                        return "Please enter email";
-                      }
+                      if (v == null || v.trim().isEmpty) return "Please enter email";
                       if (!RegExp(r"^[^@]+@[^@]+\.[^@]+").hasMatch(v.trim())) {
                         return "Enter valid email";
                       }
@@ -250,23 +312,19 @@ class _JobApplyNowState extends State<JobApplyNow> {
 
                   const SizedBox(height: 18),
 
-                  /// ---------------------------
-                  /// RESUME UPLOADER — PREMIUM
-                  /// ---------------------------
+                  /// RESUME PICKER
                   GestureDetector(
                     onTap: _pickResume,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 250),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 18),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                       width: double.infinity,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                            color: pickedResume == null
-                                ? Colors.grey.shade300
-                                : primaryColor,
-                            width: 1.3),
+                          color: pickedResume == null ? Colors.grey.shade300 : primaryColor,
+                          width: 1.3,
+                        ),
                         color: Colors.white,
                         boxShadow: [
                           BoxShadow(
@@ -280,9 +338,7 @@ class _JobApplyNowState extends State<JobApplyNow> {
                         children: [
                           Icon(
                             Icons.upload_file_rounded,
-                            color: pickedResume == null
-                                ? Colors.grey.shade600
-                                : primaryColor,
+                            color: pickedResume == null ? Colors.grey.shade600 : primaryColor,
                             size: 26,
                           ),
                           const SizedBox(width: 12),
@@ -301,9 +357,7 @@ class _JobApplyNowState extends State<JobApplyNow> {
                           ),
                           if (pickedResume != null)
                             GestureDetector(
-                              onTap: () {
-                                setState(() => pickedResume = null);
-                              },
+                              onTap: () => setState(() => pickedResume = null),
                               child: const Icon(Icons.close,
                                   color: Colors.red, size: 20),
                             ),
@@ -314,9 +368,7 @@ class _JobApplyNowState extends State<JobApplyNow> {
 
                   const SizedBox(height: 26),
 
-                  /// ---------------------------
-                  /// SUBMIT BUTTON — PREMIUM
-                  /// ---------------------------
+                  /// SUBMIT BUTTON
                   SizedBox(
                     width: double.infinity,
                     height: 52,
@@ -330,8 +382,7 @@ class _JobApplyNowState extends State<JobApplyNow> {
                         ),
                       ),
                       child: submitting
-                          ? const CircularProgressIndicator(
-                          color: Colors.white)
+                          ? const CircularProgressIndicator(color: Colors.white)
                           : Text(
                         "Submit Application",
                         style: GoogleFonts.lexend(
@@ -351,9 +402,7 @@ class _JobApplyNowState extends State<JobApplyNow> {
     );
   }
 
-  /// -----------------------------------
-  /// CUSTOM INPUT FIELD WIDGET
-  /// -----------------------------------
+  /// CUSTOM INPUT FIELD
   Widget _inputField({
     required TextEditingController controller,
     required String label,

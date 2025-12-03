@@ -284,7 +284,7 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const SellerRegisterPage(),
+                      builder: (_) => const SellerRegistrationFlow(),
                     ),
                   );
                 },
