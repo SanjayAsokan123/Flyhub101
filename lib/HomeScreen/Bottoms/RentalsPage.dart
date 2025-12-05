@@ -7,9 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../CommonClass/ApiClass.dart';
 import '../../CommonClass/utils.dart';
 import '../../BuyerDetails/MyCartPage.dart';
-import '../../MyDroneListScreen.dart';
 import '../Dynamichome.dart';
-import '../../RentalBookNow.dart';
+import '../../ApplyingBookingNow/RentalBookNow.dart';
 import '../../utils/responsive_utils.dart';
 import '../../services/role_manager.dart'; // ADD THIS IMPORT
 import '../../Login/BuyerLoginPage.dart'; // ADD THIS IMPORT

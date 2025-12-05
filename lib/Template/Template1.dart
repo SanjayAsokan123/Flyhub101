@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flyhub/FindJobs.dart';
-import 'package:flyhub/MaintenancePage.dart';
-import 'package:flyhub/Training_Enroll_Form.dart';
+import 'package:flyhub/TrainingRegulatory/Training_Enroll_Form.dart';
 
 import '../HomeScreen/Dynamichome.dart';
 import '../category_tile.dart';
 import '../../CommonClass/utils.dart';
-import 'package:flyhub/AddDrone.dart';
-import 'package:flyhub/add_spare_parts.dart';
-import 'package:flyhub/add_accessories_form.dart';
-import 'package:flyhub/add_hire_pilots_form.dart';
-import 'package:flyhub/add_service_form.dart';
-import 'package:flyhub/add_drone_rental_form.dart';
-import 'package:flyhub/add_job_form.dart';
+import 'package:flyhub/SellerAddingForm/AddDrone.dart';
+import 'package:flyhub/SellerAddingForm/add_spare_parts.dart';
+import 'package:flyhub/SellerAddingForm/add_accessories_form.dart';
+import 'package:flyhub/SellerAddingForm/add_hire_pilots_form.dart';
+import 'package:flyhub/SellerAddingForm/add_service_form.dart';
+import 'package:flyhub/SellerAddingForm/add_drone_rental_form.dart';
+import 'package:flyhub/SellerAddingForm/add_job_form.dart';
 
 class Template1 extends StatefulWidget {
   final List items;
@@ -73,14 +71,6 @@ class _Template1State extends State<Template1> {
                 break;
 
 
-
-              case "jobs_portal":
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const Findjobs()),
-                );
-                break;
-
               case "training":
                 Navigator.push(
                   context,
@@ -88,12 +78,6 @@ class _Template1State extends State<Template1> {
                 );
                 break;
 
-              case "maintenance":
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const Maintenancepage()),
-                );
-                break;
 
               default:
                 Utils.bottomToast(context, "Feature coming soon!");

@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../CommonClass/utils.dart';
 import '../../CommonClass/ApiClass.dart';
-import '../../ServiceBookNow.dart' hide ApiClass;
+import '../../ApplyingBookingNow/ServiceBookNow.dart' hide ApiClass;
 import '../../utils/responsive_utils.dart';
 import '../../services/role_manager.dart'; // ADD THIS IMPORT
 import '../../Login/BuyerLoginPage.dart'; // ADD THIS IMPORT

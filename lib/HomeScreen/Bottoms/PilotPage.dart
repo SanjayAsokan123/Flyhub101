@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flyhub/add_hire_pilots_form.dart';
+import 'package:flyhub/SellerAddingForm/add_hire_pilots_form.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,8 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../CommonClass/ApiClass.dart';
 import '../../services/graphql_client.dart';
 import '../../BuyerDetails/MyCartPage.dart';
-import '../../PilotBookNow.dart';
-import '../../PilotRegistration.dart';
+import '../../ApplyingBookingNow/PilotBookNow.dart';
 import '../Dynamichome.dart';
 import '../../utils/responsive_utils.dart';
 import '../../services/role_manager.dart'; // ADD THIS IMPORT

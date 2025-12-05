@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../CommonClass/utils.dart';
 import '../../CommonClass/ApiClass.dart';
-import '../../JobApplyNow.dart';
+import '../../ApplyingBookingNow/JobApplyNow.dart';
 import '../../utils/responsive_utils.dart';
 
 class JobsPage extends StatefulWidget {

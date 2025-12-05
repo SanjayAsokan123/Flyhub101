@@ -7,7 +7,7 @@ import '../../CommonClass/ApiClass.dart';
 import '../../CommonClass/utils.dart';
 import '../../DroneDetailPage.dart';
 import '../../BuyerDetails/MyCartPage.dart';
-import '../../WishlistPage.dart';
+import '../../BuyerDetails/WishlistPage.dart';
 import '../../services/cart_wishlist_provider.dart';
 import '../Dynamichome.dart';
 import '../../utils/responsive_utils.dart';

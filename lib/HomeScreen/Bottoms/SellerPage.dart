@@ -3,37 +3,37 @@ import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 
 // Settings Pages
-import 'package:flyhub/Help_Support_Page.dart';
-import 'package:flyhub/PrivacyPolicy.dart';
-import 'package:flyhub/Terms_Conditions.dart';
+import 'package:flyhub/T&C/Help_Support_Page.dart';
+import 'package:flyhub/T&C/PrivacyPolicy.dart';
+import 'package:flyhub/T&C/Terms_Conditions.dart';
 
 // Add Product Pages
-import '../../AddDrone.dart';
-import '../../Approval_Products_Page.dart';
+import '../../SellerAddingForm/AddDrone.dart';
+import '../../SellerBookingStatuses/Approval_Products_Page.dart';
 import '../../HomeScreen/Bottoms/BuyerProfilePage.dart';
 import '../../Login/SellerLoginPage.dart';
 import '../../Login/splashscreen.dart';
-import '../../Pending_Products_Page.dart';
-import '../../Rejected_Products_Page.dart';
+import '../../SellerBookingStatuses/Pending_Products_Page.dart';
+import '../../SellerBookingStatuses/Rejected_Products_Page.dart';
 import '../../Return_Product_Page.dart';
 // Rental pages
-import '../../Seller_Drone_Rental_Page.dart';
-import '../../Seller_Pilot_Rental_Page.dart';
+import '../../SellerBookingStatuses/Seller_Drone_Rental_Page.dart';
+import '../../SellerBookingStatuses/Seller_Pilot_Rental_Page.dart';
 // Product Status Pages
-import '../../Seller_Return_Refund_Policy.dart';
-import '../../Seller_Shipping_Policy.dart';
+import '../../SellerBookingStatuses/Seller_Return_Refund_Policy.dart';
+import '../../SellerBookingStatuses/Seller_Shipping_Policy.dart';
 import '../../Sold_Product_Page.dart';
-import '../../add_accessories_form.dart';
-import '../../add_drone_rental_form.dart';
-import '../../add_hire_pilots_form.dart';
-import '../../add_job_form.dart';
-import '../../add_service_form.dart';
-import '../../add_spare_parts.dart';
+import '../../SellerAddingForm/add_accessories_form.dart';
+import '../../SellerAddingForm/add_drone_rental_form.dart';
+import '../../SellerAddingForm/add_hire_pilots_form.dart';
+import '../../SellerAddingForm/add_job_form.dart';
+import '../../SellerAddingForm/add_service_form.dart';
+import '../../SellerAddingForm/add_spare_parts.dart';
 import '../../config/env.dart';
-import '../../feedback_form.dart';
+import '../../T&C/feedback_form.dart';
 import '../../services/role_manager.dart';
-import '../../jobApplyStatus.dart';
-import '../../ServiceBookingStatus.dart';
+import '../../SellerBookingStatuses/jobApplyStatus.dart';
+import '../../BuyerBookingStatuses/ServiceBookingStatus.dart';
 
 class SellerPage extends StatefulWidget {
   const SellerPage({super.key});
