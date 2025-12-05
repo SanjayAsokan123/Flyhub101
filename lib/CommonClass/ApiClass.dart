@@ -8,7 +8,7 @@ import 'package:flyhub/config/env.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'dart:developer' as developer;
 import '../services/graphql_client.dart';
 
 /// ✅ Unified API Result for all network operations
@@ -37,6 +37,8 @@ class ApiResponse {
     this.message,
     this.data,
   });
+
+
 
   @override
   String toString() {
@@ -164,6 +166,61 @@ class ApiClass {
     return _runQuery(
         "getApprovedHirePilots", query, "approvedHirePilotsByStatus");
   }
+
+  // ===================== BOOK DRONE SERVICE ======================
+
+  Future<ApiResponse> bookDroneService(Map<String, dynamic> variables) async {
+    const String mutation = r'''
+      mutation CreateContact($input: CreateContactInput!) {
+        createContact(input: $input) {
+          success
+          message
+          data {
+            id
+            name
+            email
+            location
+            information
+            phone
+            date
+            serviceId
+            sellerId
+            serviceBookingId
+          }
+        }
+      }
+    ''';
+
+    developer.log("📤 Calling Mutation With: $variables");
+
+    // FIX: use your GraphQLService
+    final client = await GraphQLService.initClient();
+
+    final result = await client.mutate(
+      MutationOptions(
+        document: gql(mutation),
+        variables: variables,
+      ),
+    );
+
+    if (result.hasException) {
+      developer.log("❌ GraphQL Error: ${result.exception}");
+      return ApiResponse(
+        success: false,
+        message: result.exception.toString(),
+        data: null,
+      );
+    }
+
+    final data = result.data?["createContact"];
+
+    return ApiResponse(
+      success: data["success"] == true,
+      message: data["message"],
+      data: data["data"],
+    );
+  }
+
 
   // --------------------------------------------------------------
   // Final Add Hire Pilot (GraphQL Mutation)
@@ -584,7 +641,5 @@ class ApiClass {
       return ApiResult.error(e.toString());
     }
   }
-  Future bookDroneService(Map<String, dynamic> body) async{
 
-  }
 }

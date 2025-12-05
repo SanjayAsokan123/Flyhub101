@@ -11,6 +11,9 @@ import '../../MyDroneListScreen.dart';
 import '../Dynamichome.dart';
 import '../../RentalBookNow.dart';
 import '../../utils/responsive_utils.dart';
+import '../../services/role_manager.dart'; // ADD THIS IMPORT
+import '../../Login/BuyerLoginPage.dart'; // ADD THIS IMPORT
+import '../../Login/BuyerRegisterPage.dart'; // ADD THIS IMPORT
 
 class RentalsPage extends StatefulWidget {
   const RentalsPage({Key? key}) : super(key: key);
@@ -45,6 +48,8 @@ class _RentalsPageState extends State<RentalsPage> {
   final Color textPrimary = const Color(0xFF1F2937);
   final Color textSecondary = const Color(0xFF6B7280);
   final Color borderColor = const Color(0xFFE5E7EB);
+  final Color warningColor = const Color(0xFFF59E0B);
+  final Color errorColor = const Color(0xFFEF4444);
 
   @override
   void initState() {
@@ -192,7 +197,157 @@ class _RentalsPageState extends State<RentalsPage> {
     _applyFiltersAndSort();
   }
 
-  void _handleBooking(Map<String, dynamic> rental) {
+  // ✅ ADD THIS: Check if user is authenticated as buyer
+  Future<bool> _checkBuyerAuth() async {
+    final role = await RoleManager.getLocalRole();
+
+    if (role == "buyer") {
+      return true; // User is already a buyer
+    }
+
+    // User is not a buyer - show auth dialog
+    await _showAuthRequiredDialog(role);
+    return false;
+  }
+
+  // ✅ ADD THIS: Show authentication required dialog
+  Future<void> _showAuthRequiredDialog(String? currentRole) async {
+    String title = "Login Required";
+    String message = "You need to be logged in as a buyer to rent drones.";
+    String userStatus = "guest user";
+
+    if (currentRole == "seller") {
+      title = "Switch to Buyer Account";
+      message = "You are currently logged in as a seller. To rent drones, you need to login or register as a buyer.";
+      userStatus = "seller";
+    } else if (currentRole == "guest") {
+      title = "Create Buyer Account";
+      message = "Continue as guest? To rent drones, you need to login or register as a buyer.";
+      userStatus = "guest";
+    }
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          title,
+          style: GoogleFonts.inter(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: primaryColor,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: primaryColor,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "You need a buyer account to rent drones",
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: primaryColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              "Cancel",
+              style: GoogleFonts.inter(
+                color: textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Navigate to buyer registration
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const BuyerRegisterPage()),
+              );
+            },
+            child: Text(
+              "Register",
+              style: GoogleFonts.inter(
+                color: primaryColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Navigate to buyer login
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const BuyerLoginPage()),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              "Login",
+              style: GoogleFonts.inter(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ ADD THIS: Handle booking with auth check
+  Future<void> _handleBooking(Map<String, dynamic> rental) async {
+    // Check if user is authenticated as buyer
+    final isAuthenticated = await _checkBuyerAuth();
+
+    if (!isAuthenticated) {
+      return; // Auth dialog shown, stop here
+    }
+
+    // User is authenticated as buyer - proceed to booking
     HapticFeedback.selectionClick();
     Navigator.push(
       context,
@@ -242,7 +397,7 @@ class _RentalsPageState extends State<RentalsPage> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(ResponsiveUtils.getPilotCardRadius(context)),
-          onTap: () => _handleBooking(rental),
+          onTap: () => _handleBooking(rental), // ✅ CHANGED: Use auth-checked handler
           child: Padding(
             padding: cardPadding,
             child: Column(
@@ -456,7 +611,7 @@ class _RentalsPageState extends State<RentalsPage> {
                         width: buttonWidth,
                         height: buttonHeight,
                         child: ElevatedButton(
-                          onPressed: () => _handleBooking(rental),
+                          onPressed: () => _handleBooking(rental), // ✅ CHANGED: Use auth-checked handler
                           style: ElevatedButton.styleFrom(
                             backgroundColor: primaryColor,
                             foregroundColor: Colors.white,
@@ -674,99 +829,101 @@ class _RentalsPageState extends State<RentalsPage> {
 
   Widget _buildSearchBar() {
     return Container(
-      height: ResponsiveUtils.getSearchBarHeight(context),
-      decoration: BoxDecoration(
-        color: surfaceColor,
-        borderRadius: BorderRadius.circular(
-          ResponsiveUtils.getDynamicPadding(context, 0.025),
-        ),
-        border: Border.all(
-          color: borderColor,
-          width: ResponsiveUtils.getBorderWidth(context) * 6,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+        height: ResponsiveUtils.getSearchBarHeight(context),
+        decoration: BoxDecoration(
+          color: surfaceColor,
+          borderRadius: BorderRadius.circular(
+            ResponsiveUtils.getDynamicPadding(context, 0.025),
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Search Icon
-          Padding(
-            padding: EdgeInsets.only(
-              left: ResponsiveUtils.getDynamicPadding(context, 0.03),
-            ),
-            child: Icon(
-              Icons.search_rounded,
-              color: textSecondary,
-              size: ResponsiveUtils.getIconSize(context) * 0.8,
-            ),
+          border: Border.all(
+            color: borderColor,
+            width: ResponsiveUtils.getBorderWidth(context) * 6,
           ),
-
-          // Search Field
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: ResponsiveUtils.getDynamicPadding(context, 0.02),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Search Icon
+            Padding(
+              padding: EdgeInsets.only(
+                left: ResponsiveUtils.getDynamicPadding(context, 0.03),
               ),
-              child: TextField(
-                onChanged: _searchRentals,
-                style: GoogleFonts.inter(
-                  fontSize: ResponsiveUtils.getBodyFontSize(context),
-                  color: textPrimary,
-                  fontWeight: FontWeight.w500,
+              child: Icon(
+                Icons.search_rounded,
+                color: textSecondary,
+                size: ResponsiveUtils.getIconSize(context) * 0.8,
+              ),
+            ),
+
+            // Search Field
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: ResponsiveUtils.getDynamicPadding(context, 0.02),
                 ),
-                decoration: InputDecoration(
-                  hintText: "Search drones, brands, locations...",
-                  hintStyle: GoogleFonts.inter(
-                    color: textSecondary,
+                child: TextField(
+                  onChanged: _searchRentals,
+                  style: GoogleFonts.inter(
                     fontSize: ResponsiveUtils.getBodyFontSize(context),
-                    fontWeight: FontWeight.w400,
+                    color: textPrimary,
+                    fontWeight: FontWeight.w500,
                   ),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                  isDense: true,
+                  decoration: InputDecoration(
+                    hintText: "Search drones, brands, locations...",
+                    hintStyle: GoogleFonts.inter(
+                      color: textSecondary,
+                      fontSize: ResponsiveUtils.getBodyFontSize(context),
+                      fontWeight: FontWeight.w400,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    isDense: true,
+                  ),
                 ),
               ),
             ),
-          ),
 
-          // Filter Button
-          Container(
-            width: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
-            height: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
-            margin: EdgeInsets.only(
-              right: ResponsiveUtils.getDynamicPadding(context, 0.012),
-            ),
-            decoration: BoxDecoration(
-              color: primaryColor,
-              borderRadius: BorderRadius.circular(
-                ResponsiveUtils.getDynamicPadding(context, 0.018),
+            // Filter Button
+            Container(
+              width: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
+              height: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
+              margin: EdgeInsets.only(
+                right: ResponsiveUtils.getDynamicPadding(context, 0.012),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: primaryColor.withOpacity(0.3),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
+              decoration: BoxDecoration(
+                color: primaryColor,
+                borderRadius: BorderRadius.circular(
+                  ResponsiveUtils.getDynamicPadding(context, 0.018),
                 ),
-              ],
-            ),
-            child: IconButton(
-              icon: Icon(
-                Icons.tune_rounded,
-                color: Colors.white,
-                size: ResponsiveUtils.getIconSize(context) * 0.7,
+                boxShadow: [
+                  BoxShadow(
+                    color: primaryColor.withOpacity(0.3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              onPressed: _showFilterModal,
-              padding: EdgeInsets.zero,
+              child: IconButton(
+                icon: Icon(
+                  Icons.tune_rounded,
+                  color: Colors.white,
+                  size: ResponsiveUtils.getIconSize(context) * 0.7,
+                ),
+                onPressed: _showFilterModal,
+                padding: EdgeInsets.zero,
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        )
     );
+
+
   }
 
   void _showFilterModal() {

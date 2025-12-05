@@ -51,7 +51,8 @@ class _SellerPageState extends State<SellerPage> {
 
   bool _loading = true;
 
-  // Modern color palette
+  // Modern color palette based on themeColor (#1A0A5B)
+  static const Color themeColor = Color(0xFF1A0A5B); // Deep Indigo
   static const Color primaryColor = Color(0xFF1E0E5C); // Dark blue-purple
   static const Color primaryLight = Color(0xFF2A1A6E);
   static const Color secondaryColor = Color(0xFF10B981); // Emerald green
@@ -213,7 +214,7 @@ class _SellerPageState extends State<SellerPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                  valueColor: AlwaysStoppedAnimation<Color>(themeColor),
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -431,13 +432,13 @@ class _SellerPageState extends State<SellerPage> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: primaryColor.withOpacity(0.2),
+                  color: themeColor.withOpacity(0.2),
                   width: 2,
                 ),
               ),
               child: ClipOval(
                 child: Image.asset(
-                  'assets/images/profile.jpg', // Your image path
+                  'assets/images/profile.jpg',
                   fit: BoxFit.cover,
                   width: 80,
                   height: 80,
@@ -445,8 +446,8 @@ class _SellerPageState extends State<SellerPage> {
                     debugPrint("❌ Loading screen image error: $error");
                     return Container(
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [primaryColor, primaryLight],
+                        gradient: LinearGradient(
+                          colors: [themeColor, primaryLight],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -476,7 +477,7 @@ class _SellerPageState extends State<SellerPage> {
               width: 200,
               child: LinearProgressIndicator(
                 backgroundColor: borderColor,
-                valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                valueColor: AlwaysStoppedAnimation<Color>(themeColor),
                 borderRadius: BorderRadius.circular(10),
                 minHeight: 6,
               ),
@@ -498,24 +499,21 @@ class _SellerPageState extends State<SellerPage> {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
-          color: primaryColor.withOpacity(0.2),
+          color: themeColor.withOpacity(0.2),
           width: 2,
         ),
       ),
       child: ClipOval(
         child: Image.asset(
-          'assets/images/profile.jpg', // Your image path
+          'assets/images/profile.jpg',
           fit: BoxFit.cover,
           width: size,
           height: size,
           errorBuilder: (context, error, stackTrace) {
-            debugPrint("❌ Avatar image error: $error");
-            debugPrint("❌ Stack trace: $stackTrace");
-            // Fallback to gradient avatar if image fails to load
             return Container(
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [primaryColor, primaryLight],
+                gradient: LinearGradient(
+                  colors: [themeColor, primaryLight],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -563,7 +561,6 @@ class _SellerPageState extends State<SellerPage> {
         children: [
           Row(
             children: [
-              // Default avatar
               _buildAvatar(name),
               const SizedBox(width: 16),
               Expanded(
@@ -688,7 +685,7 @@ class _SellerPageState extends State<SellerPage> {
         children: [
           Icon(
             icon,
-            color: primaryColor,
+            color: themeColor,
             size: 22,
           ),
           const SizedBox(width: 8),
@@ -735,12 +732,12 @@ class _SellerPageState extends State<SellerPage> {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: (iconColor ?? primaryColor).withOpacity(0.1),
+                    color: (iconColor ?? themeColor).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     icon,
-                    color: disabled ? textLight : (iconColor ?? primaryColor),
+                    color: disabled ? textLight : (iconColor ?? themeColor),
                     size: 18,
                   ),
                 ),
@@ -776,7 +773,7 @@ class _SellerPageState extends State<SellerPage> {
         crossAxisCount: 3,
         crossAxisSpacing: 8,
         mainAxisSpacing: 8,
-        childAspectRatio: 0.99, // Smaller aspect ratio for smaller containers
+        childAspectRatio: 0.99,
       ),
       itemCount: items.length,
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -855,26 +852,106 @@ class _SellerPageState extends State<SellerPage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  void _showMissingSellerSnack() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text("⚠ Seller ID not found"),
+        backgroundColor: warningColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
+  void _showNotApprovedDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Container(
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: warningColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.lock,
+                    color: warningColor,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  "Account Not Verified",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  "After verifying your details, we will send your ID and email. "
+                      "My Store and Product Status sections will be enabled once approved.",
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: textSecondary,
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 28),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: themeColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text("OK"),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget buildProfilePage() {
     if (_loading) {
       return _buildLoadingScreen();
     }
 
     final storeItems = [
       {
-        'icon': Icons.done,
+        'icon': Icons.airplanemode_active,
         'label': 'Add Drone',
         'color': Colors.blue,
         'disabled': !_isApproved,
         'onTap': () {
           if (_sellerId == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text("Seller ID not found"),
-                backgroundColor: warningColor,
-              ),
-            );
+            _showMissingSellerSnack();
             return;
           }
           Navigator.push(
@@ -892,12 +969,7 @@ class _SellerPageState extends State<SellerPage> {
         'disabled': !_isApproved,
         'onTap': () {
           if (_sellerId == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text("Seller ID not found"),
-                backgroundColor: warningColor,
-              ),
-            );
+            _showMissingSellerSnack();
             return;
           }
           Navigator.push(
@@ -915,12 +987,7 @@ class _SellerPageState extends State<SellerPage> {
         'disabled': !_isApproved,
         'onTap': () {
           if (_sellerId == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text("Seller ID not found"),
-                backgroundColor: warningColor,
-              ),
-            );
+            _showMissingSellerSnack();
             return;
           }
           Navigator.push(
@@ -932,18 +999,13 @@ class _SellerPageState extends State<SellerPage> {
         },
       },
       {
-        'icon': Icons.airplanemode_active,
+        'icon': Icons.precision_manufacturing,
         'label': 'Rental Drone',
         'color': Colors.purple,
         'disabled': !_isApproved,
         'onTap': () {
           if (_sellerId == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text("Seller ID not found"),
-                backgroundColor: warningColor,
-              ),
-            );
+            _showMissingSellerSnack();
             return;
           }
           Navigator.push(
@@ -961,12 +1023,7 @@ class _SellerPageState extends State<SellerPage> {
         'disabled': !_isApproved,
         'onTap': () {
           if (_sellerId == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text("Seller ID not found"),
-                backgroundColor: warningColor,
-              ),
-            );
+            _showMissingSellerSnack();
             return;
           }
           Navigator.push(
@@ -984,18 +1041,31 @@ class _SellerPageState extends State<SellerPage> {
         'disabled': !_isApproved,
         'onTap': () {
           if (_sellerId == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text("Seller ID not found"),
-                backgroundColor: warningColor,
-              ),
-            );
+            _showMissingSellerSnack();
             return;
           }
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => AddJobForm(sellerId: _sellerId!),
+            ),
+          );
+        },
+      },
+      {
+        'icon': Icons.flight_takeoff,
+        'label': 'Hire Pilot',
+        'color': Colors.indigo,
+        'disabled': !_isApproved,
+        'onTap': () {
+          if (_sellerId == null) {
+            _showMissingSellerSnack();
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddHirePilotForm(sellerId: _sellerId!),
             ),
           );
         },
@@ -1022,12 +1092,12 @@ class _SellerPageState extends State<SellerPage> {
             icon: Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: primaryColor.withOpacity(0.1),
+                color: themeColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
                 Icons.swap_horiz,
-                color: primaryColor,
+                color: themeColor,
                 size: 20,
               ),
             ),
@@ -1037,14 +1107,41 @@ class _SellerPageState extends State<SellerPage> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 16), // Reduced bottom padding
+        padding: const EdgeInsets.only(bottom: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(),
-            const SizedBox(height: 16),
+
+            // Warning banner if not approved
+            if (!_isApproved)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: warningColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: warningColor.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: warningColor, size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        "Your account is pending verification. My Store and Product Status will be enabled after approval.",
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
             // My Store Section
+            const SizedBox(height: 16),
             _buildSectionHeader("My Store", Icons.storefront),
             const SizedBox(height: 4),
             _buildCategoryGrid(storeItems),
@@ -1055,13 +1152,19 @@ class _SellerPageState extends State<SellerPage> {
             const SizedBox(height: 4),
             ..._buildProductStatusItems(),
 
+            // Rental & Services Section
+            const SizedBox(height: 16),
+            _buildSectionHeader("Rental & Services", Icons.work_outline),
+            const SizedBox(height: 4),
+            ..._buildRentalServicesItems(),
+
             // Legal & Support Section
             const SizedBox(height: 16),
             _buildSectionHeader("Legal & Support", Icons.gavel),
             const SizedBox(height: 4),
             ..._buildLegalSupportItems(),
 
-            // Account Settings Section (Only Logout)
+            // Account Settings Section
             const SizedBox(height: 16),
             _buildSectionHeader("Account Settings", Icons.settings),
             const SizedBox(height: 4),
@@ -1102,19 +1205,33 @@ class _SellerPageState extends State<SellerPage> {
           MaterialPageRoute(builder: (_) => const SoldProductsPage()),
         ),
         disabled: !_isApproved,
-        iconColor: primaryColor,
+        iconColor: themeColor,
+      ),
+      _buildMenuItem(
+        title: "Rejected Products",
+        icon: Icons.cancel_outlined,
+        onTap: () {
+          if (_sellerId == null) {
+            _showMissingSellerSnack();
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  RejectedProductsPage(sellerCustomId: _sellerId!),
+            ),
+          );
+        },
+        disabled: !_isApproved,
+        iconColor: themeColor,
       ),
       _buildMenuItem(
         title: "Pending Products",
-        icon: Icons.pending_outlined,
+        icon: Icons.pending_actions_outlined,
         onTap: () {
           if (_sellerId == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text("Seller ID not found"),
-                backgroundColor: warningColor,
-              ),
-            );
+            _showMissingSellerSnack();
             return;
           }
           Navigator.push(
@@ -1125,19 +1242,14 @@ class _SellerPageState extends State<SellerPage> {
           );
         },
         disabled: !_isApproved,
-        iconColor: primaryColor,
+        iconColor: themeColor,
       ),
       _buildMenuItem(
         title: "Approved Products",
         icon: Icons.verified_outlined,
         onTap: () {
           if (_sellerId == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text("Seller ID not found"),
-                backgroundColor: warningColor,
-              ),
-            );
+            _showMissingSellerSnack();
             return;
           }
           Navigator.push(
@@ -1148,30 +1260,79 @@ class _SellerPageState extends State<SellerPage> {
           );
         },
         disabled: !_isApproved,
-        iconColor: primaryColor,
+        iconColor: themeColor,
       ),
       _buildMenuItem(
-        title: "Rejected Products",
-        icon: Icons.cancel_outlined,
+        title: "Return Products",
+        icon: Icons.keyboard_return_outlined,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ReturnedProductsPage()),
+        ),
+        disabled: !_isApproved,
+        iconColor: themeColor,
+      ),
+    ];
+  }
+
+  List<Widget> _buildRentalServicesItems() {
+    return [
+      _buildMenuItem(
+        title: "Rental Drones",
+        icon: Icons.air_outlined,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const SellerDroneRentalPage()),
+        ),
+        disabled: !_isApproved,
+        iconColor: themeColor,
+      ),
+      _buildMenuItem(
+        title: "Pilot Rental",
+        icon: Icons.person_pin_circle_rounded,
         onTap: () {
           if (_sellerId == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text("Seller ID not found"),
-                backgroundColor: warningColor,
-              ),
-            );
+            _showMissingSellerSnack();
             return;
           }
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => RejectedProductsPage(sellerCustomId: _sellerId!),
+              builder: (_) => PilotRentalPage(sellerId: _sellerId!),
             ),
           );
         },
         disabled: !_isApproved,
-        iconColor: primaryColor,
+        iconColor: themeColor,
+      ),
+      _buildMenuItem(
+        title: "Job Apply Status",
+        icon: Icons.work_history,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) =>  JobApplyStatusPage(sellerId: _sellerId!)),
+        ),
+        disabled: !_isApproved,
+        iconColor: themeColor,
+      ),
+      _buildMenuItem(
+        title: "Service Booking Status",
+        icon: Icons.work_history,
+        onTap: () {
+          if (_sellerId == null) {
+            _showMissingSellerSnack();
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  ServiceBookingStatusPage(sellerId: _sellerId!),
+            ),
+          );
+        },
+        disabled: !_isApproved,
+        iconColor: themeColor,
       ),
     ];
   }
@@ -1185,7 +1346,7 @@ class _SellerPageState extends State<SellerPage> {
           context,
           MaterialPageRoute(builder: (_) => const TermsAndConditionsPage()),
         ),
-        iconColor: primaryColor,
+        iconColor: themeColor,
       ),
       _buildMenuItem(
         title: "Privacy Policy",
@@ -1194,7 +1355,25 @@ class _SellerPageState extends State<SellerPage> {
           context,
           MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()),
         ),
-        iconColor: primaryColor,
+        iconColor: themeColor,
+      ),
+      _buildMenuItem(
+        title: "Shipping Policy",
+        icon: Icons.local_shipping,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const SellerShippingPolicyPage()),
+        ),
+        iconColor: themeColor,
+      ),
+      _buildMenuItem(
+        title: "Return & Refund Policy",
+        icon: Icons.assignment_return,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const SRRPolicy()),
+        ),
+        iconColor: themeColor,
       ),
       _buildMenuItem(
         title: "Help & Support",
@@ -1203,7 +1382,7 @@ class _SellerPageState extends State<SellerPage> {
           context,
           MaterialPageRoute(builder: (_) => const HelpAndSupportPage()),
         ),
-        iconColor: primaryColor,
+        iconColor: themeColor,
       ),
       _buildMenuItem(
         title: "Send Feedback",
@@ -1212,7 +1391,7 @@ class _SellerPageState extends State<SellerPage> {
           context,
           MaterialPageRoute(builder: (_) => const FeedbackFormPage()),
         ),
-        iconColor: primaryColor,
+        iconColor: themeColor,
       ),
     ];
   }
@@ -1272,5 +1451,10 @@ class _SellerPageState extends State<SellerPage> {
         ),
       ),
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return buildProfilePage();
   }
 }

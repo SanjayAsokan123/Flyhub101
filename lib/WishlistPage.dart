@@ -87,7 +87,6 @@ class _WishlistPageState extends State<WishlistPage> {
             .map((item) => item['id']?.toString() ?? '')
             .where((id) => id.isNotEmpty)
             .toSet();
-        provider.updateWishlistCount(provider.wishlistItems.length);
 
         await provider.saveWishlistToLocal();
       }
@@ -107,7 +106,6 @@ class _WishlistPageState extends State<WishlistPage> {
 
     provider.wishlistItems.removeAt(index);
     provider.wishlistIds.remove(id);
-    provider.updateWishlistCount(provider.wishlistItems.length);
 
     await provider.saveWishlistToLocal();
 
@@ -171,7 +169,6 @@ class _WishlistPageState extends State<WishlistPage> {
 
     provider.wishlistItems.removeAt(index);
     provider.wishlistIds.remove(id);
-    provider.updateWishlistCount(provider.wishlistItems.length);
     await provider.saveWishlistToLocal();
 
     final user = _auth.currentUser;
@@ -300,7 +297,6 @@ class _WishlistPageState extends State<WishlistPage> {
 
     provider.wishlistItems.clear();
     provider.wishlistIds.clear();
-    provider.updateWishlistCount(0);
     await provider.saveWishlistToLocal();
 
     if (role != "guest") {
@@ -373,7 +369,6 @@ class _WishlistPageState extends State<WishlistPage> {
         if (index != -1) {
           provider.wishlistItems.removeAt(index);
           provider.wishlistIds.remove(id);
-          provider.updateWishlistCount(provider.wishlistItems.length);
           await provider.saveWishlistToLocal();
 
           // Also remove from Firebase if logged in

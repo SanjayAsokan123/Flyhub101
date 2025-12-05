@@ -32,6 +32,7 @@ class _DynamichomeState extends State<Dynamichome>
   User? _user;
   String? _role = "guest";
   bool _loading = true;
+  bool _isNavigating = false; // ADD THIS: Prevent multiple navigations
 
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _roleSubscription;
   DateTime? _lastBackPressed;
@@ -43,7 +44,9 @@ class _DynamichomeState extends State<Dynamichome>
     super.initState();
     _selectedIndex = widget.selectedIndex;
     _pageController = PageController(initialPage: _selectedIndex);
-    _initializeHome();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeHome();
+    });
   }
 
   @override
@@ -54,9 +57,12 @@ class _DynamichomeState extends State<Dynamichome>
   }
 
   // -----------------------------------------------------------
-  // INITIALIZATION HANDLER
+  // INITIALIZATION HANDLER - FIXED
   // -----------------------------------------------------------
   Future<void> _initializeHome() async {
+    if (_isNavigating) return; // Prevent multiple calls
+    _isNavigating = true;
+
     _user = FirebaseAuth.instance.currentUser;
 
     // Load cached role
@@ -66,36 +72,47 @@ class _DynamichomeState extends State<Dynamichome>
     // ALLOW GUEST WITHOUT FORCING LOGIN
     if (_role == "guest") {
       setState(() => _loading = false);
+      _isNavigating = false;
       return;
     }
 
-    if (_user == null) {
-      Future.microtask(() {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const FlyHubSelectionPage()),
-        );
+    // If no Firebase user AND role is not guest, go to selection page
+    if (_user == null && _role != "guest") {
+      // Use a small delay to avoid navigation during build
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const FlyHubSelectionPage()),
+      );
+      return;
+    }
+
+    // If Firebase user exists, listen to role changes
+    if (_user != null) {
+      _listenToRoleChanges(_user!.uid);
+
+      // Listen to auth state changes
+      FirebaseAuth.instance.authStateChanges().listen((user) async {
+        if (!mounted) return;
+
+        _user = user;
+        setState(() {});
+
+        if (user == null) {
+          _roleSubscription?.cancel();
+          _role = "guest";
+          await RoleManager.setLocalRole("guest");
+          return;
+        }
+
+        _listenToRoleChanges(user.uid);
       });
-      return;
     }
-
-    _listenToRoleChanges(_user!.uid);
-
-    FirebaseAuth.instance.authStateChanges().listen((user) async {
-      _user = user;
-      setState(() {});
-
-      if (user == null) {
-        _roleSubscription?.cancel();
-        _role = "guest";
-        await RoleManager.setLocalRole("guest");
-        return;
-      }
-
-      _listenToRoleChanges(user.uid);
-    });
 
     setState(() => _loading = false);
+    _isNavigating = false;
   }
 
   // -----------------------------------------------------------
@@ -108,6 +125,8 @@ class _DynamichomeState extends State<Dynamichome>
     _roleSubscription?.cancel();
 
     _roleSubscription = stream.listen((snapshot) async {
+      if (!mounted) return;
+
       if (!snapshot.exists) {
         _role = "buyer";
         setState(() {});

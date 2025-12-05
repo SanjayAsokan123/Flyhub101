@@ -80,17 +80,17 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
           'name': data['name'] ?? '',
           'email': data['email'] ?? '',
         });
-        // final role = data['role']?.toString().toLowerCase() ?? "buyer";
+        final role = data['role']?.toString().toLowerCase() ?? "buyer";
 
-        // if (role != "buyer") {
-        //   await RoleManager.setLocalRole("seller");
-        //   if (!mounted) return;
-        //   Navigator.pushReplacement(
-        //     context,
-        //     MaterialPageRoute(builder: (_) => const SellerPage()),
-        //   );
-        //   return;
-        // }
+        if (role != "buyer") {
+          await RoleManager.setLocalRole("seller");
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const SellerPage()),
+          );
+          return;
+        }
 
         await RoleManager.setLocalRole("buyer");
         setState(() => _buyerData = data);

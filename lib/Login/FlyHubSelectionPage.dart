@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flyhub/HomeScreen/Dynamichome.dart';
 import 'package:flyhub/Login/SellerLoginPage.dart';
 import 'package:flyhub/Login/BuyerLoginPage.dart';
 import 'package:flyhub/services/role_manager.dart';
+import 'package:flyhub/services/local_storage_service.dart';
 
 class FlyHubSelectionPage extends StatefulWidget {
   const FlyHubSelectionPage({super.key});
@@ -17,6 +19,7 @@ class _FlyHubSelectionPageState extends State<FlyHubSelectionPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -40,10 +43,145 @@ class _FlyHubSelectionPageState extends State<FlyHubSelectionPage>
     super.dispose();
   }
 
+  // ✅ SIMPLIFIED: Check if user already has a selected role
+  Future<bool> _hasSelectedRole(String role) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedRole = prefs.getString('role');
+      return savedRole == role;
+    } catch (e) {
+      print('❌ Error checking role: $e');
+      return false;
+    }
+  }
+
+  // ✅ Handle Seller Navigation - SIMPLIFIED VERSION
+  Future<void> _handleSellerTap() async {
+    if (_isLoading) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      // ALWAYS go to SellerLoginPage for new selection
+      print('✅ Seller selected → Going to SellerLoginPage');
+
+      // Save role preference
+      await RoleManager.setLocalRole("seller");
+      await LocalStorageService.saveUserDetails(
+        userId: "",
+        name: "",
+        role: "seller",
+      );
+
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const SellerLoginPage(),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Error in seller tap: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  // ✅ Handle Buyer Navigation - SIMPLIFIED VERSION
+  Future<void> _handleBuyerTap() async {
+    if (_isLoading) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      // ALWAYS go to BuyerLoginPage for new selection
+      print('✅ Buyer selected → Going to BuyerLoginPage');
+
+      // Save role preference
+      await RoleManager.setLocalRole("buyer");
+      await LocalStorageService.saveUserDetails(
+        userId: "",
+        name: "",
+        role: "buyer",
+      );
+
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const BuyerLoginPage(),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Error in buyer tap: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  // ✅ Handle Guest Navigation
+  Future<void> _handleGuestTap() async {
+    if (_isLoading) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      await RoleManager.setLocalRole("guest");
+      await LocalStorageService.saveUserDetails(
+        userId: "",
+        name: "",
+        role: "guest",
+      );
+
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const Dynamichome(selectedIndex: 0),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Error in guest tap: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    const Color accentColor = Color(0xFF1A0A5B);
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -58,11 +196,10 @@ class _FlyHubSelectionPageState extends State<FlyHubSelectionPage>
                 _buildHeader(),
                 const SizedBox(height: 50),
                 _buildSelectionCards(context),
-                const SizedBox(height: 24),
-                _buildGuestLink(context),
                 const Spacer(),
-                _buildFooter(),
+                _buildGuestLink(context),
                 const SizedBox(height: 20),
+                _buildFooter(),
               ],
             ),
           ),
@@ -114,15 +251,8 @@ class _FlyHubSelectionPageState extends State<FlyHubSelectionPage>
           subtitle: "List and sell your drone products",
           icon: Icons.store_outlined,
           color: const Color(0xFF1A0A5B),
-          onTap: () async {
-            await RoleManager.setLocalRole("seller");
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const SellerLoginPage(),
-              ),
-            );
-          },
+          onTap: _handleSellerTap,
+          isLoading: _isLoading,
         ),
         const SizedBox(height: 12),
         _buildAnimatedCard(
@@ -131,20 +261,14 @@ class _FlyHubSelectionPageState extends State<FlyHubSelectionPage>
           subtitle: "Browse and purchase drones",
           icon: Icons.shopping_bag_outlined,
           color: const Color(0xFF1A0A5B),
-          onTap: () async {
-            await RoleManager.setLocalRole("buyer");
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const BuyerLoginPage(),
-              ),
-            );
-          },
+          onTap: _handleBuyerTap,
+          isLoading: _isLoading,
         ),
       ],
     );
   }
 
+  // ✅ TweenAnimationBuilder
   Widget _buildAnimatedCard({
     required int delay,
     required String title,
@@ -152,9 +276,10 @@ class _FlyHubSelectionPageState extends State<FlyHubSelectionPage>
     required IconData icon,
     required Color color,
     required VoidCallback onTap,
+    required bool isLoading,
   }) {
-    return TweenAnimationBuilder(
-      tween: Tween<double>(begin: 0, end: 1),
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0.0, end: 1.0),
       duration: Duration(milliseconds: 400 + delay),
       curve: Curves.easeOut,
       builder: (context, double value, child) {
@@ -172,46 +297,53 @@ class _FlyHubSelectionPageState extends State<FlyHubSelectionPage>
         icon: icon,
         color: color,
         onTap: onTap,
+        isLoading: isLoading,
       ),
     );
   }
 
   // 🔹 Guest Option
   Widget _buildGuestLink(BuildContext context) {
-    return TweenAnimationBuilder(
-      tween: Tween<double>(begin: 0, end: 1),
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 600),
       curve: Curves.easeOut,
       builder: (context, double value, child) {
         return Opacity(opacity: value, child: child);
       },
       child: InkWell(
-        onTap: () async {
-          await RoleManager.setLocalRole("guest");
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const Dynamichome(selectedIndex: 0),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(8),
+        onTap: _isLoading ? null : _handleGuestTap,
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.person_outline,
-                  color: Color(0xFF1A0A5B), size: 18),
+              const Icon(
+                Icons.person_outline,
+                color: Color(0xFF868F9E),
+                size: 16,
+              ),
               const SizedBox(width: 8),
-              Text(
+              _isLoading
+                  ? SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    Color(0xFF1A0A5B),
+                  ),
+                ),
+              )
+                  : Text(
                 "Continue as Guest",
                 style: GoogleFonts.inter(
                   fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w200,
                   color: const Color(0xFF1A0A5B),
                   decoration: TextDecoration.underline,
-                  decorationColor: Color(0xFF1A0A5B),
+                  decorationColor: const Color(0xFF1A0A5B),
                 ),
               ),
             ],
@@ -228,8 +360,11 @@ class _FlyHubSelectionPageState extends State<FlyHubSelectionPage>
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.verified_user_outlined,
-                size: 14, color: Color(0xFF9CA3AF)),
+            const Icon(
+              Icons.verified_user_outlined,
+              size: 14,
+              color: Color(0xFF9CA3AF),
+            ),
             const SizedBox(width: 6),
             Text(
               "Trusted",
@@ -261,6 +396,7 @@ class _CompactRoleCard extends StatefulWidget {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
+  final bool isLoading;
 
   const _CompactRoleCard({
     required this.title,
@@ -268,6 +404,7 @@ class _CompactRoleCard extends StatefulWidget {
     required this.icon,
     required this.color,
     required this.onTap,
+    required this.isLoading,
   });
 
   @override
@@ -280,8 +417,11 @@ class _CompactRoleCardState extends State<_CompactRoleCard> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) {
+      onTapDown:
+      widget.isLoading ? null : (_) => setState(() => _isPressed = true),
+      onTapUp: widget.isLoading
+          ? null
+          : (_) {
         setState(() => _isPressed = false);
         widget.onTap();
       },
@@ -303,27 +443,49 @@ class _CompactRoleCardState extends State<_CompactRoleCard> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            Icon(widget.icon, color: Colors.white, size: 22),
+            widget.isLoading
+                ? SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor:
+                const AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            )
+                : Icon(widget.icon, color: Colors.white, size: 22),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(widget.title,
-                        style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white)),
-                    const SizedBox(height: 2),
-                    Text(widget.subtitle,
-                        style: GoogleFonts.inter(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w400,
-                            color: Colors.white.withOpacity(0.9))),
-                  ]),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.title,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.subtitle,
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.white.withOpacity(0.9),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            Icon(Icons.arrow_forward_rounded,
-                color: Colors.white.withOpacity(0.9), size: 16),
+            widget.isLoading
+                ? const SizedBox.shrink()
+                : Icon(
+              Icons.arrow_forward_rounded,
+              color: Colors.white.withOpacity(0.9),
+              size: 16,
+            ),
           ],
         ),
       ),

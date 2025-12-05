@@ -765,7 +765,6 @@ class _MarketPageState extends State<MarketPage>
   Widget build(BuildContext context) {
     final provider = context.watch<CartWishlistProvider>();
     final cartCount = provider.cartCount;
-    final wishlistCount = provider.wishlistCount;
 
     return Scaffold(
       backgroundColor: kLightBackground,
@@ -814,12 +813,7 @@ class _MarketPageState extends State<MarketPage>
                   });
                 },
               ),
-              if (wishlistCount > 0)
-                Positioned(
-                  right: 6,
-                  top: 6,
-                  child: _badge(wishlistCount),
-                ),
+
             ],
           ),
           Stack(

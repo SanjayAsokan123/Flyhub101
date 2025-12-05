@@ -617,12 +617,12 @@ class _SellerDetailsScreenState extends State<SellerDetailsScreen> {
       }
     ''';
 
-      print('\n🌐 BACKEND URL: http://192.168.1.13:5001/graphql');
+      print('\n🌐 BACKEND URL: http://192.168.0.180:5001/graphql');
 
       final client = GraphQLClient(
         cache: GraphQLCache(),
         link: HttpLink(
-          "http://192.168.1.169:5001/graphql",
+          "http://192.168.0.180:5001/graphql",
           httpClient: http.Client(),
           defaultHeaders: {
             'Authorization': 'Bearer $idToken',
@@ -704,7 +704,7 @@ class _SellerDetailsScreenState extends State<SellerDetailsScreen> {
       print('❌ SOCKET ERROR: $e');
       setState(() {
         _errorMessage =
-        '🌐 Cannot connect to backend at http://192.168.1.169:5001/graphql';
+        '🌐 Cannot connect to backend at http://192.168.0.180:5001/graphql';
         _isLoading = false;
       });
     } catch (e) {

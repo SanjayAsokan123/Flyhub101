@@ -10,13 +10,17 @@ import '../services/role_manager.dart';
 import '../config/env.dart';
 
 class BuyerRegisterPage extends StatefulWidget {
-  const BuyerRegisterPage({super.key});
+  const BuyerRegisterPage({super.key,this.logoPath});
+
+
+  final String? logoPath;
 
   @override
   State<BuyerRegisterPage> createState() => _BuyerRegisterPageState();
 }
 
 class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
+  // ---------------- CONTROLLERS ----------------
   final _formKey = GlobalKey<FormState>();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -28,32 +32,31 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
   final TextEditingController _phone = TextEditingController();
   final TextEditingController _otp = TextEditingController();
 
+  // ---------------- STATE VARIABLES ----------------
   bool _sendingOtp = false;
   bool _otpSent = false;
   bool _otpVerified = false;
   bool _loading = false;
   bool _passwordVisible = false;
   bool _agreeToTerms = false;
+  bool _showOtpField = false;
 
   String? _verificationId;
   PhoneAuthCredential? _phoneCredential;
-  String _selectedCountryCode = "+91"; // Default to India
-  String _selectedCountryFlag = "🇮🇳"; // Default flag
+  String _selectedCountryCode = "+91";
+  String _selectedCountryFlag = "🇮🇳";
 
-  // Color Scheme
-  static const Color primaryColor = Color(0xFF1A0A5B);
+  // ---------------- COLOR SCHEME ----------------
+  static const Color themeColor = Color(0xFF1A0A5B);
   static const Color accentColor = Color(0xFF7C4DFF);
-  static const Color backgroundColor = Color(0xFFF8F9FA);
-  static const Color surfaceColor = Colors.white;
+  static const Color backgroundColor = Colors.white;
   static const Color textColor = Color(0xFF333333);
-  static const Color subtitleColor = Color(0xFF666666);
+  static const Color textSecondary = Color(0xFF666666);
   static const Color successColor = Color(0xFF4CAF50);
   static const Color errorColor = Color(0xFFF44336);
+  static const Color borderColor = Color(0xFFE5E7EB);
 
-  // Animation controller for OTP field
-  bool _showOtpField = false;
-
-  // List of popular country codes with flags
+  // ---------------- COUNTRY CODES ----------------
   final List<Map<String, String>> _countryCodes = [
     {"code": "+91", "flag": "🇮🇳", "name": "India"},
     {"code": "+1", "flag": "🇺🇸", "name": "USA"},
@@ -88,16 +91,28 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
     super.dispose();
   }
 
-  // ------------------------------------------------
-  // SEND OTP (Updated with dynamic country code)
-  // ------------------------------------------------
+  // ---------------- FUNCTIONS ----------------------
+  void _goBack() {
+    Navigator.pop(context);
+  }
+
+  int _getExpectedPhoneLength(String countryCode) {
+    switch (countryCode) {
+      case '+1': return 10;
+      case '+91': return 10;
+      case '+44': return 10;
+      case '+61': return 9;
+      case '+971': return 9;
+      default: return 8;
+    }
+  }
+
   Future<void> _sendOtp() async {
     final phone = _phone.text.trim();
-
-    // Get phone length based on country code
     final phoneLength = _getExpectedPhoneLength(_selectedCountryCode);
+
     if (phone.isEmpty || phone.length < phoneLength) {
-      _showSnack("Enter valid phone number", error: true);
+      showMessage("Enter valid phone number", error: true);
       return;
     }
 
@@ -113,10 +128,10 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
           _otpVerified = true;
           _showOtpField = false;
         });
-        _showSnack("Phone auto verified! ✅", success: true);
+        showMessage("Phone auto verified! ✅", success: true);
       },
       verificationFailed: (FirebaseAuthException e) {
-        _showSnack(e.message ?? "Verification failed", error: true);
+        showMessage(e.message ?? "Verification failed", error: true);
         setState(() => _sendingOtp = false);
       },
       codeSent: (String verificationId, int? resendToken) {
@@ -126,7 +141,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
           _sendingOtp = false;
           _showOtpField = true;
         });
-        _showSnack("OTP sent to $fullPhone 📱", success: true);
+        showMessage("OTP sent to $fullPhone 📱", success: true);
       },
       codeAutoRetrievalTimeout: (String verificationId) {
         _verificationId = verificationId;
@@ -134,30 +149,9 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
     );
   }
 
-  // Helper to get expected phone length based on country code
-  int _getExpectedPhoneLength(String countryCode) {
-    switch (countryCode) {
-      case '+1': // USA/Canada
-        return 10;
-      case '+91': // India
-        return 10;
-      case '+44': // UK
-        return 10;
-      case '+61': // Australia
-        return 9;
-      case '+971': // UAE
-        return 9;
-      default:
-        return 8; // Minimum length
-    }
-  }
-
-  // ------------------------------------------------
-  // VERIFY OTP (Keep same)
-  // ------------------------------------------------
   Future<void> _verifyOtp() async {
     if (_verificationId == null) {
-      _showSnack("Send OTP first", error: true);
+      showMessage("Send OTP first", error: true);
       return;
     }
 
@@ -168,36 +162,32 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
       );
 
       setState(() => _otpVerified = true);
-      _showSnack("OTP verified! ✅", success: true);
+      showMessage("OTP verified! ✅", success: true);
     } catch (e) {
-      _showSnack("Invalid OTP", error: true);
+      showMessage("Invalid OTP", error: true);
     }
   }
 
-  // ------------------------------------------------
-  // REGISTER BUYER (Updated with terms check)
-  // ------------------------------------------------
   Future<void> _registerBuyer() async {
     if (!_formKey.currentState!.validate()) return;
 
     if (!_agreeToTerms) {
-      _showSnack("Please accept Terms & Conditions", error: true);
+      showMessage("Please accept Terms & Conditions", error: true);
       return;
     }
 
     if (!_otpVerified || _phoneCredential == null) {
-      _showSnack("Verify phone first", error: true);
+      showMessage("Verify phone first", error: true);
       return;
     }
 
     setState(() => _loading = true);
     try {
-      // 1️⃣ Create / Sign-in using OTP
-      final phoneUserCred =
-      await _auth.signInWithCredential(_phoneCredential!);
+      // 1️⃣ Sign-in using OTP
+      final phoneUserCred = await _auth.signInWithCredential(_phoneCredential!);
       final phoneUser = phoneUserCred.user!;
 
-      // 2️⃣ Link email + password ONLY if not already linked
+      // 2️⃣ Link email + password
       final email = _email.text.trim();
       final pass = _password.text.trim();
 
@@ -210,21 +200,19 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
       }
 
       final uid = phoneUser.uid;
-      // 4️⃣ Save phone → uid mapping
-      await _firestore
-          .collection("BuyerOtp")
-          .doc("phone_${_phone.text.trim()}")
-          .set({
+
+      // 3️⃣ Save phone → uid mapping
+      await _firestore.collection("BuyerOtp").doc("phone${_phone.text.trim()}").set({
         'uid': uid,
         'phone': "$_selectedCountryCode${_phone.text.trim()}",
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // 3️⃣ Call backend
+      // 4️⃣ Call backend
       final serverResult = await _signupOnServer(
         name: "${_firstName.text.trim()} ${_lastName.text.trim()}",
         email: email,
-        phone: _phone.text.trim(),
+        phone: "$_selectedCountryCode${_phone.text.trim()}",
         password: pass,
         firebaseUid: uid,
       );
@@ -232,7 +220,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
       final buyerId = serverResult['buyerId'];
       final token = serverResult['token'];
 
-      // 4️⃣ Save Firestore
+      // 5️⃣ Save Firestore
       await _firestore.collection("buyers").doc(buyerId).set({
         'buyerId': buyerId,
         'firebaseUid': uid,
@@ -250,9 +238,8 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // 5️⃣ Local storage
+      // 6️⃣ Local storage
       await RoleManager.setLocalRole("buyer");
-      // await RoleManager.setToken(token);
 
       if (!mounted) return;
       Navigator.pushReplacement(
@@ -260,18 +247,15 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
         MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
       );
 
-      _showSnack("Registration successful! 🎉", success: true);
+      showMessage("Registration successful! 🎉", success: true);
 
     } catch (e) {
-      _showSnack(e.toString(), error: true);
+      showMessage(e.toString(), error: true);
     } finally {
       setState(() => _loading = false);
     }
   }
 
-  // ------------------------------------------------
-  // CALL GRAPHQL SIGNUP (Keep same)
-  // ------------------------------------------------
   Future<Map<String, dynamic>> _signupOnServer({
     required String name,
     required String email,
@@ -335,8 +319,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
     };
   }
 
-  // ------------------------------------------------
-  void _showSnack(String msg, {bool error = false, bool success = false}) {
+  void showMessage(String msg, {bool error = false, bool success = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -347,221 +330,389 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
             Expanded(child: Text(msg)),
           ],
         ),
-        backgroundColor: success ? successColor : error ? errorColor : primaryColor,
+        backgroundColor: success ? successColor : error ? errorColor : themeColor,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }
 
-  // ------------------------------------------------
-  // ENHANCED UI BUILD
-  // ------------------------------------------------
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        title: const Text(
-          "Create Buyer Account",
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 18,
-          ),
+  void _launchSocialMedia(String platform) {
+    Map<String, String> urls = {
+      'instagram': 'https://instagram.com/yourprofile',
+      'linkedin': 'https://linkedin.com/company/yourcompany',
+      'facebook': 'https://facebook.com/yourpage',
+      'twitter': 'https://twitter.com/yourhandle',
+      'whatsapp': 'https://wa.me/yourphonenumber',
+    };
+
+    showMessage("Opening $platform...");
+  }
+
+  Widget _buildSocialIcon(String iconPath, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: themeColor.withOpacity(0.1),
+              blurRadius: 5,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        backgroundColor: surfaceColor,
-        foregroundColor: primaryColor,
-        elevation: 0,
-        centerTitle: true,
-        systemOverlayStyle: const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.dark,
+        child: Image.asset(
+          iconPath,
+          fit: BoxFit.contain,
         ),
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const ClampingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header Section
-              _buildHeader(),
-              const SizedBox(height: 32),
+    );
+  }
 
-              // Form Section
-              Container(
-                decoration: BoxDecoration(
-                  color: surfaceColor,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 20,
-                      offset: const Offset(0, 4),
+  // ---------------- UI ----------------
+  @override
+  Widget build(BuildContext context) {
+    return WillPopScope(
+      onWillPop: () async {
+        _goBack();
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: backgroundColor,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                // ---------------- BACK BUTTON ----------------
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: _goBack,
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.8),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.arrow_back_ios,
+                              color: themeColor,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 5),
+                          ],
+                        ),
+                      ),
                     ),
-                  ],
+                  ),
                 ),
-                padding: const EdgeInsets.all(24),
-                child: Form(
-                  key: _formKey,
+
+                // ---------------- IMAGE HEADER ----------------
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: Image.asset(
+                    widget.logoPath ?? "assets/images/login.jpg",
+                    height: MediaQuery.of(context).size.width * 0.75,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                const SizedBox(height: 0),
+
+                // ---------------- REGISTER FORM SECTION ----------------
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Column(
                     children: [
-                      // Name Row
-                      Row(
-                        children: [
-                          Expanded(child: _buildFirstNameField()),
-                          const SizedBox(width: 16),
-                          Expanded(child: _buildLastNameField()),
-                        ],
+                      // ---------------- REGISTER TEXT ----------------
+                      Text(
+                        "Create Account",
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: themeColor,
+                        ),
                       ),
-                      const SizedBox(height: 20),
 
-                      // Email Field
-                      _buildEmailField(),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 0),
 
-                      // Password Field
-                      _buildPasswordField(),
-                      const SizedBox(height: 20),
+                      Text(
+                        "Join our marketplace to start shopping",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: textSecondary,
+                        ),
+                      ),
 
-                      // Phone Field with Country Code Dropdown
-                      _buildPhoneFieldWithCountryCode(),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 10),
 
-                      // OTP Field (Animated)
-                      if (_showOtpField) _buildOtpField(),
+                      // ---------------- FORM ----------------
+                      Form(
+                        key: _formKey,
+                        child: Column(
+                          children: [
+                            // Name Fields
+                            Row(
+                              children: [
+                                Expanded(child: _firstNameField()),
+                                const SizedBox(width: 16),
+                                Expanded(child: _lastNameField()),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
 
-                      const SizedBox(height: 20),
+                            // Email Field
+                            _emailField(),
+                            const SizedBox(height: 20),
 
-                      // Terms & Conditions Checkbox
-                      _buildTermsCheckbox(),
+                            // Password Field
+                            _passwordField(),
+                            const SizedBox(height: 20),
 
-                      const SizedBox(height: 24),
+                            // Phone Field with Country Code
+                            _phoneFieldWithCountryCode(),
+                            const SizedBox(height: 20),
 
-                      // Register Button
-                      _buildRegisterButton(),
+                            // OTP Field
+                            if (_showOtpField) _otpField(),
+
+                            const SizedBox(height: 20),
+
+                            // Terms & Conditions
+                            _termsCheckbox(),
+
+                            const SizedBox(height: 30),
+
+                            // Register Button
+                            SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: ElevatedButton(
+                                onPressed: _registerBuyer,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: themeColor,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child: _loading
+                                    ? const SizedBox(
+                                  height: 22,
+                                  width: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: Colors.white,
+                                  ),
+                                )
+                                    : Text(
+                                  "Create Account",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 25),
+
+                      // ---------------- LOGIN NAVIGATION ----------------
+                      Center(
+                        child: GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: RichText(
+                            text: TextSpan(
+                              text: "Already have an account? ",
+                              style: TextStyle(
+                                color: textSecondary,
+                                fontSize: 14,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: "Sign In",
+                                  style: TextStyle(
+                                    color: themeColor,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                )
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 40),
                     ],
                   ),
                 ),
-              ),
 
-              const SizedBox(height: 32),
+                // ---------------- SOCIAL MEDIA FOOTER ----------------
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 25, horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: themeColor.withOpacity(0.05),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        "Follow us on",
+                        style: TextStyle(
+                          color: textSecondary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
 
-              // Already have account
-              _buildLoginPrompt(),
-            ],
+                      // Social Media Icons
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildSocialIcon(
+                            'assets/categories/instagram.png',
+                                () => _launchSocialMedia('instagram'),
+                          ),
+                          const SizedBox(width: 20),
+                          _buildSocialIcon(
+                            'assets/categories/linkedin.png',
+                                () => _launchSocialMedia('linkedin'),
+                          ),
+                          const SizedBox(width: 20),
+                          _buildSocialIcon(
+                            'assets/categories/facebook.png',
+                                () => _launchSocialMedia('facebook'),
+                          ),
+                          const SizedBox(width: 20),
+                          _buildSocialIcon(
+                            'assets/categories/twitter.png',
+                                () => _launchSocialMedia('twitter'),
+                          ),
+                          const SizedBox(width: 20),
+                          _buildSocialIcon(
+                            'assets/categories/whatsapp.png',
+                                () => _launchSocialMedia('whatsapp'),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Overlay Text on Footer
+                      Text(
+                        "Connect with us for updates",
+                        style: TextStyle(
+                          color: themeColor.withOpacity(0.6),
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Join Our Marketplace",
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w700,
-            color: primaryColor,
-            height: 1.2,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          "Create your buyer account to start shopping",
-          style: TextStyle(
-            fontSize: 16,
-            color: subtitleColor,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFirstNameField() {
+  // ---------------- WIDGETS ----------------
+  Widget _firstNameField() {
     return TextFormField(
       controller: _firstName,
-      style: TextStyle(color: textColor, fontSize: 16),
+      style: TextStyle(color: textColor, fontSize: 15),
       decoration: InputDecoration(
-        labelText: "First Name",
-        labelStyle: TextStyle(color: subtitleColor),
-        prefixIcon: Icon(Icons.person_outline, color: primaryColor),
+        prefixIcon: Icon(Icons.person_outline, color: themeColor, size: 22),
+        hintText: "First Name",
+        hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 15),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+          borderSide: const BorderSide(color: borderColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+          borderSide: const BorderSide(color: borderColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: primaryColor, width: 2),
+          borderSide: const BorderSide(color: themeColor, width: 1.5),
         ),
-        filled: true,
-        fillColor: Colors.grey.shade50,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       ),
       validator: (v) => v == null || v.isEmpty ? "Enter first name" : null,
     );
   }
 
-  Widget _buildLastNameField() {
+  Widget _lastNameField() {
     return TextFormField(
       controller: _lastName,
-      style: TextStyle(color: textColor, fontSize: 16),
+      style: TextStyle(color: textColor, fontSize: 15),
       decoration: InputDecoration(
-        labelText: "Last Name",
-        labelStyle: TextStyle(color: subtitleColor),
-        prefixIcon: Icon(Icons.person_outline, color: primaryColor),
+        prefixIcon: Icon(Icons.person_outline, color: themeColor, size: 22),
+        hintText: "Last Name",
+        hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 15),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+          borderSide: const BorderSide(color: borderColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+          borderSide: const BorderSide(color: borderColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: primaryColor, width: 2),
+          borderSide: const BorderSide(color: themeColor, width: 1.5),
         ),
-        filled: true,
-        fillColor: Colors.grey.shade50,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       ),
       validator: (v) => v == null || v.isEmpty ? "Enter last name" : null,
     );
   }
 
-  Widget _buildEmailField() {
+  Widget _emailField() {
     return TextFormField(
       controller: _email,
-      style: TextStyle(color: textColor, fontSize: 16),
+      style: TextStyle(color: textColor, fontSize: 15),
       keyboardType: TextInputType.emailAddress,
       decoration: InputDecoration(
-        labelText: "Email Address",
-        labelStyle: TextStyle(color: subtitleColor),
-        prefixIcon: Icon(Icons.email_outlined, color: primaryColor),
+        prefixIcon: Icon(Icons.email_outlined, color: themeColor, size: 22),
+        hintText: "Email",
+        hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 15),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+          borderSide: const BorderSide(color: borderColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+          borderSide: const BorderSide(color: borderColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: primaryColor, width: 2),
+          borderSide: const BorderSide(color: themeColor, width: 1.5),
         ),
-        filled: true,
-        fillColor: Colors.grey.shade50,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       ),
       validator: (v) {
         if (v == null || v.isEmpty) return "Enter email address";
@@ -573,39 +724,36 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
     );
   }
 
-  Widget _buildPasswordField() {
+  Widget _passwordField() {
     return TextFormField(
       controller: _password,
       obscureText: !_passwordVisible,
-      style: TextStyle(color: textColor, fontSize: 16),
+      style: TextStyle(color: textColor, fontSize: 15),
       decoration: InputDecoration(
-        labelText: "Password",
-        labelStyle: TextStyle(color: subtitleColor),
-        prefixIcon: Icon(Icons.lock_outline, color: primaryColor),
+        prefixIcon: Icon(Icons.lock_outline, color: themeColor, size: 22),
         suffixIcon: IconButton(
           icon: Icon(
             _passwordVisible ? Icons.visibility : Icons.visibility_off,
-            color: subtitleColor,
+            color: themeColor,
+            size: 22,
           ),
-          onPressed: () {
-            setState(() => _passwordVisible = !_passwordVisible);
-          },
+          onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
         ),
+        hintText: "Password",
+        hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 15),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+          borderSide: const BorderSide(color: borderColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+          borderSide: const BorderSide(color: borderColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: primaryColor, width: 2),
+          borderSide: const BorderSide(color: themeColor, width: 1.5),
         ),
-        filled: true,
-        fillColor: Colors.grey.shade50,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       ),
       validator: (v) {
         if (v == null || v.isEmpty) return "Enter password";
@@ -615,14 +763,14 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
     );
   }
 
-  Widget _buildPhoneFieldWithCountryCode() {
+  Widget _phoneFieldWithCountryCode() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           "Phone Number",
           style: TextStyle(
-            color: subtitleColor,
+            color: textSecondary,
             fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
@@ -632,19 +780,18 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
           children: [
             // Country Code Dropdown
             Container(
-              height: 56,
+              height: 52,
               decoration: BoxDecoration(
-                color: Colors.grey.shade50,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(12),
                   bottomLeft: Radius.circular(12),
                 ),
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: borderColor),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   value: _selectedCountryCode,
-                  icon: const Icon(Icons.arrow_drop_down, size: 24),
+                  icon: const Icon(Icons.arrow_drop_down, size: 20),
                   elevation: 16,
                   style: TextStyle(color: textColor, fontSize: 14),
                   borderRadius: BorderRadius.circular(12),
@@ -692,41 +839,37 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
             Expanded(
               child: TextFormField(
                 controller: _phone,
-                style: TextStyle(color: textColor, fontSize: 16),
+                style: TextStyle(color: textColor, fontSize: 15),
                 keyboardType: TextInputType.phone,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: InputDecoration(
                   hintText: "Phone number",
-                  hintStyle: TextStyle(color: Colors.grey.shade400),
-                  border: OutlineInputBorder(
-                    borderRadius: const BorderRadius.only(
+                  hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 15),
+                  border: const OutlineInputBorder(
+                    borderRadius: BorderRadius.only(
                       topRight: Radius.circular(12),
                       bottomRight: Radius.circular(12),
                     ),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
+                    borderSide: BorderSide(color: borderColor),
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: const BorderRadius.only(
+                  enabledBorder: const OutlineInputBorder(
+                    borderRadius: BorderRadius.only(
                       topRight: Radius.circular(12),
                       bottomRight: Radius.circular(12),
                     ),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
+                    borderSide: BorderSide(color: borderColor),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: const BorderRadius.only(
+                  focusedBorder: const OutlineInputBorder(
+                    borderRadius: BorderRadius.only(
                       topRight: Radius.circular(12),
                       bottomRight: Radius.circular(12),
                     ),
-                    borderSide: BorderSide(color: primaryColor, width: 2),
+                    borderSide: BorderSide(color: themeColor, width: 1.5),
                   ),
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                   suffixIcon: !_otpSent
-                      ? _buildOtpSendButton()
-                      : _buildOtpVerifyButton(),
+                      ? _otpSendButton()
+                      : _otpVerifyButton(),
                 ),
                 validator: (v) {
                   if (v == null || v.isEmpty) return "Enter phone number";
@@ -744,16 +887,14 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
     );
   }
 
-  Widget _buildOtpSendButton() {
+  Widget _otpSendButton() {
     return Container(
       margin: const EdgeInsets.all(4),
       child: ElevatedButton(
         onPressed: _sendingOtp ? null : _sendOtp,
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryColor,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          backgroundColor: themeColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(horizontal: 16),
         ),
         child: _sendingOtp
@@ -765,7 +906,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
             color: Colors.white,
           ),
         )
-            : const Text(
+            : Text(
           "Send OTP",
           style: TextStyle(
             color: Colors.white,
@@ -777,21 +918,19 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
     );
   }
 
-  Widget _buildOtpVerifyButton() {
+  Widget _otpVerifyButton() {
     return Container(
       margin: const EdgeInsets.all(4),
       child: ElevatedButton(
         onPressed: _otpVerified ? null : _verifyOtp,
         style: ElevatedButton.styleFrom(
-          backgroundColor: _otpVerified ? successColor : accentColor,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          backgroundColor: _otpVerified ? successColor : themeColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(horizontal: 16),
         ),
         child: _otpVerified
             ? const Icon(Icons.check, size: 20, color: Colors.white)
-            : const Text(
+            : Text(
           "Verify",
           style: TextStyle(
             color: Colors.white,
@@ -803,7 +942,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
     );
   }
 
-  Widget _buildOtpField() {
+  Widget _otpField() {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
@@ -813,7 +952,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
           Text(
             "Enter OTP",
             style: TextStyle(
-              color: subtitleColor,
+              color: textSecondary,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -821,7 +960,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
           const SizedBox(height: 8),
           TextFormField(
             controller: _otp,
-            style: TextStyle(color: textColor, fontSize: 16),
+            style: TextStyle(color: textColor, fontSize: 15),
             keyboardType: TextInputType.number,
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
@@ -829,30 +968,28 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
             ],
             decoration: InputDecoration(
               hintText: "Enter 6-digit OTP",
-              hintStyle: TextStyle(color: Colors.grey.shade400),
-              prefixIcon: Icon(Icons.lock_clock, color: primaryColor),
+              hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 15),
+              prefixIcon: Icon(Icons.lock_clock, color: themeColor, size: 22),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey.shade300),
+                borderSide: const BorderSide(color: borderColor),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey.shade300),
+                borderSide: const BorderSide(color: borderColor),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: primaryColor, width: 2),
+                borderSide: const BorderSide(color: themeColor, width: 1.5),
               ),
-              filled: true,
-              fillColor: Colors.grey.shade50,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
             ),
           ),
           const SizedBox(height: 8),
           Text(
             "We've sent a 6-digit code to $_selectedCountryCode${_phone.text.isNotEmpty ? _phone.text : 'your phone'}",
             style: TextStyle(
-              color: subtitleColor,
+              color: textSecondary,
               fontSize: 12,
             ),
           ),
@@ -861,186 +998,73 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
     );
   }
 
-  Widget _buildTermsCheckbox() {
-    return Container(
-      decoration: BoxDecoration(
-        color: _agreeToTerms ? Colors.green.shade50 : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: _agreeToTerms ? Colors.green.shade200 : Colors.grey.shade300,
-          width: 1.5,
+  Widget _termsCheckbox() {
+    return Row(
+      children: [
+        Checkbox(
+          value: _agreeToTerms,
+          onChanged: (bool? value) {
+            setState(() => _agreeToTerms = value ?? false);
+          },
+          activeColor: themeColor,
+          checkColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          // Checkbox
-          Checkbox(
-            value: _agreeToTerms,
-            onChanged: (bool? value) {
-              setState(() {
-                _agreeToTerms = value ?? false;
-              });
-            },
-            activeColor: primaryColor,
-            checkColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
-            ),
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          const SizedBox(width: 8),
-
-          // Terms text
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                RichText(
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              GestureDetector(
+                onTap: () => setState(() => _agreeToTerms = !_agreeToTerms),
+                child: RichText(
                   text: TextSpan(
                     style: TextStyle(
                       color: textColor,
                       fontSize: 14,
-                      fontWeight: FontWeight.w500,
                     ),
                     children: [
                       const TextSpan(text: "I agree to the "),
                       WidgetSpan(
-                        child: GestureDetector(
-                          onTap: () {
-                            // Navigate to Terms of Service
-                          },
-                          child: Text(
-                            "Terms of Service",
-                            style: TextStyle(
-                              color: primaryColor,
-                              fontWeight: FontWeight.w600,
-                              decoration: TextDecoration.underline,
-                            ),
+                        child: Text(
+                          "Terms of Service",
+                          style: TextStyle(
+                            color: themeColor,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.underline,
                           ),
                         ),
                       ),
                       const TextSpan(text: " and "),
                       WidgetSpan(
-                        child: GestureDetector(
-                          onTap: () {
-                            // Navigate to Privacy Policy
-                          },
-                          child: Text(
-                            "Privacy Policy",
-                            style: TextStyle(
-                              color: primaryColor,
-                              fontWeight: FontWeight.w600,
-                              decoration: TextDecoration.underline,
-                            ),
+                        child: Text(
+                          "Privacy Policy",
+                          style: TextStyle(
+                            color: themeColor,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.underline,
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                if (!_agreeToTerms)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      "You must accept to continue",
-                      style: TextStyle(
-                        color: errorColor,
-                        fontSize: 12,
-                      ),
+              ),
+              if (!_agreeToTerms)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    "You must accept to continue",
+                    style: TextStyle(
+                      color: errorColor,
+                      fontSize: 12,
                     ),
                   ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRegisterButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: _loading ? null : _registerBuyer,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: primaryColor,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-        ),
-        child: _loading
-            ? Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              "Creating Account...",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        )
-            : Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.person_add_alt_1, size: 20),
-            SizedBox(width: 12),
-            Text(
-              "Create Buyer Account",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLoginPrompt() {
-    return Center(
-      child: RichText(
-        text: TextSpan(
-          style: TextStyle(
-            color: subtitleColor,
-            fontSize: 14,
-          ),
-          children: [
-            const TextSpan(text: "Already have an account? "),
-            WidgetSpan(
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.pop(context);
-                },
-                child: Text(
-                  "Sign In",
-                  style: TextStyle(
-                    color: primaryColor,
-                    fontWeight: FontWeight.w600,
-                    decoration: TextDecoration.underline,
-                  ),
                 ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }

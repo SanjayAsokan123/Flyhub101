@@ -1,104 +1,42 @@
 import 'dart:developer';
 import 'package:flutter/material.dart';
-import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../CommonClass/ApiClass.dart';
+import '../CommonClass/utils.dart';
 
-// ===================== API RESPONSE MODEL ======================
-class ApiResponse {
-  final String status;
-  final String message;
-  final dynamic data;
-
-  ApiResponse({
-    required this.status,
-    required this.message,
-    this.data,
-  });
-}
-
-// ===================== API CLASS ======================
-class ApiClass {
-  static const String graphQLUrl = 'http://192.168.1.169:5001/graphql';
-
-  static final HttpLink httpLink = HttpLink(graphQLUrl);
-
-  static final ValueNotifier<GraphQLClient> client = ValueNotifier(
-    GraphQLClient(
-      link: httpLink,
-      cache: GraphQLCache(store: InMemoryStore()),
-    ),
-  );
-
-  Future<ApiResponse> bookDroneService(Map<String, dynamic> body) async {
-    const String mutation = r'''
-      mutation CreateContact($input: CreateContactInput!) {
-        createContact(input: $input) {
-          success
-          message
-          data {
-            id
-            name
-            email
-            location
-            information
-            phone
-            date
-            serviceId
-            sellerId
-            serviceBookingId
-          }
-        }
-      }
-    ''';
-
-    final result = await client.value.mutate(
-      MutationOptions(
-        document: gql(mutation),
-        variables: body,
-      ),
-    );
-
-    if (result.hasException) {
-      return ApiResponse(
-        status: "error",
-        message: result.exception.toString(),
-      );
-    }
-
-    return ApiResponse(
-      status: result.data!["createContact"]["success"] ? "success" : "error",
-      message: result.data!["createContact"]["message"],
-      data: result.data!["createContact"]["data"],
-    );
-  }
-}
-
-// ========================= UI PAGE ==========================
-class ServiceBookNowPage extends StatefulWidget {
+class ServiceBookNow extends StatefulWidget {
   final Map<String, dynamic> service;
-
-  const ServiceBookNowPage({super.key, required this.service});
+  const ServiceBookNow({super.key, required this.service});
 
   @override
-  State<ServiceBookNowPage> createState() => _ServiceBookNowPageState();
+  State<ServiceBookNow> createState() => _ServiceBookNowState();
 }
 
-class _ServiceBookNowPageState extends State<ServiceBookNowPage> {
+class _ServiceBookNowState extends State<ServiceBookNow> {
+  final _formKey = GlobalKey<FormState>();
   final ApiClass _apiClass = ApiClass();
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
   final TextEditingController nameCtrl = TextEditingController();
   final TextEditingController emailCtrl = TextEditingController();
   final TextEditingController locationCtrl = TextEditingController();
   final TextEditingController noteCtrl = TextEditingController();
+
   DateTime? selectedDate;
   bool _isLoading = false;
 
-  Future<void> chooseDate() async {
+  final Color primaryColor = const Color(0xFF1A0A5B);
+  final Color secondaryColor = const Color(0xFF6C56F5);
+  final Color backgroundColor = const Color(0xFFF8F9FF);
+
+  Future<void> pickDate() async {
+    final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      initialDate: DateTime.now(),
+      initialDate: now.add(const Duration(days: 1)),
+      firstDate: now,
+      lastDate: DateTime(2030),
     );
+
     if (picked != null) setState(() => selectedDate = picked);
   }
 
@@ -106,12 +44,13 @@ class _ServiceBookNowPageState extends State<ServiceBookNowPage> {
     if (!_formKey.currentState!.validate()) return;
 
     if (selectedDate == null) {
-      showToast("Please choose a date");
+      Utils.bottomToast(context, "Please choose a service date");
       return;
     }
 
     setState(() => _isLoading = true);
 
+    // =============== BACKEND BODY ======================
     final body = {
       "input": {
         "name": nameCtrl.text.trim(),
@@ -120,29 +59,33 @@ class _ServiceBookNowPageState extends State<ServiceBookNowPage> {
         "information": noteCtrl.text.trim(),
         "phone": "",
         "date": selectedDate.toString().split(" ")[0],
-        "serviceId": widget.service['serviceId'], // ✅ inside input
-        "sellerId": widget.service['sellerId'],   // ✅ inside input
+        "serviceId": widget.service["_id"],
+        "sellerId": widget.service["sellerId"] ?? "",
         "serviceBookingId": DateTime.now().millisecondsSinceEpoch.toString(),
       }
     };
 
-    log("📤 BODY SENT → $body");
+    log("📤 Final Body Sent: $body");
 
-    ApiResponse response = await _apiClass.bookDroneService(body);
+    final response = await _apiClass.bookDroneService(body);
 
     setState(() => _isLoading = false);
 
-    if (response.status == "success") {
-      showToast("Service booked successfully!");
+    if (response.success) {
+      Utils.bottomToast(context, "Booking Successful!");
       Navigator.pop(context);
     } else {
-      showToast("Error: ${response.message}");
+      Utils.bottomToast(context, "Error: ${response.message}");
     }
   }
 
-  void showToast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
+  InputDecoration _input(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: primaryColor),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      filled: true,
+      fillColor: Colors.white,
     );
   }
 
@@ -151,148 +94,138 @@ class _ServiceBookNowPageState extends State<ServiceBookNowPage> {
     final service = widget.service;
 
     return Scaffold(
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: Text(service["name"] ?? "Service"),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
+        title: Text("Book ${service['name']}"),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // Service Info
-            Column(
-              children: [
-                safeNetworkImage(service["image"]),
-                const SizedBox(height: 10),
-                Text(
-                  service["name"] ?? "",
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            // ================= SERVICE CARD ==================
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [primaryColor, secondaryColor],
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  "Price: ₹ ${service["price"]}",
-                  style: const TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-              ],
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.rocket_launch, color: Colors.white, size: 33),
+                  const SizedBox(width: 14),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        service["name"] ?? "",
+                        style: GoogleFonts.lexend(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        "₹${service['price']}",
+                        style: GoogleFonts.lexend(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    ],
+                  )
+                ],
+              ),
             ),
-            const SizedBox(height: 25),
-            const Text(
-              "Fill Booking Details",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
-            ),
-            const SizedBox(height: 15),
 
-            // Form
+            const SizedBox(height: 28),
+
+            // ================= FORM ==================
             Form(
               key: _formKey,
               child: Column(
                 children: [
                   TextFormField(
                     controller: nameCtrl,
-                    decoration: inputDecoration("Full Name"),
+                    decoration: _input("Your Name", Icons.person),
                     validator: (v) => v!.isEmpty ? "Enter your name" : null,
                   ),
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 16),
                   TextFormField(
                     controller: emailCtrl,
-                    decoration: inputDecoration("Email"),
-                    validator: (v) => v!.isEmpty ? "Enter your email" : null,
+                    decoration: _input("Email ID", Icons.email),
+                    validator: (v) =>
+                    v!.contains("@") ? null : "Enter valid email",
                   ),
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 16),
                   TextFormField(
                     controller: locationCtrl,
-                    decoration: inputDecoration("Location"),
-                    validator: (v) => v!.isEmpty ? "Enter location" : null,
+                    decoration: _input("Your Location", Icons.location_on),
+                    validator: (v) => v!.isEmpty ? "Enter your location" : null,
                   ),
-                  const SizedBox(height: 15),
-                  TextFormField(
-                    controller: noteCtrl,
-                    maxLines: 5,
-                    decoration: inputDecoration("Tell us more about your requirement"),
-                    validator: (v) => v!.length < 10 ? "Minimum 10 characters required" : null,
-                  ),
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 16),
 
                   // Date Picker
                   InkWell(
-                    onTap: chooseDate,
+                    onTap: pickDate,
                     child: Container(
-                      padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey),
-                      ),
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border:
+                          Border.all(color: Colors.grey.shade300)),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
+                          Icon(Icons.calendar_today,
+                              color: primaryColor),
+                          const SizedBox(width: 10),
                           Text(
-                            selectedDate == null ? "Choose Date" : selectedDate.toString().split(" ")[0],
-                            style: const TextStyle(fontSize: 16),
+                            selectedDate == null
+                                ? "Choose Service Date"
+                                : selectedDate.toString().split(" ")[0],
+                            style: GoogleFonts.lexend(fontSize: 14),
                           ),
-                          const Icon(Icons.calendar_month),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 30),
 
-                  // Submit Button
+                  const SizedBox(height: 16),
+
+                  TextFormField(
+                    controller: noteCtrl,
+                    maxLines: 4,
+                    decoration: _input("Additional Notes", Icons.notes),
+                  ),
+
+                  const SizedBox(height: 32),
+
                   SizedBox(
-                    width: 220,
+                    width: double.infinity,
+                    height: 55,
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : submitBooking,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        backgroundColor: primaryColor,
                       ),
                       child: _isLoading
                           ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text(
-                        "Book Service",
-                        style: TextStyle(color: Colors.white, fontSize: 18),
-                      ),
+                          : const Text("Confirm Booking"),
                     ),
                   ),
-                  const SizedBox(height: 40),
                 ],
               ),
-            ),
+            )
           ],
         ),
       ),
     );
   }
-}
-
-// Safe Network Image
-Widget safeNetworkImage(String? url) {
-  if (url == null || url.isEmpty || !url.startsWith("http")) {
-    return Container(
-      height: 200,
-      width: double.infinity,
-      color: Colors.grey.shade300,
-      child: const Icon(Icons.broken_image, size: 80, color: Colors.grey),
-    );
-  }
-  return Image.network(
-    url,
-    height: 200,
-    width: double.infinity,
-    fit: BoxFit.cover,
-    errorBuilder: (context, error, stack) => Container(
-      height: 200,
-      width: double.infinity,
-      color: Colors.grey.shade300,
-      child: const Icon(Icons.broken_image, size: 80, color: Colors.grey),
-    ),
-  );
-}
-
-// Input Decoration
-InputDecoration inputDecoration(String label) {
-  return InputDecoration(
-    labelText: label,
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-  );
 }

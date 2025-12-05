@@ -1,249 +1,279 @@
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 import '../../config/env.dart';
 
 class BuyerJobApplyStatusPage extends StatefulWidget {
-  final String buyerId;  // Use buyerId to match schema
+  final String buyerId;
 
   const BuyerJobApplyStatusPage({super.key, required this.buyerId});
 
   @override
-  State<BuyerJobApplyStatusPage> createState() => _BuyerJobApplyStatusPageState();
+  State<BuyerJobApplyStatusPage> createState() =>
+      _BuyerJobApplyStatusPageState();
 }
 
 class _BuyerJobApplyStatusPageState extends State<BuyerJobApplyStatusPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
-  bool loading = true;
-  bool error = false;
-  List<dynamic> applications = [];
-
-  late final GraphQLClient client;
-  final String graphqlUrl = EnvConfig.baseUrl;
-
-  static const String fetchBuyerApplicationsQuery = r'''
-    query buyerJobApplyStatus($buyerId: String!) {
-      buyerJobApplyStatus(buyerId: $buyerId) {
-        jobId
-        jobName
-        companyName
-        bookingId
-        status
-        createdAt
-      }
-    }
-  ''';
+  late GraphQLClient client;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 3, vsync: this); // Only 3 tabs
 
     client = GraphQLClient(
-      link: HttpLink(graphqlUrl),
-      cache: GraphQLCache(store: InMemoryStore()),
+      link: HttpLink(EnvConfig.baseUrl),
+      cache: GraphQLCache(),
     );
-
-    fetchApplications();
   }
 
-  String formatDate(String iso) {
-    try {
-      final d = DateTime.parse(iso);
-      return DateFormat("dd MMM yyyy").format(d);
-    } catch (_) {
-      return iso;
+  // ========= BUYER QUERIES =========
+
+  String pendingQuery(String buyerId) => '''
+  query {
+    getBuyerPendingApplications(buyerId: "$buyerId") {
+      id
+      jobId
+      name
+      email
+      phoneNumber
+      resumeUrl
+      status
+      appliedAt
+      createdAt
     }
   }
+''';
 
-  Future<void> fetchApplications() async {
-    try {
-      final response = await client.query(
-        QueryOptions(
-          document: gql(fetchBuyerApplicationsQuery),
-          variables: {'buyerId': widget.buyerId},
-          fetchPolicy: FetchPolicy.networkOnly,
-        ),
-      );
-
-      if (response.hasException) {
-        print("❌ GraphQL Error: ${response.exception}");
-        setState(() {
-          loading = false;
-          error = true;
-        });
-        return;
-      }
-
-      setState(() {
-        // Corrected key to match query name
-        applications = response.data?['buyerJobApplyStatus'] ?? [];
-        loading = false;
-      });
-    } catch (e) {
-      print("❌ Fetch Error: $e");
-      setState(() {
-        loading = false;
-        error = true;
-      });
+  String hiredQuery(String buyerId) => '''
+  query {
+    getBuyerHiredApplications(buyerId: "$buyerId") {
+      id
+      jobId
+      name
+      email
+      phoneNumber
+      resumeUrl
+      status
+      appliedAt
+      createdAt
     }
   }
+''';
 
-  Color getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case "hired":
-        return Colors.green;
-      case "rejected":
-        return Colors.red;
-      case "shortlisted":
-        return Colors.blue;
-      case "reviewed":
-        return Colors.indigo;
-      default:
-        return Colors.orange;
+  String rejectedQuery(String buyerId) => '''
+  query {
+    getBuyerRejectedApplications(buyerId: "$buyerId") {
+      id
+      jobId
+      name
+      email
+      phoneNumber
+      resumeUrl
+      status
+      appliedAt
+      createdAt
     }
   }
+''';
 
-  List<dynamic> getFiltered(String status) {
-    return applications.where((item) {
-      final s = item["status"].toString().toLowerCase();
-      if (status == "pending") {
-        return s == "pending" || s == "reviewed" || s == "shortlisted";
-      }
-      return s == status;
-    }).toList();
-  }
+  // ========= BUILD TAB CONTENT =========
 
-  Widget buildCard(item) {
-    return GestureDetector(
-      onTap: () {
-        showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            title: Text(item['jobName'] ?? "Job"),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Company: ${item['companyName']}"),
-                Text("Job ID: ${item['jobId']}"),
-                Text("Applied: ${formatDate(item['createdAt'])}"),
-                const SizedBox(height: 8),
-                Text(
-                  "Status: ${item['status']}",
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: getStatusColor(item['status']),
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Close"),
-              )
-            ],
-          ),
+  Widget buildTab(String keyName, String query) {
+    return FutureBuilder<QueryResult>(
+      future: client.query(QueryOptions(document: gql(query))),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.data!.hasException) {
+          return Center(child: Text("Error: ${snapshot.data!.exception}"));
+        }
+
+        final list = snapshot.data!.data?[keyName] ?? [];
+
+        if (list.isEmpty) {
+          return const Center(child: Text("No applications found"));
+        }
+
+        return ListView.builder(
+          itemCount: list.length,
+          itemBuilder: (context, index) => buildJobCard(list[index]),
         );
       },
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0xFFE7E3FA), width: 1.3),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 4))
-          ],
+    );
+  }
+
+  // ========= Helper: Format date safely =========
+
+  String formatDate(dynamic val) {
+    if (val == null) return "-";
+    DateTime dt;
+    if (val is DateTime) {
+      dt = val;
+    } else {
+      try {
+        dt = DateTime.parse(val.toString());
+      } catch (_) {
+        return val.toString();
+      }
+    }
+    return DateFormat('dd MMM yyyy, hh:mm a').format(dt.toLocal());
+  }
+
+  // ========= JOB CARD =========
+
+  Widget buildJobCard(dynamic job) {
+    String status = (job["status"] ?? "pending").toString().toLowerCase();
+
+    Color color = Colors.blue;
+    if (status == "pending") color = Colors.orange;
+    if (status == "hired") color = Colors.green;
+    if (status == "rejected") color = Colors.red;
+
+    final applied = formatDate(job['appliedAt'] ?? job['createdAt']);
+
+    return Card(
+      elevation: 3,
+      margin: const EdgeInsets.all(10),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: Icon(Icons.work, size: 40, color: color),
+
+        title: Text(
+          job["name"] ?? "Job",
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        child: Row(
+
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              radius: 26,
-              backgroundColor: getStatusColor(item['status']).withOpacity(0.15),
-              child: Icon(Icons.work, color: getStatusColor(item['status'])),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item['jobName'] ?? "Job Title",
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E0E5C)),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item['companyName'] ?? "",
-                    style: TextStyle(color: Colors.grey.shade700),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Applied: ${formatDate(item['createdAt'])}",
-                    style: TextStyle(color: Colors.grey.shade600),
-                  )
-                ],
-              ),
-            ),
-            Chip(
-              backgroundColor: getStatusColor(item['status']).withOpacity(0.2),
-              label: Text(item['status'], style: TextStyle(color: getStatusColor(item['status']), fontWeight: FontWeight.bold)),
-            )
+            Text("Job ID: ${job['jobId'] ?? '-'}"),
+            Text("Email: ${job['email'] ?? '-'}"),
+            Text("Phone: ${job['phoneNumber'] ?? '-'}"),
+            Text("Applied On: $applied"),
           ],
         ),
+
+        trailing: Text(
+          status.toUpperCase(),
+          style: TextStyle(color: color, fontWeight: FontWeight.bold),
+        ),
+
+        onTap: () => _showDetails(job, color),
       ),
     );
   }
 
-  Widget buildList(String status) {
-    final data = getFiltered(status);
+  // ========= Show details dialog =========
 
-    if (data.isEmpty) {
-      return const Center(child: Text("No applications found", style: TextStyle(color: Colors.grey)));
+  void _showDetails(dynamic job, Color color) {
+    final applied = formatDate(job['appliedAt'] ?? job['createdAt']);
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(
+          job['name'] ?? "Details",
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Job ID: ${job['jobId'] ?? '-'}"),
+            Text("Email: ${job['email'] ?? '-'}"),
+            Text("Phone: ${job['phoneNumber'] ?? '-'}"),
+            Text("Applied On: $applied"),
+            Text("Status: ${job['status'] ?? '-'}",
+                style: TextStyle(color: color)),
+            const SizedBox(height: 8),
+            const Divider(),
+            const SizedBox(height: 6),
+            InkWell(
+              onTap: () => _openResume(job['resumeUrl']),
+              child: const Text(
+                "View Resume",
+                style: TextStyle(
+                    color: Colors.blue, decoration: TextDecoration.underline),
+              ),
+            )
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Close")),
+        ],
+      ),
+    );
+  }
+
+  // ========= Open resume safely =========
+
+  Future<void> _openResume(String? url) async {
+    if (url == null || url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("No resume URL provided")),
+      );
+      return;
     }
 
-    return ListView.builder(
-      itemCount: data.length,
-      itemBuilder: (_, i) => buildCard(data[i]),
-    );
+    final uri = Uri.tryParse(url);
+    if (uri == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Invalid resume URL")),
+      );
+      return;
+    }
+
+    if (!await canLaunchUrl(uri)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Cannot open URL")),
+      );
+      return;
+    }
+
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   @override
   Widget build(BuildContext context) {
-    const themeColor = Color(0xFF1E0E5C);
+    const themeColor = Color(0xFF1A0A5B);
 
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
+        title: const Text("My Applications", style: TextStyle(color: Colors.white)),
         backgroundColor: themeColor,
-        title: const Text("Job Applied Status", style: TextStyle(color: Colors.white)),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white60,
           tabs: const [
-            Tab(text: "Approved"),
             Tab(text: "Pending"),
+            Tab(text: "Hired"),
             Tab(text: "Rejected"),
           ],
         ),
       ),
-      body: loading
-          ? const Center(child: CircularProgressIndicator())
-          : error
-          ? const Center(child: Text("Failed to load applications"))
-          : TabBarView(
+
+      body: TabBarView(
         controller: _tabController,
         children: [
-          buildList("hired"),
-          buildList("pending"),
-          buildList("rejected"),
+          buildTab("getBuyerPendingApplications", pendingQuery(widget.buyerId)),
+          buildTab("getBuyerHiredApplications", hiredQuery(widget.buyerId)),
+          buildTab("getBuyerRejectedApplications", rejectedQuery(widget.buyerId)),
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 }

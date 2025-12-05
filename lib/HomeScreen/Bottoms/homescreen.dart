@@ -1,7 +1,11 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:http/http.dart' as http;
 import 'package:shimmer/shimmer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,8 +13,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
+import '../../CourseDetails.dart';
 import '../../Regulatory.dart';
 import '../../Training.dart';
+import '../../config/env.dart';
 import '../../services/graphql_client.dart';
 import '../../CommonClass/ApiClass.dart';
 import '../../CommonClass/utils.dart';
@@ -41,7 +47,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final ScrollController _scrollController = ScrollController();
   final ScrollController _categoryScrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
-
+  PageController _pageController = PageController(viewportFraction: 0.92);
+  int _currentBanner = 0;
+  Timer? _autoScrollTimer;
   bool isLoading = false; // Changed from true to false since we're using section-wise loading
   bool isUserLoading = true;
   bool _showElevation = false;
@@ -111,34 +119,27 @@ class _HomeScreenState extends State<HomeScreen> {
     {"title": "Regulatory", "icon": "assets/categories/regulatory.svg"},
   ];
 
-  final List<Map<String, dynamic>> _promoBanners = [
-    {
-      "title": "Premium Drones",
-      "subtitle": "Up to 40% OFF",
-      "image": "https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=500",
-      "color": Color(0xFF1E0E5C),
-    },
-    {
-      "title": "Drone Parts",
-      "subtitle": "Latest Collection",
-      "image": "https://images.unsplash.com/photo-1588433707931-88ae9585d6bb?w=500",
-      "color": Color(0xFF1E0E5C),
-    },
-    {
-      "title": "Accessories",
-      "subtitle": "Free Shipping",
-      "image": "https://images.unsplash.com/photo-1506947411487-a56738267383?w=500",
-      "color": Color(0xFF1E0E5C),
-    },
-  ];
+  List<Map<String, dynamic>> _promoBanners = [];
+
 
   @override
   void initState() {
     super.initState();
     _initializeUser();
     _loadInitialSections();
-    _checkAndShowPopup();
-    _scrollController.addListener(_onScroll);
+    _checkAndShowPopup(); //// INSERT HERE — AUTO-SCROLL STARTER
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (!_pageController.hasClients || _promoBanners.isEmpty) return;
+
+      int nextPage = (_currentBanner + 1) % _promoBanners.length;
+
+      _pageController.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    });
+
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text;
@@ -191,27 +192,113 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  String getSafeImageUrl(dynamic url) {
+    if (url == null)
+      return "https://via.placeholder.com/800x400.png?text=No+Image";
+
+    final u = url.toString().trim();
+    if (u.isEmpty)
+      return "https://via.placeholder.com/800x400.png?text=No+Image";
+
+    if (u.startsWith("http")) return u;
+
+    return "${EnvConfig1.hostUrl}$u";
+  }
+
+  String getFullImageUrl(dynamic rawPath,
+      {String placeholder = "https://via.placeholder.com/800x400.png?text=No+Image"}) {
+    try {
+      if (rawPath == null) return placeholder;
+      final s = rawPath.toString().trim();
+      if (s.isEmpty) return placeholder;
+      // If already absolute http(s), return as-is
+      if (s.startsWith("http://") || s.startsWith("https://")) return s;
+
+      // Derive origin from GraphQL baseUrl (e.g. http://192.168.0.180:5001/graphql -> http://192.168.0.180:5001)
+      final base = EnvConfig.baseUrl;
+      final origin = Uri
+          .parse(base)
+          .origin; // safe way to get scheme+host+port
+
+      // Make sure leading slash correctness
+      if (s.startsWith("/")) {
+        return origin + s;
+      } else {
+        return origin + "/" + s;
+      }
+    } catch (e) {
+      return placeholder;
+    }
+  }
+
+
   Future<void> _loadPromoBanners() async {
     try {
       setState(() {
         _sectionLoadingStates['promoBanners'] = true;
-        _sectionErrorStates['promoBanners'] = null;
       });
 
-      // Promo banners are static, simulate delay
-      await Future.delayed(Duration(milliseconds: 200));
+      final response = await http.post(
+        Uri.parse(EnvConfig.baseUrl),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "query": """
+        query {
+          getTrainingBanners {
+            id
+            title
+            imagePath
+          }
+        }
+      """
+        }),
+      );
+
+      final json = jsonDecode(response.body);
+
+      if (json['errors'] != null) {
+        throw Exception(json['errors'][0]['message']);
+      }
+
+      final List data = json['data']['getTrainingBanners'] ?? [];
 
       setState(() {
+        _promoBanners = data.map((item) =>
+        {
+          "courseId": item["id"], // important for navigation
+          "title": item["title"] ?? "Training",
+          "subtitle": "Enroll Now",
+          "imagePath": item["imagePath"], // keep raw path
+          "color": const Color(0xFF1E0E5C),
+        }).toList();
+
         _sectionLoadingStates['promoBanners'] = false;
       });
     } catch (e) {
       setState(() {
         _sectionLoadingStates['promoBanners'] = false;
-        _sectionErrorStates['promoBanners'] = 'Failed to load banners';
+        _sectionErrorStates['promoBanners'] = "Failed to load banners";
       });
       debugPrint("❌ Promo banners load error: $e");
     }
   }
+
+  void _openCourseDetails(Map<String, dynamic> banner) {
+    final courseId = banner["courseId"];
+
+    if (courseId == null) {
+      debugPrint("❌ No courseId found in banner");
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Coursedetails(course: {"id": courseId}),
+      ),
+    );
+  }
+
 
   Future<void> _loadDrones() async {
     try {
@@ -226,7 +313,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
       setState(() {
         marketplaceData["Drones"] =
-            (drones.data ?? []).where((p) => p["status"] == "approved").toList();
+            (drones.data ?? [])
+                .where((p) => p["status"] == "approved")
+                .toList();
         _sectionLoadingStates['drones'] = false;
       });
     } catch (e) {
@@ -277,7 +366,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
       setState(() {
         marketplaceData["Accessories"] =
-            (accessories.data ?? []).where((p) => p["status"] == "approved").toList();
+            (accessories.data ?? [])
+                .where((p) => p["status"] == "approved")
+                .toList();
         _sectionLoadingStates['accessories'] = false;
       });
     } catch (e) {
@@ -327,7 +418,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
       setState(() {
         marketplaceData["Services"] =
-            (services.data ?? []).where((p) => p["status"] == "approved").toList();
+            (services.data ?? [])
+                .where((p) => p["status"] == "approved")
+                .toList();
         _sectionLoadingStates['services'] = false;
       });
     } catch (e) {
@@ -393,6 +486,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _scrollController.dispose();
     _categoryScrollController.dispose();
     _searchController.dispose();
+    _autoScrollTimer?.cancel();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -481,45 +576,47 @@ class _HomeScreenState extends State<HomeScreen> {
     return results;
   }
 
-  Widget _buildBadge(int count) => Container(
-    padding: EdgeInsets.symmetric(
-      horizontal: ResponsiveUtils.getCardMargin(context) / 2,
-      vertical: ResponsiveUtils.getCardMargin(context) / 4,
-    ),
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-      borderRadius: BorderRadius.circular(10),
-      boxShadow: [
-        BoxShadow(
-          color: const Color(0xFFEF4444).withOpacity(0.3),
-          blurRadius: 4,
-          offset: const Offset(0, 2),
+  Widget _buildBadge(int count) =>
+      Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: ResponsiveUtils.getCardMargin(context) / 2,
+          vertical: ResponsiveUtils.getCardMargin(context) / 4,
         ),
-      ],
-    ),
-    constraints: BoxConstraints(
-      minWidth: ResponsiveUtils.getMarketBadgeSize(context),
-      minHeight: ResponsiveUtils.getMarketBadgeSize(context),
-    ),
-    child: Text(
-      count > 99 ? '99+' : '$count',
-      textAlign: TextAlign.center,
-      style: GoogleFonts.inter(
-        color: Colors.white,
-        fontSize: ResponsiveUtils.getSmallFontSize(context) - 1,
-        fontWeight: FontWeight.w700,
-        height: 1.2,
-      ),
-    ),
-  );
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFEF4444).withOpacity(0.3),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        constraints: BoxConstraints(
+          minWidth: ResponsiveUtils.getMarketBadgeSize(context),
+          minHeight: ResponsiveUtils.getMarketBadgeSize(context),
+        ),
+        child: Text(
+          count > 99 ? '99+' : '$count',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.inter(
+            color: Colors.white,
+            fontSize: ResponsiveUtils.getSmallFontSize(context) - 1,
+            fontWeight: FontWeight.w700,
+            height: 1.2,
+          ),
+        ),
+      );
 
   PreferredSizeWidget buildAppBar(BuildContext context) {
-    final cartCount = context.watch<CartWishlistProvider>().cartCount;
-    final wishlistCount = context.watch<CartWishlistProvider>().wishlistCount;
+    final cartCount = context
+        .watch<CartWishlistProvider>()
+        .cartCount;
 
     return AppBar(
       elevation: _showElevation ? 4 : 0,
@@ -539,7 +636,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       actions: [
         Container(
-          margin: EdgeInsets.only(right: ResponsiveUtils.getCardMargin(context)),
+          margin: EdgeInsets.only(
+              right: ResponsiveUtils.getCardMargin(context)),
           decoration: BoxDecoration(
             color: const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(12),
@@ -550,23 +648,21 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               IconButton(
                 icon: Icon(Icons.favorite_outline,
-                    color: Color(0xFF475569), size: ResponsiveUtils.getIconSize(context)),
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const WishlistPage()),
-                ),
+                    color: Color(0xFF475569),
+                    size: ResponsiveUtils.getIconSize(context)),
+                onPressed: () =>
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const WishlistPage()),
+                    ),
               ),
-              if (wishlistCount > 0)
-                Positioned(
-                  right: 6,
-                  top: 6,
-                  child: _buildBadge(wishlistCount),
-                ),
+
             ],
           ),
         ),
         Container(
-          margin: EdgeInsets.only(right: ResponsiveUtils.getHorizontalPadding(context)),
+          margin: EdgeInsets.only(
+              right: ResponsiveUtils.getHorizontalPadding(context)),
           decoration: BoxDecoration(
             color: const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(12),
@@ -577,11 +673,13 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               IconButton(
                 icon: Icon(Icons.shopping_bag_outlined,
-                    color: Color(0xFF475569), size: ResponsiveUtils.getIconSize(context)),
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MyCartPage()),
-                ),
+                    color: Color(0xFF475569),
+                    size: ResponsiveUtils.getIconSize(context)),
+                onPressed: () =>
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MyCartPage()),
+                    ),
               ),
               if (cartCount > 0)
                 Positioned(
@@ -694,14 +792,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildWelcomePopup() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery
+        .of(context)
+        .size
+        .width;
+    final screenHeight = MediaQuery
+        .of(context)
+        .size
+        .height;
     final popupWidth = screenWidth * 0.9;
     final popupHeight = screenHeight * 0.7;
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.all(ResponsiveUtils.getHorizontalPadding(context)),
+      insetPadding: EdgeInsets.all(
+          ResponsiveUtils.getHorizontalPadding(context)),
       child: Container(
         width: popupWidth,
         height: popupHeight,
@@ -736,22 +841,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: CachedNetworkImage(
                   imageUrl: _popupData["imageUrl"],
                   fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(
-                    color: Color(0xFF1E0E5C).withOpacity(0.1),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1E0E5C)),
+                  placeholder: (context, url) =>
+                      Container(
+                        color: Color(0xFF1E0E5C).withOpacity(0.1),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(
+                                0xFF1E0E5C)),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  errorWidget: (context, url, error) => Container(
-                    color: Color(0xFF1E0E5C).withOpacity(0.1),
-                    child: Icon(
-                      Icons.photo_camera,
-                      size: 60,
-                      color: Color(0xFF1E0E5C).withOpacity(0.5),
-                    ),
-                  ),
+                  errorWidget: (context, url, error) =>
+                      Container(
+                        color: Color(0xFF1E0E5C).withOpacity(0.1),
+                        child: Icon(
+                          Icons.photo_camera,
+                          size: 60,
+                          color: Color(0xFF1E0E5C).withOpacity(0.5),
+                        ),
+                      ),
                 ),
               ),
             ),
@@ -762,7 +870,8 @@ class _HomeScreenState extends State<HomeScreen> {
               right: 0,
               child: Container(
                 height: popupHeight * 0.45,
-                padding: EdgeInsets.all(ResponsiveUtils.getHorizontalPadding(context) * 1.5),
+                padding: EdgeInsets.all(
+                    ResponsiveUtils.getHorizontalPadding(context) * 1.5),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.only(
@@ -798,7 +907,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
 
-                    SizedBox(height: ResponsiveUtils.getCardMargin(context) * 1.5),
+                    SizedBox(
+                        height: ResponsiveUtils.getCardMargin(context) * 1.5),
 
                     Container(
                       width: double.infinity,
@@ -831,7 +941,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Text(
                               _popupData["buttonText"],
                               style: GoogleFonts.inter(
-                                fontSize: ResponsiveUtils.getBodyFontSize(context) + 2,
+                                fontSize: ResponsiveUtils.getBodyFontSize(
+                                    context) + 2,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white,
                                 letterSpacing: 0.5,
@@ -853,11 +964,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             size: ResponsiveUtils.getIconSize(context) * 0.8,
                             color: Color(0xFF94A3B8),
                           ),
-                          SizedBox(width: ResponsiveUtils.getCardMargin(context) / 2),
+                          SizedBox(width: ResponsiveUtils.getCardMargin(
+                              context) / 2),
                           Text(
                             "Shown once per app installation",
                             style: GoogleFonts.inter(
-                              fontSize: ResponsiveUtils.getSmallFontSize(context),
+                              fontSize: ResponsiveUtils.getSmallFontSize(
+                                  context),
                               color: Color(0xFF94A3B8),
                             ),
                           ),
@@ -928,98 +1041,166 @@ class _HomeScreenState extends State<HomeScreen> {
     final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
     final bannerHeight = ResponsiveUtils.getBannerHeight(context);
 
-    return Container(
-      height: bannerHeight,
-      margin: EdgeInsets.symmetric(
-        horizontal: horizontalPadding,
-        vertical: ResponsiveUtils.getSectionSpacing(context),
-      ),
-      child: PageView.builder(
-        itemCount: _promoBanners.length,
-        itemBuilder: (context, index) {
-          final banner = _promoBanners[index];
-          return Container(
-            margin: EdgeInsets.only(right: ResponsiveUtils.getCardMargin(context)),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              image: DecorationImage(
-                image: NetworkImage(banner["image"]),
-                fit: BoxFit.cover,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: banner["color"].withOpacity(0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [
-                    banner["color"].withOpacity(0.5),
-                    banner["color"].withOpacity(0.6),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-              child: Padding(
-                padding: EdgeInsets.all(horizontalPadding),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      banner["title"],
-                      style: GoogleFonts.inter(
-                        color: Colors.white,
-                        fontSize: ResponsiveUtils.getTitleFontSize(context) - 4,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
-                    Text(
-                      banner["subtitle"],
-                      style: GoogleFonts.inter(
-                        color: Colors.white,
-                        fontSize: ResponsiveUtils.getBodyFontSize(context),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    SizedBox(height: ResponsiveUtils.getCardMargin(context)),
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: ResponsiveUtils.getCardMargin(context),
-                        vertical: ResponsiveUtils.getCardMargin(context) / 2,
+    if (_promoBanners.isEmpty) {
+      return SizedBox(
+        height: bannerHeight,
+        child: Center(child: Text("No banners available")),
+      );
+    }
+
+    return Column(
+      children: [
+        Container(
+          height: bannerHeight,
+          margin: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: ResponsiveUtils.getSectionSpacing(context),
+          ),
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: _promoBanners.length,
+            onPageChanged: (index) {
+              setState(() => _currentBanner = index);
+            },
+
+            itemBuilder: (context, index) {
+              final banner = _promoBanners[index];
+              final imageUrl = getFullImageUrl(banner["imagePath"]);
+
+              return AnimatedBuilder(
+                animation: _pageController,
+                builder: (context, child) {
+                  double value = 1.0;
+                  if (_pageController.position.haveDimensions) {
+                    value = (_pageController.page! - index).abs();
+                    value = (1 - (value * 0.25)).clamp(0.8, 1.0);
+                  }
+                  return Transform.scale(scale: value, child: child);
+                },
+                child: GestureDetector(
+                  onTap: () => _openCourseDetails(banner),
+                  child: Hero(
+                    tag: "banner_${banner['courseId']}",
+                    child: Container(
+                      margin: EdgeInsets.only(
+                        right: ResponsiveUtils.getCardMargin(context),
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: banner["color"].withOpacity(0.3),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
                       ),
-                      child: Text(
-                        "Shop Now",
-                        style: GoogleFonts.inter(
-                          color: banner["color"],
-                          fontSize: ResponsiveUtils.getSmallFontSize(context),
-                          fontWeight: FontWeight.w700,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.network(
+                              imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                                  Container(
+                                    color: Colors.grey[200],
+                                    child: Icon(Icons.broken_image, size: 50),
+                                  ),
+                            ),
+
+                            Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                  colors: [
+                                    banner["color"].withOpacity(0.5),
+                                    banner["color"].withOpacity(0.35),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                              padding: EdgeInsets.all(
+                                  ResponsiveUtils.getHorizontalPadding(context)
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    banner["title"],
+                                    style: GoogleFonts.inter(
+                                      color: Colors.white,
+                                      fontSize: ResponsiveUtils
+                                          .getTitleFontSize(context) - 4,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      "View Course",
+                                      style: GoogleFonts.inter(
+                                        color: banner["color"],
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          );
-        },
-      ),
+              );
+            },
+          ),
+        ),
+
+        // ------------------------------
+        //   DOT INDICATORS (NEW PART)
+        // ------------------------------
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(
+            _promoBanners.length,
+                (index) =>
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(
+                      horizontal: 4, vertical: 4),
+                  width: _currentBanner == index ? 20 : 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: _currentBanner == index
+                        ? const Color(0xFF1E0E5C)
+                        : Colors.grey.withOpacity(0.4),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget buildCategorySection() {
+
+
+    Widget buildCategorySection() {
     if (_sectionLoadingStates['categories'] == true) {
       return _buildCategoryShimmer();
     }
