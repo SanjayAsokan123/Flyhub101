@@ -8,12 +8,14 @@ class RoleManager {
   static const String _roleKey = "user_role";
   static const String _buyerIdKey = "buyer_id";
   static const String _sellerIdKey = "seller_id";
+  static const String _userIdKey = "user_id"; // NEW: for Firebase UID
 
   static const String _defaultRole = "guest";
 
   static String? _cachedRole;
   static String? _cachedBuyerId;
   static String? _cachedSellerId;
+  static String? _cachedUserId; // NEW
 
   // ---------------------------------------------------------------------------
   // 🔥 ROLE MANAGEMENT
@@ -41,7 +43,9 @@ class RoleManager {
   static Future<void> clearRole() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_roleKey);
+    await prefs.remove(_userIdKey); // NEW
     _cachedRole = null;
+    _cachedUserId = null; // NEW
 
     await prefs.remove(_buyerIdKey);
     await prefs.remove(_sellerIdKey);
@@ -49,6 +53,81 @@ class RoleManager {
     _cachedSellerId = null;
 
     debugPrint("🧹 [RoleManager] Role + IDs cleared");
+  }
+
+  // ---------------------------------------------------------------------------
+  // 🔥 USER ID CACHE (NEW - REQUIRED BY main.dart)
+  // ---------------------------------------------------------------------------
+
+  static Future<void> cacheUserId(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    _cachedUserId = userId;
+    await prefs.setString(_userIdKey, userId);
+    debugPrint("👤 [RoleManager] UserID cached → $userId");
+  }
+
+  static Future<String?> getCachedUserId() async {
+    if (_cachedUserId != null) return _cachedUserId;
+    final prefs = await SharedPreferences.getInstance();
+    _cachedUserId = prefs.getString(_userIdKey);
+    return _cachedUserId;
+  }
+
+  // ---------------------------------------------------------------------------
+  // 🔥 SET BUYER ROLE (NEW - REQUIRED BY main.dart)
+  // ---------------------------------------------------------------------------
+
+  static Future<void> setBuyerRole(String buyerId) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Set role to buyer
+    _cachedRole = "buyer";
+    await prefs.setString(_roleKey, "buyer");
+
+    // Save buyer ID
+    _cachedBuyerId = buyerId;
+    await prefs.setString(_buyerIdKey, buyerId);
+
+    // Cache user ID from Firebase if available
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      await cacheUserId(user.uid);
+    }
+
+    debugPrint("🟢 [RoleManager] Set buyer role → ID: $buyerId");
+  }
+
+  // ---------------------------------------------------------------------------
+  // 🔥 SET SELLER ROLE (NEW - for consistency)
+  // ---------------------------------------------------------------------------
+
+  static Future<void> setSellerRole(String sellerId) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Set role to seller
+    _cachedRole = "seller";
+    await prefs.setString(_roleKey, "seller");
+
+    // Save seller ID
+    _cachedSellerId = sellerId;
+    await prefs.setString(_sellerIdKey, sellerId);
+
+    // Cache user ID from Firebase if available
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      await cacheUserId(user.uid);
+    }
+
+    debugPrint("🟣 [RoleManager] Set seller role → ID: $sellerId");
+  }
+
+  // ---------------------------------------------------------------------------
+  // 🔥 GET CACHED ROLE (NEW - for fallback)
+  // ---------------------------------------------------------------------------
+
+  static Future<String?> getCachedRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_roleKey);
   }
 
   // ---------------------------------------------------------------------------
@@ -88,7 +167,7 @@ class RoleManager {
   }
 
   // ---------------------------------------------------------------------------
-  // 🔥 FIRESTORE ROLE SYNC
+  // 🔥 FIRESTORE ROLE SYNC - IMPROVED WITH FALLBACK
   // ---------------------------------------------------------------------------
 
   static Future<void> syncFirestoreRole() async {
@@ -100,27 +179,45 @@ class RoleManager {
     }
 
     try {
+      // Cache user ID first
+      await cacheUserId(user.uid);
+
       final doc = await FirebaseFirestore.instance
           .collection("users")
           .doc(user.uid)
           .get();
 
-      final role =
-      (doc.data()?["role"] ?? _defaultRole).toString().toLowerCase();
+      final role = (doc.data()?["role"] ?? _defaultRole).toString().toLowerCase();
 
-      await setLocalRole(role);
+      // IMPORTANT: If user is logged in but Firestore says "guest", default to "buyer"
+      final finalRole = (user != null && role == "guest") ? "buyer" : role;
 
-      if (role == "buyer" && doc.data()?["buyerId"] != null) {
-        await saveBuyerId(doc.data()!["buyerId"]);
+      await setLocalRole(finalRole);
+
+      if (finalRole == "buyer") {
+        final buyerId = doc.data()?["buyerId"]?.toString() ?? user.uid;
+        await saveBuyerId(buyerId);
       }
 
-      if (role == "seller" && doc.data()?["sellerId"] != null) {
-        await saveSellerId(doc.data()!["sellerId"]);
+      if (finalRole == "seller") {
+        final sellerId = doc.data()?["sellerId"]?.toString() ?? user.uid;
+        await saveSellerId(sellerId);
       }
 
-      debugPrint("✅ [RoleManager] Synced Firestore → Role: $role");
+      debugPrint("✅ [RoleManager] Synced Firestore → Role: $finalRole");
     } catch (e) {
-      debugPrint("⚠️ [RoleManager] Firestore Sync Error: $e");
+      debugPrint("⚠ [RoleManager] Firestore Sync Error: $e");
+
+      // Fallback: If Firestore fails, check if we have cached role
+      final cachedRole = await getCachedRole();
+      if (cachedRole != null && cachedRole != "guest") {
+        await setLocalRole(cachedRole);
+        debugPrint("📋 [RoleManager] Using cached role after sync error: $cachedRole");
+      } else if (user != null) {
+        // Default to buyer if logged in
+        await setBuyerRole(user.uid);
+        debugPrint("🔄 [RoleManager] Defaulted to buyer role after error");
+      }
     }
   }
 
@@ -148,6 +245,7 @@ class RoleManager {
     _cachedRole = null;
     _cachedBuyerId = null;
     _cachedSellerId = null;
+    _cachedUserId = null;
 
     debugPrint("🧹 [RoleManager] FULL RESET DONE");
   }

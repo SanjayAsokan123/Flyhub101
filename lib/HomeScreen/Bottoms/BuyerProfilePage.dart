@@ -60,48 +60,55 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
         return;
       }
 
-      final doc = await _firestore.collection('buyers').doc(_user!.uid).get();
+      // 🔥 FIX: Query using firebaseUid instead of doc(_user.uid)
+      final snap = await _firestore
+          .collection('buyers')
+          .where('firebaseUid', isEqualTo: _user!.uid)
+          .limit(1)
+          .get();
 
-      if (!doc.exists) {
+      if (snap.docs.isEmpty) {
+        // No buyer record → create minimal session data
         await RoleManager.setLocalRole("buyer");
-        if (!mounted) return;
-        setState(() =>
-        _buyerData = {
-          'name': _user?.displayName ?? 'User',
-          'email': _user?.email ?? '',
+        setState(() {
+          _buyerData = {
+            'name': _user?.displayName ?? 'User',
+            'email': _user?.email ?? '',
+            'buyerId': '',
+          };
         });
         return;
       }
 
+      // 🔥 Correct buyer document found
+      final doc = snap.docs.first;
       final data = doc.data();
-      if (data != null) {
-        setState(() =>
-        _buyerData = {
-          'name': data['name'] ?? '',
-          'email': data['email'] ?? '',
-        });
-        final role = data['role']?.toString().toLowerCase() ?? "buyer";
+      final buyerDocId = doc.id; // <-- THIS is FLYHUBB0108
 
-        if (role != "buyer") {
-          await RoleManager.setLocalRole("seller");
-          if (!mounted) return;
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const SellerPage()),
-          );
-          return;
-        }
+      data['buyerId'] = buyerDocId;
 
-        await RoleManager.setLocalRole("buyer");
-        setState(() => _buyerData = data);
+      final role = data['role']?.toString().toLowerCase() ?? "buyer";
+
+      if (role != "buyer") {
+        await RoleManager.setLocalRole("seller");
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const SellerPage()),
+        );
+        return;
       }
-    }
-      catch (e) {
+
+      await RoleManager.setLocalRole("buyer");
+
+      setState(() => _buyerData = data);
+    } catch (e) {
       debugPrint("⚠ BuyerPage init error: $e");
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
+
 
   Future<void> _switchToSeller() async {
     HapticFeedback.selectionClick();
@@ -445,10 +452,15 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                     _buildListItem(
                       icon: Icons.work_outline,
                       title: "Job Applications",
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const BuyerJobApplyStatusPage(buyerId: '',)),
-                      ),
+                      onTap: () {
+                        final buyerId = _buyerData?['buyerId'] ?? '';
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => BuyerJobApplyStatusPage(buyerId: buyerId),
+                          ),
+                        );
+                      },
                     ),
                     _buildListItem(
                       icon: Icons.handyman_outlined,
