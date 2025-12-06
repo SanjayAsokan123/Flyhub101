@@ -1591,24 +1591,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (sectionKey == 'services' && item["location"] != null)
                     Row(
                       children: [
-                        Icon(
-                          Icons.location_on,
-                          size: ResponsiveUtils.getIconSize(context) * 0.7,
-                          color: Color(0xFF64748B),
-                        ),
+
                         SizedBox(width: ResponsiveUtils.getCardMargin(context) / 4),
-                        Expanded(
-                          child: Text(
-                            item["location"].toString(),
-                            style: GoogleFonts.inter(
-                              fontSize: ResponsiveUtils.getSmallFontSize(context) - 1,
-                              color: Color(0xFF64748B),
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
+
                       ],
                     ),
                 ],
@@ -1787,7 +1772,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
                 Text(
-                  jobTitle,
+                 '',
                   style: GoogleFonts.inter(
                     color: Colors.black.withOpacity(0.9),
                     fontSize: ResponsiveUtils.getTitleFontSize(context) - 4,
