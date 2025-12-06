@@ -62,6 +62,7 @@ dependencies:
   audioplayers: ^6.0.0
   file_picker: ^8.1.2
   provider: ^6.1.2
+  font_awesome_flutter: ^10.4.0
 
   # 🌐 URL Launcher (for opening PDF links, maps, websites)
   url_launcher: ^6.3.1

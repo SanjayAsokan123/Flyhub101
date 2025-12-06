@@ -1,8 +1,12 @@
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../CommonClass/ApiClass.dart';
-import '../../CommonClass/utils.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+
+import '../CommonClass/ApiClass.dart';
+import '../CommonClass/utils.dart';
+import '../config/env.dart';
 
 class ServiceBookNow extends StatefulWidget {
   final Map<String, dynamic> service;
@@ -23,6 +27,88 @@ class _ServiceBookNowState extends State<ServiceBookNow> {
 
   DateTime? selectedDate;
   bool _isLoading = false;
+
+  // ================= BUYER ID LOGIC (ADDED) =================
+  late GraphQLClient _client;
+
+  bool _isLoadingBuyerId = false;
+  String? buyerId;
+  String? buyerIdError;
+
+  @override
+  void initState() {
+    super.initState();
+    _initGraphQl();
+    _loadBuyerId();
+  }
+
+  void _initGraphQl() {
+    final HttpLink httpLink = HttpLink(
+      EnvConfig.baseUrl,
+      defaultHeaders: {
+        "Content-Type": "application/json",
+      },
+    );
+
+    _client = GraphQLClient(
+      link: httpLink,
+      cache: GraphQLCache(),
+    );
+  }
+
+  Future<void> _loadBuyerId() async {
+    setState(() => _isLoadingBuyerId = true);
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        setState(() => buyerIdError = "Not logged in");
+        return;
+      }
+
+      final String firebaseUid = user.uid;
+
+      const String query = r'''
+        query GetBuyerByFirebaseUid($firebaseUid: String!) {
+          getBuyerfirebaseUidInServiceBooking(firebaseUid: $firebaseUid) {
+            buyerId
+            firebaseUid
+            name
+            email
+          }
+        }
+      ''';
+
+      final QueryResult result = await _client.query(
+        QueryOptions(
+          document: gql(query),
+          variables: {"firebaseUid": firebaseUid},
+        ),
+      );
+
+      if (result.hasException) {
+        setState(() => buyerIdError = result.exception.toString());
+        return;
+      }
+
+      final data = result.data?["getBuyerfirebaseUidInServiceBooking"];
+
+      if (data != null && data["buyerId"] != null) {
+        setState(() {
+          buyerId = data["buyerId"]; // Example: FLYHUBB0201
+          buyerIdError = null;
+        });
+      } else {
+        buyerIdError = "Buyer ID not found in DB";
+      }
+    } catch (e) {
+      setState(() => buyerIdError = e.toString());
+    } finally {
+      setState(() => _isLoadingBuyerId = false);
+    }
+  }
+
+  // ===================================================================
 
   final Color primaryColor = const Color(0xFF1A0A5B);
   final Color secondaryColor = const Color(0xFF6C56F5);
@@ -48,9 +134,17 @@ class _ServiceBookNowState extends State<ServiceBookNow> {
       return;
     }
 
+    // ==================== CHECK BUYER ID ======================
+    if (buyerId == null) {
+      Utils.bottomToast(context,
+          "Unable to load buyer ID. Error: $buyerIdError\nPlease restart app.");
+      return;
+    }
+    // ==========================================================
+
     setState(() => _isLoading = true);
 
-    // =============== BACKEND BODY ======================
+    // =============== FINAL BACKEND BODY WITH buyerId ===============
     final body = {
       "input": {
         "name": nameCtrl.text.trim(),
@@ -59,9 +153,10 @@ class _ServiceBookNowState extends State<ServiceBookNow> {
         "information": noteCtrl.text.trim(),
         "phone": "",
         "date": selectedDate.toString().split(" ")[0],
-        "serviceId": widget.service["_id"],
+        "serviceId": widget.service["serviceId"],
         "sellerId": widget.service["sellerId"] ?? "",
-        "serviceBookingId": DateTime.now().millisecondsSinceEpoch.toString(),
+        "buyerId": buyerId, // ******** BUYER ID ADDED ********
+
       }
     };
 
@@ -101,7 +196,11 @@ class _ServiceBookNowState extends State<ServiceBookNow> {
         foregroundColor: Colors.black,
         elevation: 0,
       ),
-      body: SingleChildScrollView(
+
+      // ============= UI UNTOUCHED — EXACTLY SAME =============
+      body: _isLoadingBuyerId
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
@@ -116,7 +215,8 @@ class _ServiceBookNowState extends State<ServiceBookNow> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.rocket_launch, color: Colors.white, size: 33),
+                  const Icon(Icons.rocket_launch,
+                      color: Colors.white, size: 33),
                   const SizedBox(width: 14),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,7 +254,8 @@ class _ServiceBookNowState extends State<ServiceBookNow> {
                   TextFormField(
                     controller: nameCtrl,
                     decoration: _input("Your Name", Icons.person),
-                    validator: (v) => v!.isEmpty ? "Enter your name" : null,
+                    validator: (v) =>
+                    v!.isEmpty ? "Enter your name" : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -166,8 +267,10 @@ class _ServiceBookNowState extends State<ServiceBookNow> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: locationCtrl,
-                    decoration: _input("Your Location", Icons.location_on),
-                    validator: (v) => v!.isEmpty ? "Enter your location" : null,
+                    decoration:
+                    _input("Your Location", Icons.location_on),
+                    validator: (v) =>
+                    v!.isEmpty ? "Enter your location" : null,
                   ),
                   const SizedBox(height: 16),
 
@@ -189,7 +292,9 @@ class _ServiceBookNowState extends State<ServiceBookNow> {
                           Text(
                             selectedDate == null
                                 ? "Choose Service Date"
-                                : selectedDate.toString().split(" ")[0],
+                                : selectedDate!
+                                .toString()
+                                .split(" ")[0],
                             style: GoogleFonts.lexend(fontSize: 14),
                           ),
                         ],
@@ -216,7 +321,8 @@ class _ServiceBookNowState extends State<ServiceBookNow> {
                         backgroundColor: primaryColor,
                       ),
                       child: _isLoading
-                          ? const CircularProgressIndicator(color: Colors.white)
+                          ? const CircularProgressIndicator(
+                          color: Colors.white)
                           : const Text("Confirm Booking"),
                     ),
                   ),

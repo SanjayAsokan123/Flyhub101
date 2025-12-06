@@ -146,8 +146,8 @@ class ApiClass {
           availability
           specification
           description
-          newemail
-          newphoneNumber
+          email
+          phoneNumber
           adminStatus
           price {
             perHour
@@ -229,8 +229,8 @@ class ApiClass {
     required String pilotName,
     required String pilotCompany,
     required String location,
-    required String newemail,
-    required String newphoneNumber,
+    required String email,
+    required String phoneNumber,
     required String sellerId,
     required bool availability,
     required String specification,
@@ -247,8 +247,8 @@ class ApiClass {
           pilotName
           pilotCompany
           location
-          newemail
-          newphoneNumber
+          email
+          phoneNumber
           adminStatus
         }
       }
@@ -265,8 +265,8 @@ class ApiClass {
           "pilotName": pilotName,
           "pilotCompany": pilotCompany,
           "location": location,
-          "newemail": newemail,
-          "newphoneNumber": newphoneNumber,
+          "newemail": email,
+          "newphoneNumber": phoneNumber,
           "sellerId": sellerId,
           "availability": availability,
           "specification": specification,
@@ -291,64 +291,49 @@ class ApiClass {
       return ApiResult.error(e.toString());
     }
   }
-
-  Future<Map<String, dynamic>> bookPilotRental({
+  Future<Map<String, dynamic>> bookPilot({
     required String pilotId,
-    required String name,
-    required String email,
-    required String phone,
+    required String buyerId,
+    required String buyerName,
+    required String buyerEmail,
+    required String contact,
     required String location,
-    required double amount,
-    required String rentalDate,
-    required String startDate,
-    required String endDate,
+    required String date,
+    required String startTime,
+    required String endTime,
   }) async {
-    final url =  EnvConfig.baseUrl;
+    final url = EnvConfig.baseUrl;
 
-    final mutation = """
-    mutation CreateRental(
-      \$pilotId: String!,
-      \$name: String!,
-      \$email: String!,
-      \$phone: String!,
-      \$location: String!,
-      \$amount: Float!,
-      \$rentalDate: String!,
-      \$startDate: String!,
-      \$endDate: String!
-    ) {
-      createPilotRental(
-        name: \$name
-        email: \$email
-        phone: \$phone
-        location: \$location
-        amount: \$amount
-        rentalDate: \$rentalDate
-        rentalPeriod: {
-          startDate: \$startDate
-          endDate: \$endDate
+    const mutation = """
+    mutation BookPilot(\$input: BookPilotInput!) {
+      bookPilot(input: \$input) {
+        success
+        message
+        booking {
+          bookingId
+          status
         }
-        pilotId: \$pilotId
-      ) {
-        pilot_rental_id
-        status
       }
     }
   """;
 
+    final variables = {
+      "input": {
+        "pilotId": pilotId,
+        "buyerId": buyerId,
+        "buyerName": buyerName,
+        "buyerEmail": buyerEmail,
+        "contact": contact,
+        "location": location,
+        "date": date,
+        "startTime": startTime,
+        "endTime": endTime
+      }
+    };
+
     final body = jsonEncode({
       "query": mutation,
-      "variables": {
-        "pilotId": pilotId,
-        "name": name,
-        "email": email,
-        "phone": phone,
-        "location": location,
-        "amount": amount,
-        "rentalDate": rentalDate,
-        "startDate": startDate,
-        "endDate": endDate,
-      },
+      "variables": variables
     });
 
     try {
@@ -363,15 +348,17 @@ class ApiClass {
       if (json["errors"] != null) {
         return {
           "status": "error",
-          "message": json["errors"][0]["message"],
+          "message": json["errors"][0]["message"]
         };
       }
 
-      return {"status": "success", "data": json["data"]};
+      return {"status": "success", "data": json["data"]["bookPilot"]};
     } catch (e) {
       return {"status": "error", "message": e.toString()};
     }
   }
+
+
 
   // ============================================================
   // 💼 JOBS

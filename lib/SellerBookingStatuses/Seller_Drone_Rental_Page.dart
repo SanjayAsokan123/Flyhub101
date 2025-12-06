@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../config/env.dart';
+import '../config/env.dart';
 
 class SellerDroneRentalPage extends StatefulWidget {
   const SellerDroneRentalPage({Key? key}) : super(key: key);

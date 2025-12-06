@@ -33,6 +33,8 @@ import '../Bottoms/JobPage.dart';
 import '../Bottoms/ServicesPage.dart' hide kTextSecondary;
 import '../Bottoms/RentalsPage.dart';
 import '../Bottoms/PilotPage.dart';
+import '../../ApplyingBookingNow/ServiceBookNow.dart';
+import '../../ApplyingBookingNow/JobApplyNow.dart'; // ADD THIS IMPORT
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -50,7 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
   PageController _pageController = PageController(viewportFraction: 0.92);
   int _currentBanner = 0;
   Timer? _autoScrollTimer;
-  bool isLoading = false; // Changed from true to false since we're using section-wise loading
+  bool isLoading = false;
   bool isUserLoading = true;
   bool _showElevation = false;
   String _searchQuery = '';
@@ -85,7 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
     'services': null,
   };
 
-  // Dynamic popup data - can be fetched from API or Firebase
+  // Dynamic popup data
   Map<String, dynamic> _popupData = {
     "title": "Welcome to FlyHub! ✨",
     "description": "Discover the world of drones - buy, sell, rent, and get services all in one place. Start your drone journey with us!",
@@ -121,13 +123,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<Map<String, dynamic>> _promoBanners = [];
 
-
   @override
   void initState() {
     super.initState();
     _initializeUser();
     _loadInitialSections();
-    _checkAndShowPopup(); //// INSERT HERE — AUTO-SCROLL STARTER
+    _checkAndShowPopup();
+
     _autoScrollTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
       if (!_pageController.hasClients || _promoBanners.isEmpty) return;
 
@@ -148,19 +150,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadInitialSections() async {
-    // Load immediately visible sections first
     await Future.wait([
       _loadCategories(),
       _loadPromoBanners(),
       _loadDrones(),
     ]);
 
-    // Load remaining sections in background
     _loadBackgroundSections();
   }
 
   Future<void> _loadBackgroundSections() async {
-    // Load less critical sections in background
     await Future.wait([
       _loadParts(),
       _loadAccessories(),
@@ -176,10 +175,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _sectionErrorStates['categories'] = null;
       });
 
-      // Simulate API call delay for categories
       await Future.delayed(Duration(milliseconds: 300));
 
-      // Categories are static data, so no actual API call needed
       setState(() {
         _sectionLoadingStates['categories'] = false;
       });
@@ -211,16 +208,11 @@ class _HomeScreenState extends State<HomeScreen> {
       if (rawPath == null) return placeholder;
       final s = rawPath.toString().trim();
       if (s.isEmpty) return placeholder;
-      // If already absolute http(s), return as-is
       if (s.startsWith("http://") || s.startsWith("https://")) return s;
 
-      // Derive origin from GraphQL baseUrl (e.g. http://192.168.0.180:5001/graphql -> http://192.168.0.180:5001)
       final base = EnvConfig.baseUrl;
-      final origin = Uri
-          .parse(base)
-          .origin; // safe way to get scheme+host+port
+      final origin = Uri.parse(base).origin;
 
-      // Make sure leading slash correctness
       if (s.startsWith("/")) {
         return origin + s;
       } else {
@@ -230,7 +222,6 @@ class _HomeScreenState extends State<HomeScreen> {
       return placeholder;
     }
   }
-
 
   Future<void> _loadPromoBanners() async {
     try {
@@ -265,10 +256,10 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _promoBanners = data.map((item) =>
         {
-          "courseId": item["id"], // important for navigation
+          "courseId": item["id"],
           "title": item["title"] ?? "Training",
           "subtitle": "Enroll Now",
-          "imagePath": item["imagePath"], // keep raw path
+          "imagePath": item["imagePath"],
           "color": const Color(0xFF1E0E5C),
         }).toList();
 
@@ -299,7 +290,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
   Future<void> _loadDrones() async {
     try {
       setState(() {
@@ -313,9 +303,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       setState(() {
         marketplaceData["Drones"] =
-            (drones.data ?? [])
-                .where((p) => p["status"] == "approved")
-                .toList();
+            (drones.data ?? []).where((p) => p["status"] == "approved").toList();
         _sectionLoadingStates['drones'] = false;
       });
     } catch (e) {
@@ -366,9 +354,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       setState(() {
         marketplaceData["Accessories"] =
-            (accessories.data ?? [])
-                .where((p) => p["status"] == "approved")
-                .toList();
+            (accessories.data ?? []).where((p) => p["status"] == "approved").toList();
         _sectionLoadingStates['accessories'] = false;
       });
     } catch (e) {
@@ -418,9 +404,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       setState(() {
         marketplaceData["Services"] =
-            (services.data ?? [])
-                .where((p) => p["status"] == "approved")
-                .toList();
+            (services.data ?? []).where((p) => p["status"] == "approved").toList();
         _sectionLoadingStates['services'] = false;
       });
     } catch (e) {
@@ -482,7 +466,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _categoryScrollController.dispose();
     _searchController.dispose();
@@ -552,6 +535,7 @@ class _HomeScreenState extends State<HomeScreen> {
     allProducts.addAll(marketplaceData["Drones"]!);
     allProducts.addAll(marketplaceData["Parts"]!);
     allProducts.addAll(marketplaceData["Accessories"]!);
+    allProducts.addAll(marketplaceData["Services"]!);
 
     for (var item in allProducts) {
       String productName = "";
@@ -614,9 +598,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
   PreferredSizeWidget buildAppBar(BuildContext context) {
-    final cartCount = context
-        .watch<CartWishlistProvider>()
-        .cartCount;
+    final cartCount = context.watch<CartWishlistProvider>().cartCount;
 
     return AppBar(
       elevation: _showElevation ? 4 : 0,
@@ -636,8 +618,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       actions: [
         Container(
-          margin: EdgeInsets.only(
-              right: ResponsiveUtils.getCardMargin(context)),
+          margin: EdgeInsets.only(right: ResponsiveUtils.getCardMargin(context)),
           decoration: BoxDecoration(
             color: const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(12),
@@ -656,13 +637,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       MaterialPageRoute(builder: (_) => const WishlistPage()),
                     ),
               ),
-
             ],
           ),
         ),
         Container(
-          margin: EdgeInsets.only(
-              right: ResponsiveUtils.getHorizontalPadding(context)),
+          margin: EdgeInsets.only(right: ResponsiveUtils.getHorizontalPadding(context)),
           decoration: BoxDecoration(
             color: const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(12),
@@ -754,7 +733,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontWeight: FontWeight.w500,
                   ),
                   decoration: InputDecoration(
-                    hintText: "Search drones, parts, accessories...",
+                    hintText: "Search drones, parts, accessories, services...",
                     hintStyle: GoogleFonts.inter(
                       color: const Color(0xFF94A3B8),
                       fontSize: ResponsiveUtils.getBodyFontSize(context),
@@ -792,21 +771,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildWelcomePopup() {
-    final screenWidth = MediaQuery
-        .of(context)
-        .size
-        .width;
-    final screenHeight = MediaQuery
-        .of(context)
-        .size
-        .height;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
     final popupWidth = screenWidth * 0.9;
     final popupHeight = screenHeight * 0.7;
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.all(
-          ResponsiveUtils.getHorizontalPadding(context)),
+      insetPadding: EdgeInsets.all(ResponsiveUtils.getHorizontalPadding(context)),
       child: Container(
         width: popupWidth,
         height: popupHeight,
@@ -846,8 +818,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: Color(0xFF1E0E5C).withOpacity(0.1),
                         child: Center(
                           child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(Color(
-                                0xFF1E0E5C)),
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1E0E5C)),
                           ),
                         ),
                       ),
@@ -870,8 +841,7 @@ class _HomeScreenState extends State<HomeScreen> {
               right: 0,
               child: Container(
                 height: popupHeight * 0.45,
-                padding: EdgeInsets.all(
-                    ResponsiveUtils.getHorizontalPadding(context) * 1.5),
+                padding: EdgeInsets.all(ResponsiveUtils.getHorizontalPadding(context) * 1.5),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.only(
@@ -907,8 +877,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
 
-                    SizedBox(
-                        height: ResponsiveUtils.getCardMargin(context) * 1.5),
+                    SizedBox(height: ResponsiveUtils.getCardMargin(context) * 1.5),
 
                     Container(
                       width: double.infinity,
@@ -941,8 +910,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Text(
                               _popupData["buttonText"],
                               style: GoogleFonts.inter(
-                                fontSize: ResponsiveUtils.getBodyFontSize(
-                                    context) + 2,
+                                fontSize: ResponsiveUtils.getBodyFontSize(context) + 2,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white,
                                 letterSpacing: 0.5,
@@ -964,13 +932,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             size: ResponsiveUtils.getIconSize(context) * 0.8,
                             color: Color(0xFF94A3B8),
                           ),
-                          SizedBox(width: ResponsiveUtils.getCardMargin(
-                              context) / 2),
+                          SizedBox(width: ResponsiveUtils.getCardMargin(context) / 2),
                           Text(
                             "Shown once per app installation",
                             style: GoogleFonts.inter(
-                              fontSize: ResponsiveUtils.getSmallFontSize(
-                                  context),
+                              fontSize: ResponsiveUtils.getSmallFontSize(context),
                               color: Color(0xFF94A3B8),
                             ),
                           ),
@@ -1062,7 +1028,6 @@ class _HomeScreenState extends State<HomeScreen> {
             onPageChanged: (index) {
               setState(() => _currentBanner = index);
             },
-
             itemBuilder: (context, index) {
               final banner = _promoBanners[index];
               final imageUrl = getFullImageUrl(banner["imagePath"]);
@@ -1122,9 +1087,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ],
                                 ),
                               ),
-                              padding: EdgeInsets.all(
-                                  ResponsiveUtils.getHorizontalPadding(context)
-                              ),
+                              padding: EdgeInsets.all(ResponsiveUtils.getHorizontalPadding(context)),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1133,8 +1096,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     banner["title"],
                                     style: GoogleFonts.inter(
                                       color: Colors.white,
-                                      fontSize: ResponsiveUtils
-                                          .getTitleFontSize(context) - 4,
+                                      fontSize: ResponsiveUtils.getTitleFontSize(context) - 4,
                                       fontWeight: FontWeight.w800,
                                     ),
                                   ),
@@ -1171,9 +1133,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
 
-        // ------------------------------
-        //   DOT INDICATORS (NEW PART)
-        // ------------------------------
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(
@@ -1181,8 +1140,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 (index) =>
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
-                  margin: const EdgeInsets.symmetric(
-                      horizontal: 4, vertical: 4),
+                  margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                   width: _currentBanner == index ? 20 : 8,
                   height: 8,
                   decoration: BoxDecoration(
@@ -1198,9 +1156,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
-
-    Widget buildCategorySection() {
+  Widget buildCategorySection() {
     if (_sectionLoadingStates['categories'] == true) {
       return _buildCategoryShimmer();
     }
@@ -1445,7 +1401,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget buildProductCard(dynamic item, String category) {
+  Widget buildProductCard(dynamic item, String category, String sectionKey) {
+    debugPrint("📱 buildProductCard called: sectionKey=$sectionKey, category=$category");
+
     String itemId = "${item['id'] ?? ''}$category${item['name'] ?? ''}";
     String imageUrl = "";
     if (item["image"] != null) {
@@ -1475,27 +1433,30 @@ class _HomeScreenState extends State<HomeScreen> {
     final imageHeight = cardWidth * ResponsiveUtils.getMarketGridAspectRatio(context);
 
     return GestureDetector(
-      onTap: () async {
-        final result = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => DroneDetailPage(
-              drone: item,
-              initialIsFavorite: _isInWishlist(itemId),
-              Drone: null,
-            ),
-          ),
-        );
+      onTap: () {
+        debugPrint("🎯 Tapped: category=$category, sectionKey=$sectionKey, productName=$productName");
 
-        if (result is Map && result['wishlistChanged'] == true) {
-          final bool isFav = result['isFavorite'] == true;
-          setState(() {
-            if (isFav) {
-              _wishlistItems.add(itemId);
-            } else {
-              _wishlistItems.remove(itemId);
-            }
-          });
+        // Check if it's a service item by checking sectionKey
+        if (sectionKey == 'services') {
+          debugPrint("🚀 Navigating to ServiceBookNow for service: ${item['id']}");
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ServiceBookNow(service: item),
+            ),
+          );
+        } else {
+          // For drones, parts, accessories - navigate to DroneDetailPage
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DroneDetailPage(
+                drone: item,
+                initialIsFavorite: _isInWishlist(itemId),
+                Drone: null,
+              ),
+            ),
+          );
         }
       },
       child: Container(
@@ -1565,6 +1526,18 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
+                // Add service badge for service items
+                if (sectionKey == 'services')
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: ResponsiveUtils.getCardMargin(context) / 2,
+                        vertical: ResponsiveUtils.getCardMargin(context) / 4,
+                      ),
+                    ),
+                  ),
               ],
             ),
             Padding(
@@ -1614,11 +1587,30 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                   SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
-                  Row(
-                    children: [
-                      SizedBox(width: ResponsiveUtils.getCardMargin(context) / 4),
-                    ],
-                  ),
+                  // Add location for services
+                  if (sectionKey == 'services' && item["location"] != null)
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on,
+                          size: ResponsiveUtils.getIconSize(context) * 0.7,
+                          color: Color(0xFF64748B),
+                        ),
+                        SizedBox(width: ResponsiveUtils.getCardMargin(context) / 4),
+                        Expanded(
+                          child: Text(
+                            item["location"].toString(),
+                            style: GoogleFonts.inter(
+                              fontSize: ResponsiveUtils.getSmallFontSize(context) - 1,
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ),
@@ -1629,6 +1621,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget buildProductCarousel(String title, List<dynamic> products, VoidCallback onViewAll, String sectionKey) {
+    debugPrint("🚗 buildProductCarousel called: title=$title, sectionKey=$sectionKey, productCount=${products.length}");
+
     if (_sectionLoadingStates[sectionKey] == true) {
       return _buildProductCarouselShimmer(title);
     }
@@ -1656,7 +1650,8 @@ class _HomeScreenState extends State<HomeScreen> {
             scrollDirection: Axis.horizontal,
             itemCount: products.length,
             itemBuilder: (context, index) {
-              return buildProductCard(products[index], title);
+              // Pass sectionKey correctly to buildProductCard
+              return buildProductCard(products[index], title, sectionKey);
             },
           ),
         ),
@@ -1720,7 +1715,16 @@ class _HomeScreenState extends State<HomeScreen> {
         job["applicationDeadline"] != null;
 
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const JobsPage())),
+      onTap: () {
+        // Navigate to JobApplyNow page instead of JobsPage
+        debugPrint("🚀 Navigating to JobApplyNow for job: ${job['id']}");
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => JobApplyNow(job: job),
+          ),
+        );
+      },
       child: Container(
         width: ResponsiveUtils.getJobBannerWidth(context),
         margin: EdgeInsets.only(right: ResponsiveUtils.getCardMargin(context)),
@@ -1758,22 +1762,26 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 if (isUrgent)
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: ResponsiveUtils.getCardMargin(context),
-                      vertical: ResponsiveUtils.getCardMargin(context) / 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Color(0xFFEF4444),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      "URGENT",
-                      style: GoogleFonts.inter(
-                        color: Colors.white,
-                        fontSize: ResponsiveUtils.getSmallFontSize(context),
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.5,
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: ResponsiveUtils.getCardMargin(context),
+                        vertical: ResponsiveUtils.getCardMargin(context) / 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Color(0xFFEF4444),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        "URGENT",
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontSize: ResponsiveUtils.getSmallFontSize(context),
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                        ),
                       ),
                     ),
                   ),
@@ -1846,6 +1854,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ],
+                ),
+                // Add Apply Now button
+                SizedBox(height: ResponsiveUtils.getCardMargin(context)),
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: ResponsiveUtils.getCardMargin(context),
+                    vertical: ResponsiveUtils.getCardMargin(context) / 2,
+                  ),
                 ),
               ],
             ),
@@ -2033,7 +2050,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Padding(
           padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
           child: Text(
-            "${results.length} products found",
+            "${results.length} results found",
             style: GoogleFonts.inter(
               fontSize: ResponsiveUtils.getBodyFontSize(context),
               color: const Color(0xFF64748B),
@@ -2048,7 +2065,20 @@ class _HomeScreenState extends State<HomeScreen> {
           gridDelegate: ResponsiveUtils.getProductGridDelegate(context),
           itemCount: results.length,
           itemBuilder: (context, index) {
-            return buildProductCard(results[index], "Search");
+            final item = results[index];
+
+            // Determine section key for navigation
+            String sectionKey = 'search';
+
+            // Check if it's a service item
+            bool isService = marketplaceData["Services"]!.any((service) =>
+            service["id"] == item["id"] || service["name"] == item["name"]);
+
+            if (isService) {
+              sectionKey = 'services';
+            }
+
+            return buildProductCard(item, "Search", sectionKey);
           },
         ),
       ],
@@ -2370,7 +2400,6 @@ class _HomeScreenState extends State<HomeScreen> {
           RefreshIndicator(
             color: const Color(0xFF1E0D51),
             onRefresh: () async {
-              // Reload all sections
               await Future.wait([
                 _loadCategories(),
                 _loadPromoBanners(),
@@ -2440,7 +2469,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // Welcome Popup Overlay
           if (_showWelcomePopup)
             Container(
               color: Colors.black.withOpacity(0.5),

@@ -8,7 +8,6 @@ import 'package:flyhub/T&C/Terms_Conditions.dart';
 import 'package:flyhub/T&C/feedback_form.dart';
 import '../../BuyerBookingStatuses/Buyer_Shipping_Policy.dart';
 import '../../HomeScreen/Dynamichome.dart';
-import '../../HomeScreen/Bottoms/SellerPage.dart';
 import '../../HomeScreen/Bottoms/GuestProfilePage.dart';
 import '../../BuyerBookingStatuses/Buyer_Return_Refund_Policy.dart';
 import '../../SellerBookingStatuses/Seller_Shipping_Policy.dart';
@@ -16,9 +15,8 @@ import '../../services/role_manager.dart';
 import '../../BuyerDetails/WishlistPage.dart';
 import '../../BuyerDetails/MyCartPage.dart';
 import '../../Login/SellerLoginPage.dart';
-import '../../BuyerDetails/DroneRentalConfirmation.dart';
-import '../../BuyerDetails/MyCartPage.dart';
-import '../../BuyerDetails/Pilot_Booking_Status.dart';
+import '../../BuyerBookingStatuses/DroneRentalConfirmation.dart';
+import '../../BuyerBookingStatuses/Pilot_Booking_Status.dart';
 import '../../BuyerBookingStatuses/BuyerServiceBookingStatus.dart';
 import '../../BuyerBookingStatuses/BuyerJobApplyStatus.dart';
 
@@ -89,15 +87,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
 
       final role = data['role']?.toString().toLowerCase() ?? "buyer";
 
-      if (role != "buyer") {
-        await RoleManager.setLocalRole("seller");
-        if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const SellerPage()),
-        );
-        return;
-      }
 
       await RoleManager.setLocalRole("buyer");
 
@@ -110,18 +99,7 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
   }
 
 
-  Future<void> _switchToSeller() async {
-    HapticFeedback.selectionClick();
-    try {
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const SellerPage()),
-      );
-    } catch (e) {
-      debugPrint("⚠ Switch to seller error: $e");
-    }
-  }
+
 
   Future<void> _logout() async {
     showDialog(
@@ -360,35 +338,19 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
         backgroundColor: Colors.white,
         elevation: 0.5,
         centerTitle: true,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: GestureDetector(
-              onTap: _switchToSeller,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  border: Border.all(color: primaryColor, width: 1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.store, size: 14, color: primaryColor),
-                    const SizedBox(width: 4),
-                    Text(
-                      "Seller",
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: primaryColor,
-                      ),
-                    ),
-                  ],
-                ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () {
+            // Navigate back to DynamicHome
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const Dynamichome(selectedIndex: 0),
               ),
-            ),
-          ),
-        ],
+            );
+          },
+        ),
+
       ),
       body: Column(
         children: [
@@ -429,7 +391,7 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                         color: Colors.green,
                         onTap: () => Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const SellerLoginPage()),
+                          MaterialPageRoute(builder: (_) => const WishlistPage()),
                         ),
                       ),
 
@@ -444,10 +406,13 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                     _buildListItem(
                       icon: Icons.flight,
                       title: "Drone Rentals",
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const DroneRentalApprovalPage()),
-                      ),
+                      onTap: () {
+                        final buyerId = _buyerData?['buyerId'] ?? '';
+                        Navigator.push(context,
+                          MaterialPageRoute(builder: (_) =>  DroneRentalApprovalPage(buyerId: buyerId)
+                          ),
+                        );
+                      },
                     ),
                     _buildListItem(
                       icon: Icons.work_outline,
@@ -463,12 +428,30 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                       },
                     ),
                     _buildListItem(
+                      icon: Icons.person_2_outlined,
+                      title: "Pilot Booking",
+                      onTap: () {
+                        final buyerId = _buyerData?['buyerId'] ?? '';
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PilotBookingStatusPage(buyerId: buyerId),  //buyerId: buyerId
+                          ),
+                        );
+                      },
+                    ),
+                    _buildListItem(
                       icon: Icons.handyman_outlined,
                       title: "Service Bookings",
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const BuyerServiceBookingStatusPage()),
-                      ),
+                      onTap: () {
+                        final buyerId = _buyerData?['buyerId'] ?? '';
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => BuyerServiceBookingStatusPage(buyerId: buyerId),  //buyerId: buyerId
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),

@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../../../CommonClass/ApiClass.dart';
+import '../services/role_manager.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 final ApiClass _api = ApiClass();
 
@@ -28,6 +30,7 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
   final Color primaryColor = const Color(0xFF1A0A5B);
   final Color accentColor = const Color(0xFF00C6FF);
 
+  // ----------------------- PICKERS ------------------------
   Future<void> _pickDate() async {
     DateTime now = DateTime.now();
     final DateTime? picked = await showDatePicker(
@@ -50,48 +53,72 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
     await showTimePicker(context: context, initialTime: TimeOfDay.now());
     if (picked != null) setState(() => endTime = picked);
   }
+  Future<Map<String, dynamic>> getBuyerDetails() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception("User not logged in");
+    }
+
+    final snap = await FirebaseFirestore.instance
+        .collection("buyers")
+        .where("firebaseUid", isEqualTo: user.uid)
+        .limit(1)
+        .get();
+
+    if (snap.docs.isEmpty) {
+      throw Exception("Buyer not found in database");
+    }
+
+    final data = snap.docs.first.data();
+    return {
+      "buyerId": data["buyerId"],
+      "buyerName": data["name"],
+      "buyerEmail": data["email"],
+    };
+  }
+
+  // ----------------------- SUBMIT BOOKING ------------------------
   Future<void> _submitBooking() async {
     if (_formKey.currentState!.validate()) {
       if (selectedDate == null || startTime == null || endTime == null) {
-        _showSnack("Please select date and time range", isError: true);
+        _showSnack("Please select date and time", isError: true);
         return;
       }
 
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        _showSnack("Please log in to book a pilot", isError: true);
-        return;
-      }
-
-      final buyerName = user.displayName ?? "FlyHub User";
-      final buyerEmail = user.email ?? "unknown@flyhub.com";
+      // 1️⃣ Get buyer info from Firestore
+      final buyerData = await getBuyerDetails();
+      final buyerId = buyerData["buyerId"];
+      final buyerName = buyerData["buyerName"];
+      final buyerEmail = buyerData["buyerEmail"];
 
       final rentalDate = DateFormat('yyyy-MM-dd').format(selectedDate!);
 
       final rentalStart = DateFormat('yyyy-MM-dd HH:mm').format(
-        DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day, startTime!.hour, startTime!.minute),
+        DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day,
+            startTime!.hour, startTime!.minute),
       );
 
       final rentalEnd = DateFormat('yyyy-MM-dd HH:mm').format(
-        DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day, endTime!.hour, endTime!.minute),
+        DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day,
+            endTime!.hour, endTime!.minute),
       );
 
-      final pilotId = widget.pilot['pilotId'];
-      final price = widget.pilot['price']?['perHour'] ?? 1200;
+      final pilotId = widget.pilot['pilotId']?.toString() ?? "";
 
       setState(() => isLoading = true);
       _showSnack("Booking your pilot...", isLoading: true);
 
-      final result = await _api.bookPilotRental(
+      // 2️⃣ API Call
+      final result = await _api.bookPilot(
         pilotId: pilotId,
-        name: buyerName,
-        email: buyerEmail,
-        phone: contactController.text.trim(),
+        buyerId: buyerId,
+        buyerName: buyerName,
+        buyerEmail: buyerEmail,
+        contact: contactController.text.trim(),
         location: locationController.text.trim(),
-        amount: price.toDouble(),
-        rentalDate: rentalDate,
-        startDate: rentalStart,
-        endDate: rentalEnd,
+        date: rentalDate,
+        startTime: rentalStart,
+        endTime: rentalEnd,
       );
 
       setState(() => isLoading = false);
@@ -106,11 +133,14 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
   }
 
 
-  void _showSnack(String message, {bool isError = false, bool isLoading = false}) {
+  // ----------------------- SNACKBAR ------------------------
+  void _showSnack(String message,
+      {bool isError = false, bool isLoading = false}) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        duration: isLoading ? const Duration(seconds: 1) : const Duration(seconds: 3),
+        duration:
+        isLoading ? const Duration(seconds: 1) : const Duration(seconds: 3),
         backgroundColor: isError
             ? Colors.redAccent
             : isLoading
@@ -122,7 +152,8 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
               const SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                child:
+                CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
               ),
             if (isLoading) const SizedBox(width: 12),
             Expanded(
@@ -137,6 +168,7 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
     );
   }
 
+  // ----------------------- UI COMPONENTS ------------------------
   Widget _buildTextField({
     required String label,
     required IconData icon,
@@ -212,9 +244,10 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
         widget.pilot['certifications'].isNotEmpty
         ? widget.pilot['certifications'][0]['url']
         : null;
+
     final name = (widget.pilot['pilotName'] ?? 'Pilot').trim();
     final initials = name.isNotEmpty
-        ? name.split(' ').map((s) => s.isNotEmpty ? s[0] : '').take(2).join()
+        ? name.split(' ').map((s) => s[0]).take(2).join()
         : 'P';
 
     if (imagePath != null && imagePath.isNotEmpty) {
@@ -225,33 +258,19 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
           width: size,
           height: size,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => CircleAvatar(
-            radius: size / 2,
-            backgroundColor: primaryColor,
-            child: Text(initials,
-                style: GoogleFonts.poppins(
-                    color: Colors.white, fontSize: size / 3)),
-          ),
         ),
       );
-    } else {
-      return CircleAvatar(
-        radius: size / 2,
-        backgroundColor: primaryColor,
-        child: Text(initials,
-            style:
-            GoogleFonts.poppins(color: Colors.white, fontSize: size / 3)),
-      );
     }
+    return CircleAvatar(
+      radius: size / 2,
+      backgroundColor: primaryColor,
+      child: Text(initials,
+          style:
+          GoogleFonts.poppins(color: Colors.white, fontSize: size / 3)),
+    );
   }
 
-  @override
-  void dispose() {
-    locationController.dispose();
-    contactController.dispose();
-    super.dispose();
-  }
-
+  // ----------------------- BUILD UI ------------------------
   @override
   Widget build(BuildContext context) {
     final pilotName = (widget.pilot['pilotName'] ?? 'Pilot').trim();
@@ -266,10 +285,11 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
-              // Header
+              // ---------------- HEADER ----------------
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [primaryColor, accentColor],
@@ -288,7 +308,7 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      "Let’s book your pilot ",
+                      "Let’s book your pilot",
                       style: GoogleFonts.poppins(
                         fontSize: 22,
                         color: Colors.white,
@@ -308,7 +328,7 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
               ),
               const SizedBox(height: 24),
 
-              // Pilot Card
+              // ---------------- PILOT CARD ----------------
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -348,8 +368,6 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              const SizedBox(width: 4),
-
                               const Spacer(),
                               Text("₹$pilotPrice/hr",
                                   style: GoogleFonts.poppins(
@@ -366,7 +384,7 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
               ),
               const SizedBox(height: 24),
 
-              // Booking Form
+              // ---------------- BOOKING FORM ----------------
               Form(
                 key: _formKey,
                 child: Column(
@@ -380,6 +398,7 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
                       onTap: _pickDate,
                     ),
                     const SizedBox(height: 16),
+
                     _buildTile(
                       title: "Select Start Time",
                       value: startTime != null
@@ -389,6 +408,7 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
                       onTap: _pickStartTime,
                     ),
                     const SizedBox(height: 16),
+
                     _buildTile(
                       title: "Select End Time",
                       value: endTime != null
@@ -398,6 +418,7 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
                       onTap: _pickEndTime,
                     ),
                     const SizedBox(height: 16),
+
                     _buildTextField(
                       label: "Enter Location",
                       icon: Icons.location_on,
@@ -405,6 +426,7 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
                       validator: (v) =>
                       v == null || v.isEmpty ? "Enter location" : null,
                     ),
+
                     _buildTextField(
                       label: "Contact Number",
                       icon: Icons.phone,
@@ -423,7 +445,7 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
               ),
               const SizedBox(height: 30),
 
-              // Book Now Button
+              // ---------------- BOOK NOW BUTTON ----------------
               SizedBox(
                 width: double.infinity,
                 height: 55,

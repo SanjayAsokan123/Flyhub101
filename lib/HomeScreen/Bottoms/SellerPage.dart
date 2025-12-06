@@ -1,11 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:graphql_flutter/graphql_flutter.dart';
-
+import 'package:flyhub/Login/FlyHubSelectionPage.dart';
 // Settings Pages
 import 'package:flyhub/T&C/Help_Support_Page.dart';
 import 'package:flyhub/T&C/PrivacyPolicy.dart';
 import 'package:flyhub/T&C/Terms_Conditions.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
 
 // Add Product Pages
 import '../../SellerAddingForm/AddDrone.dart';
@@ -22,6 +22,7 @@ import '../../SellerBookingStatuses/Seller_Pilot_Rental_Page.dart';
 // Product Status Pages
 import '../../SellerBookingStatuses/Seller_Return_Refund_Policy.dart';
 import '../../SellerBookingStatuses/Seller_Shipping_Policy.dart';
+import '../../BuyerBookingStatuses/ServiceBookingStatus.dart';
 import '../../Sold_Product_Page.dart';
 import '../../SellerAddingForm/add_accessories_form.dart';
 import '../../SellerAddingForm/add_drone_rental_form.dart';
@@ -31,9 +32,9 @@ import '../../SellerAddingForm/add_service_form.dart';
 import '../../SellerAddingForm/add_spare_parts.dart';
 import '../../config/env.dart';
 import '../../T&C/feedback_form.dart';
-import '../../services/role_manager.dart';
 import '../../SellerBookingStatuses/jobApplyStatus.dart';
-import '../../BuyerBookingStatuses/ServiceBookingStatus.dart';
+import '../../services/logout_service.dart';
+import '../../services/role_manager.dart';
 
 class SellerPage extends StatefulWidget {
   const SellerPage({super.key});
@@ -267,7 +268,7 @@ class _SellerPageState extends State<SellerPage> {
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const SellerLoginPage()),
+          MaterialPageRoute(builder: (_) => const FlyHubSelectionPage()),
         );
 
         Future.delayed(const Duration(milliseconds: 500), () {
@@ -384,18 +385,9 @@ class _SellerPageState extends State<SellerPage> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () async {
-                          Navigator.pop(context);
-                          await _auth.signOut();
-                          await RoleManager.clearRole();
-                          if (!mounted) return;
-
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const SellerLoginPage()),
-                                (route) => false,
-                          );
+                        onPressed: () {
+                          // String customId = "";
+                          LogoutService.logoutSeller(context, _sellerId!);
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: errorColor,
@@ -592,7 +584,8 @@ class _SellerPageState extends State<SellerPage> {
               ),
               if (!_isApproved)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: warningColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
@@ -1218,8 +1211,7 @@ class _SellerPageState extends State<SellerPage> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) =>
-                  RejectedProductsPage(sellerCustomId: _sellerId!),
+              builder: (_) => RejectedProductsPage(sellerCustomId: _sellerId!),
             ),
           );
         },
@@ -1298,7 +1290,7 @@ class _SellerPageState extends State<SellerPage> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => PilotRentalPage(sellerId: _sellerId!),
+              builder: (_) => SellerPilotBookingStatusPage(sellerId: _sellerId!),
             ),
           );
         },
@@ -1310,7 +1302,8 @@ class _SellerPageState extends State<SellerPage> {
         icon: Icons.work_history,
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) =>  JobApplyStatusPage(sellerId: _sellerId!)),
+          MaterialPageRoute(
+              builder: (_) => JobApplyStatusPage(sellerId: _sellerId!)),
         ),
         disabled: !_isApproved,
         iconColor: themeColor,
@@ -1326,8 +1319,7 @@ class _SellerPageState extends State<SellerPage> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) =>
-                  ServiceBookingStatusPage(sellerId: _sellerId!),
+              builder: (_) => ServiceBookingStatusPage(sellerId: _sellerId!),
             ),
           );
         },

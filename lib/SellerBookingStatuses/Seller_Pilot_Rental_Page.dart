@@ -1,227 +1,343 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:intl/intl.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+import '../../config/env.dart';
 
-import '../config/env.dart';
-
-final String GRAPHQL_URL = EnvConfig.baseUrl;
-
-class PilotRentalPage extends StatefulWidget {
+class SellerPilotBookingStatusPage extends StatefulWidget {
   final String sellerId;
 
-  const PilotRentalPage({Key? key, required this.sellerId}) : super(key: key);
+  const SellerPilotBookingStatusPage({super.key, required this.sellerId});
 
   @override
-  _PilotRentalPageState createState() => _PilotRentalPageState();
+  State<SellerPilotBookingStatusPage> createState() =>
+      _SellerPilotBookingStatusPageState();
 }
 
-class _PilotRentalPageState extends State<PilotRentalPage>
+class _SellerPilotBookingStatusPageState
+    extends State<SellerPilotBookingStatusPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  bool _loading = false;
-  String? _error;
-
-  final Color themeColor = const Color(0xFF1E0E5C);
-
-  List<Map<String, dynamic>> bookings = [];
+  late GraphQLClient client;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _fetchBookings();
+    _tabController = TabController(length: 4, vsync: this);
+
+    client = GraphQLClient(
+      link: HttpLink(EnvConfig.baseUrl),
+      cache: GraphQLCache(),
+    );
   }
-
-  String formatDate(String? dateString) {
-    if (dateString == null) return "—";
-    DateTime? dt = DateTime.tryParse(dateString);
-    return dt == null ? "—" : DateFormat('dd MMM yyyy').format(dt.toLocal());
+  // ---------------------------------------------------
+  // 🔥 QUERIES FOR SELLER BOOKING STATUS
+  // ---------------------------------------------------
+  String getPendingQuery() => """
+  query {
+    getSellerPendingPilotBookings(sellerId: "${widget.sellerId}") {
+      bookingId
+      pilotId
+      pilotName
+      buyerName
+      contact
+      location
+      date
+      startTime
+      endTime
+      status
+    }
   }
+""";
 
-  /// FETCH BOOKINGS
-  Future<void> _fetchBookings() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
 
-    const query = r'''
-      query GetPilotRentalsBySeller($sellerId: String!) {
-        getPilotRentalsBySellerId(sellerId: $sellerId) {
-          pilot_rental_id
-          name
-          email
-          phone
-          location
-          amount
-          status
-          rentalDate
-          paymentStatus
-          rentalPeriod {
-            startDate
-            endDate
-          }
-          pilot {
-            pilotId
-            pilotName
-            pilotCompany
-            phoneNumber
-            email
-          }
-        }
-      }
-    ''';
+  String getApprovedQuery() => """
+  query {
+    getSellerApprovedPilotBookings(sellerId: "${widget.sellerId}") {
+      bookingId
+      pilotId
+      pilotName
+      buyerName
+      contact
+      location
+      date
+      startTime
+      endTime
+      status
+    }
+  }
+""";
 
-    try {
-      final res = await http.post(
-        Uri.parse(GRAPHQL_URL),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'query': query,
-          'variables': {'sellerId': widget.sellerId},
-        }),
-      );
 
-      final json = jsonDecode(res.body);
-      if (json['errors'] != null) throw Exception(json['errors'][0]['message']);
+  String getRejectedQuery() => """
+  query {
+    getSellerRejectedPilotBookings(sellerId: "${widget.sellerId}") {
+      bookingId
+      pilotId
+      pilotName
+      buyerName
+      contact
+      location
+      date
+      startTime
+      endTime
+      status
+    }
+  }
+""";
 
-      final list = (json['data']?['getPilotRentalsBySellerId'] ?? []) as List;
-      bookings = list.map((e) => Map<String, dynamic>.from(e)).toList();
-    } catch (e) {
-      _error = e.toString();
-      bookings = [];
-    } finally {
-      setState(() => _loading = false);
+
+  String getCompletedQuery() => """
+  query {
+    getSellerCompletedPilotBookings(sellerId: "${widget.sellerId}") {
+      bookingId
+      pilotId
+      pilotName
+      buyerName
+      contact
+      location
+      date
+      startTime
+      endTime
+      status
+    }
+  }
+""";
+
+  String updateStatusMutation = """
+mutation UpdateStatus(\$bookingId: String!, \$status: String!) {
+  updatePilotBookingStatus(bookingId: \$bookingId, status: \$status) {
+    bookingId
+    status
+  }
+}
+""";
+
+
+  // ---------------------------------------------------
+  // COLORS BASED ON STATUS
+  // ---------------------------------------------------
+  Color getStatusColor(String? status) {
+    switch (status?.toLowerCase() ?? "") {
+      case "approved":
+        return Colors.green;
+      case "rejected":
+        return Colors.red;
+      case "completed":
+        return Colors.blue;
+      case "pending":
+      default:
+        return const Color(0xFF1E0E5C);
     }
   }
 
-  /// FILTERS
-  List<Map<String, dynamic>> get arrivedBookings =>
-      bookings.where((b) => (b['status'] ?? '').toLowerCase() != 'completed').toList();
+  // ---------------------------------------------------
+  // CARD UI FOR SELLER VIEW
+  // ---------------------------------------------------
+  Widget buildBookingCard(Map<String, dynamic> b, VoidCallback? refetch) {
+    final status = b["status"] ?? "--";
+    final statusColor = getStatusColor(status);
 
-  List<Map<String, dynamic>> get completedBookings =>
-      bookings.where((b) => (b['status'] ?? '').toLowerCase() == 'completed').toList();
-
-  /// CARD UI
-  Widget buildBookingCard(Map<String, dynamic> b) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: const Color(0xFFE7E3FA), width: 1.4),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12,
-            blurRadius: 6,
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
             spreadRadius: 1,
-            offset: Offset(0, 3),
-          )
+            offset: const Offset(0, 4),
+          ),
         ],
       ),
+
       child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.all(20),
+        child: Column(
           children: [
-            CircleAvatar(
-              radius: 22,
-              backgroundColor: themeColor,
-              child: const Icon(Icons.person, color: Colors.white),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "${b['name']} (${b['pilot']?['pilotCompany'] ?? 'N/A'})",
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+            Row(
+              children: [
+                // ICON
+                Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  const SizedBox(height: 6),
-                  Text("Phone: ${b['phone'] ?? 'N/A'}",
-                      style: const TextStyle(fontSize: 14)),
-                  Text("Pilot: ${b['pilot']?['pilotName'] ?? 'N/A'}",
-                      style: const TextStyle(fontSize: 14)),
-                  Text("Amount: ₹${b['amount'] ?? '0'} / day",
-                      style: const TextStyle(fontSize: 14)),
-                  Text("Date: ${formatDate(b['rentalDate'])}",
-                      style: const TextStyle(fontSize: 14)),
-                ],
-              ),
+                  child: Icon(Icons.person, size: 32, color: statusColor),
+                ),
+
+                const SizedBox(width: 16),
+
+                // TEXT DETAILS
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        b["buyerName"] ?? "Unknown Buyer",
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF1E0E5C),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text("📍 ${b["location"] ?? '--'}"),
+                      Text("📅 ${b["date"] ?? '--'}"),
+                      Text("⏰ ${b["startTime"]} - ${b["endTime"]}"),
+                    ],
+                  ),
+                ),
+
+                // STATUS BADGE
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    status.toUpperCase(),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: statusColor),
+                  ),
+                ),
+              ],
             ),
-            Text(
-              (b['status'] ?? '').toString().toUpperCase(),
-              style: TextStyle(
-                color: b['status'] == 'completed' ? Colors.green : themeColor,
-                fontWeight: FontWeight.bold,
-              ),
-            )
+
+            const SizedBox(height: 14),
+
+            // 🔥 ACTION BUTTONS ONLY IF STATUS == PENDING
+            if (status == "pending")
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Mutation(
+                    options: MutationOptions(
+                      document: gql(updateStatusMutation),
+                      onCompleted: (_) => refetch?.call(),
+                    ),
+                    builder: (runMutation, result) {
+                      return ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () {
+                          runMutation({
+                            "bookingId": b["bookingId"],
+                            "status": "approved",
+                          });
+                        },
+                        child: const Text("Approve"),
+                      );
+                    },
+                  ),
+                  Mutation(
+                    options: MutationOptions(
+                      document: gql(updateStatusMutation),
+                      onCompleted: (_) => refetch?.call(),
+                    ),
+                    builder: (runMutation, result) {
+                      return ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () {
+                          runMutation({
+                            "bookingId": b["bookingId"],
+                            "status": "rejected",
+                          });
+                        },
+                        child: const Text("Reject"),
+                      );
+                    },
+                  ),
+                ],
+              )
           ],
         ),
       ),
     );
   }
 
+
+  // ---------------------------------------------------
+  // TAB VIEW BUILDER
+  // ---------------------------------------------------
+  Widget buildTab(String Function() queryBuilder) {
+    return Query(
+      options: QueryOptions(
+        document: gql(queryBuilder()),
+        pollInterval: const Duration(seconds: 3),
+      ),
+      builder: (result, {refetch, fetchMore}) {
+        if (result.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (result.hasException) {
+          return Center(child: Text("Error: ${result.exception}"));
+        }
+
+        final data = result.data ?? {};
+
+        // Detect correct key
+        String listKey =
+        data.keys.firstWhere((k) => k != "__typename", orElse: () => "");
+
+        final List list = data[listKey] ?? [];
+
+        if (list.isEmpty) {
+          return const Center(
+            child:
+            Text("No bookings found", style: TextStyle(color: Colors.grey)),
+          );
+        }
+
+        return ListView.builder(
+          itemCount: list.length,
+          itemBuilder: (_, i) => buildBookingCard(list[i], refetch),
+        );
+      },
+    );
+  }
+
+  // ---------------------------------------------------
+  // UI
+  // ---------------------------------------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFFFF),
+      backgroundColor: Colors.white,
 
       appBar: AppBar(
-        title: const Text(
-          'Pilot Rental',
-          style: TextStyle(color: Colors.white),
-        ),
-        centerTitle: true,
-        backgroundColor: themeColor,
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: const Color(0xFF1E0E5C),
+        title: const Text("Pilot Bookings", style: TextStyle(color: Colors.white)),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
           indicatorColor: Colors.white,
           tabs: const [
-            Tab(text: 'Bookings Arrived'),
-            Tab(text: 'Completed'),
+            Tab(text: "Approved"),
+            Tab(text: "Pending"),
+            Tab(text: "Rejected"),
+            Tab(text: "Completed"),
           ],
         ),
-
-        // ❌ Removed Refresh Icon
-        actions: [],
       ),
 
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? Center(child: Text("Error: $_error"))
-          : TabBarView(
+      body: TabBarView(
         controller: _tabController,
         children: [
-          RefreshIndicator(
-            onRefresh: _fetchBookings,
-            child: arrivedBookings.isEmpty
-                ? const Center(child: Text('No Bookings Found'))
-                : ListView.builder(
-              itemCount: arrivedBookings.length,
-              itemBuilder: (ctx, i) =>
-                  buildBookingCard(arrivedBookings[i]),
-            ),
-          ),
-
-          RefreshIndicator(
-            onRefresh: _fetchBookings,
-            child: completedBookings.isEmpty
-                ? const Center(child: Text('No Completed Bookings'))
-                : ListView.builder(
-              itemCount: completedBookings.length,
-              itemBuilder: (ctx, i) =>
-                  buildBookingCard(completedBookings[i]),
-            ),
-          ),
+          buildTab(getApprovedQuery),
+          buildTab(getPendingQuery),
+          buildTab(getRejectedQuery),
+          buildTab(getCompletedQuery),
         ],
       ),
     );

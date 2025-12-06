@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart'; // Add this import
 
 import '../HomeScreen/Dynamichome.dart';
 import '../services/role_manager.dart';
@@ -45,6 +46,31 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
   PhoneAuthCredential? _phoneCredential;
   String _selectedCountryCode = "+91";
   String _selectedCountryFlag = "🇮🇳";
+
+  // ---------------- SOCIAL MEDIA URLs ----------------
+  // Replace these with your actual URLs
+  final Map<String, Map<String, String>> _socialMediaData = {
+    'instagram': {
+      'url': 'https://www.instagram.com/flyhub_info?igsh=OWM2a3E2Ym81bzRs',
+
+    },
+    'linkedin': {
+      'url': 'https://www.linkedin.com/company/flyhubinfo',
+
+    },
+    'facebook': {
+      'url': 'https://www.facebook.com/flyhub.official', // Replace with actual
+
+    },
+    'twitter': {
+      'url': 'https://twitter.com/flyhub_official', // Replace with actual
+
+    },
+    'whatsapp': {
+      'url': 'https://wa.me/919876543210?text=Hello%20FlyHub%20Team', // Replace with actual number
+
+    },
+  };
 
   // ---------------- COLOR SCHEME ----------------
   static const Color themeColor = Color(0xFF1A0A5B);
@@ -319,6 +345,35 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
     };
   }
 
+  // ---------------- SOCIAL MEDIA LAUNCH FUNCTION ----------------
+  Future<void> _launchSocialMedia(String platform) async {
+    final data = _socialMediaData[platform];
+
+    if (data == null || data['url'] == null) {
+      showMessage("Link not available for $platform", error: true);
+      return;
+    }
+
+    final url = data['url']!;
+    final displayName = data['display_url'] ?? platform;
+
+    final uri = Uri.parse(url);
+
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+        showMessage("Opening $displayName...", success: true);
+      } else {
+        showMessage("Could not launch $platform", error: true);
+      }
+    } catch (e) {
+      showMessage("Error opening $platform: $e", error: true);
+    }
+  }
+
   void showMessage(String msg, {bool error = false, bool success = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -337,39 +392,33 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
     );
   }
 
-  void _launchSocialMedia(String platform) {
-    Map<String, String> urls = {
-      'instagram': 'https://instagram.com/yourprofile',
-      'linkedin': 'https://linkedin.com/company/yourcompany',
-      'facebook': 'https://facebook.com/yourpage',
-      'twitter': 'https://twitter.com/yourhandle',
-      'whatsapp': 'https://wa.me/yourphonenumber',
-    };
-
-    showMessage("Opening $platform...");
-  }
-
-  Widget _buildSocialIcon(String iconPath, VoidCallback onTap) {
+  Widget _buildSocialIcon(String iconPath, String platform) {
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: themeColor.withOpacity(0.1),
-              blurRadius: 5,
-              offset: const Offset(0, 2),
+      onTap: () => _launchSocialMedia(platform),
+      child: Tooltip(
+        message: "Follow us on ${platform.capitalize()}",
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Container(
+            width: 40,
+            height: 40,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: themeColor.withOpacity(0.1),
+                  blurRadius: 5,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Image.asset(
-          iconPath,
-          fit: BoxFit.contain,
+            child: Image.asset(
+              iconPath,
+              fit: BoxFit.contain,
+            ),
+          ),
         ),
       ),
     );
@@ -589,38 +638,50 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
+                          // Instagram
                           _buildSocialIcon(
                             'assets/categories/instagram.png',
-                                () => _launchSocialMedia('instagram'),
+                            'instagram',
                           ),
                           const SizedBox(width: 20),
+
+                          // LinkedIn
                           _buildSocialIcon(
                             'assets/categories/linkedin.png',
-                                () => _launchSocialMedia('linkedin'),
+                            'linkedin',
                           ),
                           const SizedBox(width: 20),
+
+                          // Facebook
                           _buildSocialIcon(
                             'assets/categories/facebook.png',
-                                () => _launchSocialMedia('facebook'),
+                            'facebook',
                           ),
                           const SizedBox(width: 20),
+
+                          // Twitter
                           _buildSocialIcon(
-                            'assets/categories/twitter.png',
-                                () => _launchSocialMedia('twitter'),
+                            'assets/categories/twitters.png',
+                            'twitter',
                           ),
                           const SizedBox(width: 20),
+
+                          // WhatsApp
                           _buildSocialIcon(
                             'assets/categories/whatsapp.png',
-                                () => _launchSocialMedia('whatsapp'),
+                            'whatsapp',
                           ),
                         ],
                       ),
 
                       const SizedBox(height: 16),
 
+
+                      const SizedBox(height: 8),
+
                       // Overlay Text on Footer
                       Text(
-                        "Connect with us for updates",
+                        "Connect with us for updates and support",
                         style: TextStyle(
                           color: themeColor.withOpacity(0.6),
                           fontSize: 12,
@@ -1026,23 +1087,37 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
                     children: [
                       const TextSpan(text: "I agree to the "),
                       WidgetSpan(
-                        child: Text(
-                          "Terms of Service",
-                          style: TextStyle(
-                            color: themeColor,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.underline,
+                        child: GestureDetector(
+                          onTap: () {
+                            // You can add Terms of Service URL here
+                            final uri = Uri.parse('https://yourwebsite.com/terms');
+                            launchUrl(uri, mode: LaunchMode.externalApplication);
+                          },
+                          child: Text(
+                            "Terms of Service",
+                            style: TextStyle(
+                              color: themeColor,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                            ),
                           ),
                         ),
                       ),
                       const TextSpan(text: " and "),
                       WidgetSpan(
-                        child: Text(
-                          "Privacy Policy",
-                          style: TextStyle(
-                            color: themeColor,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.underline,
+                        child: GestureDetector(
+                          onTap: () {
+                            // You can add Privacy Policy URL here
+                            final uri = Uri.parse('https://yourwebsite.com/privacy');
+                            launchUrl(uri, mode: LaunchMode.externalApplication);
+                          },
+                          child: Text(
+                            "Privacy Policy",
+                            style: TextStyle(
+                              color: themeColor,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                            ),
                           ),
                         ),
                       ),
@@ -1066,5 +1141,12 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
         ),
       ],
     );
+  }
+}
+
+// Helper extension for capitalizing strings
+extension StringExtension on String {
+  String capitalize() {
+    return "${this[0].toUpperCase()}${substring(1).toLowerCase()}";
   }
 }

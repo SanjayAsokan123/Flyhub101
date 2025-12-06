@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flyhub/config/env.dart';
 
 class RentalBookNowPage extends StatefulWidget {
@@ -37,9 +38,18 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
 
   bool _submitting = false;
 
+  // ✅ NEW: Loading state for buyerId
+  bool _isLoadingBuyerId = false;
+
+  // ✅ NEW: Error tracking for buyerId
+  String? _buyerIdError;
+
   // Seller info fetched from listing (best-effort)
   String? listingSellerEmail;
   String? listingSellerPhone;
+
+  // ✅ UPDATED: Buyer id fetched from MongoDB (not Firebase UID)
+  String? buyerId;
 
   @override
   void initState() {
@@ -55,9 +65,97 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
 
     _client = GraphQLClient(link: httpLink, cache: GraphQLCache());
 
-    // Try to fetch the listing's seller snapshot so UI shows correct seller email
-    WidgetsBinding.instance.addPostFrameCallback((_) => fetchListingSeller());
+    // ✅ FIXED: Call dedicated initialization function that awaits loading
+    _initializeBooking();
   }
+
+  // ✅ NEW: Dedicated initialization function that properly awaits
+  Future<void> _initializeBooking() async {
+    await _loadBuyerId();
+    await fetchListingSeller();
+  }
+
+  // ✅ REWRITTEN: Fetch buyerId from MongoDB using Firebase UID
+  Future<void> _loadBuyerId() async {
+    if (mounted) setState(() => _isLoadingBuyerId = true);
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+
+      if (user == null) {
+        debugPrint("⚠ Firebase user not logged in");
+        if (mounted) {
+          setState(() => _buyerIdError = "Not logged in");
+        }
+        return;
+      }
+
+      final String firebaseUid = user.uid;
+      debugPrint("🔍 Firebase UID: $firebaseUid");
+
+      // ✅ STEP 1: Query MongoDB to get buyerId using firebaseUid
+      // This query finds the buyer document and returns the buyerId (e.g., "FLYHUBB0114")
+      const String query = r'''
+      query GetBuyerByFirebaseUid($firebaseUid: String!) {
+        getBuyerfirebaseUidInDroneRental(firebaseUid: $firebaseUid) {
+          buyerId
+          firebaseUid
+          name
+          email
+        }
+      }
+    ''';
+
+      final QueryOptions options = QueryOptions(
+        document: gql(query),
+        variables: {"firebaseUid": firebaseUid},
+      );
+
+      debugPrint("📤 Sending GraphQL query to get buyerId...");
+      final QueryResult result = await _client.query(options);
+
+      if (!mounted) return;
+
+      if (result.hasException) {
+        debugPrint("❌ GraphQL Error: ${result.exception.toString()}");
+        setState(() => _buyerIdError = result.exception.toString());
+        return;
+      }
+
+      debugPrint("📥 GraphQL Response: ${result.data}");
+
+      // ✅ CRITICAL: Match this field name with your MongoDB/backend schema
+      // The backend should return a document with these fields:
+      // {
+      //   "getBuyerByFirebaseUid": {
+      //     "buyerId": "FLYHUBB0114",
+      //     "firebaseUid": "abc123...",
+      //     "name": "John Doe",
+      //     "email": "john@example.com"
+      //   }
+      // }
+      final data = result.data?["getBuyerfirebaseUidInDroneRental"];
+
+      if (data != null && data["buyerId"] != null) {
+        setState(() {
+          buyerId = data["buyerId"];  // ✅ GET buyerId from MongoDB (e.g., "FLYHUBB0114")
+          _buyerIdError = null;
+        });
+        debugPrint("✅ Loaded buyerId from MongoDB: $buyerId");
+      } else {
+        debugPrint("⚠ Buyer not found in MongoDB for this Firebase UID");
+        setState(() => _buyerIdError = "Buyer profile not found in database");
+      }
+    } catch (e) {
+      debugPrint("❌ Error loading buyerId: $e");
+      if (mounted) {
+        setState(() => _buyerIdError = "Error: $e");
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingBuyerId = false);
+    }
+  }
+
 
   // Query name here is a best-effort guess; backend may need a different field name.
   // This query attempts to get the rental listing by rentalId and receives seller info.
@@ -105,16 +203,32 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
     }
   }
 
-  // Mutation (unchanged - backend returns seller snapshot in result)
+  // Fixed mutation: declare $buyerId variable and pass buyerId: $buyerId
+  // ✅ Now passes the MongoDB buyerId (e.g., "FLYHUBB0114") to the mutation
   static const String createBookingMutation = r'''
-    mutation CreateDroneRental($name: String!, $phone: String!, $location: String!, $rentalDate: String!, $rentalId: String!) {
-      createDroneRental(name: $name, phone: $phone, location: $location, rentalDate: $rentalDate, rentalId: $rentalId) {
+    mutation CreateDroneRental(
+      $name: String!,
+      $phone: String!,
+      $location: String!,
+      $rentalDate: String!,
+      $rentalId: String!,
+      $buyerId: String!
+    ) {
+      createDroneRental(
+        name: $name,
+        phone: $phone,
+        location: $location,
+        rentalDate: $rentalDate,
+        rentalId: $rentalId,
+        buyerId: $buyerId
+      ) {
         drone_rental_id
         name
         phone
         location
         rentalDate
         rentalId
+        buyerId
         sellerEmail
         sellerPhone
         createdAt
@@ -142,9 +256,9 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
         obj['id'];
   }
 
-
   Future<void> _submitBooking() async {
     if (!_formKey.currentState!.validate()) return;
+
     if (bookingDate == null) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text("Please select a date")));
@@ -153,8 +267,28 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
 
     final rentalId = extractRentalId(widget.rental);
     if (rentalId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text("❌ rentalId missing from selected rental")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("❌ rentalId missing from selected rental")),
+      );
+      return;
+    }
+
+    // ✅ FIXED: Better null check with meaningful error message
+    if (buyerId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+          _buyerIdError != null
+              ? "⚠ Buyer setup failed: $_buyerIdError. Please restart the app."
+              : "❌ Buyer ID not loaded. Please wait...",
+        ),
+        duration: const Duration(seconds: 4),
+      ));
+      return;
+    }
+
+    // ✅ FIXED: Prevent duplicate submissions
+    if (_submitting) {
+      debugPrint("⚠ Already submitting, ignoring duplicate click");
       return;
     }
 
@@ -170,6 +304,7 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
           "location": locationController.text.trim(),
           "rentalDate": bookingDate!.toIso8601String(),
           "rentalId": rentalId,
+          "buyerId": buyerId,  // ✅ Now sends MongoDB buyerId (e.g., "FLYHUBB0114")
         },
         fetchPolicy: FetchPolicy.networkOnly,
       ));
@@ -345,8 +480,7 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
                 child: Text(value ?? title,
                     style: GoogleFonts.poppins(
                         fontSize: 15,
-                        color:
-                        value == null ? Colors.grey[600] : Colors.black))),
+                        color: value == null ? Colors.grey[600] : Colors.black))),
             const Icon(Icons.keyboard_arrow_down, color: Colors.grey)
           ],
         ),
@@ -446,6 +580,63 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
         (widget.drone?['sellerPhone'] as String?) ??
         'Not available';
 
+    // ✅ FIXED: Show loading state while data is being prepared
+    if (_isLoadingBuyerId) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF2F7FB),
+        body: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(color: primaryColor),
+                const SizedBox(height: 16),
+                Text("Preparing your booking...",
+                    style: GoogleFonts.poppins(fontSize: 14)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // ✅ FIXED: Show error state if buyerId loading failed
+    if (_buyerIdError != null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF2F7FB),
+        body: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 64, color: Colors.red),
+                const SizedBox(height: 16),
+                Text("Failed to load booking",
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(fontSize: 16)),
+                const SizedBox(height: 8),
+                Text(_buyerIdError ?? "Unknown error",
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600])),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: _loadBuyerId,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text("Retry",
+                      style: GoogleFonts.poppins(color: Colors.white)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF2F7FB),
       body: SafeArea(
@@ -519,12 +710,10 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
                                   fontWeight: FontWeight.w600)),
                           const SizedBox(height: 6),
                           Text(droneType,
-                              style:
-                              GoogleFonts.poppins(color: Colors.grey[600])),
+                              style: GoogleFonts.poppins(color: Colors.grey[600])),
                           const SizedBox(height: 6),
                           Text("Purpose: $dronePurpose",
-                              style:
-                              GoogleFonts.poppins(color: Colors.grey[700])),
+                              style: GoogleFonts.poppins(color: Colors.grey[700])),
                           const SizedBox(height: 8),
                           Row(
                             children: [
@@ -558,8 +747,7 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12)),
+                    color: Colors.white, borderRadius: BorderRadius.circular(12)),
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -611,13 +799,17 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
                         icon: Icons.calendar_today,
                         onTap: _pickBookingDate),
                     const SizedBox(height: 24),
+                    // ✅ FIXED: Disable button if submitting, loading, or error
                     SizedBox(
                       width: double.infinity,
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: _submitting ? null : _submitBooking,
+                        onPressed: (_submitting || _isLoadingBuyerId || _buyerIdError != null)
+                            ? null
+                            : _submitBooking,
                         style: ElevatedButton.styleFrom(
                             backgroundColor: primaryColor,
+                            disabledBackgroundColor: Colors.grey,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12))),
                         child: _submitting

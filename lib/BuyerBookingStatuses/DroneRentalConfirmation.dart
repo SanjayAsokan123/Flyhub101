@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import '../config/env.dart';
 
-class BuyerServiceBookingStatusPage extends StatefulWidget {
-  final String buyerId;
-  const BuyerServiceBookingStatusPage({super.key, required this.buyerId});
+class DroneRentalApprovalPage extends StatefulWidget {
+  final String buyerId; // buyerId must be passed from the previous page
+
+  const DroneRentalApprovalPage({super.key, required this.buyerId});
 
   @override
-  State<BuyerServiceBookingStatusPage> createState() =>
-      _BuyerServiceBookingStatusPageState();
+  State<DroneRentalApprovalPage> createState() =>
+      _DroneRentalApprovalPageState();
 }
 
-class _BuyerServiceBookingStatusPageState
-    extends State<BuyerServiceBookingStatusPage>
+class _DroneRentalApprovalPageState extends State<DroneRentalApprovalPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   late GraphQLClient client;
@@ -26,61 +26,56 @@ class _BuyerServiceBookingStatusPageState
       link: HttpLink(EnvConfig.baseUrl),
       cache: GraphQLCache(),
     );
+
+    print("DroneRentalApprovalPage: buyerId = ${widget.buyerId}");
   }
 
-  // ==================== GraphQL Queries ====================
-  static const GET_CONFIRMED = r'''
+  static const GET_APPROVED = r'''
     query ($buyerId: String!) {
-      getConfirmedContact(buyerId: $buyerId){
-        id
+      getConfirmedDroneRentalsByBuyer(buyerId: $buyerId) {
+        drone_rental_id
         name
         phone
-        email
-        date
+        rentalDate
         status
-        location
-        serviceId
+        
       }
     }
   ''';
 
   static const GET_PENDING = r'''
     query ($buyerId: String!) {
-      getPendingContact(buyerId: $buyerId){
-        id
+      getPendingDroneRentalsByBuyer(buyerId: $buyerId) {
+        drone_rental_id
         name
         phone
-        email
-        date
+        rentalDate
         status
-        location
-        serviceId
+        
       }
     }
   ''';
 
-  static const GET_CANCELLED = r'''
+  static const GET_REJECTED = r'''
     query ($buyerId: String!) {
-      getCancelledContact(buyerId: $buyerId){
-        id
+      getCancelledDroneRentalsByBuyer(buyerId: $buyerId) {
+        drone_rental_id
         name
         phone
-        email
-        date
+        rentalDate
         status
-        location
-        serviceId
+        
       }
     }
   ''';
 
-  // ==================== Status Tab Builder ====================
-  Widget buildStatusTab(String queryName, String query) {
+  Widget buildStatusTab(String queryKey, String query) {
     return FutureBuilder<QueryResult>(
       future: client.query(
         QueryOptions(
           document: gql(query),
           variables: {"buyerId": widget.buyerId},
+          fetchPolicy: FetchPolicy.noCache,
         ),
       ),
       builder: (context, snapshot) {
@@ -89,29 +84,25 @@ class _BuyerServiceBookingStatusPageState
         }
 
         if (snapshot.data!.hasException) {
-          return Center(
-            child: Text("Error: ${snapshot.data!.exception.toString()}"),
-          );
+          return Center(child: Text("Error: ${snapshot.data!.exception}"));
         }
 
-        final bookings = snapshot.data!.data?[queryName] ?? [];
+        final rentals = snapshot.data!.data?[queryKey] ?? [];
 
-        if (bookings.isEmpty) {
-          return const Center(child: Text("No bookings found"));
+        if (rentals.isEmpty) {
+          return const Center(child: Text("No bookings found for this buyer"));
         }
 
         return ListView.builder(
-          itemCount: bookings.length,
-          itemBuilder: (context, index) =>
-              buildBookingCard(bookings[index]),
+          itemCount: rentals.length,
+          itemBuilder: (context, index) => buildRentalCard(rentals[index]),
         );
       },
     );
   }
 
-  // ==================== Booking Card ====================
-  Widget buildBookingCard(dynamic booking) {
-    final status = booking['status'] ?? 'pending';
+  Widget buildRentalCard(dynamic rental) {
+    final status = rental['status'] ?? 'Pending';
 
     Color color = Colors.blue;
     if (status == "confirmed") color = Colors.green;
@@ -122,13 +113,23 @@ class _BuyerServiceBookingStatusPageState
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 3,
       child: ListTile(
-        leading: Icon(Icons.miscellaneous_services, size: 40, color: color),
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: rental['drone']?['image'] != null
+              ? Image.network(
+            rental['drone']['image'],
+            width: 55,
+            height: 55,
+            fit: BoxFit.cover,
+          )
+              : Icon(Icons.airplanemode_active, size: 40, color: color),
+        ),
         title: Text(
-          booking['name'] ?? "Service Booking",
+          rental['drone']?['name'] ?? "Drone",
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         subtitle: Text(
-          "Phone: ${booking['phone']}\nDate: ${booking['date']}",
+          "Customer: ${rental['name']}\nDate: ${rental['rentalDate']}",
           style: const TextStyle(height: 1.5),
         ),
         trailing: Text(
@@ -140,7 +141,7 @@ class _BuyerServiceBookingStatusPageState
             context: context,
             builder: (_) => AlertDialog(
               title: Text(
-                booking['name'] ?? "Details",
+                rental['drone']?['name'] ?? "Details",
                 style:
                 const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
@@ -148,14 +149,12 @@ class _BuyerServiceBookingStatusPageState
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Booking ID: ${booking['serviceBookingId']}"),
-                  Text("Name: ${booking['name']}"),
-                  Text("Phone: ${booking['phone']}"),
-                  Text("Email: ${booking['email']}"),
-                  Text("Location: ${booking['location']}"),
-                  Text("Date: ${booking['date']}"),
+                  Text("Booking ID: ${rental['drone_rental_id']}"),
+                  Text("Customer: ${rental['name']}"),
+                  Text("Phone: ${rental['phone']}"),
+                  Text("Date: ${rental['rentalDate']}"),
                   Text(
-                    "Status: ${booking['status']}",
+                    "Status: $status",
                     style: TextStyle(color: color),
                   ),
                 ],
@@ -173,17 +172,14 @@ class _BuyerServiceBookingStatusPageState
     );
   }
 
-  // ==================== UI ====================
   @override
   Widget build(BuildContext context) {
     const themeColor = Color(0xFF1A0A5B);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          "Service Booking Status",
-          style: TextStyle(color: Colors.white),
-        ),
+        title:
+        const Text("Drone Rental Status", style: TextStyle(color: Colors.white)),
         backgroundColor: themeColor,
         iconTheme: const IconThemeData(color: Colors.white),
         bottom: TabBar(
@@ -192,18 +188,18 @@ class _BuyerServiceBookingStatusPageState
           unselectedLabelColor: Colors.white70,
           indicatorColor: Colors.white,
           tabs: const [
-            Tab(text: "Confirmed"),
+            Tab(text: "Approved"),
             Tab(text: "Pending"),
-            Tab(text: "Cancelled"),
+            Tab(text: "Rejected"),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          buildStatusTab("getConfirmedContact", GET_CONFIRMED),
-          buildStatusTab("getPendingContact", GET_PENDING),
-          buildStatusTab("getCancelledContact", GET_CANCELLED),
+          buildStatusTab("getConfirmedDroneRentalsByBuyer", GET_APPROVED),
+          buildStatusTab("getPendingDroneRentalsByBuyer", GET_PENDING),
+          buildStatusTab("getCancelledDroneRentalsByBuyer", GET_REJECTED),
         ],
       ),
     );
