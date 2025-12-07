@@ -36,6 +36,9 @@ import '../../SellerBookingStatuses/jobApplyStatus.dart';
 import '../../services/logout_service.dart';
 import '../../services/role_manager.dart';
 
+// Add this import for EditSellerProfile
+import '../../Login/SellerEditProfile.dart';
+
 class SellerPage extends StatefulWidget {
   const SellerPage({super.key});
 
@@ -188,9 +191,36 @@ class _SellerPageState extends State<SellerPage> {
     return status.toLowerCase() == "approved";
   }
 
+  // Add this method to navigate to Edit Profile
+  void _navigateToEditProfile() async {
+    if (_sellerId == null || _sellerData == null) {
+      _showMissingSellerSnack();
+      return;
+    }
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditSellerProfile(
+          sellerData: _sellerData!,
+          sellerId: _sellerId!,
+        ),
+      ),
+    );
+
+    // Refresh data if profile was updated
+    if (result == true && mounted) {
+      setState(() => _loading = true);
+      await _fetchOrCreateSeller(
+        _user!.email ?? "",
+        _user!.displayName ?? "",
+      );
+      setState(() => _loading = false);
+    }
+  }
+
   Future<void> _switchToBuyer() async {
     try {
-      // await RoleManager.updateRole("buyer");
       if (!mounted) return;
 
       showDialog(
@@ -386,7 +416,6 @@ class _SellerPageState extends State<SellerPage> {
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
-                          // String customId = "";
                           LogoutService.logoutSeller(context, _sellerId!);
                         },
                         style: ElevatedButton.styleFrom(
@@ -480,51 +509,88 @@ class _SellerPageState extends State<SellerPage> {
     );
   }
 
-  Widget _buildAvatar(String? companyName, {double size = 60}) {
+  // Updated _buildAvatar method with edit icon
+  Widget _buildAvatar(String? companyName, {double size = 60, bool showEditIcon = true}) {
     final String initials = companyName != null && companyName.isNotEmpty
         ? companyName[0].toUpperCase()
         : "S";
 
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: themeColor.withOpacity(0.2),
-          width: 2,
-        ),
-      ),
-      child: ClipOval(
-        child: Image.asset(
-          'assets/images/profile.jpg',
-          fit: BoxFit.cover,
+    return Stack(
+      children: [
+        Container(
           width: size,
           height: size,
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [themeColor, primaryLight],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  initials,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: size * 0.4,
-                    fontWeight: FontWeight.w700,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: themeColor.withOpacity(0.2),
+              width: 2,
+            ),
+          ),
+          child: ClipOval(
+            child: Image.asset(
+              'assets/images/profile.jpg',
+              fit: BoxFit.cover,
+              width: size,
+              height: size,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [themeColor, primaryLight],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
                   ),
+                  child: Center(
+                    child: Text(
+                      initials,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: size * 0.4,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        if (showEditIcon)
+          Positioned(
+            bottom: 0,
+            right: 0,
+            child: GestureDetector(
+              onTap: _navigateToEditProfile,
+              child: Container(
+                width: size * 0.35,
+                height: size * 0.35,
+                decoration: BoxDecoration(
+                  color: themeColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white,
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.edit,
+                  color: Colors.white,
+                  size: size * 0.2,
                 ),
               ),
-            );
-          },
-        ),
-      ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -553,7 +619,7 @@ class _SellerPageState extends State<SellerPage> {
         children: [
           Row(
             children: [
-              _buildAvatar(name),
+              _buildAvatar(name, showEditIcon: true), // Updated with edit icon
               const SizedBox(width: 16),
               Expanded(
                 child: Column(

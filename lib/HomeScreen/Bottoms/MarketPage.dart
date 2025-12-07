@@ -128,27 +128,39 @@ class _MarketPageState extends State<MarketPage>
 
   Map<String, dynamic> _normalizeItem(dynamic raw, {required String category}) {
     final Map m = (raw is Map) ? Map<String, dynamic>.from(raw) : {'raw': raw};
-    dynamic id = m['droneId'] ?? m['partId'] ?? m['accessoryId'] ?? m['id'] ?? m['uin'] ?? m['name'];
+
+    // 1️⃣ Try to get REAL backend ID
+    final backendId = m['droneId'] ?? m['partId'] ?? m['accessoryId'];
+
+    // 2️⃣ If backend gives null → generate fallback ID (must be stable)
+    // final fallbackId = m['id'] ?? m['uin'] ?? m['name'];
+
+    final String productId = (backendId)
+        .toString()
+        .trim();
+
+    // Prevent empty productId:
+    final safeProductId = productId.isEmpty
+        ? "${category}_${DateTime.now().millisecondsSinceEpoch}"
+        : productId;
+
     final name = m['name'] ?? 'Unknown Product';
     final brand = m['brand'] ?? '';
+
     double price = 0.0;
     final rawPrice = m['price'] ?? m['cost'] ?? 0;
-    if (rawPrice is int) price = rawPrice.toDouble();
-    else if (rawPrice is double) price = rawPrice;
-    else {
-      try {
-        price = double.parse(rawPrice?.toString() ?? '0');
-      } catch (_) {
-        price = 0.0;
-      }
+    try {
+      price = double.parse(rawPrice.toString());
+    } catch (_) {
+      price = 0.0;
     }
+
     final image = m['image'] ?? m['imageUrl'] ?? '';
     final description = m['description'] ?? m['desc'] ?? '';
 
-    final String itemId = id?.toString() ?? '${category}${name}${DateTime.now().millisecondsSinceEpoch}';
-
     return {
-      'id': itemId,
+      'id': safeProductId,     // UI ID (showing card ID)
+      'productId': safeProductId, // REAL ID USED FOR CART + WISHLIST (MUST NEVER BE NULL)
       'raw': m,
       'category': category,
       'name': name,
@@ -159,6 +171,8 @@ class _MarketPageState extends State<MarketPage>
       'status': m['status'] ?? '',
     };
   }
+
+
 
   void _searchProducts(String q) {
     setState(() {
@@ -225,36 +239,26 @@ class _MarketPageState extends State<MarketPage>
   }
 
   Future<void> _toggleWishlist(Map<String, dynamic> item) async {
-    try {
-      final provider = context.read<CartWishlistProvider>();
-      final name = item['name'] ?? 'Item';
+    final provider = context.read<CartWishlistProvider>();
+    final productId = item['productId']?.toString() ?? "";
 
-      final wishlistItem = {
-        'id': item['id']?.toString() ?? 'unknown_${DateTime.now().millisecondsSinceEpoch}',
-        'name': item['name'] ?? 'Unknown Product',
-        'price': item['price'] ?? 0.0,
-        'image': item['image'] ?? '',
-        'brand': item['brand'] ?? '',
-        'category': item['category'] ?? '',
-        'description': item['description'] ?? '',
-        ...item,
-      };
-
-      final added = await provider.toggleWishlist(wishlistItem);
-
-      if (mounted) {
-        Utils.bottomToast(
-            context,
-            added ? "$name added to wishlist" : "$name removed from wishlist"
-        );
-        setState(() {});
-      }
-    } catch (e) {
-      if (mounted) {
-        Utils.bottomToast(context, "Error updating wishlist: $e");
-      }
+    if (productId.isEmpty) {
+      Utils.bottomToast(context, "Invalid product ID");
+      return;
     }
+
+    final added = await provider.toggleWishlist(productId);
+
+    Utils.bottomToast(
+        context,
+        added ? "${item['name']} added to wishlist" : "${item['name']} removed from wishlist"
+    );
+
+    setState(() {});
   }
+
+
+
 
   void _showFilterModal() {
     showModalBottomSheet(
@@ -989,9 +993,10 @@ class _MarketPageState extends State<MarketPage>
   }
 
   Widget _buildProductItem(dynamic item) {
-    final id = item['id']?.toString() ?? '';
+    final id = item['productId']?.toString() ?? '';
     final provider = context.watch<CartWishlistProvider>();
-    final isFav = provider.wishlistIds.contains(id);
+    final isFav = provider.wishlistIds.contains(item['productId'].toString());
+
 
     final screenWidth = MediaQuery.of(context).size.width;
     final crossCount = ResponsiveUtils.getMarketGridCrossAxisCount(context);
@@ -1004,10 +1009,22 @@ class _MarketPageState extends State<MarketPage>
     final imageHeight = itemWidth * 0.7; // 70% of item width for image
 
     return GestureDetector(
-      onTap: () => Navigator.push(
+      onTap: () async {
+        await Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => DroneDetailPage(drone: item, Drone: null))
-      ),
+          MaterialPageRoute(
+            builder: (_) => DroneDetailPage(
+              drone: {
+                ...item,
+                'productId': item['productId'] ?? item['id'], // GOOD FIX
+              },
+            ),
+          ),
+        );
+
+
+    if (mounted) setState(() {}); // Refresh wishlist state
+      },
       child: Container(
         decoration: BoxDecoration(
           color: kSurfaceColor,

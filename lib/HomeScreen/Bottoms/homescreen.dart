@@ -1453,7 +1453,6 @@ class _HomeScreenState extends State<HomeScreen> {
               builder: (_) => DroneDetailPage(
                 drone: item,
                 initialIsFavorite: _isInWishlist(itemId),
-                Drone: null,
               ),
             ),
           );

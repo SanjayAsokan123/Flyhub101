@@ -24,6 +24,11 @@ class GraphQLService {
       },
     );
 
+
+
+
+
+
     final WebSocketLink wsLink = WebSocketLink(
       _wsUrl,
       config: SocketClientConfig(

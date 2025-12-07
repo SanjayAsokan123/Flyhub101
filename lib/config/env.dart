@@ -1,7 +1,6 @@
 class EnvConfig {
   static String baseUrl = 'http://192.168.0.180:5001/graphql';
 
-  // static String hostUrl = 'http://192.168.0.180:5001';
 }
 
 

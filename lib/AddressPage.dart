@@ -5,7 +5,13 @@ import 'checkout_page.dart';
 
 class AddressPage extends StatefulWidget {
   final double total;
-  const AddressPage({super.key, required this.total, required Map<String, dynamic> drone});
+  final Map<String, dynamic> orderData;
+
+  const AddressPage({
+    super.key,
+    required this.total,
+    required this.orderData,
+  });
 
   @override
   State<AddressPage> createState() => _AddressPageState();
@@ -98,28 +104,54 @@ class _AddressPageState extends State<AddressPage> {
                     ),
                     onPressed: () {
                       final addr = savedAddresses[selectedAddressIndex!];
-                      String fullName =
-                          "${addr['firstName']} ${addr['lastName']}";
+
                       String fullAddress =
-                          "${addr['address']}, ${addr['city']}, ${addr['state']}, ${addr['zip']}, ${addr['country']}";
+                          "${addr['address']}, ${addr['city']}, ${addr['state']} - ${addr['zip']}, ${addr['country']}";
+
+                      final checkoutPayload = {
+                        "type": widget.orderData["type"],
+                        "address": {
+                          "fullName": "${addr['firstName']} ${addr['lastName']}",
+                          "address": fullAddress,
+                          "phone": addr["phone"],
+                        },
+
+                        // ---------------------- FIXED SINGLE PRODUCT ----------------------
+                        if (widget.orderData["type"] == "single")
+                          "product": {
+                            ...widget.orderData["product"],
+                            "productId": widget.orderData["product"]["productId"] ??
+                                widget.orderData["product"]["id"] ??
+                                "",
+                            "category": widget.orderData["product"]["category"] ?? "Other",
+                            "quantity": widget.orderData["product"]["quantity"] ?? 1,
+                          },
+
+                        // ---------------------- FIXED CART ITEMS -------------------------
+                        if (widget.orderData["type"] == "cart")
+                          "cartItems": widget.orderData["cartItems"].map((item) {
+                            return {
+                              ...item,
+                              "productId": item["productId"] ?? item["id"] ?? "",
+                              "category": item["category"] ?? "Other",
+                              "quantity": item["quantity"] ?? 1,
+                            };
+                          }).toList(),
+                      };
 
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => CheckoutPage(
-                            drone: {
-                              'name': fullName,
-                              'image':
-                              'https://cdn-icons-png.flaticon.com/512/4320/4320341.png',
-                              'price': widget.total,
-                              'quantity': 1,
-                              'address': fullAddress,
-                              'phone': addr['phone'],
-                            },
+                            order: checkoutPayload,
+                            total: widget.total,
                           ),
                         ),
                       );
                     },
+
+
+
                     child: const Text(
                       "Continue to Checkout",
                       style: TextStyle(
