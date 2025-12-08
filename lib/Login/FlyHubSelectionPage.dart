@@ -219,7 +219,7 @@ class _FlyHubSelectionPageState extends State<FlyHubSelectionPage>
         ),
         const SizedBox(height: 24),
         Text(
-          "Welcome to FlyHub",
+          "Welcome to Flyhub",
           style: GoogleFonts.inter(
             fontSize: 24,
             fontWeight: FontWeight.w700,

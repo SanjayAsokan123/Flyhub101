@@ -162,7 +162,7 @@ class _GuestProfilePageState extends State<GuestProfilePage> {
               const SizedBox(height: 50),
 
               const Text(
-                "FlyHub Technologies Pvt. Ltd.",
+                "Flyhub Technologies Pvt. Ltd.",
                 style: TextStyle(color: Colors.grey, fontSize: 12),
               ),
               const Text(

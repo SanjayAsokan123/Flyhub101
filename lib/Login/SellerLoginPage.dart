@@ -15,7 +15,8 @@ import './SellerRegisterPage.dart';
 import '../Login/FlyHubSelectionPage.dart';
 
 class SellerLoginPage extends StatefulWidget {
-  const SellerLoginPage({super.key});
+  final String? logoPath;
+  const SellerLoginPage({super.key, this.logoPath});
 
   @override
   State<SellerLoginPage> createState() => _SellerLoginPageState();
@@ -31,6 +32,7 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
 
   static const Color themeColor = Color(0xFF1E0E5C);
   static const Color backgroundColor = Colors.white;
+  static const Color textSecondary = Color(0xFF6B7280);
 
   // Social media URLs
   final Map<String, String> socialLinks = {
@@ -38,7 +40,7 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
     'twitter': 'https://twitter.com/flyhub',
     'linkedin': 'https://www.linkedin.com/company/flyhubinfo/',
     'facebook': 'https://facebook.com/flyhub',
-    'whatsapp': 'https://wa.me/yourphonenumber', // Replace with actual WhatsApp number
+    'whatsapp': 'https://wa.me/yourphonenumber',
   };
 
   // ---------------- GRAPHQL SELLER FETCH ----------------
@@ -214,319 +216,321 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
   }
 
   // ---------------- BACK BUTTON HANDLER ----------------
-  Future<bool> _onWillPop() async {
+  void _goBackToFlyHubSelection() {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const FlyHubSelectionPage()),
     );
-    return false;
   }
 
   // ---------------- UI ----------------
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              // ---------------- BACK BUTTON ----------------
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: GestureDetector(
+                    onTap: _goBackToFlyHubSelection,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.8),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.arrow_back_ios,
+                            color: themeColor,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 5),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
 
-    return WillPopScope(
-      onWillPop: _onWillPop,
-      child: Scaffold(
-        backgroundColor: backgroundColor,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.black),
-            onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (_) => const FlyHubSelectionPage()),
-              );
-            },
-          ),
-        ),
-        body: Center(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.08),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  "Welcome to Flyhub",
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.playfairDisplay(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                    letterSpacing: 1.2,
-                  ),
+              // ---------------- HEADER IMAGE ----------------
+              Align(
+                alignment: Alignment.topCenter,
+                child: Image.asset(
+                  widget.logoPath ?? "assets/images/login.jpg",
+                  height: MediaQuery.of(context).size.width * 0.75,
+                  fit: BoxFit.contain,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  "Contactless Drone Delivery",
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.raleway(
-                    fontSize: 18,
-                    color: Colors.black,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "Join For Free.",
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.raleway(
-                    fontSize: 14,
-                    color: Colors.black,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Center(
-                  child: Image.asset(
-                    'assets/images/login.jpg',
-                    height: screenHeight * 0.15,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 15,
-                        offset: const Offset(0, 5),
+              ),
+
+              // ---------------- FORM ----------------
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  children: [
+                    // Title
+                    Text(
+                      "Seller Login",
+                      style: GoogleFonts.inter(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: themeColor,
                       ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      TextField(
-                        controller: input,
-                        decoration: InputDecoration(
-                          labelText: "Email / Phone / Seller ID",
-                          prefixIcon: const Icon(Icons.person, color: themeColor),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "Please sign in to continue as seller.",
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Email/Phone/Seller ID Field
+                    _inputField(
+                      controller: input,
+                      hint: "Email / Phone / Seller ID",
+                      icon: Icons.person_outline,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Password Field
+                    _passwordField(),
+                    const SizedBox(height: 12),
+
+                    // Forgot password
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ForgotPasswordPage(),
                           ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide:
-                            const BorderSide(color: themeColor, width: 2),
+                        ),
+                        child: Text(
+                          "Forgot Password?",
+                          style: GoogleFonts.inter(
+                            color: themeColor,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
                           ),
-                          contentPadding: const EdgeInsets.symmetric(
-                              vertical: 14, horizontal: 16),
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: password,
-                        obscureText: !showPassword,
-                        decoration: InputDecoration(
-                          labelText: "Password",
-                          prefixIcon: const Icon(Icons.lock, color: themeColor),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              showPassword
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                              color: themeColor,
-                            ),
-                            onPressed: () {
-                              setState(() => showPassword = !showPassword);
-                            },
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Login Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: sellerLogin,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: themeColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(40),
                           ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
+                          elevation: 2,
+                        ),
+                        child: loading
+                            ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
                           ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide:
-                            const BorderSide(color: themeColor, width: 2),
+                        )
+                            : Text(
+                          "Sign in",
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
                           ),
-                          contentPadding: const EdgeInsets.symmetric(
-                              vertical: 14, horizontal: 16),
                         ),
                       ),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const ForgotPasswordPage(),
+                    ),
+                    const SizedBox(height: 25),
+
+                    // Signup Link
+                    GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const SellerRegistrationFlow()),
+                      ),
+                      child: RichText(
+                        text: TextSpan(
+                          text: "Don't have a seller account? ",
+                          style: GoogleFonts.inter(
+                            color: textSecondary,
+                            fontSize: 14,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: "Sign Up",
+                              style: GoogleFonts.inter(
+                                color: themeColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
                               ),
-                            );
-                          },
-                          child: Text(
-                            "Forgot Password?",
-                            style: TextStyle(
-                              color: themeColor,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      loading
-                          ? const Center(
-                          child: CircularProgressIndicator(color: themeColor))
-                          : Container(
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [themeColor, Color(0xFF3A2A8C)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: themeColor.withOpacity(0.3),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
+                            )
                           ],
                         ),
-                        child: ElevatedButton(
-                          onPressed: sellerLogin,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            shadowColor: Colors.transparent,
-                            padding:
-                            const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                "Sign in",
-                                style: GoogleFonts.raleway(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              const Icon(Icons.arrow_forward,
-                                  color: Colors.white),
-                            ],
-                          ),
-                        ),
                       ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: Divider(color: Colors.grey, thickness: 1),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            child: Text(
-                              "Follow us on",
-                              style: GoogleFonts.raleway(
-                                color: Colors.black,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          const Expanded(
-                            child: Divider(color: Colors.grey, thickness: 1),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _socialImageButton(
-                            'assets/categories/instagram.png',
-                            'instagram',
-                          ),
-                          const SizedBox(width: 0),
-                          _socialImageButton(
-                            'assets/categories/twitter.png',
-                            'twitter',
-                          ),
-                          const SizedBox(width: 0),
-                          _socialImageButton(
-                            'assets/categories/linkedin.png',
-                            'linkedin',
-                          ),
-                          const SizedBox(width: 0),
-                          _socialImageButton(
-                            'assets/categories/facebook.png',
-                            'facebook',
-                          ),
-                          const SizedBox(width: 0),
-                          _socialImageButton(
-                            'assets/categories/whatsapp.png',
-                            'whatsapp',
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      Center(
-                        child: TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const SellerRegistrationFlow(),
-                              ),
-                            );
-                          },
-                          child: Text(
-                            "Create an account",
-                            style: GoogleFonts.raleway(
-                              color: Colors.black,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              decoration: TextDecoration.underline,
-                              decorationThickness: 2,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
+                    const SizedBox(height: 40),
+                  ],
+                ),
+              ),
+
+              // ---------------- SOCIAL FOOTER ----------------
+              Container(
+                width: double.infinity,
+                padding:
+                const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+                decoration: BoxDecoration(
+                  color: themeColor.withOpacity(0.05),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
                   ),
                 ),
-              ],
-            ),
+                child: Column(
+                  children: [
+                    Text(
+                      "Follow us on",
+                      style: GoogleFonts.inter(
+                        color: textSecondary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildSocialIcon('assets/categories/instagram.png',
+                            'instagram'),
+                        const SizedBox(width: 20),
+                        _buildSocialIcon('assets/categories/linkedin.png',
+                            'linkedin'),
+                        const SizedBox(width: 20),
+                        _buildSocialIcon('assets/categories/facebook.png',
+                            'facebook'),
+                        const SizedBox(width: 20),
+                        _buildSocialIcon('assets/categories/twitter.png',
+                            'twitter'),
+                        const SizedBox(width: 20),
+                        _buildSocialIcon('assets/categories/whatsapp.png',
+                            'whatsapp'),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _socialImageButton(String imagePath, String platform) {
+  Widget _inputField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F6FA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
+      ),
+      child: TextField(
+        controller: controller,
+        style: GoogleFonts.inter(fontSize: 15),
+        decoration: InputDecoration(
+          prefixIcon: Icon(icon, color: themeColor, size: 22),
+          hintText: hint,
+          hintStyle:
+          GoogleFonts.inter(color: Colors.grey.shade500, fontSize: 15),
+          border: InputBorder.none,
+          contentPadding:
+          const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+        ),
+      ),
+    );
+  }
+
+  Widget _passwordField() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F6FA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
+      ),
+      child: TextField(
+        controller: password,
+        obscureText: !showPassword,
+        style: GoogleFonts.inter(fontSize: 15),
+        decoration: InputDecoration(
+          prefixIcon:
+          const Icon(Icons.lock_outline, color: themeColor, size: 22),
+          suffixIcon: IconButton(
+            icon: Icon(
+              showPassword ? Icons.visibility : Icons.visibility_off,
+              color: themeColor,
+              size: 22,
+            ),
+            onPressed: () => setState(() => showPassword = !showPassword),
+          ),
+          hintText: "Password",
+          hintStyle:
+          GoogleFonts.inter(color: Colors.grey.shade500, fontSize: 15),
+          border: InputBorder.none,
+          contentPadding:
+          const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSocialIcon(String iconPath, String platform) {
     return GestureDetector(
       onTap: () => _launchSocialMedia(platform),
       child: Container(
-        width: 50,
-        height: 50,
+        width: 40,
+        height: 40,
         padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: themeColor.withOpacity(0.1),
+              blurRadius: 5,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
         child: Image.asset(
-          imagePath,
+          iconPath,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) {
-            // Fallback to icon if image not found
             return _getFallbackIcon(platform);
           },
         ),
@@ -564,15 +568,22 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
         color = themeColor;
     }
 
-    return FaIcon(icon, color: color, size: 24);
+    return FaIcon(icon, color: color, size: 20);
   }
 
   void showMessage(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg),
-        backgroundColor: msg.contains("Successful") ? Colors.green : null,
+        content: Text(
+          msg,
+          style: GoogleFonts.inter(),
+        ),
+        backgroundColor: themeColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
       ),
     );
   }

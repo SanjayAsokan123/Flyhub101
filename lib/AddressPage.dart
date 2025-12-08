@@ -1,17 +1,14 @@
-import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
 import 'dart:convert';
-import 'checkout_page.dart';
+
+import 'package:flutter/material.dart';
+import 'package:flyhub/payement_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AddressPage extends StatefulWidget {
   final double total;
-  final Map<String, dynamic> orderData;
-
-  const AddressPage({
-    super.key,
-    required this.total,
-    required this.orderData,
-  });
+  const AddressPage(
+      {super.key, required this.total, required Map<String, dynamic> drone});
 
   @override
   State<AddressPage> createState() => _AddressPageState();
@@ -104,56 +101,18 @@ class _AddressPageState extends State<AddressPage> {
                     ),
                     onPressed: () {
                       final addr = savedAddresses[selectedAddressIndex!];
-
+                      String fullName =
+                          "${addr['firstName']} ${addr['lastName']}";
                       String fullAddress =
-                          "${addr['address']}, ${addr['city']}, ${addr['state']} - ${addr['zip']}, ${addr['country']}";
-
-                      final checkoutPayload = {
-                        "type": widget.orderData["type"],
-                        "address": {
-                          "fullName": "${addr['firstName']} ${addr['lastName']}",
-                          "address": fullAddress,
-                          "phone": addr["phone"],
-                        },
-
-                        // ---------------------- FIXED SINGLE PRODUCT ----------------------
-                        if (widget.orderData["type"] == "single")
-                          "product": {
-                            ...widget.orderData["product"],
-                            "productId": widget.orderData["product"]["productId"] ??
-                                widget.orderData["product"]["id"] ??
-                                "",
-                            "category": widget.orderData["product"]["category"] ?? "Other",
-                            "quantity": widget.orderData["product"]["quantity"] ?? 1,
-                          },
-
-                        // ---------------------- FIXED CART ITEMS -------------------------
-                        if (widget.orderData["type"] == "cart")
-                          "cartItems": widget.orderData["cartItems"].map((item) {
-                            return {
-                              ...item,
-                              "productId": item["productId"] ?? item["id"] ?? "",
-                              "category": item["category"] ?? "Other",
-                              "quantity": item["quantity"] ?? 1,
-                            };
-                          }).toList(),
-                      };
+                          "${addr['address']}, ${addr['city']}, ${addr['state']}, ${addr['zip']}, ${addr['country']}";
 
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => CheckoutPage(
-                            order: checkoutPayload,
-                            total: widget.total,
-                          ),
-                        ),
+                        MaterialPageRoute(builder: (_) => PaymentPage()),
                       );
                     },
-
-
-
                     child: const Text(
-                      "Continue to Checkout",
+                      "Pay Now",
                       style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -202,9 +161,7 @@ class _AddressPageState extends State<AddressPage> {
       children: [
         Text("Saved Addresses",
             style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: themeColor)),
+                fontWeight: FontWeight.bold, fontSize: 18, color: themeColor)),
         const SizedBox(height: 10),
         if (savedAddresses.isEmpty)
           const Center(
@@ -292,7 +249,6 @@ class _AddressPageState extends State<AddressPage> {
                     fontSize: 18,
                     color: themeColor)),
             const SizedBox(height: 20),
-
             Row(
               children: [
                 Expanded(
@@ -318,7 +274,6 @@ class _AddressPageState extends State<AddressPage> {
                 ),
               ],
             ),
-
             const SizedBox(height: 15),
             TextFormField(
               initialValue: address,
@@ -331,7 +286,6 @@ class _AddressPageState extends State<AddressPage> {
               val == null || val.isEmpty ? "Enter address" : null,
               onSaved: (val) => address = val!,
             ),
-
             const SizedBox(height: 15),
             TextFormField(
               initialValue: city,
@@ -340,10 +294,10 @@ class _AddressPageState extends State<AddressPage> {
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.location_city_outlined),
               ),
-              validator: (val) => val == null || val.isEmpty ? "Enter city" : null,
+              validator: (val) =>
+              val == null || val.isEmpty ? "Enter city" : null,
               onSaved: (val) => city = val!,
             ),
-
             const SizedBox(height: 15),
             Row(
               children: [
@@ -371,7 +325,6 @@ class _AddressPageState extends State<AddressPage> {
                 ),
               ],
             ),
-
             const SizedBox(height: 15),
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(
@@ -389,7 +342,6 @@ class _AddressPageState extends State<AddressPage> {
               ],
               onChanged: (val) => setState(() => country = val!),
             ),
-
             const SizedBox(height: 15),
             TextFormField(
               initialValue: phone,
@@ -402,7 +354,6 @@ class _AddressPageState extends State<AddressPage> {
               val == null || val.length < 10 ? "Enter valid phone" : null,
               onSaved: (val) => phone = val!,
             ),
-
             const SizedBox(height: 25),
             Row(
               children: [
@@ -442,8 +393,8 @@ class _AddressPageState extends State<AddressPage> {
                     },
                     child: const Text(
                       "Save Address",
-                      style:
-                      TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -460,8 +411,8 @@ class _AddressPageState extends State<AddressPage> {
                     onPressed: () => setState(() => showForm = false),
                     child: const Text(
                       "Cancel",
-                      style:
-                      TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -501,8 +452,8 @@ class _AddressPageState extends State<AddressPage> {
             if (index != steps.length - 1)
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Icon(Icons.arrow_forward_ios,
-                    size: 14, color: Colors.grey),
+                child:
+                Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
               ),
           ],
         );

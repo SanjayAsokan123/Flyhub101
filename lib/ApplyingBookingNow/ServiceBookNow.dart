@@ -95,7 +95,7 @@ class _ServiceBookNowState extends State<ServiceBookNow> {
 
       if (data != null && data["buyerId"] != null) {
         setState(() {
-          buyerId = data["buyerId"]; // Example: FLYHUBB0201
+          buyerId = data["buyerId"];
           buyerIdError = null;
         });
       } else {
@@ -111,8 +111,7 @@ class _ServiceBookNowState extends State<ServiceBookNow> {
   // ===================================================================
 
   final Color primaryColor = const Color(0xFF1A0A5B);
-  final Color secondaryColor = const Color(0xFF6C56F5);
-  final Color backgroundColor = const Color(0xFFF8F9FF);
+  final Color accentColor = const Color(0xFF00C6FF);
 
   Future<void> pickDate() async {
     final now = DateTime.now();
@@ -156,7 +155,6 @@ class _ServiceBookNowState extends State<ServiceBookNow> {
         "serviceId": widget.service["serviceId"],
         "sellerId": widget.service["sellerId"] ?? "",
         "buyerId": buyerId, // ******** BUYER ID ADDED ********
-
       }
     };
 
@@ -174,162 +172,309 @@ class _ServiceBookNowState extends State<ServiceBookNow> {
     }
   }
 
-  InputDecoration _input(String label, IconData icon) {
-    return InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon, color: primaryColor),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-      filled: true,
-      fillColor: Colors.white,
+  // Text Field Builder - EXACTLY LIKE JOB APPLY NOW
+  Widget _buildTextField({
+    required String label,
+    required IconData icon,
+    required TextEditingController controller,
+    TextInputType type = TextInputType.text,
+    String? Function(String?)? validator,
+    int maxLines = 1,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: maxLines > 1 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+        children: [
+          Icon(icon, color: primaryColor),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextFormField(
+              controller: controller,
+              keyboardType: type,
+              validator: validator,
+              maxLines: maxLines,
+              style: GoogleFonts.poppins(fontSize: 15),
+              decoration: InputDecoration(
+                labelText: label,
+                labelStyle: GoogleFonts.poppins(color: Colors.grey[600], fontSize: 14),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Tile Builder for Date Picker - EXACTLY LIKE JOB APPLY NOW
+  Widget _buildTile({
+    required String title,
+    required String? value,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: primaryColor, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                value ?? title,
+                style: GoogleFonts.poppins(
+                  color: value == null ? Colors.grey[600] : Colors.black,
+                  fontSize: 15,
+                ),
+              ),
+            ),
+            const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Service Avatar Builder
+  Widget _buildServiceAvatar({double size = 80}) {
+    final serviceName = widget.service['name'] ?? 'Service';
+    final initials = serviceName.isNotEmpty
+        ? serviceName.split(' ').map((s) => s.isNotEmpty ? s[0] : '').take(2).join().toUpperCase()
+        : 'SV';
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: primaryColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(
+        child: Text(
+          initials,
+          style: GoogleFonts.poppins(
+            color: Colors.white,
+            fontSize: size / 3,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final service = widget.service;
+    final serviceName = (service['name'] ?? 'Drone Service').trim();
+    final price = service['price']?.toString() ?? '0';
+
+    if (_isLoadingBuyerId) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF2F7FB),
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
     return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        title: Text("Book ${service['name']}"),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-      ),
-
-      // ============= UI UNTOUCHED — EXACTLY SAME =============
-      body: _isLoadingBuyerId
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            // ================= SERVICE CARD ==================
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [primaryColor, secondaryColor],
+      backgroundColor: const Color(0xFFF2F7FB),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              // Header - EXACTLY LIKE JOB APPLY NOW
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [primaryColor, accentColor],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.rocket_launch,
-                      color: Colors.white, size: 33),
-                  const SizedBox(width: 14),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        service["name"] ?? "",
-                        style: GoogleFonts.lexend(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: const Icon(Icons.arrow_back_ios,
+                          color: Colors.white, size: 20),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      "Let's book your drone service",
+                      style: GoogleFonts.poppins(
+                        fontSize: 22,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        "₹${service['price']}",
-                        style: GoogleFonts.lexend(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    ],
-                  )
-                ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      "Book professional drone service at your preferred time and location.",
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(height: 24),
 
-            const SizedBox(height: 28),
-
-            // ================= FORM ==================
-            Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  TextFormField(
-                    controller: nameCtrl,
-                    decoration: _input("Your Name", Icons.person),
-                    validator: (v) =>
-                    v!.isEmpty ? "Enter your name" : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: emailCtrl,
-                    decoration: _input("Email ID", Icons.email),
-                    validator: (v) =>
-                    v!.contains("@") ? null : "Enter valid email",
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: locationCtrl,
-                    decoration:
-                    _input("Your Location", Icons.location_on),
-                    validator: (v) =>
-                    v!.isEmpty ? "Enter your location" : null,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Date Picker
-                  InkWell(
-                    onTap: pickDate,
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border:
-                          Border.all(color: Colors.grey.shade300)),
-                      child: Row(
+              // Service Card - EXACTLY LIKE JOB APPLY NOW
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 6,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    _buildServiceAvatar(size: 80),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.calendar_today,
-                              color: primaryColor),
-                          const SizedBox(width: 10),
+                          Text(serviceName,
+                              style: GoogleFonts.poppins(
+                                fontSize: 18,
+                                color: primaryColor,
+                                fontWeight: FontWeight.w600,
+                              )),
                           Text(
-                            selectedDate == null
-                                ? "Choose Service Date"
-                                : selectedDate!
-                                .toString()
-                                .split(" ")[0],
-                            style: GoogleFonts.lexend(fontSize: 14),
+                            "Professional Drone Service",
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
                           ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const SizedBox(width: 4),
+                              const Spacer(),
+                              Text("₹$price",
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 15,
+                                      color: primaryColor,
+                                      fontWeight: FontWeight.w600)),
+                            ],
+                          )
                         ],
                       ),
                     ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Booking Form - EXACTLY LIKE JOB APPLY NOW
+              Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    _buildTextField(
+                      label: "Your Name",
+                      icon: Icons.person,
+                      controller: nameCtrl,
+                      validator: (v) =>
+                      v == null || v.isEmpty ? "Enter your name" : null,
+                    ),
+                    _buildTextField(
+                      label: "Email Address",
+                      icon: Icons.email,
+                      controller: emailCtrl,
+                      type: TextInputType.emailAddress,
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return "Enter email";
+                        if (!RegExp(r"^[^@]+@[^@]+\.[^@]+").hasMatch(v.trim())) {
+                          return "Enter valid email";
+                        }
+                        return null;
+                      },
+                    ),
+                    _buildTextField(
+                      label: "Location",
+                      icon: Icons.location_on,
+                      controller: locationCtrl,
+                      validator: (v) =>
+                      v == null || v.isEmpty ? "Enter location" : null,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildTile(
+                      title: "Select Service Date",
+                      value: selectedDate != null
+                          ? selectedDate.toString().split(" ")[0]
+                          : null,
+                      icon: Icons.calendar_today,
+                      onTap: pickDate,
+                    ),
+                    _buildTextField(
+                      label: "Additional Notes (Optional)",
+                      icon: Icons.note,
+                      controller: noteCtrl,
+                      maxLines: 3,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 30),
+
+              // Book Now Button - EXACTLY LIKE JOB APPLY NOW
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : submitBooking,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    elevation: 3,
                   ),
-
-                  const SizedBox(height: 16),
-
-                  TextFormField(
-                    controller: noteCtrl,
-                    maxLines: 4,
-                    decoration: _input("Additional Notes", Icons.notes),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 55,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : submitBooking,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                      ),
-                      child: _isLoading
-                          ? const CircularProgressIndicator(
-                          color: Colors.white)
-                          : const Text("Confirm Booking"),
+                  child: _isLoading
+                      ? const CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 2)
+                      : Text(
+                    "Book Now",
+                    style: GoogleFonts.poppins(
+                      fontSize: 17,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                ],
+                ),
               ),
-            )
-          ],
+            ],
+          ),
         ),
       ),
     );

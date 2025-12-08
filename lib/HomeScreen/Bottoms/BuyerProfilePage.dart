@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flyhub/T&C/Help_Support_Page.dart';
@@ -8,6 +9,7 @@ import 'package:flyhub/T&C/Terms_Conditions.dart';
 import 'package:flyhub/T&C/feedback_form.dart';
 import '../../BuyerBookingStatuses/Buyer_Shipping_Policy.dart';
 import '../../HomeScreen/Dynamichome.dart';
+import '../../HomeScreen/Bottoms/SellerPage.dart';
 import '../../HomeScreen/Bottoms/GuestProfilePage.dart';
 import '../../BuyerBookingStatuses/Buyer_Return_Refund_Policy.dart';
 import '../../SellerBookingStatuses/Seller_Shipping_Policy.dart';
@@ -37,6 +39,27 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
 
   static const Color primaryColor = Color(0xFF1A0A5B);
   static const Color backgroundColor = Color(0xFFF8F9FA);
+
+  // SVG Helper Method for drone only
+  Widget _buildDroneSvgIcon({Color? color, double size = 22}) {
+    return SvgPicture.asset(
+      'assets/categories/drone1.svg',
+      width: size,
+      height: size,
+      colorFilter: color != null
+          ? ColorFilter.mode(color, BlendMode.srcIn)
+          : null,
+      placeholderBuilder: (context) => Container(
+        width: size,
+        height: size,
+        padding: EdgeInsets.all(size * 0.2),
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -87,6 +110,15 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
 
       final role = data['role']?.toString().toLowerCase() ?? "buyer";
 
+      if (role != "buyer") {
+        await RoleManager.setLocalRole("seller");
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const SellerPage()),
+        );
+        return;
+      }
 
       await RoleManager.setLocalRole("buyer");
 
@@ -98,8 +130,18 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
     }
   }
 
-
-
+  Future<void> _switchToSeller() async {
+    HapticFeedback.selectionClick();
+    try {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const SellerPage()),
+      );
+    } catch (e) {
+      debugPrint("⚠ Switch to seller error: $e");
+    }
+  }
 
   Future<void> _logout() async {
     showDialog(
@@ -142,7 +184,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
         _user?.displayName ??
         "Buyer";
     final email = _buyerData?['email'] ?? _user?.email ?? "";
-
 
     return Container(
       color: Colors.white,
@@ -190,7 +231,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-
                 const SizedBox(height: 8),
               ],
             ),
@@ -314,6 +354,44 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
     );
   }
 
+  // Special method for drone rental item with SVG
+  Widget _buildDroneListItem({
+    required String title,
+    required VoidCallback onTap,
+    Color? iconColor,
+    bool showTrailing = true,
+  }) {
+    return ListTile(
+      onTap: onTap,
+      leading: Container(
+        width: 36,
+        height: 36,
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: (iconColor ?? primaryColor).withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: _buildDroneSvgIcon(
+          color: iconColor ?? primaryColor,
+          size: 20,
+        ),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          color: Colors.black87,
+        ),
+      ),
+      trailing: showTrailing
+          ? Icon(Icons.chevron_right, size: 20, color: Colors.grey.shade400)
+          : null,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      dense: true,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -350,7 +428,7 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
             );
           },
         ),
-
+        // REMOVED: Seller button from actions
       ),
       body: Column(
         children: [
@@ -394,7 +472,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                           MaterialPageRoute(builder: (_) => const WishlistPage()),
                         ),
                       ),
-
                     ],
                   ),
                 ),
@@ -403,17 +480,15 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                 _buildSection(
                   title: "My Activities",
                   children: [
-                    _buildListItem(
-                      icon: Icons.flight,
+                    // Drone Rentals with SVG icon
+                    _buildDroneListItem(
                       title: "Drone Rentals",
-                      onTap: () {
-                        final buyerId = _buyerData?['buyerId'] ?? '';
-                        Navigator.push(context,
-                          MaterialPageRoute(builder: (_) =>  DroneRentalApprovalPage(buyerId: buyerId)
-                          ),
-                        );
-                      },
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const DroneRentalApprovalPage(buyerId: '',)),
+                      ),
                     ),
+                    // Other items with Material Icons
                     _buildListItem(
                       icon: Icons.work_outline,
                       title: "Job Applications",
@@ -435,7 +510,7 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => PilotBookingStatusPage(buyerId: buyerId),  //buyerId: buyerId
+                            builder: (_) => PilotBookingStatusPage(buyerId: buyerId),
                           ),
                         );
                       },
@@ -443,15 +518,10 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                     _buildListItem(
                       icon: Icons.handyman_outlined,
                       title: "Service Bookings",
-                      onTap: () {
-                        final buyerId = _buyerData?['buyerId'] ?? '';
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => BuyerServiceBookingStatusPage(buyerId: buyerId),  //buyerId: buyerId
-                          ),
-                        );
-                      },
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const BuyerServiceBookingStatusPage(buyerId: '',)),
+                      ),
                     ),
                   ],
                 ),
@@ -558,7 +628,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                           color: Colors.grey.shade600,
                         ),
                       ),
-
                     ],
                   ),
                 ),

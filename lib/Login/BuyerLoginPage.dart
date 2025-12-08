@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../HomeScreen/Dynamichome.dart';
 import '../../services/role_manager.dart';
@@ -13,7 +14,7 @@ import '../../services/graphql_client.dart';
 import '../../config/env.dart';
 import './BuyerRegisterPage.dart';
 import './ForgotPasswordPage.dart';
-import '../Login/FlyHubSelectionPage.dart'; // Add this import
+import '../Login/FlyHubSelectionPage.dart';
 
 class BuyerLoginPage extends StatefulWidget {
   final String? logoPath;
@@ -38,12 +39,48 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
   static const Color borderColor = Color(0xFFE5E7EB);
   static const Color textSecondary = Color(0xFF6B7280);
 
+  // Social Media URLs - Replace with your actual URLs
+  final Map<String, String> socialMediaUrls = {
+    'instagram': 'https://www.instagram.com/flyhub_info?igsh=OWM2a3E2Ym81bzRs',
+    'linkedin': 'https://www.linkedin.com/company/flyhubinfo/',
+    'facebook': 'https://facebook.com/your_page',
+    'twitter': 'https://twitter.com/your_handle',
+    'whatsapp': 'https://wa.me/+919003992693', // or use 'https://wa.me/1234567890?text=Hello'
+  };
+
   // Back navigation to FlyHubSelectionPage
   void _goBackToFlyHubSelection() {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const FlyHubSelectionPage()),
     );
+  }
+
+  // =============================================================
+  // 🌐 LAUNCH SOCIAL MEDIA URL
+  // =============================================================
+  Future<void> _launchSocialMedia(String platform) async {
+    final url = socialMediaUrls[platform];
+
+    if (url == null) {
+      showMessage("Link not available for $platform");
+      return;
+    }
+
+    final uri = Uri.parse(url);
+
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+      } else {
+        showMessage("Could not launch $platform");
+      }
+    } catch (e) {
+      showMessage("Error opening $platform: $e");
+    }
   }
 
   // =============================================================
@@ -477,18 +514,56 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _buildSocialIcon('assets/categories/instagram.png'),
+                        // Instagram
+                        _buildSocialIcon(
+                          'assets/categories/instagram.png',
+                          onTap: () => _launchSocialMedia('instagram'),
+                          tooltip: 'Follow us on Instagram',
+                        ),
                         const SizedBox(width: 20),
-                        _buildSocialIcon('assets/categories/linkedin.png'),
+
+                        // LinkedIn
+                        _buildSocialIcon(
+                          'assets/categories/linkedin.png',
+                          onTap: () => _launchSocialMedia('linkedin'),
+                          tooltip: 'Connect on LinkedIn',
+                        ),
                         const SizedBox(width: 20),
-                        _buildSocialIcon('assets/categories/facebook.png'),
+
+                        // Facebook
+                        _buildSocialIcon(
+                          'assets/categories/facebook.png',
+                          onTap: () => _launchSocialMedia('facebook'),
+                          tooltip: 'Like us on Facebook',
+                        ),
                         const SizedBox(width: 20),
-                        _buildSocialIcon('assets/categories/twitter.png'),
+
+                        // Twitter
+                        _buildSocialIcon(
+                          'assets/categories/twitter.png',
+                          onTap: () => _launchSocialMedia('twitter'),
+                          tooltip: 'Follow us on Twitter',
+                        ),
                         const SizedBox(width: 20),
-                        _buildSocialIcon('assets/categories/whatsapp.png'),
+
+                        // WhatsApp
+                        _buildSocialIcon(
+                          'assets/categories/whatsapp.png',
+                          onTap: () => _launchSocialMedia('whatsapp'),
+                          tooltip: 'Message us on WhatsApp',
+                        ),
                       ],
                     ),
                     const SizedBox(height: 12),
+
+                    // Optional: Add your website or contact info
+                    Text(
+                      "Contact: info@yourcompany.com",
+                      style: GoogleFonts.inter(
+                        color: textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -556,23 +631,29 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
     );
   }
 
-  Widget _buildSocialIcon(String iconPath) {
-    return Container(
-      width: 40,
-      height: 40,
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: themeColor.withOpacity(0.1),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
+  Widget _buildSocialIcon(String iconPath, {required VoidCallback onTap, String? tooltip}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Tooltip(
+        message: tooltip ?? '',
+        child: Container(
+          width: 40,
+          height: 40,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: themeColor.withOpacity(0.1),
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-        ],
+          child: Image.asset(iconPath, fit: BoxFit.contain),
+        ),
       ),
-      child: Image.asset(iconPath, fit: BoxFit.contain),
     );
   }
 

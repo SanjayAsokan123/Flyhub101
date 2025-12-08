@@ -78,16 +78,16 @@ class ResponsiveUtils {
   // Category items
   static double getCategoryItemSize(BuildContext context) {
     final width = getScreenWidth(context);
-    if (width < 360) return 0.22;
-    if (width < 600) return 0.20;
+    if (width < 360) return 0.20;
+    if (width < 600) return 0.19;
     if (width < 800) return 0.18;
     return 0.16;
   }
 
   static double getCategoryIconSize(BuildContext context) {
     final width = getScreenWidth(context);
-    if (width < 360) return 0.16;
-    if (width < 600) return 0.15;
+    if (width < 360) return 0.14;
+    if (width < 600) return 0.13;
     if (width < 800) return 0.12;
     return 0.10;
   }
@@ -110,7 +110,7 @@ class ResponsiveUtils {
   // Banner height
   static double getBannerHeight(BuildContext context) {
     final height = getScreenHeight(context);
-    return height * 0.22;
+    return height * 0.23;
   }
 
   // Grid layouts

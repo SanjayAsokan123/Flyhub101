@@ -1,0 +1,637 @@
+// //DroneDetailPage.dart
+// import 'CommonClass/utils.dart';
+// import 'package:flutter/material.dart';
+// import 'package:google_fonts/google_fonts.dart';
+// import 'package:share_plus/share_plus.dart';
+// import 'package:provider/provider.dart';
+// import 'BuyerDetails/MyCartPage.dart';
+// import 'AddressPage.dart';
+// import '../services/cart_wishlist_provider.dart';
+//
+// class DroneDetailPage extends StatefulWidget {
+//   final Map<String, dynamic> drone;
+//   final bool initialIsFavorite;
+//
+//   const DroneDetailPage({
+//     super.key,
+//     required this.drone,
+//     this.initialIsFavorite = false,
+//   });
+//
+//
+//   @override
+//   State<DroneDetailPage> createState() => _DroneDetailPageState();
+// }
+//
+// class _DroneDetailPageState extends State<DroneDetailPage> {
+//   int quantity = 1;
+//  int cartCount = 0;
+//   bool _localIsFavorite = false;
+//   bool _wishlistChanged = false;
+//
+//   final Color themeColor = const Color(0xFF1A0A5B);
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//    _loadCartCount();
+//     _localIsFavorite = widget.initialIsFavorite;
+//   }
+//
+
+  Future<void> _loadCartCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString('cart') ?? '[]';
+    final cartItems = jsonDecode(saved);
+    setState(() => cartCount = cartItems.length);
+  }
+//   // --------------------------
+//   // Wishlist Toggle (Provider)
+//   // --------------------------
+//   Future<void> _toggleWishlist() async {
+//     final provider = context.read<CartWishlistProvider>();
+//     final name = widget.drone['name'] ?? 'Item';
+//     final productId = widget.drone['productId']?.toString() ??
+//         widget.drone['id']?.toString()
+//         ?? widget.drone["id"]?.toString()
+//         ?? "";
+//
+//     if (productId.trim().isEmpty) {
+//       Utils.bottomToast(context, "Invalid product ID");
+//       return;
+//     }
+//
+//
+//     final added = await provider.toggleWishlist(productId);
+//
+//
+    setState(() {
+      _localIsFavorite = added;
+      _wishlistChanged = true;
+    });
+//
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       SnackBar(
+//         backgroundColor: themeColor,
+//         content: Row(
+//           children: [
+//             Icon(
+//               added ? Icons.favorite : Icons.favorite_border,
+//               color: Colors.white,
+//             ),
+//             SizedBox(width: 10),
+//             Text(
+//               added ? "$name added to wishlist" : "$name removed from wishlist",
+//               style: GoogleFonts.lexend(color: Colors.white),
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+//
+//
+//
+//   bool _isInWishlist(BuildContext context) {
+//     final provider = context.watch<CartWishlistProvider>();
+//     final id = widget.drone['productId']?.toString() ?? widget.drone['id'].toString();
+//     return provider.wishlistIds.contains(id);
+//   }
+//
+//  Future<void> _addToCart() async {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString('cart') ?? '[]';
+      List<dynamic> cartItems = jsonDecode(saved);
+
+      final currentDrone = {
+        'id': widget.drone['id'],
+        'name': widget.drone['name'],
+        'price': widget.drone['price'],
+        'brand': widget.drone['brand'],
+        'image': widget.drone['image'],
+        'quantity': quantity,
+      };
+
+      final exists =
+      cartItems.any((item) => item['id'] == currentDrone['id']);
+      if (exists) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("This item is already in your cart 🛒"),
+            backgroundColor: Colors.orangeAccent,
+          ),
+        );
+        return;
+      }
+
+      cartItems.add(currentDrone);
+      await prefs.setString('cart', jsonEncode(cartItems));
+      setState(() => cartCount = cartItems.length);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: themeColor,
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 10),
+              Text(
+                "Added to cart successfully!",
+                style: GoogleFonts.lexend(color: Colors.white),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+//   // --------------------------
+//   // Add to Cart (Backend Only)
+//   // --------------------------
+//   Future<void> _addToCart() async {
+//     final provider = context.read<CartWishlistProvider>();
+//     final productId = widget.drone['productId']?.toString() ?? widget.drone['id'];
+//
+//     if (productId.isEmpty) {
+//       Utils.bottomToast(context, "Invalid product ID");
+//       return;
+//     }
+//
+//     await provider.addToCart(productId);
+//
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       SnackBar(
+//         content: Text("Added to cart!"),
+//         backgroundColor: themeColor,
+//       ),
+//     );
+//   }
+//
+//
+//   void _popWithResult() {
+//     Navigator.pop(context, {
+//       'wishlistChanged': _wishlistChanged,
+//       'isFavorite': _localIsFavorite,
+//     });
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final provider = context.watch<CartWishlistProvider>();
+//     final cartCount = provider.cartCount;
+//
+//     final drone = widget.drone;
+//     final isFavorite = _isInWishlist(context) || _localIsFavorite;
+//
+//     final double price = (drone['price'] ?? 0).toDouble();
+//     final double totalAmount = price * quantity;
+//
+//     return WillPopScope(
+//       onWillPop: () async {
+//         _popWithResult();
+//         return false;
+//       },
+//       child: Scaffold(
+//         backgroundColor: const Color(0xfff7f7f7),
+//         appBar: AppBar(
+//           backgroundColor: Colors.white,
+//           elevation: 1,
+//           leading: IconButton(
+//             icon: const Icon(Icons.arrow_back, color: Colors.black),
+//             onPressed: _popWithResult,
+//           ),
+//           title: Text(
+//             drone['name'] ?? 'Drone Details',
+//             style: GoogleFonts.lexend(
+//               fontWeight: FontWeight.bold,
+//               color: Colors.black,
+//             ),
+//           ),
+//           centerTitle: true,
+//           actions: [
+//             // Wishlist Button
+//             IconButton(
+//               icon: Icon(
+//                 isFavorite ? Icons.favorite : Icons.favorite_border,
+//                 color: isFavorite ? Colors.redAccent : themeColor,
+//               ),
+//               onPressed: _toggleWishlist,
+//             ),
+//
+//             // Cart Button with Badge
+//             Stack(
+//               children: [
+//                 IconButton(
+//                   icon: Icon(Icons.shopping_cart_outlined, color: themeColor),
+//                   onPressed: () async {
+//                     await Navigator.push(
+//                       context,
+//                       MaterialPageRoute(builder: (_) => const MyCartPage()),
+//                     );
+//                   },
+//                 ),
+//
+//                 if (cartCount > 0)
+//                   Positioned(
+//                     right: 6,
+//                     top: 6,
+//                     child: Container(
+//                       padding: const EdgeInsets.all(3),
+//                       decoration: BoxDecoration(
+//                         color: Colors.redAccent,
+//                         borderRadius: BorderRadius.circular(10),
+//                       ),
+//                       constraints: const BoxConstraints(
+//                           minWidth: 16, minHeight: 16),
+//                       child: Text(
+//                         '$cartCount',
+//                         style: const TextStyle(
+//                           color: Colors.white,
+//                           fontSize: 10,
+//                           fontWeight: FontWeight.bold,
+//                         ),
+//                         textAlign: TextAlign.center,
+//                       ),
+//                     ),
+//                   ),
+//               ],
+//             ),
+//
+//             IconButton(
+//               icon: Icon(Icons.share, color: themeColor),
+//               onPressed: () {
+//                 final text =
+//                     "🚀 Check out this drone!\n${drone['name']} - ₹${drone['price']}\n${drone['description'] ?? "Amazing performance and great quality!"}";
+//                 Share.share(text);
+//               },
+//             ),
+//           ],
+//         ),
+//
+//         // ------------------------
+//         // BODY (UNCHANGED UI)
+//         // ------------------------
+//         body: SingleChildScrollView(
+//           physics: const AlwaysScrollableScrollPhysics(),
+//           child: Column(
+//             crossAxisAlignment: CrossAxisAlignment.start,
+//             children: [
+//               GestureDetector(
+//                 onTap: _showFullScreenImage,
+//                 child: Container(
+//                   height: 280,
+//                   width: double.infinity,
+//                   decoration: BoxDecoration(
+//                     image: DecorationImage(
+//                       image: (drone['image'] != null && drone['image'].toString().isNotEmpty)
+//                           ? NetworkImage(drone['image'])
+//                           : const AssetImage('assets/images/MaskGroup34@2x.png')
+//                       as ImageProvider,
+//                       fit: BoxFit.cover,
+//                     ),
+//                   ),
+//                 ),
+//               ),
+//               const SizedBox(height: 20),
+//
+//               // Product Info Container
+//               Container(
+//                 padding: const EdgeInsets.all(20),
+//                 margin: const EdgeInsets.symmetric(horizontal: 16),
+//                 decoration: BoxDecoration(
+//                   color: Colors.white,
+//                   borderRadius: BorderRadius.circular(18),
+//                   boxShadow: [
+//                     BoxShadow(
+//                       color: Colors.grey.shade300,
+//                       blurRadius: 12,
+//                       offset: const Offset(0, 6),
+//                     ),
+//                   ],
+//                 ),
+//                 child: Column(
+//                   crossAxisAlignment: CrossAxisAlignment.start,
+//                   children: [
+//                     Text(
+//                       drone['name'] ?? "Drone",
+//                       style: GoogleFonts.lexend(
+//                         fontSize: 22,
+//                         fontWeight: FontWeight.w600,
+//                         color: Colors.black,
+//                       ),
+//                     ),
+//                     const SizedBox(height: 4),
+//                     Text(
+//                       drone['brand'] ?? "Drone Brand",
+//                       style:
+//                       GoogleFonts.lexend(color: Colors.black87),
+//                     ),
+//                     const SizedBox(height: 10),
+//
+//                     Row(
+//                       children: [
+//                         Text(
+//                           "₹${drone['price'] ?? 0}",
+//                           style: GoogleFonts.lexend(
+//                             fontSize: 22,
+//                             fontWeight: FontWeight.bold,
+//                             color: themeColor,
+//                           ),
+//                         ),
+//                         const SizedBox(width: 8),
+//                         Text(
+//                           "₹${(drone['price'] ?? 0) + 2000}",
+//                           style: GoogleFonts.lexend(
+//                             fontSize: 16,
+//                             color: Colors.grey,
+//                             decoration: TextDecoration.lineThrough,
+//                           ),
+//                         ),
+//                         const SizedBox(width: 8),
+//                         Container(
+//                           padding: const EdgeInsets.symmetric(
+//                               horizontal: 6, vertical: 2),
+//                           decoration: BoxDecoration(
+//                             color: Colors.redAccent,
+//                             borderRadius: BorderRadius.circular(6),
+//                           ),
+//                           child: Text(
+//                             "10% OFF",
+//                             style: GoogleFonts.lexend(
+//                               color: Colors.white,
+//                               fontSize: 12,
+//                               fontWeight: FontWeight.bold,
+//                             ),
+//                           ),
+//                         ),
+//                       ],
+//                     ),
+//
+//                     const SizedBox(height: 16),
+//
+//                     // Quantity Selector
+//                     Row(
+//                       children: [
+//                         Text(
+//                           "Quantity:",
+//                           style: GoogleFonts.lexend(
+//                             fontSize: 16,
+//                             color: Colors.black,
+//                           ),
+//                         ),
+//                         const SizedBox(width: 10),
+//                         Container(
+//                           decoration: BoxDecoration(
+//                             color: Colors.grey.shade100,
+//                             borderRadius: BorderRadius.circular(12),
+//                           ),
+//                           child: Row(
+//                             children: [
+//                               IconButton(
+//                                 icon: const Icon(Icons.remove_circle_outline),
+//                                 onPressed: () {
+//                                   if (quantity > 1) {
+//                                     setState(() => quantity--);
+//                                   }
+//                                 },
+//                               ),
+//                               Text(
+//                                 '$quantity',
+//                                 style: GoogleFonts.lexend(
+//                                   fontSize: 16,
+//                                   color: Colors.black,
+//                                 ),
+//                               ),
+//                               IconButton(
+//                                 icon: const Icon(Icons.add_circle_outline),
+//                                 onPressed: () {
+//                                   setState(() => quantity++);
+//                                 },
+//                               ),
+//                             ],
+//                           ),
+//                         ),
+//                       ],
+//                     ),
+//                   ],
+//                 ),
+//               ),
+//
+//               const SizedBox(height: 20),
+//
+//               _sectionTitle("Description"),
+//               _sectionText(
+//                 drone['description'] ??
+//                     "Experience high-speed performance and HD imaging with this advanced drone.",
+//               ),
+//
+//               const SizedBox(height: 40),
+//             ],
+//           ),
+//         ),
+//
+//         // Bottom Cart + Buy Now
+//         bottomNavigationBar: Container(
+//           padding: const EdgeInsets.all(12),
+//           color: Colors.white,
+//           child: Row(
+//             children: [
+//               Expanded(
+//                 child: ElevatedButton.icon(
+//                   style: ElevatedButton.styleFrom(
+//                     backgroundColor: themeColor,
+//                     shape: RoundedRectangleBorder(
+//                       borderRadius: BorderRadius.circular(12),
+//                     ),
+//                     padding: const EdgeInsets.symmetric(vertical: 14),
+//                   ),
+//                   onPressed: _addToCart,
+//                   icon: const Icon(Icons.shopping_cart_outlined,
+//                       color: Colors.white),
+//                   label: Text(
+//                     "Add to Cart",
+//                     style: GoogleFonts.lexend(
+//                       fontSize: 16,
+//                       color: Colors.white,
+//                     ),
+//                   ),
+//                 ),
+//               ),
+//
+//               const SizedBox(width: 10),
+//
+//               Expanded(
+//                 child: ElevatedButton.icon(
+//                   style: ElevatedButton.styleFrom(
+//                     backgroundColor: Colors.orangeAccent,
+//                     shape: RoundedRectangleBorder(
+//                       borderRadius: BorderRadius.circular(12),
+//                     ),
+//                     padding: const EdgeInsets.symmetric(vertical: 14),
+//                   ),
+//                   onPressed: () {
+//                     Navigator.push(
+//                       context,
+//                       MaterialPageRoute(
+//                         builder: (_) => AddressPage(
+//                           total: (drone['price'] ?? 0) * quantity,
+//                           orderData: {
+//                             "type": "single",
+//                             "product": {
+//                               ...drone,
+//                               "quantity": quantity,
+//                             }
+//                           },
+//                         ),
+//                       ),
+//                     );
+//                   },
+//                   icon: const Icon(Icons.flash_on, color: Colors.white),
+//                   label: Text(
+//                     "Buy Now",
+//                     style: GoogleFonts.lexend(
+//                       fontSize: 16,
+//                       color: Colors.white,
+//                     ),
+//                   ),
+//                 ),
+//               ),
+//             ],
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+//
+//   Widget _sectionTitle(String text) => Padding(
+//     padding: const EdgeInsets.symmetric(horizontal: 20),
+//     child: Text(
+//       text,
+//       style: GoogleFonts.lexend(
+//         fontSize: 18,
+//         fontWeight: FontWeight.bold,
+//         color: Colors.black,
+//       ),
+//     ),
+//   );
+//
+//   Widget _sectionText(String text) => Padding(
+//     padding:
+//     const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+//     child: Text(
+//       text,
+//       style: GoogleFonts.lexend(
+//         color: Colors.black87,
+//         height: 1.6,
+//         fontSize: 14,
+//       ),
+//     ),
+//   );
+//
+//   void _showFullScreenImage() {
+//     Navigator.push(
+//       context,
+//       MaterialPageRoute(
+//         builder: (context) => FullScreenImageViewer(
+//           imageUrl: widget.drone['image'],
+//           productName: widget.drone['name'],
+//         ),
+//       ),
+//     );
+//   }
+// }
+//
+// // =========================================================
+// // Full Screen Image Viewer (unchanged)
+// // =========================================================
+//
+// class FullScreenImageViewer extends StatefulWidget {
+//   final String? imageUrl;
+//   final String? productName;
+//
+//   const FullScreenImageViewer({
+//     super.key,
+//     required this.imageUrl,
+//     required this.productName,
+//   });
+//
+//   @override
+//   State<FullScreenImageViewer> createState() =>
+//       _FullScreenImageViewerState();
+// }
+//
+// class _FullScreenImageViewerState
+//     extends State<FullScreenImageViewer> {
+//   final TransformationController _transformationController =
+//   TransformationController();
+//   late InteractiveViewer _interactiveViewer;
+//   double _scale = 1.0;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     _interactiveViewer = InteractiveViewer(
+//       transformationController: _transformationController,
+//       minScale: 0.5,
+//       maxScale: 5.0,
+//       child: Container(
+//         decoration: BoxDecoration(
+//           image: DecorationImage(
+//             image: widget.imageUrl != null && widget.imageUrl!.isNotEmpty
+//                 ? NetworkImage(widget.imageUrl!)
+//                 : const AssetImage('assets/images/MaskGroup34@2x.png')
+//             as ImageProvider,
+//             fit: BoxFit.contain,
+//           ),
+//         ),
+//       ),
+//     );
+//
+//     _transformationController.addListener(() {
+//       setState(() {
+//         _scale = _transformationController.value.getMaxScaleOnAxis();
+//       });
+//     });
+//   }
+//
+//   void _resetZoom() {
+//     _transformationController.value = Matrix4.identity();
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final paddingTop = MediaQuery.of(context).padding.top;
+//     final paddingBottom = MediaQuery.of(context).padding.bottom;
+//
+//     return Scaffold(
+//       backgroundColor: Colors.black,
+//       body: Stack(
+//         children: [
+//           Positioned.fill(
+//             child: GestureDetector(
+//               onDoubleTap: _resetZoom,
+//               child: _interactiveViewer,
+//             ),
+//           ),
+//           Positioned(
+//             top: paddingTop + 16,
+//             left: 16,
+//             child: GestureDetector(
+//               onTap: () => Navigator.pop(context),
+//               child: Container(
+//                 width: 44,
+//                 height: 44,
+//                 decoration: const BoxDecoration(
+//                   color: Colors.black54,
+//                   shape: BoxShape.circle,
+//                 ),
+//                 child: const Icon(Icons.arrow_back,
+//                     color: Colors.white, size: 24),
+//               ),
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
+

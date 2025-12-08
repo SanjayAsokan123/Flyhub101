@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../CommonClass/utils.dart';
 import '../../CommonClass/ApiClass.dart';
 import '../../ApplyingBookingNow/JobApplyNow.dart';
 import '../../utils/responsive_utils.dart';
+import '../../services/role_manager.dart';
+import '../../Login/BuyerLoginPage.dart';
+import '../../Login/BuyerRegisterPage.dart';
 
 class JobsPage extends StatefulWidget {
   const JobsPage({super.key});
@@ -31,10 +35,6 @@ class _JobsPageState extends State<JobsPage> {
   List<dynamic> jobList = [];
   List<dynamic> filteredList = [];
   String searchQuery = '';
-
-  String selectedJobType = "All";
-  String selectedLocation = "All";
-  String selectedSalary = "All";
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -69,8 +69,7 @@ class _JobsPageState extends State<JobsPage> {
         dataList = responseData;
       }
 
-      final approvedJobs = dataList.where((job) => job["status"] == "approved")
-          .toList();
+      final approvedJobs = dataList.where((job) => job["status"] == "approved").toList();
 
       setState(() {
         jobList = approvedJobs;
@@ -88,62 +87,35 @@ class _JobsPageState extends State<JobsPage> {
   }
 
   void _searchJobs(String query) {
-    searchQuery = query.toLowerCase();
-    _applyFilters();
+    setState(() {
+      searchQuery = query.toLowerCase();
+      _applySearch();
+    });
   }
 
-  void _applyFilters() {
-    List<dynamic> list = List.from(jobList);
-
-    if (selectedJobType != "All") {
-      list = list
-          .where((job) =>
-      (job["jobType"] ?? "").toString().toLowerCase() ==
-          selectedJobType.toLowerCase())
-          .toList();
+  void _applySearch() {
+    if (searchQuery.isEmpty) {
+      setState(() {
+        filteredList = List.from(jobList);
+      });
+      return;
     }
 
-    if (selectedLocation != "All") {
-      list = list
-          .where((job) =>
-      (job["location"] ?? "").toString().toLowerCase() ==
-          selectedLocation.toLowerCase())
-          .toList();
-    }
+    final results = jobList.where((job) {
+      final name = (job['jobName'] ?? job['title'] ?? '').toString().toLowerCase();
+      final company = (job['companyName'] ?? job['company'] ?? '').toString().toLowerCase();
+      final location = (job['location'] ?? '').toString().toLowerCase();
+      final jobType = (job['jobType'] ?? '').toString().toLowerCase();
 
-    if (selectedSalary != "All") {
-      list = list.where((job) {
-        final salaryStr =
-            job["salary"]?.toString().replaceAll(RegExp(r'[^0-9]'), "") ?? "";
-        if (salaryStr.isEmpty) return false;
+      return name.contains(searchQuery) ||
+          company.contains(searchQuery) ||
+          location.contains(searchQuery) ||
+          jobType.contains(searchQuery);
+    }).toList();
 
-        final salary = int.tryParse(salaryStr) ?? 0;
-
-        if (selectedSalary == "0-20000") return salary < 20000;
-        if (selectedSalary == "20000-50000") {
-          return salary >= 20000 && salary <= 50000;
-        }
-        if (selectedSalary == "50000+") return salary > 50000;
-
-        return true;
-      }).toList();
-    }
-
-    if (searchQuery.isNotEmpty) {
-      list = list.where((job) {
-        final name =
-        (job['jobName'] ?? job['title'] ?? '').toString().toLowerCase();
-        final company =
-        (job['companyName'] ?? job['company'] ?? '').toString().toLowerCase();
-        final location = (job['location'] ?? '').toString().toLowerCase();
-
-        return name.contains(searchQuery) ||
-            company.contains(searchQuery) ||
-            location.contains(searchQuery);
-      }).toList();
-    }
-
-    setState(() => filteredList = list);
+    setState(() {
+      filteredList = results;
+    });
   }
 
   void _clearSearch() {
@@ -173,450 +145,175 @@ class _JobsPageState extends State<JobsPage> {
     );
   }
 
-  void _openFilterSheet() {
-    showModalBottomSheet(
+  // ✅ CHECK IF USER IS AUTHENTICATED FOR JOB APPLICATIONS
+  Future<bool> _checkJobAuth() async {
+    final role = await RoleManager.getLocalRole();
+
+    // Define which roles can apply for jobs
+    final allowedRoles = ["jobseeker", "buyer", "user", "applicant"];
+    if (allowedRoles.contains(role)) {
+      return true;
+    }
+
+    // User is not authenticated for jobs - show auth dialog
+    await _showJobAuthRequiredDialog(role);
+    return false;
+  }
+
+  // ✅ SHOW JOB AUTHENTICATION REQUIRED DIALOG
+  Future<void> _showJobAuthRequiredDialog(String? currentRole) async {
+    String title = "Account Required";
+    String message = "You need to create an account or login to apply for jobs.";
+    String userStatus = "guest user";
+
+    if (currentRole == "seller") {
+      title = "Switch to Job Seeker Account";
+      message = "You are currently logged in as a seller. To apply for jobs, you need to login or register as a job seeker.";
+      userStatus = "seller";
+    } else if (currentRole == "guest") {
+      title = "Create Account";
+      message = "Continue as guest? To apply for jobs, you need to create an account.";
+      userStatus = "guest";
+    }
+
+    await showDialog(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) =>
-          Container(
-            height: ResponsiveUtils.getPilotModalHeight(context),
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(
-                  ResponsiveUtils.getPilotCardRadius(context) * 2,
-                ),
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          title,
+          style: GoogleFonts.inter(
+            fontSize: ResponsiveUtils.getTitleFontSize(context),
+            fontWeight: FontWeight.w700,
+            color: primaryColor,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message,
+              style: GoogleFonts.inter(
+                fontSize: ResponsiveUtils.getBodyFontSize(context),
+                color: textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
+            Container(
+              padding: EdgeInsets.all(
+                ResponsiveUtils.getDynamicPadding(context, 0.02),
+              ),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.work_outline,
+                    color: primaryColor,
+                    size: ResponsiveUtils.getIconSize(context) * 0.8,
+                  ),
+                  SizedBox(width: ResponsiveUtils.getDynamicPadding(context, 0.01)),
+                  Expanded(
+                    child: Text(
+                      "Job applications require an account",
+                      style: GoogleFonts.inter(
+                        fontSize: ResponsiveUtils.getSmallFontSize(context),
+                        color: primaryColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: StatefulBuilder(
-              builder: (context, setModalState) {
-                String tempJobType = selectedJobType;
-                String tempLocation = selectedLocation == "All"
-                    ? ""
-                    : selectedLocation;
-                String tempSalary = selectedSalary;
-
-                final TextEditingController locationController =
-                TextEditingController(text: tempLocation);
-
-                return SingleChildScrollView(
-                  padding: EdgeInsets.all(
-                    ResponsiveUtils.getPilotSectionPadding(context),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Center(
-                        child: Container(
-                          width: ResponsiveUtils.getDynamicWidth(context, 0.1),
-                          height: ResponsiveUtils.getDynamicHeight(
-                              context, 0.003),
-                          decoration: BoxDecoration(
-                            color: borderColor,
-                            borderRadius: BorderRadius.circular(
-                              ResponsiveUtils.getDynamicPadding(context, 0.004),
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                          height: ResponsiveUtils.getSectionSpacing(context)),
-                      Text(
-                        "Advanced Filters",
-                        style: GoogleFonts.inter(
-                          fontSize: ResponsiveUtils.getTitleFontSize(context),
-                          fontWeight: FontWeight.w700,
-                          color: textPrimary,
-                        ),
-                      ),
-                      SizedBox(
-                          height: ResponsiveUtils.getSectionSpacing(context)),
-
-                      // Location Filter
-                      Text(
-                        "Location",
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600,
-                          color: textPrimary,
-                          fontSize: ResponsiveUtils.getBodyFontSize(context) +
-                              2,
-                        ),
-                      ),
-                      SizedBox(height: ResponsiveUtils.getCardMargin(context)),
-                      TextField(
-                        controller: locationController,
-                        decoration: InputDecoration(
-                          hintText: "Enter location...",
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(
-                              ResponsiveUtils.getDynamicPadding(context, 0.02),
-                            ),
-                            borderSide: BorderSide(color: borderColor),
-                          ),
-                          prefixIcon: Icon(
-                            Icons.location_on_outlined,
-                            size: ResponsiveUtils.getIconSize(context) * 0.8,
-                            color: textSecondary,
-                          ),
-                        ),
-                        onChanged: (value) {
-                          tempLocation = value.trim();
-                        },
-                      ),
-                      SizedBox(
-                          height: ResponsiveUtils.getSectionSpacing(context)),
-
-                      // Job Type Filter
-                      Text(
-                        "Job Type",
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600,
-                          color: textPrimary,
-                          fontSize: ResponsiveUtils.getBodyFontSize(context) +
-                              2,
-                        ),
-                      ),
-                      SizedBox(height: ResponsiveUtils.getCardMargin(context)),
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: ResponsiveUtils.getDynamicPadding(
-                              context, 0.02),
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: borderColor),
-                          borderRadius: BorderRadius.circular(
-                            ResponsiveUtils.getDynamicPadding(context, 0.02),
-                          ),
-                        ),
-                        child: DropdownButton<String>(
-                          value: tempJobType == "All" ? null : tempJobType,
-                          isExpanded: true,
-                          underline: const SizedBox(),
-                          items: [
-                            "Full-time",
-                            "Part-time",
-                            "Internship",
-                            "Contract"
-                          ]
-                              .map((type) =>
-                              DropdownMenuItem(
-                                value: type,
-                                child: Text(
-                                  type,
-                                  style: GoogleFonts.inter(
-                                    color: textPrimary,
-                                    fontSize: ResponsiveUtils.getBodyFontSize(
-                                        context),
-                                  ),
-                                ),
-                              ))
-                              .toList(),
-                          onChanged: (value) {
-                            setModalState(() => tempJobType = value.toString());
-                          },
-                          hint: Text(
-                            "Select Job Type",
-                            style: GoogleFonts.inter(
-                              color: textSecondary,
-                              fontSize: ResponsiveUtils.getBodyFontSize(
-                                  context),
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                          height: ResponsiveUtils.getSectionSpacing(context)),
-
-                      // Salary Range Filter
-                      Text(
-                        "Salary Range",
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600,
-                          color: textPrimary,
-                          fontSize: ResponsiveUtils.getBodyFontSize(context) +
-                              2,
-                        ),
-                      ),
-                      SizedBox(height: ResponsiveUtils.getCardMargin(context)),
-                      Container(
-                        padding: EdgeInsets.all(
-                          ResponsiveUtils.getPilotSectionPadding(context),
-                        ),
-                        decoration: BoxDecoration(
-                          color: primaryColor.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(
-                            ResponsiveUtils.getDynamicPadding(context, 0.03),
-                          ),
-                          border: Border.all(color: borderColor),
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  '₹${selectedSalary == "0-20000"
-                                      ? "0-20K"
-                                      : selectedSalary == "20000-50000"
-                                      ? "20K-50K"
-                                      : selectedSalary == "50000+"
-                                      ? "50K+"
-                                      : "All"}',
-                                  style: GoogleFonts.inter(
-                                    fontWeight: FontWeight.w700,
-                                    color: primaryColor,
-                                    fontSize: ResponsiveUtils.getBodyFontSize(
-                                        context) + 2,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: ResponsiveUtils.getCardMargin(
-                                context)),
-                            Wrap(
-                              spacing: ResponsiveUtils.getPilotCardSpacing(
-                                  context),
-                              runSpacing: ResponsiveUtils.getPilotCardSpacing(
-                                  context),
-                              children: [
-                                "All",
-                                "0-20000",
-                                "20000-50000",
-                                "50000+",
-                              ].map((range) {
-                                final isSelected = tempSalary == range;
-                                return ChoiceChip(
-                                  label: Text(
-                                    range == "All" ? "All" : '₹${range
-                                        .replaceAll("-", " - ")}',
-                                    style: GoogleFonts.inter(
-                                      fontWeight: FontWeight.w600,
-                                      color: isSelected
-                                          ? Colors.white
-                                          : textPrimary,
-                                      fontSize: ResponsiveUtils
-                                          .getSmallFontSize(context),
-                                    ),
-                                  ),
-                                  selected: isSelected,
-                                  onSelected: (selected) {
-                                    setModalState(() =>
-                                    tempSalary = selected ? range : "All");
-                                  },
-                                  backgroundColor: surfaceColor,
-                                  selectedColor: primaryColor,
-                                  side: BorderSide(color: borderColor),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(
-                                      ResponsiveUtils.getDynamicPadding(
-                                          context, 0.02),
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(
-                          height: ResponsiveUtils.getSectionSpacing(context) *
-                              2),
-
-                      // Apply Button
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () {
-                                setState(() {
-                                  selectedJobType = "All";
-                                  selectedLocation = "All";
-                                  selectedSalary = "All";
-                                });
-                                _applyFilters();
-                                Navigator.pop(context);
-                              },
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: textPrimary,
-                                side: BorderSide(
-                                  color: borderColor,
-                                  width: ResponsiveUtils.getBorderWidth(
-                                      context) * 8,
-                                ),
-                                padding: EdgeInsets.symmetric(
-                                  vertical: ResponsiveUtils
-                                      .getPilotButtonHeight(
-                                      context, percentage: 0.04),
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    ResponsiveUtils.getDynamicPadding(
-                                        context, 0.03),
-                                  ),
-                                ),
-                              ),
-                              child: Text(
-                                'Reset All',
-                                style: GoogleFonts.inter(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: ResponsiveUtils.getBodyFontSize(
-                                      context),
-                                ),
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: ResponsiveUtils.getPilotCardSpacing(
-                              context)),
-                          Expanded(
-                            flex: 2,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: primaryColor,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding: EdgeInsets.symmetric(
-                                  vertical: ResponsiveUtils
-                                      .getPilotButtonHeight(
-                                      context, percentage: 0.04),
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    ResponsiveUtils.getDynamicPadding(
-                                        context, 0.03),
-                                  ),
-                                ),
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  selectedJobType = tempJobType;
-                                  selectedLocation = locationController.text
-                                      .trim()
-                                      .isEmpty
-                                      ? "All"
-                                      : locationController.text.trim();
-                                  selectedSalary = tempSalary;
-                                });
-                                _applyFilters();
-                                Navigator.pop(context);
-                              },
-                              child: Text(
-                                'Apply (${filteredList.length} results)',
-                                style: GoogleFonts.inter(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: ResponsiveUtils.getBodyFontSize(
-                                      context),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(
-                          height: ResponsiveUtils.getSafeAreaBottom(context)),
-                    ],
-                  ),
-                );
-              },
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              "Cancel",
+              style: GoogleFonts.inter(
+                color: textSecondary,
+                fontWeight: FontWeight.w500,
+                fontSize: ResponsiveUtils.getBodyFontSize(context),
+              ),
             ),
           ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Navigate to registration page
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const BuyerRegisterPage()),
+              );
+            },
+            child: Text(
+              "Register",
+              style: GoogleFonts.inter(
+                color: primaryColor,
+                fontWeight: FontWeight.w600,
+                fontSize: ResponsiveUtils.getBodyFontSize(context),
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Navigate to login page
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const BuyerLoginPage()),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              "Login",
+              style: GoogleFonts.inter(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: ResponsiveUtils.getBodyFontSize(context),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildActiveFiltersChips() {
-    final List<Widget> chips = [];
+  // ✅ HANDLE JOB APPLICATION WITH AUTH CHECK
+  Future<void> _handleJobApplication(Map<String, dynamic> job) async {
+    // Check if user is authenticated
+    final isAuthenticated = await _checkJobAuth();
 
-    if (selectedJobType != "All") {
-      chips.add(
-        Chip(
-          label: Text(
-            selectedJobType,
-            style: GoogleFonts.inter(
-              fontSize: ResponsiveUtils.getSmallFontSize(context),
-              color: primaryColor,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          backgroundColor: primaryColor.withOpacity(0.1),
-          deleteIcon: Icon(Icons.close,
-              size: ResponsiveUtils.getOptimalIconSize(context) * 0.6),
-          onDeleted: () {
-            setState(() {
-              selectedJobType = "All";
-              _applyFilters();
-            });
-          },
-        ),
-      );
+    if (!isAuthenticated) {
+      return; // Auth dialog shown, stop here
     }
 
-    if (selectedLocation != "All") {
-      chips.add(
-        Chip(
-          label: Text(
-            selectedLocation,
-            style: GoogleFonts.inter(
-              fontSize: ResponsiveUtils.getSmallFontSize(context),
-              color: primaryColor,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          backgroundColor: primaryColor.withOpacity(0.1),
-          deleteIcon: Icon(Icons.close,
-              size: ResponsiveUtils.getOptimalIconSize(context) * 0.6),
-          onDeleted: () {
-            setState(() {
-              selectedLocation = "All";
-              _applyFilters();
-            });
-          },
-        ),
-      );
-    }
-
-    if (selectedSalary != "All") {
-      chips.add(
-        Chip(
-          label: Text(
-            '₹${selectedSalary.replaceAll("-", " - ")}',
-            style: GoogleFonts.inter(
-              fontSize: ResponsiveUtils.getSmallFontSize(context),
-              color: primaryColor,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          backgroundColor: primaryColor.withOpacity(0.1),
-          deleteIcon: Icon(Icons.close,
-              size: ResponsiveUtils.getOptimalIconSize(context) * 0.6),
-          onDeleted: () {
-            setState(() {
-              selectedSalary = "All";
-              _applyFilters();
-            });
-          },
-        ),
-      );
-    }
-
-    if (chips.isEmpty) return const SizedBox.shrink();
-
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: ResponsiveUtils.getHorizontalPadding(context),
-        vertical: ResponsiveUtils.getVerticalPadding(context) * 0.5,
-      ),
-      child: Wrap(
-        spacing: ResponsiveUtils.getOptimalSpacing(context) * 0.8,
-        runSpacing: ResponsiveUtils.getOptimalSpacing(context) * 0.5,
-        children: chips,
+    // User is authenticated - proceed to job application
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => JobApplyNow(job: job),
       ),
     );
   }
 
   Widget _buildJobCard(Map<String, dynamic> job) {
-    final isRemote = (job['location'] ?? '').toString().toLowerCase().contains(
-        'remote');
+    final isRemote = (job['location'] ?? '').toString().toLowerCase().contains('remote');
+    final salary = job['salary'] ?? 'Negotiable';
 
     return Container(
       margin: EdgeInsets.symmetric(
@@ -646,14 +343,7 @@ class _JobsPageState extends State<JobsPage> {
           borderRadius: BorderRadius.circular(
             ResponsiveUtils.getPilotCardRadius(context),
           ),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => JobApplyNow(job: job),
-              ),
-            );
-          },
+          onTap: () => _handleJobApplication(job),
           child: Padding(
             padding: ResponsiveUtils.getPilotCardPadding(context),
             child: Column(
@@ -663,20 +353,23 @@ class _JobsPageState extends State<JobsPage> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Company Logo - REMOVED BACKGROUND COLOR
+                    // Company Logo
                     Container(
                       width: ResponsiveUtils.getPilotImageSize(context),
                       height: ResponsiveUtils.getPilotImageSize(context),
+                      decoration: BoxDecoration(
+                        color: primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       child: Center(
                         child: Icon(
                           Icons.work_outline_rounded,
-                          color: primaryColor, // Changed to primary color
+                          color: primaryColor,
                           size: ResponsiveUtils.getPilotAvatarSize(context),
                         ),
                       ),
                     ),
-                    SizedBox(
-                        width: ResponsiveUtils.getPilotActionSpacing(context)),
+                    SizedBox(width: ResponsiveUtils.getPilotActionSpacing(context)),
 
                     // Content Section
                     Expanded(
@@ -688,11 +381,9 @@ class _JobsPageState extends State<JobsPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                job['jobName'] ?? job['title'] ??
-                                    "Untitled Job",
+                                job['jobName'] ?? job['title'] ?? "Untitled Job",
                                 style: GoogleFonts.inter(
-                                  fontSize: ResponsiveUtils
-                                      .getPilotNameFontSize(context),
+                                  fontSize: ResponsiveUtils.getPilotNameFontSize(context),
                                   fontWeight: FontWeight.w800,
                                   color: textPrimary,
                                   height: 1.3,
@@ -700,25 +391,19 @@ class _JobsPageState extends State<JobsPage> {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              SizedBox(height: ResponsiveUtils.getDynamicHeight(
-                                  context, 0.005)),
-                              if (job['companyName'] != null &&
-                                  job['companyName']
-                                      .toString()
-                                      .isNotEmpty)
+                              SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.005)),
+                              if (job['companyName'] != null && job['companyName'].toString().isNotEmpty)
                                 Text(
                                   job['companyName'],
                                   style: GoogleFonts.inter(
                                     color: textSecondary,
-                                    fontSize: ResponsiveUtils.getBodyFontSize(
-                                        context),
+                                    fontSize: ResponsiveUtils.getBodyFontSize(context),
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                             ],
                           ),
-                          SizedBox(height: ResponsiveUtils.getDynamicHeight(
-                              context, 0.01)),
+                          SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.01)),
 
                           // Location and Job Type
                           Row(
@@ -728,15 +413,13 @@ class _JobsPageState extends State<JobsPage> {
                                 size: ResponsiveUtils.getIconSize(context) - 4,
                                 color: textSecondary,
                               ),
-                              SizedBox(width: ResponsiveUtils.getDynamicPadding(
-                                  context, 0.006)),
+                              SizedBox(width: ResponsiveUtils.getDynamicPadding(context, 0.006)),
                               Expanded(
                                 child: Text(
                                   job['location'] ?? 'Remote',
                                   style: GoogleFonts.inter(
                                     color: textSecondary,
-                                    fontSize: ResponsiveUtils.getBodyFontSize(
-                                        context),
+                                    fontSize: ResponsiveUtils.getBodyFontSize(context),
                                     fontWeight: FontWeight.w500,
                                   ),
                                   overflow: TextOverflow.ellipsis,
@@ -744,33 +427,24 @@ class _JobsPageState extends State<JobsPage> {
                               ),
                               Container(
                                 padding: EdgeInsets.symmetric(
-                                  horizontal: ResponsiveUtils.getDynamicPadding(
-                                      context, 0.015),
-                                  vertical: ResponsiveUtils.getDynamicPadding(
-                                      context, 0.008),
+                                  horizontal: ResponsiveUtils.getDynamicPadding(context, 0.015),
+                                  vertical: ResponsiveUtils.getDynamicPadding(context, 0.008),
                                 ),
                                 decoration: BoxDecoration(
-                                  color: isRemote
-                                      ? accentColor.withOpacity(0.1)
-                                      : primaryColor.withOpacity(0.1),
+                                  color: isRemote ? accentColor.withOpacity(0.1) : primaryColor.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(
-                                    ResponsiveUtils.getDynamicPadding(
-                                        context, 0.02),
+                                    ResponsiveUtils.getDynamicPadding(context, 0.02),
                                   ),
                                   border: Border.all(
-                                    color: isRemote ? accentColor.withOpacity(
-                                        0.3) : primaryColor.withOpacity(0.3),
+                                    color: isRemote ? accentColor.withOpacity(0.3) : primaryColor.withOpacity(0.3),
                                   ),
                                 ),
                                 child: Text(
                                   job['jobType'] ?? "Full-time",
                                   style: GoogleFonts.inter(
-                                    color: isRemote
-                                        ? accentColor
-                                        : primaryColor,
+                                    color: isRemote ? accentColor : primaryColor,
                                     fontWeight: FontWeight.w600,
-                                    fontSize: ResponsiveUtils.getSmallFontSize(
-                                        context) - 2,
+                                    fontSize: ResponsiveUtils.getSmallFontSize(context) - 2,
                                   ),
                                 ),
                               ),
@@ -782,8 +456,7 @@ class _JobsPageState extends State<JobsPage> {
                   ],
                 ),
 
-                SizedBox(
-                    height: ResponsiveUtils.getDynamicHeight(context, 0.015)),
+                SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.015)),
 
                 // Salary and Apply Button
                 Container(
@@ -806,22 +479,19 @@ class _JobsPageState extends State<JobsPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              "₹${job['salary'] ?? 'Negotiable'}",
+                              "₹$salary",
                               style: GoogleFonts.inter(
-                                fontSize: ResponsiveUtils.getTitleFontSize(
-                                    context) - 2,
+                                fontSize: ResponsiveUtils.getTitleFontSize(context) - 2,
                                 fontWeight: FontWeight.w900,
                                 color: primaryColor,
                               ),
                             ),
-                            SizedBox(height: ResponsiveUtils.getDynamicHeight(
-                                context, 0.003)),
+                            SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.003)),
                             Text(
                               "Per month",
                               style: GoogleFonts.inter(
                                 color: textSecondary,
-                                fontSize: ResponsiveUtils.getBodyFontSize(
-                                    context),
+                                fontSize: ResponsiveUtils.getBodyFontSize(context),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -830,31 +500,20 @@ class _JobsPageState extends State<JobsPage> {
                       ),
                       // Apply Now Button
                       SizedBox(
-                        width: ResponsiveUtils.getPilotButtonWidth(
-                            context, percentage: 0.3),
-                        height: ResponsiveUtils.getPilotButtonHeight(
-                            context, percentage: 0.05),
+                        width: ResponsiveUtils.getPilotButtonWidth(context, percentage: 0.3),
+                        height: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
                         child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => JobApplyNow(job: job),
-                              ),
-                            );
-                          },
+                          onPressed: () => _handleJobApplication(job),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: primaryColor,
                             foregroundColor: Colors.white,
                             elevation: ResponsiveUtils.getElevation(context),
                             padding: EdgeInsets.symmetric(
-                              horizontal: ResponsiveUtils.getDynamicPadding(
-                                  context, 0.015),
+                              horizontal: ResponsiveUtils.getDynamicPadding(context, 0.015),
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(
-                                ResponsiveUtils.getDynamicPadding(
-                                    context, 0.02),
+                                ResponsiveUtils.getDynamicPadding(context, 0.02),
                               ),
                             ),
                           ),
@@ -862,8 +521,7 @@ class _JobsPageState extends State<JobsPage> {
                             "Apply Now",
                             style: GoogleFonts.inter(
                               fontWeight: FontWeight.w700,
-                              fontSize: ResponsiveUtils.getBodyFontSize(
-                                  context),
+                              fontSize: ResponsiveUtils.getBodyFontSize(context),
                             ),
                           ),
                         ),
@@ -900,7 +558,9 @@ class _JobsPageState extends State<JobsPage> {
           ),
           SizedBox(height: ResponsiveUtils.getCardMargin(context)),
           Text(
-            "Try adjusting your search or filters",
+            searchQuery.isNotEmpty
+                ? "No jobs match your search"
+                : "Check back later for new opportunities",
             style: GoogleFonts.inter(
               color: textSecondary,
               fontSize: ResponsiveUtils.getBodyFontSize(context),
@@ -908,40 +568,33 @@ class _JobsPageState extends State<JobsPage> {
             ),
           ),
           SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                searchQuery = '';
-                selectedJobType = "All";
-                selectedLocation = "All";
-                selectedSalary = "All";
-                _searchController.clear();
-              });
-              _applyFilters();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              foregroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(
-                horizontal: ResponsiveUtils.getHorizontalPadding(context) * 1.5,
-                vertical: ResponsiveUtils.getPilotButtonHeight(
-                    context, percentage: 0.04),
+          if (searchQuery.isNotEmpty)
+            ElevatedButton(
+              onPressed: () {
+                _clearSearch();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(
+                  horizontal: ResponsiveUtils.getHorizontalPadding(context) * 1.5,
+                  vertical: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.04),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(
+                    ResponsiveUtils.getDynamicPadding(context, 0.03),
+                  ),
+                ),
+                elevation: ResponsiveUtils.getElevation(context),
               ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(
-                  ResponsiveUtils.getDynamicPadding(context, 0.03),
+              child: Text(
+                "Clear Search",
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w600,
+                  fontSize: ResponsiveUtils.getBodyFontSize(context),
                 ),
               ),
-              elevation: ResponsiveUtils.getElevation(context),
             ),
-            child: Text(
-              "Reset Filters",
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.w600,
-                fontSize: ResponsiveUtils.getBodyFontSize(context),
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -995,8 +648,7 @@ class _JobsPageState extends State<JobsPage> {
               backgroundColor: primaryColor,
               padding: EdgeInsets.symmetric(
                 horizontal: ResponsiveUtils.getHorizontalPadding(context) * 1.2,
-                vertical: ResponsiveUtils.getPilotButtonHeight(
-                    context, percentage: 0.04),
+                vertical: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.04),
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(
@@ -1043,8 +695,6 @@ class _JobsPageState extends State<JobsPage> {
           children: [
             // Header Section
             _buildHeaderSection(),
-            // Active Filters
-            _buildActiveFiltersChips(),
             // Jobs List
             Expanded(
               child: isLoading
@@ -1064,15 +714,13 @@ class _JobsPageState extends State<JobsPage> {
                     bottom: ResponsiveUtils.getVerticalPadding(context) * 2,
                   ),
                   itemCount: filteredList.length,
-                  itemBuilder: (context, index) =>
-                      _buildJobCard(filteredList[index]),
+                  itemBuilder: (context, index) => _buildJobCard(filteredList[index]),
                 ),
               ),
             ),
           ],
         ),
       ),
-
     );
   }
 
@@ -1122,8 +770,7 @@ class _JobsPageState extends State<JobsPage> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        SizedBox(height: ResponsiveUtils.getDynamicHeight(
-                            context, 0.003)),
+                        SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.003)),
                         Text(
                           "${filteredList.length} jobs available",
                           style: GoogleFonts.inter(
@@ -1138,15 +785,13 @@ class _JobsPageState extends State<JobsPage> {
                     ),
                   ),
                 ),
-
-
               ],
             ),
           ),
 
           SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
 
-          // Search Bar with Filter
+          // Search Bar
           _buildSearchBar(),
         ],
       ),
@@ -1227,39 +872,6 @@ class _JobsPageState extends State<JobsPage> {
               ),
               padding: EdgeInsets.zero,
             ),
-
-          // Filter Button
-          Container(
-            width: ResponsiveUtils.getPilotButtonHeight(
-                context, percentage: 0.05),
-            height: ResponsiveUtils.getPilotButtonHeight(
-                context, percentage: 0.05),
-            margin: EdgeInsets.only(
-              right: ResponsiveUtils.getDynamicPadding(context, 0.012),
-            ),
-            decoration: BoxDecoration(
-              color: primaryColor,
-              borderRadius: BorderRadius.circular(
-                ResponsiveUtils.getDynamicPadding(context, 0.018),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: primaryColor.withOpacity(0.3),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: IconButton(
-              icon: Icon(
-                Icons.tune_rounded,
-                color: Colors.white,
-                size: ResponsiveUtils.getIconSize(context) * 0.7,
-              ),
-              onPressed: _openFilterSheet,
-              padding: EdgeInsets.zero,
-            ),
-          ),
         ],
       ),
     );

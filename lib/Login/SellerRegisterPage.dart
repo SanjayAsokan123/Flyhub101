@@ -84,9 +84,8 @@ class _SellerRegistrationFlowState extends State<SellerRegistrationFlow> {
 class AppColors {
   // Primary Navy Blue Scheme
   static const Color primary = Color(0xFF1E0E5C); // Updated to match login page
-  static const Color secondary = Color(0xFF3A2A8C); // Updated to match login page
-  static const Color accent = Color(0xFF00A8FF); // Light Blue
-  static const Color background = Colors.white; // Changed to white background
+  static const Color secondary = Color(0xFF3A2A8C);
+  static const Color background = Colors.white;
   static const Color surface = Colors.white;
   static const Color textPrimary = Color(0xFF1A1A1A);
   static const Color textSecondary = Color(0xFF666666);
@@ -94,57 +93,6 @@ class AppColors {
   static const Color warning = Color(0xFFF39C12);
   static const Color error = Color(0xFFE74C3C);
   static const Color border = Color(0xFFE1E5EB);
-}
-
-class AppTextStyles {
-  static const TextStyle heading1 = TextStyle(
-    fontSize: 28,
-    fontWeight: FontWeight.bold,
-    color: AppColors.primary,
-    letterSpacing: -0.5,
-  );
-
-  static const TextStyle heading2 = TextStyle(
-    fontSize: 22,
-    fontWeight: FontWeight.w600,
-    color: AppColors.primary,
-  );
-
-  static const TextStyle heading3 = TextStyle(
-    fontSize: 18,
-    fontWeight: FontWeight.w600,
-    color: AppColors.primary,
-  );
-
-  static const TextStyle bodyLarge = TextStyle(
-    fontSize: 16,
-    color: AppColors.textPrimary,
-    height: 1.5,
-  );
-
-  static const TextStyle bodyMedium = TextStyle(
-    fontSize: 14,
-    color: AppColors.textSecondary,
-    height: 1.5,
-  );
-
-  static const TextStyle bodySmall = TextStyle(
-    fontSize: 12,
-    color: AppColors.textSecondary,
-  );
-
-  static const TextStyle button = TextStyle(
-    fontSize: 16,
-    fontWeight: FontWeight.w600,
-    color: Colors.white,
-    letterSpacing: 0.5,
-  );
-
-  static const TextStyle label = TextStyle(
-    fontSize: 14,
-    fontWeight: FontWeight.w500,
-    color: AppColors.primary,
-  );
 }
 
 class AppDecorations {
@@ -157,28 +105,32 @@ class AppDecorations {
   }) {
     return InputDecoration(
       labelText: label,
-      labelStyle: AppTextStyles.label,
+      labelStyle: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: AppColors.primary,
+      ),
       hintText: hint,
       hintStyle: const TextStyle(color: Color(0xFFA0AEC0)),
       prefixIcon: prefixIcon,
       suffixIcon: suffixIcon,
       filled: true,
-      fillColor: Colors.grey.shade50,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      fillColor: const Color(0xFFF5F6FA),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
+        borderSide: const BorderSide(color: Colors.grey, width: 1),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
-          color: isError ? AppColors.error : Colors.transparent,
+          color: isError ? AppColors.error : Colors.grey.shade200,
           width: 1,
         ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.primary, width: 2),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -190,61 +142,10 @@ class AppDecorations {
       ),
     );
   }
-
-  static BoxDecoration cardDecoration = BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(20),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black.withOpacity(0.1),
-        blurRadius: 15,
-        offset: const Offset(0, 5),
-      ),
-    ],
-  );
-
-  static BoxDecoration sectionDecoration = BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(12),
-    border: Border.all(color: AppColors.border, width: 1),
-  );
 }
 
 // ============================================
-// CUSTOM SOCIAL MEDIA ICON WIDGET
-// ============================================
-
-class SocialMediaIcon extends StatelessWidget {
-  final String imagePath;
-  final VoidCallback onPressed;
-
-  const SocialMediaIcon({
-    Key? key,
-    required this.imagePath,
-    required this.onPressed,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        width: 50,
-        height: 50,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Image.asset(
-            imagePath,
-            fit: BoxFit.contain,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================
-// STEP 1: EMAIL VERIFICATION SCREEN (LOGIN-STYLE UI)
+// STEP 1: EMAIL VERIFICATION SCREEN (UPDATED UI)
 // ============================================
 
 class EmailVerificationScreen extends StatefulWidget {
@@ -335,8 +236,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content:
-          const Text('Verification email sent. Please check your inbox!'),
+          content: const Text('Verification email sent. Please check your inbox!'),
           backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -408,409 +308,381 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
         });
   }
 
+  void _goBack() {
+    Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
-
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              // ---------------- BACK BUTTON ----------------
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: GestureDetector(
+                    onTap: _goBack,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.8),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.arrow_back_ios,
+                            color: AppColors.primary,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 5),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // ---------------- IMAGE HEADER ----------------
+              Align(
+                alignment: Alignment.topCenter,
+                child: Image.asset(
+                  "assets/images/login.jpg",
+                  height: MediaQuery.of(context).size.width * 0.75,
+                  fit: BoxFit.contain,
+                ),
+              ),
+              const SizedBox(height: 0),
+
+              // ---------------- REGISTER FORM SECTION ----------------
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  children: [
+                    // ---------------- REGISTER TEXT ----------------
+                    Text(
+                      "Create Seller Account",
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 0),
+                    Text(
+                      "Step 1: Verify your email address",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+
+                    // ---------------- FORM ----------------
+                    Column(
+                      children: [
+                        // Email Field
+                        TextField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: AppDecorations.textFieldDecoration(
+                            label: "Email Address",
+                            hint: 'company@example.com',
+                            prefixIcon: Icon(Icons.email_outlined,
+                                color: AppColors.primary, size: 22),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Password Field
+                        TextField(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          decoration: AppDecorations.textFieldDecoration(
+                            label: "Password",
+                            hint: 'At least 6 characters',
+                            prefixIcon: Icon(Icons.lock_outline,
+                                color: AppColors.primary, size: 22),
+                            suffixIcon: IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                                color: AppColors.primary,
+                                size: 22,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Confirm Password Field
+                        TextField(
+                          controller: _confirmPasswordController,
+                          obscureText: _obscureConfirmPassword,
+                          decoration: AppDecorations.textFieldDecoration(
+                            label: "Confirm Password",
+                            hint: 'Re-enter your password',
+                            prefixIcon: Icon(Icons.lock_outline,
+                                color: AppColors.primary, size: 22),
+                            suffixIcon: IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  _obscureConfirmPassword =
+                                  !_obscureConfirmPassword;
+                                });
+                              },
+                              icon: Icon(
+                                _obscureConfirmPassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                                color: AppColors.primary,
+                                size: 22,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Error Message
+                        if (_errorMessage != null)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: AppColors.error.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppColors.error),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error_outline,
+                                    color: AppColors.error, size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _errorMessage!,
+                                    style:
+                                    const TextStyle(color: AppColors.error),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                        // Verification Status
+                        if (_emailVerified)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: AppColors.success.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppColors.success),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.check_circle,
+                                    color: AppColors.success, size: 20),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Email verified successfully',
+                                  style: TextStyle(
+                                    color: AppColors.success,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        const SizedBox(height: 16),
+
+                        // Submit Button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton(
+                            onPressed: _sendVerificationEmail,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 2,
+                            ),
+                            child: _isLoading
+                                ? const SizedBox(
+                              height: 22,
+                              width: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                                : Text(
+                              "Send Verification Email",
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 30),
+
+                    // ---------------- LOGIN NAVIGATION ----------------
+                    Center(
+                      child: GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: RichText(
+                          text: TextSpan(
+                            text: "Already have an account? ",
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 14,
+                            ),
+                            children: [
+                              TextSpan(
+                                text: "Sign In",
+                                style: TextStyle(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              )
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 40),
+                  ],
+                ),
+              ),
+
+              // ---------------- SOCIAL MEDIA FOOTER ----------------
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 25, horizontal: 20),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.05),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      "Follow us on",
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Social Media Icons
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Instagram
+                        _buildSocialIcon('assets/categories/instagram.png',
+                            'https://www.instagram.com/flyhub_info?igsh=OWM2a3E2Ym81bzRs'),
+                        const SizedBox(width: 20),
+
+                        // LinkedIn
+                        _buildSocialIcon('assets/categories/linkedin.png',
+                            'https://www.linkedin.com/company/flyhubinfo/'),
+                        const SizedBox(width: 20),
+
+                        // Facebook
+                        _buildSocialIcon('assets/categories/facebook.png',
+                            'https://facebook.com'),
+                        const SizedBox(width: 20),
+
+                        // Twitter
+                        _buildSocialIcon('assets/categories/twitter.png',
+                            'https://twitter.com'),
+                        const SizedBox(width: 20),
+
+                        // WhatsApp
+                        _buildSocialIcon('assets/categories/whatsapp.png',
+                            'https://whatsapp.com'),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Footer Text
+                    Text(
+                      "Connect with us for updates and support",
+                      style: TextStyle(
+                        color: AppColors.primary.withOpacity(0.6),
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: screenHeight - AppBar().preferredSize.height - MediaQuery.of(context).padding.top,
-          ),
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.08),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Welcome section with premium styling
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        "Create Seller Account",
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.playfairDisplay(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        "Contactless Drone Delivery",
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.raleway(
-                          fontSize: 18,
-                          color: Colors.black,
-                          fontWeight: FontWeight.w300,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        "Join For Free.",
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.raleway(
-                          fontSize: 14,
-                          color: Colors.black,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
+    );
+  }
 
-                      const SizedBox(height: 20),
-
-                      // Drone image without container
-                      Center(
-                        child: Image.asset(
-                          'assets/images/login.jpg',
-                          height: screenHeight * 0.15,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Premium card container for form
-                      Container(
-                        decoration: AppDecorations.cardDecoration,
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Email Field
-                            TextField(
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              decoration: AppDecorations.textFieldDecoration(
-                                label: "Email Address",
-                                hint: 'company@example.com',
-                                prefixIcon: const Icon(Icons.email_outlined, color: AppColors.primary),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Password Field
-                            TextField(
-                              controller: _passwordController,
-                              obscureText: _obscurePassword,
-                              decoration: AppDecorations.textFieldDecoration(
-                                label: "Password",
-                                hint: 'At least 6 characters',
-                                prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppColors.primary),
-                                suffixIcon: IconButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      _obscurePassword = !_obscurePassword;
-                                    });
-                                  },
-                                  icon: Icon(
-                                    _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Confirm Password Field
-                            TextField(
-                              controller: _confirmPasswordController,
-                              obscureText: _obscureConfirmPassword,
-                              decoration: AppDecorations.textFieldDecoration(
-                                label: "Confirm Password",
-                                hint: 'Re-enter your password',
-                                prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppColors.primary),
-                                suffixIcon: IconButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      _obscureConfirmPassword = !_obscureConfirmPassword;
-                                    });
-                                  },
-                                  icon: Icon(
-                                    _obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Error Message
-                            if (_errorMessage != null)
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: AppColors.error.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: AppColors.error),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.error_outline, color: AppColors.error, size: 20),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        _errorMessage!,
-                                        style: const TextStyle(color: AppColors.error),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            const SizedBox(height: 16),
-
-                            // Verification Status
-                            if (_emailVerified)
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: AppColors.success.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: AppColors.success),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Email verified successfully',
-                                      style: TextStyle(
-                                        color: AppColors.success,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            const SizedBox(height: 16),
-
-                            // Submit Button
-                            _isLoading
-                                ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                                : Container(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [AppColors.primary, AppColors.secondary],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.primary.withOpacity(0.3),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: ElevatedButton(
-                                onPressed: _sendVerificationEmail,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.transparent,
-                                  shadowColor: Colors.transparent,
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      "Send Verification Email",
-                                      style: GoogleFonts.raleway(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Icon(Icons.email_outlined, color: Colors.white),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Social Login Section with premium styling
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: Divider(
-                              color: Colors.grey,
-                              thickness: 1,
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            child: Text(
-                              "Follow us on",
-                              style: GoogleFonts.raleway(
-                                color: Colors.black,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          const Expanded(
-                            child: Divider(
-                              color: Colors.grey,
-                              thickness: 1,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Social Media Icons with your custom images
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // Instagram
-                          SocialMediaIcon(
-                            imagePath: 'assets/categories/instagram.png',
-                            onPressed: () async {
-                              try {
-                                const url = 'https://www.instagram.com/flyhub_info?igsh=OWM2a3E2Ym81bzRs';
-
-                                if (await canLaunchUrl(Uri.parse(url))) {
-                                  await launchUrl(
-                                    Uri.parse(url),
-                                    mode: LaunchMode.externalApplication,
-                                  );
-                                }
-                              } catch (e) {
-                                print('Instagram launch error: $e');
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 0),
-
-                          // Twitter
-                          SocialMediaIcon(
-                            imagePath: 'assets/categories/twitter.png',
-                            onPressed: () async {
-                              try {
-                                const url = 'https://twitter.com';
-
-                                if (await canLaunchUrl(Uri.parse(url))) {
-                                  await launchUrl(
-                                    Uri.parse(url),
-                                    mode: LaunchMode.externalApplication,
-                                  );
-                                }
-                              } catch (e) {
-                                print('Twitter launch error: $e');
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 0),
-
-                          // Facebook
-                          SocialMediaIcon(
-                            imagePath: 'assets/categories/facebook.png',
-                            onPressed: () async {
-                              try {
-                                const url = 'https://facebook.com';
-
-                                if (await canLaunchUrl(Uri.parse(url))) {
-                                  await launchUrl(
-                                    Uri.parse(url),
-                                    mode: LaunchMode.externalApplication,
-                                  );
-                                }
-                              } catch (e) {
-                                print('Facebook launch error: $e');
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 0),
-
-                          // WhatsApp
-                          SocialMediaIcon(
-                            imagePath: 'assets/categories/whatsapp.png',
-                            onPressed: () async {
-                              try {
-                                const url = 'https://whatsapp.com';
-
-                                if (await canLaunchUrl(Uri.parse(url))) {
-                                  await launchUrl(
-                                    Uri.parse(url),
-                                    mode: LaunchMode.externalApplication,
-                                  );
-                                }
-                              } catch (e) {
-                                print('WhatsApp launch error: $e');
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 0),
-
-                          // LinkedIn
-                          SocialMediaIcon(
-                            imagePath: 'assets/categories/linkedin.png',
-                            onPressed: () async {
-                              try {
-                                const url = 'https://www.linkedin.com/company/flyhubinfo/';
-
-                                if (await canLaunchUrl(Uri.parse(url))) {
-                                  await launchUrl(
-                                    Uri.parse(url),
-                                    mode: LaunchMode.externalApplication,
-                                  );
-                                }
-                              } catch (e) {
-                                print('LinkedIn launch error: $e');
-                              }
-                            },
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 0),
-
-                      // Back to Login Link with premium styling
-                      Center(
-                        child: TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: Text(
-                            "Back to Login",
-                            style: GoogleFonts.raleway(
-                              color: Colors.black,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              decoration: TextDecoration.underline,
-                              decorationThickness: 2,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+  Widget _buildSocialIcon(String iconPath, String url) {
+    return GestureDetector(
+      onTap: () async {
+        try {
+          if (await canLaunchUrl(Uri.parse(url))) {
+            await launchUrl(
+              Uri.parse(url),
+              mode: LaunchMode.externalApplication,
+            );
+          }
+        } catch (e) {
+          print('Error launching URL: $e');
+        }
+      },
+      child: Container(
+        width: 40,
+        height: 40,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.1),
+              blurRadius: 5,
+              offset: const Offset(0, 2),
             ),
-          ),
+          ],
+        ),
+        child: Image.asset(
+          iconPath,
+          fit: BoxFit.contain,
         ),
       ),
     );
@@ -818,7 +690,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 }
 
 // ============================================
-// STEP 2: SELLER DETAILS SCREEN (LOGIN-STYLE UI)
+// STEP 2: SELLER DETAILS SCREEN (UPDATED UI)
 // ============================================
 
 class SellerDetailsScreen extends StatefulWidget {
@@ -982,8 +854,7 @@ class _SellerDetailsScreenState extends State<SellerDetailsScreen> {
       )
           .timeout(
         const Duration(seconds: 30),
-        onTimeout: () =>
-        throw TimeoutException('Mutation timeout after 30s'),
+        onTimeout: () => throw TimeoutException('Mutation timeout after 30s'),
       );
 
       if (result.hasException) {
@@ -1056,7 +927,26 @@ class _SellerDetailsScreenState extends State<SellerDetailsScreen> {
           decoration: AppDecorations.textFieldDecoration(
             label: label,
             hint: hint,
-            prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: AppColors.primary) : null,
+            prefixIcon: prefixIcon != null
+                ? Icon(prefixIcon, color: AppColors.primary, size: 22)
+                : null,
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primary,
           ),
         ),
         const SizedBox(height: 16),
@@ -1081,7 +971,7 @@ class _SellerDetailsScreenState extends State<SellerDetailsScreen> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.error_outline_rounded,
+                const Icon(Icons.error_outline,
                     color: AppColors.error, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
@@ -1093,13 +983,18 @@ class _SellerDetailsScreenState extends State<SellerDetailsScreen> {
               ],
             ),
           ),
+        const SizedBox(height: 8),
 
         // Checkbox and Terms Link
         Container(
           decoration: BoxDecoration(
-            color: _termsError ? AppColors.error.withOpacity(0.05) : Colors.transparent,
+            color: _termsError
+                ? AppColors.error.withOpacity(0.05)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
-            border: _termsError ? Border.all(color: AppColors.error, width: 1) : null,
+            border: _termsError
+                ? Border.all(color: AppColors.error, width: 1)
+                : null,
           ),
           padding: const EdgeInsets.all(12),
           child: Row(
@@ -1150,7 +1045,8 @@ class _SellerDetailsScreenState extends State<SellerDetailsScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => TermsAndConditionsPage(),
+                                    builder: (context) =>
+                                        TermsAndConditionsPage(),
                                   ),
                                 );
                               },
@@ -1183,571 +1079,474 @@ class _SellerDetailsScreenState extends State<SellerDetailsScreen> {
     );
   }
 
+  void _goBack() {
+    widget.onBackToEmail();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
-
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () {
-            showDialog(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: const Text('Go Back?'),
-                content: const Text(
-                    'Are you sure? You\'ll need to verify your email again.'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Cancel'),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      widget.onBackToEmail();
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              // ---------------- BACK BUTTON ----------------
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: GestureDetector(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Go Back?'),
+                          content: const Text(
+                              'Are you sure? You\'ll need to verify your email again.'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                _goBack();
+                              },
+                              child: const Text(
+                                'Go Back',
+                                style: TextStyle(color: AppColors.error),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
                     },
-                    child: const Text(
-                      'Go Back',
-                      style: TextStyle(color: AppColors.error),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.8),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.arrow_back_ios,
+                            color: AppColors.primary,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 5),
+                        ],
+                      ),
                     ),
                   ),
-                ],
+                ),
               ),
-            );
-          },
-        ),
-      ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: screenHeight - AppBar().preferredSize.height - MediaQuery.of(context).padding.top,
-          ),
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.08),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Welcome section with premium styling
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        "Complete Your Profile",
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.playfairDisplay(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                          letterSpacing: 1.2,
-                        ),
+
+              // ---------------- IMAGE HEADER ----------------
+              Align(
+                alignment: Alignment.topCenter,
+                child: Image.asset(
+                  "assets/images/login.jpg",
+                  height: MediaQuery.of(context).size.width * 0.75,
+                  fit: BoxFit.contain,
+                ),
+              ),
+              const SizedBox(height: 0),
+
+              // ---------------- REGISTER FORM SECTION ----------------
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  children: [
+                    // ---------------- REGISTER TEXT ----------------
+                    Text(
+                      "Complete Seller Profile",
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        "Contactless Drone Delivery",
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.raleway(
-                          fontSize: 18,
-                          color: Colors.black,
-                          fontWeight: FontWeight.w300,
-                        ),
+                    ),
+                    const SizedBox(height: 0),
+                    Text(
+                      "Step 2: Enter your business details",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        "Step 2: Enter your business details",
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.raleway(
-                          fontSize: 14,
-                          color: Colors.black,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
+                    ),
+                    const SizedBox(height: 30),
 
-                      const SizedBox(height: 20),
+                    // ---------------- FORM ----------------
+                    Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          // Personal Information
+                          _buildSectionTitle("Personal Information"),
+                          _buildTextField(
+                            controller: _nameController,
+                            label: "Full Name",
+                            hint: 'John Doe',
+                            prefixIcon: Icons.person_outline,
+                          ),
+                          _buildTextField(
+                            controller: _phoneController,
+                            label: "Phone Number",
+                            hint: '9944745755',
+                            keyboardType: TextInputType.phone,
+                            prefixIcon: Icons.phone,
+                          ),
+                          _buildTextField(
+                            controller: _emailController,
+                            label: "Email Address",
+                            hint: 'seller@example.com',
+                            readOnly: true,
+                            prefixIcon: Icons.email_outlined,
+                          ),
 
-                      // Drone image without container
-                      Center(
-                        child: Image.asset(
-                          'assets/images/login.jpg',
-                          height: screenHeight * 0.15, // Responsive height
-                          fit: BoxFit.contain,
-                        ),
-                      ),
+                          const SizedBox(height: 24),
 
-                      const SizedBox(height: 20),
+                          // Company Information
+                          _buildSectionTitle("Company Information"),
+                          _buildTextField(
+                            controller: _companyNameController,
+                            label: "Company Name",
+                            hint: 'FlyHub Enterprises',
+                            prefixIcon: Icons.business,
+                          ),
+                          _buildTextField(
+                            controller: _panController,
+                            label: "PAN Number",
+                            hint: 'AAAPZ5055K',
+                            prefixIcon: Icons.credit_card,
+                          ),
+                          _buildTextField(
+                            controller: _gstController,
+                            label: "GST Number",
+                            hint: '18AABCT1234A1Z0',
+                            prefixIcon: Icons.receipt_long,
+                          ),
+                          _buildTextField(
+                            controller: _companyPanController,
+                            label: "Company PAN",
+                            hint: 'AAAPZ5055K',
+                            prefixIcon: Icons.credit_card,
+                          ),
 
-                      // Premium card container for form
-                      Container(
-                        decoration: AppDecorations.cardDecoration,
-                        padding: const EdgeInsets.all(20),
-                        child: Form(
-                          key: _formKey,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // Personal Information
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                          const SizedBox(height: 24),
+
+                          // Address Information
+                          _buildSectionTitle("Address Information"),
+                          _buildTextField(
+                            controller: _addressController,
+                            label: "Business Address",
+                            hint: '123 Main Street, City, State - 560001',
+                            prefixIcon: Icons.location_on,
+                          ),
+                          _buildTextField(
+                            controller: _shippingAddressController,
+                            label: "Shipping Address",
+                            hint: 'Same as business address or different location',
+                            prefixIcon: Icons.local_shipping,
+                          ),
+                          _buildTextField(
+                            controller: _pickupAddressController,
+                            label: "Pickup Address",
+                            hint: 'Location where customers can pick up orders',
+                            prefixIcon: Icons.store,
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // Banking Information
+                          _buildSectionTitle("Banking Information"),
+                          _buildTextField(
+                            controller: _bankNameController,
+                            label: "Bank Name",
+                            hint: 'ICICI Bank',
+                            prefixIcon: Icons.account_balance,
+                          ),
+                          _buildTextField(
+                            controller: _bankAccountController,
+                            label: "Account Number",
+                            hint: '1234567890123456',
+                            keyboardType: TextInputType.number,
+                            prefixIcon: Icons.account_balance_wallet,
+                          ),
+                          _buildTextField(
+                            controller: _bankIFCController,
+                            label: "IFSC Code",
+                            hint: 'ICIC0000001',
+                            prefixIcon: Icons.code,
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // Terms and Conditions Checkbox
+                          _buildSectionTitle("Agreement"),
+                          _buildTermsAndConditionsCheckbox(),
+
+                          const SizedBox(height: 16),
+
+                          // Messages
+                          if (_errorMessage != null &&
+                              !_errorMessage!.contains('Terms and Conditions'))
+                            Container(
+                              width: double.infinity,
+                              margin: const EdgeInsets.only(bottom: 16),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.error.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppColors.error),
+                              ),
+                              child: Row(
                                 children: [
-                                  Text(
-                                    "Personal Information",
-                                    style: GoogleFonts.raleway(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.primary,
+                                  const Icon(Icons.error_outline,
+                                      color: AppColors.error, size: 20),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _errorMessage!,
+                                      style:
+                                      const TextStyle(color: AppColors.error),
                                     ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  _buildTextField(
-                                    controller: _nameController,
-                                    label: "Full Name",
-                                    hint: 'John Doe',
-                                    prefixIcon: Icons.person,
-                                  ),
-                                  _buildTextField(
-                                    controller: _phoneController,
-                                    label: "Phone Number",
-                                    hint: '9944745755',
-                                    keyboardType: TextInputType.phone,
-                                    prefixIcon: Icons.phone,
-                                  ),
-                                  _buildTextField(
-                                    controller: _emailController,
-                                    label: "Email Address",
-                                    hint: 'seller@example.com',
-                                    readOnly: true,
-                                    prefixIcon: Icons.email,
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 24),
+                            ),
 
-                              // Company Information
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                          if (_successMessage != null)
+                            Container(
+                              width: double.infinity,
+                              margin: const EdgeInsets.only(bottom: 16),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.success.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppColors.success),
+                              ),
+                              child: Row(
                                 children: [
-                                  Text(
-                                    "Company Information",
-                                    style: GoogleFonts.raleway(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.primary,
+                                  const Icon(Icons.check_circle,
+                                      color: AppColors.success, size: 20),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _successMessage!,
+                                      style:
+                                      const TextStyle(color: AppColors.success),
                                     ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  _buildTextField(
-                                    controller: _companyNameController,
-                                    label: "Company Name",
-                                    hint: 'FlyHub Enterprises',
-                                    prefixIcon: Icons.business,
-                                  ),
-                                  _buildTextField(
-                                    controller: _panController,
-                                    label: "PAN Number",
-                                    hint: 'AAAPZ5055K',
-                                    prefixIcon: Icons.credit_card,
-                                  ),
-                                  _buildTextField(
-                                    controller: _gstController,
-                                    label: "GST Number",
-                                    hint: '18AABCT1234A1Z0',
-                                    prefixIcon: Icons.receipt_long,
-                                  ),
-                                  _buildTextField(
-                                    controller: _companyPanController,
-                                    label: "Company PAN",
-                                    hint: 'AAAPZ5055K',
-                                    prefixIcon: Icons.credit_card,
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 24),
+                            ),
 
-                              // Address Information
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "Address Information",
-                                    style: GoogleFonts.raleway(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  _buildTextField(
-                                    controller: _addressController,
-                                    label: "Business Address",
-                                    hint: '123 Main Street, City, State - 560001',
-                                    prefixIcon: Icons.location_on,
-                                  ),
-                                  _buildTextField(
-                                    controller: _shippingAddressController,
-                                    label: "Shipping Address",
-                                    hint: 'Same as business address or different location',
-                                    prefixIcon: Icons.local_shipping,
-                                  ),
-                                  _buildTextField(
-                                    controller: _pickupAddressController,
-                                    label: "Pickup Address",
-                                    hint: 'Location where customers can pick up orders',
-                                    prefixIcon: Icons.store,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 24),
+                          const SizedBox(height: 16),
 
-                              // Banking Information
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "Banking Information",
-                                    style: GoogleFonts.raleway(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  _buildTextField(
-                                    controller: _bankNameController,
-                                    label: "Bank Name",
-                                    hint: 'ICICI Bank',
-                                    prefixIcon: Icons.account_balance,
-                                  ),
-                                  _buildTextField(
-                                    controller: _bankAccountController,
-                                    label: "Account Number",
-                                    hint: '1234567890123456',
-                                    keyboardType: TextInputType.number,
-                                    prefixIcon: Icons.account_balance_wallet,
-                                  ),
-                                  _buildTextField(
-                                    controller: _bankIFCController,
-                                    label: "IFSC Code",
-                                    hint: 'ICIC0000001',
-                                    prefixIcon: Icons.code,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 24),
-
-                              // Terms and Conditions Checkbox
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "Agreement",
-                                    style: GoogleFonts.raleway(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  _buildTermsAndConditionsCheckbox(),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-
-                              // Messages
-                              if (_errorMessage != null && !_errorMessage!.contains('Terms and Conditions'))
-                                Container(
-                                  width: double.infinity,
-                                  margin: const EdgeInsets.only(bottom: 16),
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.error.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: AppColors.error),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.error_outline_rounded,
-                                          color: AppColors.error, size: 20),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          _errorMessage!,
-                                          style: const TextStyle(color: AppColors.error),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                              if (_successMessage != null)
-                                Container(
-                                  width: double.infinity,
-                                  margin: const EdgeInsets.only(bottom: 16),
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.success.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: AppColors.success),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.check_circle_rounded,
-                                          color: AppColors.success, size: 20),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          _successMessage!,
-                                          style: const TextStyle(color: AppColors.success),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                              // Submit Button
-                              _isLoading
-                                  ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                                  : Container(
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [AppColors.primary, AppColors.secondary],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
+                          // Submit Button
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: ElevatedButton(
+                              onPressed: _submitSellerDetails,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.primary.withOpacity(0.3),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
                                 ),
-                                child: ElevatedButton(
-                                  onPressed: _submitSellerDetails,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.transparent,
-                                    shadowColor: Colors.transparent,
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        "Submit Seller Details",
-                                        style: GoogleFonts.raleway(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      const Icon(Icons.check_circle_outline_rounded, color: Colors.white),
-                                    ],
-                                  ),
+                                elevation: 2,
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                height: 22,
+                                width: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                                  : Text(
+                                "Submit Seller Details",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 30),
+
+                    // ---------------- BACK TO EMAIL VERIFICATION ----------------
+                    Center(
+                      child: GestureDetector(
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Go Back?'),
+                              content: const Text(
+                                  'Are you sure? You\'ll need to verify your email again.'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text('Cancel'),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                    _goBack();
+                                  },
+                                  child: const Text(
+                                    'Go Back',
+                                    style: TextStyle(color: AppColors.error),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        child: RichText(
+                          text: TextSpan(
+                            text: "Need to verify email again? ",
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 14,
+                            ),
+                            children: [
+                              TextSpan(
+                                text: "Go Back",
+                                style: TextStyle(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              )
                             ],
                           ),
                         ),
                       ),
+                    ),
 
-                      const SizedBox(height: 0),
-
-                      // Social Login Section with premium styling
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: Divider(
-                              color: Colors.grey,
-                              thickness: 1,
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            child: Text(
-                              "Follow us on",
-                              style: GoogleFonts.raleway(
-                                color: Colors.black,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          const Expanded(
-                            child: Divider(
-                              color: Colors.grey,
-                              thickness: 1,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Social Media Icons with your custom images
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // Instagram
-                          SocialMediaIcon(
-                            imagePath: 'assets/categories/instagram.png',
-                            onPressed: () async {
-                              try {
-                                const url = 'https://www.instagram.com/reel/DRTee7NEem8/?utm_source=ig_web_button_native_share&igsh=MzRlODBiNWFlZA%3D%3D';
-
-                                if (await canLaunchUrl(Uri.parse(url))) {
-                                  await launchUrl(
-                                    Uri.parse(url),
-                                    mode: LaunchMode.externalApplication,
-                                  );
-                                }
-                              } catch (e) {
-                                print('Instagram launch error: $e');
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 0),
-
-                          // Twitter
-                          SocialMediaIcon(
-                            imagePath: 'assets/categories/twitter.png',
-                            onPressed: () async {
-                              try {
-                                const url = 'https://twitter.com';
-
-                                if (await canLaunchUrl(Uri.parse(url))) {
-                                  await launchUrl(
-                                    Uri.parse(url),
-                                    mode: LaunchMode.externalApplication,
-                                  );
-                                }
-                              } catch (e) {
-                                print('Twitter launch error: $e');
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 0),
-
-                          // Facebook
-                          SocialMediaIcon(
-                            imagePath: 'assets/categories/facebook.png',
-                            onPressed: () async {
-                              try {
-                                const url = 'https://facebook.com';
-
-                                if (await canLaunchUrl(Uri.parse(url))) {
-                                  await launchUrl(
-                                    Uri.parse(url),
-                                    mode: LaunchMode.externalApplication,
-                                  );
-                                }
-                              } catch (e) {
-                                print('Facebook launch error: $e');
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 0),
-
-                          // WhatsApp
-                          SocialMediaIcon(
-                            imagePath: 'assets/categories/whatsapp.png',
-                            onPressed: () async {
-                              try {
-                                const url = 'https://whatsapp.com';
-
-                                if (await canLaunchUrl(Uri.parse(url))) {
-                                  await launchUrl(
-                                    Uri.parse(url),
-                                    mode: LaunchMode.externalApplication,
-                                  );
-                                }
-                              } catch (e) {
-                                print('WhatsApp launch error: $e');
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 0),
-
-                          // LinkedIn
-                          SocialMediaIcon(
-                            imagePath: 'assets/categories/linkedin.png',
-                            onPressed: () async {
-                              try {
-                                const url = 'https://linkedin.com';
-
-                                if (await canLaunchUrl(Uri.parse(url))) {
-                                  await launchUrl(
-                                    Uri.parse(url),
-                                    mode: LaunchMode.externalApplication,
-                                  );
-                                }
-                              } catch (e) {
-                                print('LinkedIn launch error: $e');
-                              }
-                            },
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 0),
-
-                      // Back to Email Verification Link with premium styling
-                      Center(
-                        child: TextButton(
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: const Text('Go Back?'),
-                                content: const Text(
-                                    'Are you sure? You\'ll need to verify your email again.'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(ctx),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.pop(ctx);
-                                      widget.onBackToEmail();
-                                    },
-                                    child: const Text(
-                                      'Go Back',
-                                      style: TextStyle(color: AppColors.error),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                          child: Text(
-                            "Back to Email Verification",
-                            style: GoogleFonts.raleway(
-                              color: Colors.black,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              decoration: TextDecoration.underline,
-                              decorationThickness: 2,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                    const SizedBox(height: 40),
+                  ],
+                ),
               ),
-            ),
+
+              // ---------------- SOCIAL MEDIA FOOTER ----------------
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 25, horizontal: 20),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.05),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      "Follow us on",
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Social Media Icons
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Instagram
+                        _buildSocialIcon('assets/categories/instagram.png',
+                            'https://www.instagram.com/flyhub_info?igsh=OWM2a3E2Ym81bzRs'),
+                        const SizedBox(width: 20),
+
+                        // LinkedIn
+                        _buildSocialIcon('assets/categories/linkedin.png',
+                            'https://www.linkedin.com/company/flyhubinfo/'),
+                        const SizedBox(width: 20),
+
+                        // Facebook
+                        _buildSocialIcon('assets/categories/facebook.png',
+                            'https://facebook.com'),
+                        const SizedBox(width: 20),
+
+                        // Twitter
+                        _buildSocialIcon('assets/categories/twitter.png',
+                            'https://twitter.com'),
+                        const SizedBox(width: 20),
+
+                        // WhatsApp
+                        _buildSocialIcon('assets/categories/whatsapp.png',
+                            'https://whatsapp.com'),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Footer Text
+                    Text(
+                      "Connect with us for updates and support",
+                      style: TextStyle(
+                        color: AppColors.primary.withOpacity(0.6),
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSocialIcon(String iconPath, String url) {
+    return GestureDetector(
+      onTap: () async {
+        try {
+          if (await canLaunchUrl(Uri.parse(url))) {
+            await launchUrl(
+              Uri.parse(url),
+              mode: LaunchMode.externalApplication,
+            );
+          }
+        } catch (e) {
+          print('Error launching URL: $e');
+        }
+      },
+      child: Container(
+        width: 40,
+        height: 40,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.1),
+              blurRadius: 5,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Image.asset(
+          iconPath,
+          fit: BoxFit.contain,
         ),
       ),
     );
@@ -1755,382 +1554,310 @@ class _SellerDetailsScreenState extends State<SellerDetailsScreen> {
 }
 
 // ============================================
-// STEP 3: VERIFICATION SUCCESS SCREEN
+// STEP 3: VERIFICATION SUCCESS SCREEN (UPDATED UI)
 // ============================================
 
 class SellerVerificationSuccessScreen extends StatelessWidget {
   const SellerVerificationSuccessScreen({Key? key}) : super(key: key);
 
+  void _goBack() {
+    // This would typically navigate back to login or home
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
-
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const Dynamichome(selectedIndex: 0),
-              ),
-            );
-          },
-        ),
-      ),
       body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.08),
+        child: SingleChildScrollView(
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Success Illustration
-              Container(
-                height: screenHeight * 0.25,
-                margin: const EdgeInsets.only(bottom: 20),
-                child: Stack(
-                  alignment: Alignment.center,
+              // ---------------- BACK BUTTON ----------------
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                          const Dynamichome(selectedIndex: 0),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.8),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.arrow_back_ios,
+                            color: AppColors.primary,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 5),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // ---------------- SUCCESS CONTENT ----------------
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
                   children: [
+                    // Success Illustration
                     Container(
-                      width: 180,
-                      height: 180,
-                      decoration: BoxDecoration(
-                        color: AppColors.secondary.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    Container(
-                      width: 140,
-                      height: 140,
-                      decoration: BoxDecoration(
-                        color: AppColors.secondary.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.check_rounded,
-                        size: 60,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Title
-              Text(
-                "Application Submitted!",
-                textAlign: TextAlign.center,
-                style: GoogleFonts.playfairDisplay(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.success,
-                  letterSpacing: 1.2,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                "Contactless Drone Delivery",
-                textAlign: TextAlign.center,
-                style: GoogleFonts.raleway(
-                  fontSize: 16,
-                  color: Colors.black,
-                  fontWeight: FontWeight.w300,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                "Your seller registration has been successfully submitted for review.",
-                textAlign: TextAlign.center,
-                style: GoogleFonts.raleway(
-                  fontSize: 14,
-                  color: Colors.black,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 30),
-
-              // Premium card container for status
-              Expanded(
-                child: Container(
-                  decoration: AppDecorations.cardDecoration,
-                  padding: const EdgeInsets.all(20),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.schedule_rounded,
-                              color: AppColors.warning,
-                              size: 24,
+                      height: MediaQuery.of(context).size.width * 0.5,
+                      margin: const EdgeInsets.only(bottom: 20),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Container(
+                            width: 180,
+                            height: 180,
+                            decoration: BoxDecoration(
+                              color: AppColors.secondary.withOpacity(0.1),
+                              shape: BoxShape.circle,
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                "Verification in Progress",
-                                style: GoogleFonts.raleway(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.primary,
+                          ),
+                          Container(
+                            width: 140,
+                            height: 140,
+                            decoration: BoxDecoration(
+                              color: AppColors.secondary.withOpacity(0.2),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.check_rounded,
+                              size: 60,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Success Title
+                    Text(
+                      "Application Submitted!",
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Your seller registration has been successfully submitted for review.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+
+                    // Status Card
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.border, width: 1),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.schedule_rounded,
+                                color: AppColors.warning,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  "Verification in Progress",
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primary,
+                                  ),
                                 ),
                               ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            "Our team will review your application within 24-48 hours. "
+                                "You'll receive an email notification once your account is approved.",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AppColors.textSecondary,
                             ),
-                          ],
+                          ),
+                          const SizedBox(height: 24),
+                          const Divider(height: 1),
+                          const SizedBox(height: 24),
+
+                          // Status Items
+                          _buildStatusItem(
+                            icon: Icons.check_circle,
+                            text: "Email Verified",
+                            color: AppColors.success,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildStatusItem(
+                            icon: Icons.check_circle,
+                            text: "Details Submitted",
+                            color: AppColors.success,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildStatusItem(
+                            icon: Icons.check_circle,
+                            text: "Terms Accepted",
+                            color: AppColors.success,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildStatusItem(
+                            icon: Icons.pending_actions,
+                            text: "Awaiting Admin Review",
+                            color: AppColors.warning,
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 30),
+
+                    // Action Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                              const Dynamichome(selectedIndex: 0),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 2,
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          "Our team will review your application within 24-48 hours. "
-                              "You'll receive an email notification once your account is approved.",
-                          style: GoogleFonts.raleway(
-                            fontSize: 14,
-                            color: AppColors.textSecondary,
+                        child: Text(
+                          "Explore FlyHub",
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 24),
-                        const Divider(height: 1),
-                        const SizedBox(height: 24),
-
-                        // Status Items
-                        _buildStatusItem(
-                          icon: Icons.check_circle_rounded,
-                          text: "Email Verified",
-                          color: AppColors.success,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildStatusItem(
-                          icon: Icons.check_circle_rounded,
-                          text: "Details Submitted",
-                          color: AppColors.success,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildStatusItem(
-                          icon: Icons.check_circle_rounded,
-                          text: "Terms Accepted",
-                          color: AppColors.success,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildStatusItem(
-                          icon: Icons.pending_actions_rounded,
-                          text: "Awaiting Admin Review",
-                          color: AppColors.warning,
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+
+                    const SizedBox(height: 40),
+                  ],
                 ),
               ),
 
-              const SizedBox(height: 20),
-
-              // Social Media Icons in Success Screen
-              Column(
-                children: [
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Divider(
-                          color: Colors.grey,
-                          thickness: 1,
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: Text(
-                          "Follow us on",
-                          style: GoogleFonts.raleway(
-                            color: Colors.black,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      const Expanded(
-                        child: Divider(
-                          color: Colors.grey,
-                          thickness: 1,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Social Media Icons with your custom images
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Instagram
-                      SocialMediaIcon(
-                        imagePath: 'assets/categories/instagram.png',
-                        onPressed: () async {
-                          try {
-                            const url = 'https://www.instagram.com/flyhub_info?igsh=OWM2a3E2Ym81bzRs';
-
-                            if (await canLaunchUrl(Uri.parse(url))) {
-                              await launchUrl(
-                                Uri.parse(url),
-                                mode: LaunchMode.externalApplication,
-                              );
-                            }
-                          } catch (e) {
-                            print('Instagram launch error: $e');
-                          }
-                        },
-                      ),
-                      const SizedBox(width: 20),
-
-                      // Twitter
-                      SocialMediaIcon(
-                        imagePath: 'assets/categories/twitter.png',
-                        onPressed: () async {
-                          try {
-                            const url = 'https://twitter.com';
-
-                            if (await canLaunchUrl(Uri.parse(url))) {
-                              await launchUrl(
-                                Uri.parse(url),
-                                mode: LaunchMode.externalApplication,
-                              );
-                            }
-                          } catch (e) {
-                            print('Twitter launch error: $e');
-                          }
-                        },
-                      ),
-                      const SizedBox(width: 20),
-
-                      // Facebook
-                      SocialMediaIcon(
-                        imagePath: 'assets/categories/facebook.png',
-                        onPressed: () async {
-                          try {
-                            const url = 'https://facebook.com';
-
-                            if (await canLaunchUrl(Uri.parse(url))) {
-                              await launchUrl(
-                                Uri.parse(url),
-                                mode: LaunchMode.externalApplication,
-                              );
-                            }
-                          } catch (e) {
-                            print('Facebook launch error: $e');
-                          }
-                        },
-                      ),
-                      const SizedBox(width: 20),
-
-                      // WhatsApp
-                      SocialMediaIcon(
-                        imagePath: 'assets/categories/whatsapp.png',
-                        onPressed: () async {
-                          try {
-                            const url = 'https://whatsapp.com';
-
-                            if (await canLaunchUrl(Uri.parse(url))) {
-                              await launchUrl(
-                                Uri.parse(url),
-                                mode: LaunchMode.externalApplication,
-                              );
-                            }
-                          } catch (e) {
-                            print('WhatsApp launch error: $e');
-                          }
-                        },
-                      ),
-                      const SizedBox(width: 20),
-
-                      // LinkedIn
-                      SocialMediaIcon(
-                        imagePath: 'assets/categories/linkedin.png',
-                        onPressed: () async {
-                          try {
-                            const url = 'https://linkedin.com';
-
-                            if (await canLaunchUrl(Uri.parse(url))) {
-                              await launchUrl(
-                                Uri.parse(url),
-                                mode: LaunchMode.externalApplication,
-                              );
-                            }
-                          } catch (e) {
-                            print('LinkedIn launch error: $e');
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 20),
-
-              // Action Buttons
+              // ---------------- SOCIAL MEDIA FOOTER ----------------
               Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 25, horizontal: 20),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.primary, AppColors.secondary],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                  color: AppColors.primary.withOpacity(0.05),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
                   ),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withOpacity(0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      "Follow us on",
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Social Media Icons
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Instagram
+                        _buildSocialIcon('assets/categories/instagram.png',
+                            'https://www.instagram.com/flyhub_info?igsh=OWM2a3E2Ym81bzRs'),
+                        const SizedBox(width: 20),
+
+                        // LinkedIn
+                        _buildSocialIcon('assets/categories/linkedin.png',
+                            'https://www.linkedin.com/company/flyhubinfo/'),
+                        const SizedBox(width: 20),
+
+                        // Facebook
+                        _buildSocialIcon('assets/categories/facebook.png',
+                            'https://facebook.com'),
+                        const SizedBox(width: 20),
+
+                        // Twitter
+                        _buildSocialIcon('assets/categories/twitter.png',
+                            'https://twitter.com'),
+                        const SizedBox(width: 20),
+
+                        // WhatsApp
+                        _buildSocialIcon('assets/categories/whatsapp.png',
+                            'https://whatsapp.com'),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Footer Text
+                    Text(
+                      "Connect with us for updates and support",
+                      style: TextStyle(
+                        color: AppColors.primary.withOpacity(0.6),
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                      ),
                     ),
                   ],
                 ),
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                        const Dynamichome(selectedIndex: 0),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        "Explore FlyHub",
-                        style: GoogleFonts.raleway(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.explore_rounded, color: Colors.white),
-                    ],
-                  ),
-                ),
               ),
-              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -2149,13 +1876,50 @@ class SellerVerificationSuccessScreen extends StatelessWidget {
         const SizedBox(width: 12),
         Text(
           text,
-          style: GoogleFonts.raleway(
+          style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
             color: AppColors.textPrimary,
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSocialIcon(String iconPath, String url) {
+    return GestureDetector(
+      onTap: () async {
+        try {
+          if (await canLaunchUrl(Uri.parse(url))) {
+            await launchUrl(
+              Uri.parse(url),
+              mode: LaunchMode.externalApplication,
+            );
+          }
+        } catch (e) {
+          print('Error launching URL: $e');
+        }
+      },
+      child: Container(
+        width: 40,
+        height: 40,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.1),
+              blurRadius: 5,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Image.asset(
+          iconPath,
+          fit: BoxFit.contain,
+        ),
+      ),
     );
   }
 }
@@ -2171,7 +1935,7 @@ class TermsAndConditionsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Terms and Conditions"),
+        title: const Text("Terms and Conditions"),
         backgroundColor: AppColors.primary,
       ),
       body: Padding(
@@ -2182,12 +1946,12 @@ class TermsAndConditionsPage extends StatelessWidget {
             children: [
               Text(
                 "Your Terms and Conditions content goes here...",
-                style: TextStyle(fontSize: 16),
+                style: const TextStyle(fontSize: 16),
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text("Back"),
+                child: const Text("Back"),
               ),
             ],
           ),

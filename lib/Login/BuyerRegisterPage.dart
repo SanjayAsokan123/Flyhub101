@@ -67,7 +67,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
 
     },
     'whatsapp': {
-      'url': 'https://wa.me/919876543210?text=Hello%20FlyHub%20Team', // Replace with actual number
+      'url': 'https://wa.me/+919003992693', // Replace with actual number
 
     },
   };
@@ -661,7 +661,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
 
                           // Twitter
                           _buildSocialIcon(
-                            'assets/categories/twitters.png',
+                            'assets/categories/twitter.png',
                             'twitter',
                           ),
                           const SizedBox(width: 20),

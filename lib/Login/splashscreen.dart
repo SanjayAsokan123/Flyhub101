@@ -176,7 +176,7 @@ class _SplashscreenState extends State<Splashscreen> with SingleTickerProviderSt
                           color: Colors.grey[200],
                           child: const Center(
                             child: Text(
-                              'FlyHub',
+                              'Flyhub',
                               style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,

@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flyhub/Login/FlyHubSelectionPage.dart';
 // Settings Pages
 import 'package:flyhub/T&C/Help_Support_Page.dart';
@@ -36,9 +37,6 @@ import '../../SellerBookingStatuses/jobApplyStatus.dart';
 import '../../services/logout_service.dart';
 import '../../services/role_manager.dart';
 
-// Add this import for EditSellerProfile
-import '../../Login/SellerEditProfile.dart';
-
 class SellerPage extends StatefulWidget {
   const SellerPage({super.key});
 
@@ -72,6 +70,114 @@ class _SellerPageState extends State<SellerPage> {
   static const Color successColor = Color(0xFF10B981);
 
   final String graphqlUrl = EnvConfig.baseUrl;
+
+  // SVG Helper Methods
+  Widget _buildSvgIcon(String assetPath, {Color? color, double size = 22}) {
+    return SvgPicture.asset(
+      assetPath,
+      width: size,
+      height: size,
+      colorFilter: color != null
+          ? ColorFilter.mode(color, BlendMode.srcIn)
+          : null,
+      placeholderBuilder: (context) => Container(
+        width: size,
+        height: size,
+        padding: EdgeInsets.all(size * 0.2),
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(themeColor),
+        ),
+      ),
+    );
+  }
+
+  // Method to get SVG asset path for each item
+  String _getSvgAssetPath(String label) {
+    switch (label.toLowerCase()) {
+      case 'add drone':
+        return 'assets/categories/drone1.svg';
+      case 'spare parts':
+        return 'assets/categories/parts.svg';
+      case 'accessories':
+        return 'assets/categories/accessories.svg';
+      case 'rental drone':
+        return 'assets/categories/rentals.svg';
+      case 'services':
+        return 'assets/categories/services.svg';
+      case 'jobs/gigs':
+        return 'assets/categories/employee.svg';
+      case 'hire pilot':
+        return 'assets/categories/pilots.svg';
+      default:
+        return 'assets/icons/default.svg';
+    }
+  }
+
+  // SVG category item builder
+  Widget _buildSvgCategoryItem({
+    required String svgAsset,
+    required String label,
+    required VoidCallback onTap,
+    required Color color,
+    bool disabled = false,
+    double iconSize = 42,
+  }) {
+    return GestureDetector(
+      onTap: disabled ? null : onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: borderColor,
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: iconSize,
+              height: iconSize,
+              padding: EdgeInsets.all(iconSize * 0.15),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: _buildSvgIcon(
+                svgAsset,
+                color: disabled ? textLight : color,
+                size: iconSize * 0.6,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: disabled ? textLight : textPrimary,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -191,36 +297,9 @@ class _SellerPageState extends State<SellerPage> {
     return status.toLowerCase() == "approved";
   }
 
-  // Add this method to navigate to Edit Profile
-  void _navigateToEditProfile() async {
-    if (_sellerId == null || _sellerData == null) {
-      _showMissingSellerSnack();
-      return;
-    }
-
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => EditSellerProfile(
-          sellerData: _sellerData!,
-          sellerId: _sellerId!,
-        ),
-      ),
-    );
-
-    // Refresh data if profile was updated
-    if (result == true && mounted) {
-      setState(() => _loading = true);
-      await _fetchOrCreateSeller(
-        _user!.email ?? "",
-        _user!.displayName ?? "",
-      );
-      setState(() => _loading = false);
-    }
-  }
-
   Future<void> _switchToBuyer() async {
     try {
+      // await RoleManager.updateRole("buyer");
       if (!mounted) return;
 
       showDialog(
@@ -416,6 +495,7 @@ class _SellerPageState extends State<SellerPage> {
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
+                          // String customId = "";
                           LogoutService.logoutSeller(context, _sellerId!);
                         },
                         style: ElevatedButton.styleFrom(
@@ -509,88 +589,51 @@ class _SellerPageState extends State<SellerPage> {
     );
   }
 
-  // Updated _buildAvatar method with edit icon
-  Widget _buildAvatar(String? companyName, {double size = 60, bool showEditIcon = true}) {
+  Widget _buildAvatar(String? companyName, {double size = 60}) {
     final String initials = companyName != null && companyName.isNotEmpty
         ? companyName[0].toUpperCase()
         : "S";
 
-    return Stack(
-      children: [
-        Container(
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: themeColor.withOpacity(0.2),
+          width: 2,
+        ),
+      ),
+      child: ClipOval(
+        child: Image.asset(
+          'assets/images/profile.jpg',
+          fit: BoxFit.cover,
           width: size,
           height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: themeColor.withOpacity(0.2),
-              width: 2,
-            ),
-          ),
-          child: ClipOval(
-            child: Image.asset(
-              'assets/images/profile.jpg',
-              fit: BoxFit.cover,
-              width: size,
-              height: size,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [themeColor, primaryLight],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      initials,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: size * 0.4,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-        if (showEditIcon)
-          Positioned(
-            bottom: 0,
-            right: 0,
-            child: GestureDetector(
-              onTap: _navigateToEditProfile,
-              child: Container(
-                width: size * 0.35,
-                height: size * 0.35,
-                decoration: BoxDecoration(
-                  color: themeColor,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white,
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [themeColor, primaryLight],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                child: Icon(
-                  Icons.edit,
-                  color: Colors.white,
-                  size: size * 0.2,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  initials,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: size * 0.4,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-            ),
-          ),
-      ],
+            );
+          },
+        ),
+      ),
     );
   }
 
@@ -619,7 +662,7 @@ class _SellerPageState extends State<SellerPage> {
         children: [
           Row(
             children: [
-              _buildAvatar(name, showEditIcon: true), // Updated with edit icon
+              _buildAvatar(name),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -838,76 +881,14 @@ class _SellerPageState extends State<SellerPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemBuilder: (context, index) {
         final item = items[index];
-        return _buildCategoryItem(
-          icon: item['icon'],
+        return _buildSvgCategoryItem(
+          svgAsset: item['svgAsset'],
           label: item['label'],
           onTap: item['onTap'],
           color: item['color'],
           disabled: item['disabled'] ?? false,
         );
       },
-    );
-  }
-
-  Widget _buildCategoryItem({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    required Color color,
-    bool disabled = false,
-  }) {
-    return GestureDetector(
-      onTap: disabled ? null : onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: borderColor,
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                icon,
-                color: disabled ? textLight : color,
-                size: 22,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: disabled ? textLight : textPrimary,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -1004,7 +985,7 @@ class _SellerPageState extends State<SellerPage> {
 
     final storeItems = [
       {
-        'icon': Icons.airplanemode_active,
+        'svgAsset': _getSvgAssetPath('Add Drone'),
         'label': 'Add Drone',
         'color': Colors.blue,
         'disabled': !_isApproved,
@@ -1022,7 +1003,7 @@ class _SellerPageState extends State<SellerPage> {
         },
       },
       {
-        'icon': Icons.build,
+        'svgAsset': _getSvgAssetPath('Spare Parts'),
         'label': 'Spare Parts',
         'color': Colors.green,
         'disabled': !_isApproved,
@@ -1040,7 +1021,7 @@ class _SellerPageState extends State<SellerPage> {
         },
       },
       {
-        'icon': Icons.memory,
+        'svgAsset': _getSvgAssetPath('Accessories'),
         'label': 'Accessories',
         'color': Colors.orange,
         'disabled': !_isApproved,
@@ -1058,7 +1039,7 @@ class _SellerPageState extends State<SellerPage> {
         },
       },
       {
-        'icon': Icons.precision_manufacturing,
+        'svgAsset': _getSvgAssetPath('Rental Drone'),
         'label': 'Rental Drone',
         'color': Colors.purple,
         'disabled': !_isApproved,
@@ -1076,7 +1057,7 @@ class _SellerPageState extends State<SellerPage> {
         },
       },
       {
-        'icon': Icons.design_services,
+        'svgAsset': _getSvgAssetPath('Services'),
         'label': 'Services',
         'color': Colors.teal,
         'disabled': !_isApproved,
@@ -1094,7 +1075,7 @@ class _SellerPageState extends State<SellerPage> {
         },
       },
       {
-        'icon': Icons.work_outline,
+        'svgAsset': _getSvgAssetPath('Jobs/Gigs'),
         'label': 'Jobs/Gigs',
         'color': Colors.red,
         'disabled': !_isApproved,
@@ -1112,7 +1093,7 @@ class _SellerPageState extends State<SellerPage> {
         },
       },
       {
-        'icon': Icons.flight_takeoff,
+        'svgAsset': _getSvgAssetPath('Hire Pilot'),
         'label': 'Hire Pilot',
         'color': Colors.indigo,
         'disabled': !_isApproved,

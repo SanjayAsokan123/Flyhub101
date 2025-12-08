@@ -11,7 +11,7 @@
 
     <application
         android:name="${applicationName}"
-        android:label="FlyHub"
+        android:label="Flyhub"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"
         android:allowBackup="true"
