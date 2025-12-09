@@ -1,11 +1,24 @@
+// ==============================================
+// 📌 CheckoutPage.dart (FINAL VERSION)
+// ==============================================
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'BuyerDetails/MyCartPage.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
+
+import '../services/graphql_client.dart';
+import '../services/role_manager.dart';
 import 'OrderSuccessPage.dart';
 
 class CheckoutPage extends StatefulWidget {
-  final Map<String, dynamic> drone;
-  const CheckoutPage({Key? key, required this.drone}) : super(key: key);
+  final Map<String, dynamic> order;  // from AddressPage
+  final double total;
+
+  const CheckoutPage({
+    super.key,
+    required this.order,
+    required this.total,
+  });
 
   @override
   State<CheckoutPage> createState() => _CheckoutPageState();
@@ -14,28 +27,246 @@ class CheckoutPage extends StatefulWidget {
 class _CheckoutPageState extends State<CheckoutPage> {
   final Color themeColor = const Color(0xFF1A0A5B);
 
+  late Razorpay _razorpay;
+
+  String selectedPayment = "UPI";
+  String selectedUpiApp = "Google Pay";
   String? selectedBank;
-  String selectedUpiApp = 'Google Pay';
 
-  final TextEditingController upiIdController = TextEditingController();
-  final TextEditingController cardNumberController = TextEditingController();
-  final TextEditingController expiryController = TextEditingController();
-  final TextEditingController cvvController = TextEditingController();
-  final TextEditingController nameController = TextEditingController();
+  @override
+  void initState() {
+    super.initState();
 
-  final List<String> banks = [
-    'State Bank of India',
-    'HDFC Bank',
-    'ICICI Bank',
-    'Axis Bank',
-    'Kotak Mahindra Bank',
-  ];
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _paymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _paymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _externalWallet);
+  }
 
-  double get price => (widget.drone['price'] ?? 0).toDouble();
-  int get quantity => (widget.drone['quantity'] ?? 1).toInt();
-  String get name => widget.drone['name'] ?? 'Unnamed Drone';
-  String get image => widget.drone['image'] ?? '';
-  double get totalAmount => price * quantity;
+  @override
+  void dispose() {
+    _razorpay.clear();
+    super.dispose();
+  }
+
+  // ========================================================
+  // 🔥 START RAZORPAY ORDER — backend mutation
+  // ========================================================
+  Future<String> _createRazorpayOrder(double amount) async {
+    const String mutation = r'''
+      mutation CreateRazorpayOrder($amount: Int!) {
+        createRazorpayOrder(amount: $amount)
+      }
+    ''';
+
+    final res = await GraphQLService.performMutation(
+      mutation,
+      variables: {"amount": amount.toInt()},
+    );
+
+    return res?["createRazorpayOrder"];
+  }
+
+  // ========================================================
+  // 🔥 VERIFY PAYMENT SIGNATURE — backend mutation
+  // ========================================================
+  Future<bool> _verifySignature({
+    required String orderId,
+    required String paymentId,
+    required String signature,
+  }) async {
+    const String mutation = r'''
+      mutation VerifyRazorpayPayment(
+        $razorpay_order_id: String!
+        $razorpay_payment_id: String!
+        $razorpay_signature: String!
+      ) {
+        verifyRazorpayPayment(
+          razorpay_order_id: $razorpay_order_id
+          razorpay_payment_id: $razorpay_payment_id
+          razorpay_signature: $razorpay_signature
+        )
+      }
+    ''';
+
+    final res = await GraphQLService.performMutation(
+      mutation,
+      variables: {
+        "razorpay_order_id": orderId,
+        "razorpay_payment_id": paymentId,
+        "razorpay_signature": signature,
+      },
+    );
+
+    return res?["verifyRazorpayPayment"] == true;
+  }
+
+  // ========================================================
+  // 🔥 CREATE ORDER IN BACKEND — FINAL STEP
+  // ========================================================
+  Future<void> _createOrder({
+    required String method,
+    required bool isCOD,
+    String? transactionId,
+  }) async {
+    try {
+      final buyer = widget.order["buyerData"];
+
+      // Final items payload
+      List<Map<String, dynamic>> items = [];
+
+      if (widget.order["type"] == "single") {
+        final p = widget.order["singleProduct"];
+        items.add({
+          "productId": p["productId"],
+          "type": p["category"],
+          "quantity": p["quantity"],
+        });
+      }
+
+      if (widget.order["type"] == "cart") {
+        for (var c in widget.order["cartItems"]) {
+          items.add({
+            "productId": c["productId"],
+            "type": c["category"],
+            "quantity": c["quantity"],
+          });
+        }
+      }
+
+      const String mutation = r'''
+        mutation CreateOrder(
+          $buyerData: BuyerInput!
+          $items: [ItemInput!]!
+          $paymentData: PaymentInput!
+        ) {
+          createOrder(
+            buyerData: $buyerData
+            items: $items
+            paymentData: $paymentData
+          ) {
+            orderId
+            totalAmount
+            status
+          }
+        }
+      ''';
+
+      final res = await GraphQLService.performMutation(
+        mutation,
+        variables: {
+          "buyerData": buyer,
+          "items": items,
+          "paymentData": {
+            "method": method,
+            "status": isCOD ? "pending" : "received",
+            "transactionId": transactionId,
+          }
+        },
+      );
+
+      final order = res?["createOrder"];
+      if (order == null) throw "Order creation failed";
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => OrderSuccessPage(
+            orderDetails: order["orderId"],
+            drone: {"total": widget.total},
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text("Order failed: $e"),
+            backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  // ========================================================
+  // 🔥 Trigger Razorpay Payment Flow
+  // ========================================================
+  void _startRazorpayPayment() async {
+    try {
+      String razorpayOrderId =
+      await _createRazorpayOrder(widget.total);
+
+      var options = {
+        'key': 'rzp_test_RhThC0c8VixBN8', // your Razorpay key
+        'amount': (widget.total * 100).toInt(),
+        'name': 'Flyhub',
+        'description': 'Order Payment',
+        'currency': 'INR',
+        'order_id': razorpayOrderId,
+        'prefill': {
+          'contact': widget.order["buyerData"]["phone"],
+          'email': widget.order["buyerData"]["email"]
+        }
+      };
+
+      _razorpay.open(options);
+    } catch (e) {
+      debugPrint("Razorpay start error: $e");
+    }
+  }
+
+  // ========================================================
+  // 🔥 Payment Success Callback
+  // ========================================================
+  void _paymentSuccess(PaymentSuccessResponse res) async {
+    bool verified = await _verifySignature(
+      orderId: res.orderId!,
+      paymentId: res.paymentId!,
+      signature: res.signature!,
+    );
+
+    if (!verified) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Payment verification failed"),
+        ),
+      );
+      return;
+    }
+
+    await _createOrder(
+      method: "UPI",
+      isCOD: false,
+      transactionId: res.paymentId,
+    );
+  }
+
+  // ========================================================
+  // 🔥 Payment Error
+  // ========================================================
+  void _paymentError(PaymentFailureResponse res) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Payment failed: ${res.message}")),
+    );
+  }
+
+  // ========================================================
+  // 🔥 External Wallet
+  // ========================================================
+  void _externalWallet(ExternalWalletResponse res) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Selected wallet: ${res.walletName}")),
+    );
+  }
+
+  // ========================================================
+  // 🔥 COD Handler
+  // ========================================================
+  void _handleCOD() {
+    _createOrder(method: "COD", isCOD: true);
+  }
+
+  // ========================================================
+  // UI ---------------------------------------------
+  // ========================================================
 
   @override
   Widget build(BuildContext context) {
@@ -43,349 +274,110 @@ class _CheckoutPageState extends State<CheckoutPage> {
       backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
         backgroundColor: Colors.white,
-        title: Text(
-          "Checkout",
-          style: GoogleFonts.poppins(
-            color: themeColor,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        elevation: 2,
+        title: Text("Checkout",
+            style: GoogleFonts.poppins(
+                color: themeColor, fontWeight: FontWeight.w600)),
         centerTitle: true,
         iconTheme: IconThemeData(color: themeColor),
-        elevation: 2,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _navigationBar(currentStep: 3),
-            const SizedBox(height: 20),
-            _cartSummaryCard(),
-            const SizedBox(height: 12),
-            _totalAmountBar(),
-            const SizedBox(height: 14),
-            _buildExpansionTile("UPI", _buildUpiSection()),
-            _buildExpansionTile("Card", _buildCardSection()),
-            _buildExpansionTile("Net Banking", _buildNetBankingSection()),
-            _buildExpansionTile("Cash on Delivery", _buildCodSection()),
-            const SizedBox(height: 80), // Space for cancel button
-          ],
-        ),
-      ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(14),
-        child: SizedBox(
-          width: double.infinity,
-          height: 50,
-          child: OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: themeColor, width: 1.8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (_) => const MyCartPage()),
-              );
-            },
-            child: Text(
-              "Cancel Order",
-              style: GoogleFonts.poppins(
-                color: themeColor,
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
-              ),
-            ),
-          ),
-        ),
-      ),
+      body: _buildBody(),
+      bottomNavigationBar: _cancelButton(),
     );
   }
 
-  /// ✅ Navigation bar from AddressPage
-  Widget _navigationBar({required int currentStep}) {
-    const steps = ["Cart", "Address", "Checkout"];
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: List.generate(steps.length, (index) {
-        bool isActive = index + 1 == currentStep;
-        bool isCompleted = index + 1 < currentStep;
-        return Row(
-          children: [
-            CircleAvatar(
-              radius: 14,
-              backgroundColor: isCompleted
-                  ? themeColor
-                  : (isActive ? Colors.orange : Colors.grey.shade300),
-              child: Text(
-                "${index + 1}",
-                style: const TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              steps[index],
-              style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: isActive ? themeColor : Colors.black54),
-            ),
-            if (index != steps.length - 1)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
-                child:
-                Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
-              ),
-          ],
-        );
-      }),
-    );
-  }
-
-  Widget _cartSummaryCard() => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: Colors.grey[300]!),
-    ),
-    child: Row(
-      children: [
-        if (image.isNotEmpty)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.network(
-              image,
-              height: 70,
-              width: 70,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) =>
-              const Icon(Icons.image_not_supported, size: 50),
-            ),
-          ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name,
-                  style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w600, fontSize: 15)),
-              const SizedBox(height: 4),
-              Text("Qty: $quantity",
-                  style: GoogleFonts.poppins(
-                      fontSize: 13, color: Colors.grey[700])),
-              const SizedBox(height: 4),
-              Text("Price: ₹${price.toStringAsFixed(0)}",
-                  style: GoogleFonts.poppins(
-                      fontSize: 14, color: Colors.black)),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-
-  Widget _totalAmountBar() => Container(
-    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: Colors.grey[300]!),
-    ),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text("Total Amount",
-            style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w500, fontSize: 15)),
-        Text("₹${totalAmount.toStringAsFixed(0)}",
-            style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
-                fontSize: 17,
-                color: themeColor)),
-      ],
-    ),
-  );
-
-  Widget _buildExpansionTile(String title, Widget content) => Container(
-    margin: const EdgeInsets.only(bottom: 12),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: Colors.grey[300]!),
-    ),
-    child: Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        collapsedIconColor: themeColor,
-        iconColor: themeColor,
-        title: Text(title,
-            style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w500,
-                fontSize: 15,
-                color: themeColor)),
-        childrenPadding:
-        const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        children: [content],
-      ),
-    ),
-  );
-
-  Widget _buildUpiSection() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      RadioListTile<String>(
-        activeColor: themeColor,
-        value: 'Google Pay',
-        groupValue: selectedUpiApp,
-        onChanged: (val) => setState(() => selectedUpiApp = val!),
-        title: const Text("Google Pay"),
-      ),
-      RadioListTile<String>(
-        activeColor: themeColor,
-        value: 'PhonePe',
-        groupValue: selectedUpiApp,
-        onChanged: (val) => setState(() => selectedUpiApp = val!),
-        title: const Text("PhonePe"),
-      ),
-      RadioListTile<String>(
-        activeColor: themeColor,
-        value: 'Add new UPI ID',
-        groupValue: selectedUpiApp,
-        onChanged: (val) => setState(() => selectedUpiApp = val!),
-        title: const Text("Add new UPI ID"),
-      ),
-      if (selectedUpiApp == 'Add new UPI ID')
-        TextField(
-          controller: upiIdController,
-          decoration: InputDecoration(
-              labelText: "Enter UPI ID (e.g., name@bank)",
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8))),
-        ),
-      const SizedBox(height: 10),
-      _buildPayButton("Pay ₹${totalAmount.toStringAsFixed(0)}"),
-    ],
-  );
-
-  Widget _buildCardSection() => Column(
-    children: [
-      _buildTextField(
-          "Card Number", Icons.credit_card, cardNumberController),
-      Row(
+  Widget _buildBody() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
         children: [
-          Expanded(
-              child: _buildTextField(
-                  "Expiry (MM/YY)", Icons.date_range, expiryController)),
-          const SizedBox(width: 10),
-          Expanded(
-              child: _buildTextField(
-                  "CVV", Icons.lock, cvvController,
-                  obscureText: true)),
+          _summaryCard(),
+          const SizedBox(height: 16),
+          _paymentTiles(),
         ],
       ),
-      _buildTextField("Name on Card", Icons.person, nameController),
-      const SizedBox(height: 10),
-      _buildPayButton("Pay ₹${totalAmount.toStringAsFixed(0)}"),
-    ],
-  );
+    );
+  }
 
-  Widget _buildNetBankingSection() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      DropdownButtonFormField<String>(
-        decoration: InputDecoration(
-            labelText: "Select Bank",
-            border:
-            OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
-        value: selectedBank,
-        items: banks
-            .map((b) => DropdownMenuItem(
-            value: b,
-            child: Text(b, style: GoogleFonts.poppins(fontSize: 14))))
-            .toList(),
-        onChanged: (v) => setState(() => selectedBank = v),
+  Widget _summaryCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade300),
       ),
-      const SizedBox(height: 10),
-      _buildPayButton("Pay ₹${totalAmount.toStringAsFixed(0)}"),
-    ],
-  );
-
-  Widget _buildCodSection() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text("Pay with cash when your order arrives.",
-          style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey[700])),
-      const SizedBox(height: 10),
-      SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: themeColor,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8)),
-          ),
-          onPressed: () => _handlePayment(isCOD: true),
-          child: Text("Confirm COD Order",
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text("Total Amount",
+              style:
+              GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w500)),
+          Text("₹${widget.total.toStringAsFixed(0)}",
               style: GoogleFonts.poppins(
-                  color: Colors.white, fontWeight: FontWeight.w600)),
-        ),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: themeColor)),
+        ],
       ),
-    ],
-  );
+    );
+  }
 
-  Widget _buildPayButton(String text) => SizedBox(
-    width: double.infinity,
-    child: ElevatedButton(
-      style: ElevatedButton.styleFrom(
-          backgroundColor: themeColor,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8))),
-      onPressed: _handlePayment,
-      child: Text(text,
-          style: GoogleFonts.poppins(
-              color: Colors.white, fontWeight: FontWeight.w600)),
-    ),
-  );
-
-  Widget _buildTextField(String label, IconData icon,
-      TextEditingController controller,
-      {bool obscureText = false}) =>
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: TextField(
-          controller: controller,
-          obscureText: obscureText,
-          decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: themeColor),
-            labelText: label,
-            border:
-            OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+  Widget _paymentTiles() {
+    return Column(
+      children: [
+        _tile(
+          "UPI (Google Pay / PhonePe)",
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: themeColor),
+            onPressed: _startRazorpayPayment,
+            child: Text("Pay ₹${widget.total}",
+                style: const TextStyle(color: Colors.white)),
           ),
         ),
-      );
-
-  void _handlePayment({bool isCOD = false}) {
-    if (isCOD) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => OrderSuccessPage(
-            drone: {
-              ...widget.drone,
-              'total': totalAmount,
-            },
-            orderDetails: '',
+        _tile(
+          "Cash on Delivery",
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: themeColor),
+            onPressed: _handleCOD,
+            child: const Text("Confirm COD",
+                style: TextStyle(color: Colors.white)),
           ),
         ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payment processed!')));
-    }
+      ],
+    );
+  }
+
+  Widget _tile(String title, Widget child) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: ExpansionTile(
+        title: Text(title),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: child,
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _cancelButton() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: themeColor, width: 1.5),
+        ),
+        onPressed: () => Navigator.pop(context),
+        child: Text("Cancel Order",
+            style: TextStyle(color: themeColor, fontWeight: FontWeight.w600)),
+      ),
+    );
   }
 }

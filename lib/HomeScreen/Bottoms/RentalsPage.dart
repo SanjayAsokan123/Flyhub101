@@ -6,17 +6,15 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../CommonClass/ApiClass.dart';
 import '../../CommonClass/utils.dart';
-import '../../BuyerDetails/MyCartPage.dart';
 import '../Dynamichome.dart';
 import '../../ApplyingBookingNow/RentalBookNow.dart';
 import '../../utils/responsive_utils.dart';
-import '../../services/role_manager.dart'; // ADD THIS IMPORT
-import '../../Login/BuyerLoginPage.dart'; // ADD THIS IMPORT
-import '../../Login/BuyerRegisterPage.dart'; // ADD THIS IMPORT
+import '../../services/role_manager.dart';
+import '../../Login/BuyerLoginPage.dart';
+import '../../Login/BuyerRegisterPage.dart';
 
 class RentalsPage extends StatefulWidget {
   const RentalsPage({Key? key}) : super(key: key);
-
   @override
   State<RentalsPage> createState() => _RentalsPageState();
 }
@@ -26,19 +24,15 @@ class _RentalsPageState extends State<RentalsPage> {
   List<dynamic> rentalList = [];
   List<dynamic> filteredList = [];
   bool isLoading = true;
-  String searchQuery = '';
-  int cartCount = 0;
-
-  // Filters
   bool withPilot = false;
   bool insured = false;
   bool availableToday = false;
+  String searchQuery = '';
   String sortBy = 'Recommended';
 
   final Set<String> favoriteItems = {};
   final Map<String, dynamic> favoriteData = {};
 
-  // Professional Color Scheme
   final Color primaryColor = const Color(0xFF1A0A5B);
   final Color secondaryColor = const Color(0xFF4C1D95);
   final Color accentColor = const Color(0xFF00D9A3);
@@ -47,20 +41,18 @@ class _RentalsPageState extends State<RentalsPage> {
   final Color textPrimary = const Color(0xFF1F2937);
   final Color textSecondary = const Color(0xFF6B7280);
   final Color borderColor = const Color(0xFFE5E7EB);
-  final Color warningColor = const Color(0xFFF59E0B);
-  final Color errorColor = const Color(0xFFEF4444);
 
   @override
   void initState() {
     super.initState();
     _loadFavorites();
-    _loadCartCount();
     fetchRentals();
   }
 
   Future<void> fetchRentals() async {
     HapticFeedback.selectionClick();
     setState(() => isLoading = true);
+
     try {
       final result = await _api.getRentals();
       if (result.status == "success" && result.data is List) {
@@ -74,33 +66,26 @@ class _RentalsPageState extends State<RentalsPage> {
     } catch (e) {
       Utils.bottomToast(context, "Error loading rentals: $e");
     }
-    setState(() => isLoading = false);
-  }
 
-  Future<void> _loadCartCount() async {
-    final prefs = await SharedPreferences.getInstance();
-    try {
-      final saved = prefs.getString('cart') ?? '[]';
-      final cartItems = jsonDecode(saved) as List;
-      setState(() => cartCount = cartItems.length);
-    } catch (_) {
-      setState(() => cartCount = 0);
-    }
+    setState(() => isLoading = false);
   }
 
   Future<void> _loadFavorites() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString('wishlist');
     if (saved == null) return;
+
     try {
       final decoded = jsonDecode(saved) as List;
       favoriteItems.clear();
       favoriteData.clear();
+
       for (var item in decoded) {
         final id = item['id'].toString();
         favoriteItems.add(id);
         favoriteData[id] = item;
       }
+
       setState(() {});
     } catch (_) {}
   }
@@ -111,9 +96,7 @@ class _RentalsPageState extends State<RentalsPage> {
   }
 
   void _searchRentals(String query) {
-    setState(() {
-      searchQuery = query.toLowerCase();
-    });
+    setState(() => searchQuery = query.toLowerCase());
     _applyFiltersAndSort();
   }
 
@@ -121,6 +104,7 @@ class _RentalsPageState extends State<RentalsPage> {
     final id = rental['rentalId']?.toString() ?? rental['name'];
     final isFav = favoriteItems.contains(id);
     HapticFeedback.selectionClick();
+
     setState(() {
       if (isFav) {
         favoriteItems.remove(id);
@@ -130,20 +114,25 @@ class _RentalsPageState extends State<RentalsPage> {
         favoriteData[id] = rental;
       }
     });
+
     await _saveFavorites();
   }
 
   void _applyFiltersAndSort() {
     List<dynamic> result = List.from(rentalList);
 
-    // Other filters
-    if (withPilot) result = result.where((r) => r['with_pilot'] == true).toList();
-    if (insured) result = result.where((r) => r['insurance'] == true).toList();
+    if (withPilot) {
+      result = result.where((r) => r['with_pilot'] == true).toList();
+    }
+
+    if (insured) {
+      result = result.where((r) => r['insurance'] == true).toList();
+    }
+
     if (availableToday) {
       result = result.where((r) => r['available_today'] == true).toList();
     }
 
-    // Search
     if (searchQuery.isNotEmpty) {
       result = result.where((r) {
         final name = (r['name'] ?? '').toString().toLowerCase();
@@ -155,32 +144,25 @@ class _RentalsPageState extends State<RentalsPage> {
       }).toList();
     }
 
-    // Sorting
     switch (sortBy) {
       case 'Price: Low to High':
-        result.sort((a, b) =>
-            (a['pricePerDay'] ?? 0).compareTo(b['pricePerDay'] ?? 0));
+        result.sort((a, b) => (a['pricePerDay'] ?? 0).compareTo(b['pricePerDay'] ?? 0));
         break;
       case 'Price: High to Low':
-        result.sort((a, b) =>
-            (b['pricePerDay'] ?? 0).compareTo(a['pricePerDay'] ?? 0));
+        result.sort((a, b) => (b['pricePerDay'] ?? 0).compareTo(a['pricePerDay'] ?? 0));
         break;
       case 'Rating: High to Low':
-        result.sort((a, b) =>
-            (b['rating'] ?? 0).compareTo(a['rating'] ?? 0));
+        result.sort((a, b) => (b['rating'] ?? 0).compareTo(a['rating'] ?? 0));
         break;
       case 'Name: A to Z':
-        result.sort((a, b) =>
-            (a['name'] ?? '').toString().compareTo((b['name'] ?? '').toString()));
+        result.sort((a, b) => (a['name'] ?? '').toString().compareTo((b['name'] ?? '').toString()));
         break;
       default:
-      // Recommended - sort by rating then by price
         result.sort((a, b) {
           final ratingCompare = (b['rating'] ?? 0).compareTo(a['rating'] ?? 0);
           if (ratingCompare != 0) return ratingCompare;
           return (a['pricePerDay'] ?? 0).compareTo(b['pricePerDay'] ?? 0);
         });
-        break;
     }
 
     setState(() => filteredList = result);
@@ -196,20 +178,13 @@ class _RentalsPageState extends State<RentalsPage> {
     _applyFiltersAndSort();
   }
 
-  // ✅ ADD THIS: Check if user is authenticated as buyer
   Future<bool> _checkBuyerAuth() async {
     final role = await RoleManager.getLocalRole();
-
-    if (role == "buyer") {
-      return true; // User is already a buyer
-    }
-
-    // User is not a buyer - show auth dialog
+    if (role == "buyer") return true;
     await _showAuthRequiredDialog(role);
     return false;
   }
 
-  // ✅ ADD THIS: Show authentication required dialog
   Future<void> _showAuthRequiredDialog(String? currentRole) async {
     String title = "Login Required";
     String message = "You need to be logged in as a buyer to rent drones.";
@@ -295,7 +270,6 @@ class _RentalsPageState extends State<RentalsPage> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              // Navigate to buyer registration
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (_) => const BuyerRegisterPage()),
@@ -312,7 +286,6 @@ class _RentalsPageState extends State<RentalsPage> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              // Navigate to buyer login
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (_) => const BuyerLoginPage()),
@@ -337,16 +310,9 @@ class _RentalsPageState extends State<RentalsPage> {
     );
   }
 
-  // ✅ ADD THIS: Handle booking with auth check
   Future<void> _handleBooking(Map<String, dynamic> rental) async {
-    // Check if user is authenticated as buyer
-    final isAuthenticated = await _checkBuyerAuth();
+    if (!await _checkBuyerAuth()) return;
 
-    if (!isAuthenticated) {
-      return; // Auth dialog shown, stop here
-    }
-
-    // User is authenticated as buyer - proceed to booking
     HapticFeedback.selectionClick();
     Navigator.push(
       context,
@@ -396,18 +362,16 @@ class _RentalsPageState extends State<RentalsPage> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(ResponsiveUtils.getPilotCardRadius(context)),
-          onTap: () => _handleBooking(rental), // ✅ CHANGED: Use auth-checked handler
+          onTap: () => _handleBooking(rental),
           child: Padding(
             padding: cardPadding,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top Row: Image and Main Content
                 Expanded(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Image Section
                       Column(
                         children: [
                           Stack(
@@ -443,7 +407,6 @@ class _RentalsPageState extends State<RentalsPage> {
                                   ),
                                 ),
                               ),
-                              // Premium Badge
                               if (rental['premium'] == true)
                                 Positioned(
                                   top: 8,
@@ -478,12 +441,10 @@ class _RentalsPageState extends State<RentalsPage> {
                       ),
                       SizedBox(width: ResponsiveUtils.getDynamicWidth(context, 0.04)),
 
-                      // Content Section
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Title and Brand
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -511,7 +472,6 @@ class _RentalsPageState extends State<RentalsPage> {
                             ),
                             SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.012)),
 
-                            // Location
                             Row(
                               children: [
                                 Icon(
@@ -535,7 +495,6 @@ class _RentalsPageState extends State<RentalsPage> {
                             ),
                             SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.012)),
 
-                            // Features
                             Wrap(
                               spacing: ResponsiveUtils.getDynamicWidth(context, 0.02),
                               runSpacing: ResponsiveUtils.getDynamicHeight(context, 0.008),
@@ -555,7 +514,6 @@ class _RentalsPageState extends State<RentalsPage> {
                   ),
                 ),
 
-                // Bottom Section: Price and Book Button
                 Container(
                   padding: EdgeInsets.only(top: ResponsiveUtils.getDynamicHeight(context, 0.015)),
                   decoration: BoxDecoration(
@@ -568,7 +526,6 @@ class _RentalsPageState extends State<RentalsPage> {
                   ),
                   child: Row(
                     children: [
-                      // Price
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -605,12 +562,11 @@ class _RentalsPageState extends State<RentalsPage> {
                           ],
                         ),
                       ),
-                      // Book Now Button
                       SizedBox(
                         width: buttonWidth,
                         height: buttonHeight,
                         child: ElevatedButton(
-                          onPressed: () => _handleBooking(rental), // ✅ CHANGED: Use auth-checked handler
+                          onPressed: () => _handleBooking(rental),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: primaryColor,
                             foregroundColor: Colors.white,
@@ -754,59 +710,12 @@ class _RentalsPageState extends State<RentalsPage> {
   Widget _buildRentalGrid(List<dynamic> rentals) {
     if (rentals.isEmpty) {
       return Center(
-        child: Padding(
-          padding: EdgeInsets.all(ResponsiveUtils.getHorizontalPadding(context)),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.search_off_rounded,
-                size: ResponsiveUtils.getPilotEmptyStateIconSize(context),
-                color: textSecondary.withOpacity(0.3),
-              ),
-              SizedBox(height: ResponsiveUtils.getVerticalPadding(context)),
-              Text(
-                "No Rentals Found",
-                style: GoogleFonts.inter(
-                  color: textPrimary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: ResponsiveUtils.getTitleFontSize(context),
-                ),
-              ),
-              SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.01)),
-              Text(
-                "Try adjusting your search or filters",
-                style: GoogleFonts.inter(
-                  color: textSecondary,
-                  fontSize: ResponsiveUtils.getBodyFontSize(context),
-                  fontWeight: FontWeight.w400,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: ResponsiveUtils.getVerticalPadding(context)),
-              ElevatedButton(
-                onPressed: _resetFilters,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: ResponsiveUtils.getDynamicWidth(context, 0.08),
-                    vertical: ResponsiveUtils.getButtonHeight(context) * 0.5,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 2,
-                ),
-                child: Text(
-                  "Reset Filters",
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w600,
-                    fontSize: ResponsiveUtils.getBodyFontSize(context),
-                  ),
-                ),
-              ),
-            ],
+        child: Text(
+          "No rentals found",
+          style: GoogleFonts.inter(
+            fontSize: ResponsiveUtils.getTitleFontSize(context) - 2,
+            color: textPrimary,
+            fontWeight: FontWeight.w600,
           ),
         ),
       );
@@ -828,101 +737,94 @@ class _RentalsPageState extends State<RentalsPage> {
 
   Widget _buildSearchBar() {
     return Container(
-        height: ResponsiveUtils.getSearchBarHeight(context),
-        decoration: BoxDecoration(
-          color: surfaceColor,
-          borderRadius: BorderRadius.circular(
-            ResponsiveUtils.getDynamicPadding(context, 0.025),
-          ),
-          border: Border.all(
-            color: borderColor,
-            width: ResponsiveUtils.getBorderWidth(context) * 6,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+      height: ResponsiveUtils.getSearchBarHeight(context),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(
+          ResponsiveUtils.getDynamicPadding(context, 0.025),
         ),
-        child: Row(
-          children: [
-            // Search Icon
-            Padding(
-              padding: EdgeInsets.only(
-                left: ResponsiveUtils.getDynamicPadding(context, 0.03),
-              ),
-              child: Icon(
-                Icons.search_rounded,
-                color: textSecondary,
-                size: ResponsiveUtils.getIconSize(context) * 0.8,
-              ),
+        border: Border.all(
+          color: borderColor,
+          width: ResponsiveUtils.getBorderWidth(context) * 6,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Padding(
+            padding: EdgeInsets.only(
+              left: ResponsiveUtils.getDynamicPadding(context, 0.03),
             ),
-
-            // Search Field
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: ResponsiveUtils.getDynamicPadding(context, 0.02),
+            child: Icon(
+              Icons.search_rounded,
+              color: textSecondary,
+              size: ResponsiveUtils.getIconSize(context) * 0.8,
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: ResponsiveUtils.getDynamicPadding(context, 0.02),
+              ),
+              child: TextField(
+                onChanged: _searchRentals,
+                style: GoogleFonts.inter(
+                  fontSize: ResponsiveUtils.getBodyFontSize(context),
+                  color: textPrimary,
+                  fontWeight: FontWeight.w500,
                 ),
-                child: TextField(
-                  onChanged: _searchRentals,
-                  style: GoogleFonts.inter(
+                decoration: InputDecoration(
+                  hintText: "Search drones, brands, locations...",
+                  hintStyle: GoogleFonts.inter(
+                    color: textSecondary,
                     fontSize: ResponsiveUtils.getBodyFontSize(context),
-                    color: textPrimary,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w400,
                   ),
-                  decoration: InputDecoration(
-                    hintText: "Search drones, brands, locations...",
-                    hintStyle: GoogleFonts.inter(
-                      color: textSecondary,
-                      fontSize: ResponsiveUtils.getBodyFontSize(context),
-                      fontWeight: FontWeight.w400,
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
-                    isDense: true,
-                  ),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                  isDense: true,
                 ),
               ),
             ),
-
-            // Filter Button
-            Container(
-              width: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
-              height: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
-              margin: EdgeInsets.only(
-                right: ResponsiveUtils.getDynamicPadding(context, 0.012),
-              ),
-              decoration: BoxDecoration(
-                color: primaryColor,
-                borderRadius: BorderRadius.circular(
-                  ResponsiveUtils.getDynamicPadding(context, 0.018),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: primaryColor.withOpacity(0.3),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: IconButton(
-                icon: Icon(
-                  Icons.tune_rounded,
-                  color: Colors.white,
-                  size: ResponsiveUtils.getIconSize(context) * 0.7,
-                ),
-                onPressed: _showFilterModal,
-                padding: EdgeInsets.zero,
-              ),
+          ),
+          Container(
+            width: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
+            height: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
+            margin: EdgeInsets.only(
+              right: ResponsiveUtils.getDynamicPadding(context, 0.012),
             ),
-          ],
-        )
+            decoration: BoxDecoration(
+              color: primaryColor,
+              borderRadius: BorderRadius.circular(
+                ResponsiveUtils.getDynamicPadding(context, 0.018),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: primaryColor.withOpacity(0.3),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: IconButton(
+              icon: Icon(
+                Icons.tune_rounded,
+                color: Colors.white,
+                size: ResponsiveUtils.getIconSize(context) * 0.7,
+              ),
+              onPressed: _showFilterModal,
+              padding: EdgeInsets.zero,
+            ),
+          ),
+        ],
+      ),
     );
-
-
   }
 
   void _showFilterModal() {
@@ -944,7 +846,6 @@ class _RentalsPageState extends State<RentalsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Header
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -977,7 +878,6 @@ class _RentalsPageState extends State<RentalsPage> {
                   ),
                   SizedBox(height: ResponsiveUtils.getVerticalPadding(context)),
 
-                  // Filters Section
                   Text(
                     "Filters",
                     style: GoogleFonts.inter(
@@ -987,6 +887,7 @@ class _RentalsPageState extends State<RentalsPage> {
                     ),
                   ),
                   SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.02)),
+
                   _buildFilterOption(
                     "With Pilot",
                     "Includes professional pilot",
@@ -1007,7 +908,6 @@ class _RentalsPageState extends State<RentalsPage> {
                   ),
                   SizedBox(height: ResponsiveUtils.getVerticalPadding(context)),
 
-                  // Sorting Section
                   Text(
                     "Sort By",
                     style: GoogleFonts.inter(
@@ -1017,6 +917,7 @@ class _RentalsPageState extends State<RentalsPage> {
                     ),
                   ),
                   SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.015)),
+
                   Container(
                     decoration: BoxDecoration(
                       color: const Color(0xFFF8FAFC),
@@ -1062,7 +963,6 @@ class _RentalsPageState extends State<RentalsPage> {
                   ),
                   SizedBox(height: ResponsiveUtils.getVerticalPadding(context) * 1.5),
 
-                  // Action Buttons
                   Row(
                     children: [
                       Expanded(
@@ -1201,7 +1101,6 @@ class _RentalsPageState extends State<RentalsPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header Section (updated to match PilotPage structure)
             Container(
               color: surfaceColor,
               padding: EdgeInsets.symmetric(
@@ -1210,12 +1109,10 @@ class _RentalsPageState extends State<RentalsPage> {
               ),
               child: Column(
                 children: [
-                  // App Bar Row
                   SizedBox(
                     height: ResponsiveUtils.getAppBarHeight(context),
                     child: Row(
                       children: [
-                        // Back Button
                         IconButton(
                           icon: Icon(
                             Icons.arrow_back_ios_new_rounded,
@@ -1229,8 +1126,6 @@ class _RentalsPageState extends State<RentalsPage> {
                             ),
                           ),
                         ),
-
-                        // Title and Subtitle
                         Expanded(
                           child: Container(
                             padding: EdgeInsets.only(
@@ -1267,80 +1162,14 @@ class _RentalsPageState extends State<RentalsPage> {
                             ),
                           ),
                         ),
-
-                        // Cart Icon with Badge
-                        Container(
-                          width: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.06),
-                          height: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.06),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(
-                              ResponsiveUtils.getDynamicPadding(context, 0.025),
-                            ),
-                            border: Border.all(color: borderColor),
-                          ),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              IconButton(
-                                icon: Icon(
-                                  Icons.shopping_bag_outlined,
-                                  color: primaryColor,
-                                  size: ResponsiveUtils.getIconSize(context) * 0.8,
-                                ),
-                                onPressed: () async {
-                                  await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (_) => const MyCartPage()),
-                                  );
-                                  _loadCartCount();
-                                },
-                              ),
-                              if (cartCount > 0)
-                                Positioned(
-                                  right: ResponsiveUtils.getDynamicPadding(context, 0.01),
-                                  top: ResponsiveUtils.getDynamicPadding(context, 0.01),
-                                  child: Container(
-                                    padding: EdgeInsets.all(
-                                      ResponsiveUtils.getDynamicPadding(context, 0.006),
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.redAccent,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    constraints: BoxConstraints(
-                                      minWidth: ResponsiveUtils.getMarketBadgeSize(context),
-                                      minHeight: ResponsiveUtils.getMarketBadgeSize(context),
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        cartCount > 9 ? '9+' : '$cartCount',
-                                        style: GoogleFonts.inter(
-                                          color: Colors.white,
-                                          fontSize: ResponsiveUtils.getSmallFontSize(context) - 2,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
                       ],
                     ),
                   ),
-
                   SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-
-                  // Search Bar with Filter (now using the new _buildSearchBar method)
                   _buildSearchBar(),
                 ],
               ),
             ),
-
-            // Body with Grid Layout
             Expanded(
               child: isLoading
                   ? _buildGridShimmerLoader()

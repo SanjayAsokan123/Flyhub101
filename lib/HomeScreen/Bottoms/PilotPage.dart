@@ -1,8 +1,5 @@
 import 'dart:convert';
-import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flyhub/SellerAddingForm/add_hire_pilots_form.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,13 +7,12 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../CommonClass/ApiClass.dart';
 import '../../services/graphql_client.dart';
-import '../../BuyerDetails/MyCartPage.dart';
 import '../../ApplyingBookingNow/PilotBookNow.dart';
 import '../Dynamichome.dart';
 import '../../utils/responsive_utils.dart';
-import '../../services/role_manager.dart'; // ADD THIS IMPORT
-import '../../Login/BuyerLoginPage.dart'; // ADD THIS IMPORT
-import '../../Login/BuyerRegisterPage.dart'; // ADD THIS IMPORT
+import '../../services/role_manager.dart';
+import '../../Login/BuyerLoginPage.dart';
+import '../../Login/BuyerRegisterPage.dart';
 
 class PilotPage extends StatefulWidget {
   const PilotPage({super.key});
@@ -29,42 +25,37 @@ class _PilotPageState extends State<PilotPage> {
   final ApiClass _apiClass = ApiClass();
 
   // Professional Color Scheme
-  final Color primaryColor = const Color(0xFF1A0A5B);
-  final Color secondaryColor = const Color(0xFF4C1D95);
-  final Color accentColor = const Color(0xFF00D9A3);
-  final Color backgroundColor = Colors.white;
-  final Color surfaceColor = Colors.white;
-  final Color textPrimary = const Color(0xFF1F2937);
-  final Color textSecondary = const Color(0xFF6B7280);
-  final Color borderColor = const Color(0xFFE5E7EB);
-  final Color successColor = const Color(0xFF10B981);
-  final Color warningColor = const Color(0xFFF59E0B);
-  final Color errorColor = const Color(0xFFEF4444);
+  static const Color primaryColor = Color(0xFF1A0A5B);
+  static const Color secondaryColor = Color(0xFF4C1D95);
+  static const Color accentColor = Color(0xFF00D9A3);
+  static const Color backgroundColor = Colors.white;
+  static const Color surfaceColor = Colors.white;
+  static const Color textPrimary = Color(0xFF1F2937);
+  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color borderColor = Color(0xFFE5E7EB);
+  static const Color successColor = Color(0xFF10B981);
 
-  bool isLoading = true;
-  bool isError = false;
-  String searchQuery = '';
-  String locationFilter = '';
-  String specificationFilter = '';
-  RangeValues priceRange = const RangeValues(500, 5000);
-  String selectedSort = "Default";
+  bool _isLoading = true;
+  bool _isError = false;
+  String _searchQuery = '';
+  RangeValues _priceRange = const RangeValues(500, 5000);
+  String _selectedSort = "Default";
 
-  int cartCount = 0;
-  List<dynamic> pilots = [];
-  List<dynamic> cartItems = [];
-  final Random random = Random();
+  int _cartCount = 0;
+  List<dynamic> _pilots = [];
+  List<dynamic> _cartItems = [];
 
-  Stream<Map<String, dynamic>?>? bookingSubscription;
+  Stream<Map<String, dynamic>?>? _bookingSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadCartCount();
-    fetchPilots();
+    _fetchPilots();
     _subscribeToNewBookings();
   }
 
-  void _subscribeToNewBookings() async {
+  void _subscribeToNewBookings() {
     const String subscription = r'''
       subscription {
         newPilotBooking {
@@ -78,9 +69,9 @@ class _PilotPageState extends State<PilotPage> {
       }
     ''';
 
-    bookingSubscription = GraphQLService.subscribe(subscription);
+    _bookingSubscription = GraphQLService.subscribe(subscription);
 
-    bookingSubscription!.listen((event) {
+    _bookingSubscription!.listen((event) {
       if (event != null && event['newPilotBooking'] != null) {
         final booking = event['newPilotBooking'];
         final buyer = booking['buyerName'] ?? 'Someone';
@@ -92,41 +83,50 @@ class _PilotPageState extends State<PilotPage> {
           color: Colors.green,
         );
 
-        fetchPilots();
+        _fetchPilots();
       }
     }, onError: (err) {
       debugPrint("⚠ Subscription error: $err");
     });
   }
 
-  Future<void> fetchPilots() async {
+  Future<void> _fetchPilots() async {
     HapticFeedback.selectionClick();
+
+    if (!mounted) return;
+
     setState(() {
-      isLoading = true;
-      isError = false;
+      _isLoading = true;
+      _isError = false;
     });
 
     try {
       final result = await _apiClass.getApprovedHirePilots();
       if (result.status == "success" && result.data is List) {
+        if (!mounted) return;
+
         setState(() {
-          pilots = List.from(result.data);
-          isLoading = false;
+          _pilots = List.from(result.data);
+          _isLoading = false;
         });
-        debugPrint("✅ Loaded ${pilots.length} approved pilots");
+        debugPrint("✅ Loaded ${_pilots.length} approved pilots");
       } else {
         debugPrint("⚠ No pilots found: ${result.message}");
+        if (!mounted) return;
+
         setState(() {
-          pilots = [];
-          isLoading = false;
+          _pilots = [];
+          _isLoading = false;
         });
       }
     } catch (e) {
       debugPrint("❌ Error loading pilots: $e");
+      if (!mounted) return;
+
       setState(() {
-        pilots = [];
-        isLoading = false;
-        isError = true;
+        _pilots = [];
+        _isLoading = false;
+        _isError = true;
       });
     }
   }
@@ -135,14 +135,16 @@ class _PilotPageState extends State<PilotPage> {
     final prefs = await SharedPreferences.getInstance();
     try {
       final saved = prefs.getString('cart') ?? '[]';
-      cartItems = jsonDecode(saved) as List;
-      setState(() => cartCount = cartItems.length);
+      _cartItems = jsonDecode(saved) as List;
+      if (!mounted) return;
+      setState(() => _cartCount = _cartItems.length);
     } catch (_) {
-      setState(() => cartCount = 0);
+      if (!mounted) return;
+      setState(() => _cartCount = 0);
     }
   }
 
-  void _showSnackBar(String message, {Color color = const Color(0xFF1A0A5B)}) {
+  void _showSnackBar(String message, {Color color = primaryColor}) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -164,33 +166,27 @@ class _PilotPageState extends State<PilotPage> {
     );
   }
 
-  // ✅ ADD THIS: Check if user is authenticated as buyer
   Future<bool> _checkBuyerAuth() async {
     final role = await RoleManager.getLocalRole();
 
     if (role == "buyer") {
-      return true; // User is already a buyer
+      return true;
     }
 
-    // User is not a buyer - show auth dialog
     await _showAuthRequiredDialog(role);
     return false;
   }
 
-  // ✅ ADD THIS: Show authentication required dialog
   Future<void> _showAuthRequiredDialog(String? currentRole) async {
     String title = "Login Required";
     String message = "You need to be logged in as a buyer to book pilots.";
-    String userStatus = "guest user";
 
     if (currentRole == "seller") {
       title = "Switch to Buyer Account";
       message = "You are currently logged in as a seller. To book pilots, you need to login or register as a buyer.";
-      userStatus = "seller";
     } else if (currentRole == "guest") {
       title = "Create Buyer Account";
       message = "Continue as guest? To book pilots, you need to login or register as a buyer.";
-      userStatus = "guest";
     }
 
     await showDialog(
@@ -263,7 +259,6 @@ class _PilotPageState extends State<PilotPage> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              // Navigate to buyer registration
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (_) => const BuyerRegisterPage()),
@@ -280,7 +275,6 @@ class _PilotPageState extends State<PilotPage> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              // Navigate to buyer login
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (_) => const BuyerLoginPage()),
@@ -305,16 +299,11 @@ class _PilotPageState extends State<PilotPage> {
     );
   }
 
-  // ✅ ADD THIS: Handle book now with auth check
   Future<void> _handleBookNow(Map<String, dynamic> pilot) async {
-    // Check if user is authenticated as buyer
     final isAuthenticated = await _checkBuyerAuth();
 
-    if (!isAuthenticated) {
-      return; // Auth dialog shown, stop here
-    }
+    if (!isAuthenticated) return;
 
-    // User is authenticated as buyer - proceed to booking
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -323,39 +312,26 @@ class _PilotPageState extends State<PilotPage> {
     ).then((_) => _loadCartCount());
   }
 
-  // ✅ Filter and sorting logic
-  List<dynamic> get filteredPilots {
-    if (pilots.isEmpty) {
+  List<dynamic> get _filteredPilots {
+    if (_pilots.isEmpty) {
       debugPrint("⚠ No pilots available in data list");
       return [];
     }
 
-    // Show all if no filters active
-    if (searchQuery.isEmpty &&
-        locationFilter.isEmpty &&
-        specificationFilter.isEmpty &&
-        priceRange.start == 500 &&
-        priceRange.end == 5000) {
+    if (_searchQuery.isEmpty && _priceRange.start == 500 && _priceRange.end == 5000) {
       debugPrint("✅ Showing all pilots (no filters)");
-      return _sortPilots(pilots);
+      return _sortPilots(_pilots);
     }
 
-    List<dynamic> filtered = pilots.where((p) {
+    final List<dynamic> filtered = _pilots.where((p) {
       final pilotName = (p["pilotName"] ?? "").toString().toLowerCase();
       final location = (p["location"] ?? "").toString().toLowerCase();
       final spec = (p["specification"] ?? "").toString().toLowerCase();
 
-      // Search matches name, location, or specification
-      final matchesSearch = searchQuery.isEmpty ||
-          pilotName.contains(searchQuery.toLowerCase()) ||
-          location.contains(searchQuery.toLowerCase()) ||
-          spec.contains(searchQuery.toLowerCase());
-
-      final matchesLocation = locationFilter.isEmpty ||
-          location.contains(locationFilter.toLowerCase());
-
-      final matchesSpec = specificationFilter.isEmpty ||
-          spec.contains(specificationFilter.toLowerCase());
+      final matchesSearch = _searchQuery.isEmpty ||
+          pilotName.contains(_searchQuery.toLowerCase()) ||
+          location.contains(_searchQuery.toLowerCase()) ||
+          spec.contains(_searchQuery.toLowerCase());
 
       final priceData = p["price"];
       final perHour = (priceData is Map && priceData["perHour"] != null)
@@ -363,12 +339,9 @@ class _PilotPageState extends State<PilotPage> {
           : 2500;
 
       final matchesPrice =
-          perHour >= priceRange.start && perHour <= priceRange.end;
+          perHour >= _priceRange.start && perHour <= _priceRange.end;
 
-      return matchesSearch &&
-          matchesLocation &&
-          matchesSpec &&
-          matchesPrice;
+      return matchesSearch && matchesPrice;
     }).toList();
 
     debugPrint("🎯 Filtered result count: ${filtered.length}");
@@ -378,9 +351,9 @@ class _PilotPageState extends State<PilotPage> {
   }
 
   List<dynamic> _sortPilots(List<dynamic> pilotList) {
-    List<dynamic> sorted = List.from(pilotList);
+    final List<dynamic> sorted = List.from(pilotList);
 
-    switch (selectedSort) {
+    switch (_selectedSort) {
       case "Price: Low → High":
         sorted.sort((a, b) => (a['price']?['perHour'] ?? 0)
             .compareTo(b['price']?['perHour'] ?? 0));
@@ -405,15 +378,13 @@ class _PilotPageState extends State<PilotPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header Section
             _buildHeaderSection(),
-            // Body with Grid Layout
             Expanded(
-              child: isLoading
+              child: _isLoading
                   ? _buildGridShimmerLoader()
-                  : isError
+                  : _isError
                   ? _buildErrorState()
-                  : _buildPilotGrid(filteredPilots),
+                  : _buildPilotGrid(_filteredPilots),
             ),
           ],
         ),
@@ -430,12 +401,10 @@ class _PilotPageState extends State<PilotPage> {
       ),
       child: Column(
         children: [
-          // App Bar Row
           SizedBox(
             height: ResponsiveUtils.getAppBarHeight(context),
             child: Row(
               children: [
-                // Back Button
                 IconButton(
                   icon: Icon(
                     Icons.arrow_back_ios_new_rounded,
@@ -449,8 +418,6 @@ class _PilotPageState extends State<PilotPage> {
                     ),
                   ),
                 ),
-
-                // Title and Subtitle
                 Expanded(
                   child: Container(
                     padding: EdgeInsets.only(
@@ -472,9 +439,10 @@ class _PilotPageState extends State<PilotPage> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.003)),
+                        SizedBox(
+                            height: ResponsiveUtils.getDynamicHeight(context, 0.003)),
                         Text(
-                          "${filteredPilots.length} pilots available",
+                          "${_filteredPilots.length} pilots available",
                           style: GoogleFonts.inter(
                             color: textSecondary,
                             fontSize: ResponsiveUtils.getSmallFontSize(context),
@@ -487,116 +455,10 @@ class _PilotPageState extends State<PilotPage> {
                     ),
                   ),
                 ),
-
-                // Become a Pilot Button
-                Container(
-                  margin: EdgeInsets.only(
-                    right: ResponsiveUtils.getDynamicPadding(context, 0.02),
-                  ),
-                  height: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => AddHirePilotForm(sellerId: '',)
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      foregroundColor: Colors.white,
-                      elevation: 2,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: ResponsiveUtils.getDynamicPadding(context, 0.02),
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(
-                          ResponsiveUtils.getDynamicPadding(context, 0.02),
-                        ),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.person_add_outlined,
-                          size: ResponsiveUtils.getIconSize(context) * 0.7,
-                          color: Colors.white,
-                        ),
-                        SizedBox(width: ResponsiveUtils.getDynamicPadding(context, 0.001)),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Cart Icon with Badge
-                Container(
-                  width: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.06),
-                  height: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.06),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(
-                      ResponsiveUtils.getDynamicPadding(context, 0.025),
-                    ),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          Icons.shopping_bag_outlined,
-                          color: primaryColor,
-                          size: ResponsiveUtils.getIconSize(context) * 0.9,
-                        ),
-                        onPressed: () async {
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const MyCartPage()),
-                          );
-                          _loadCartCount();
-                        },
-                      ),
-                      if (cartCount > 0)
-                        Positioned(
-                          right: ResponsiveUtils.getDynamicPadding(context, 0.01),
-                          top: ResponsiveUtils.getDynamicPadding(context, 0.01),
-                          child: Container(
-                            padding: EdgeInsets.all(
-                              ResponsiveUtils.getDynamicPadding(context, 0.006),
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.redAccent,
-                              shape: BoxShape.circle,
-                            ),
-                            constraints: BoxConstraints(
-                              minWidth: ResponsiveUtils.getMarketBadgeSize(context),
-                              minHeight: ResponsiveUtils.getMarketBadgeSize(context),
-                            ),
-                            child: Center(
-                              child: Text(
-                                cartCount > 9 ? '9+' : '$cartCount',
-                                style: GoogleFonts.inter(
-                                  color: Colors.white,
-                                  fontSize: ResponsiveUtils.getSmallFontSize(context) - 2,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
-
           SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-
-          // Search Bar with Filter
           _buildSearchBar(),
         ],
       ),
@@ -605,98 +467,93 @@ class _PilotPageState extends State<PilotPage> {
 
   Widget _buildSearchBar() {
     return Container(
-        height: ResponsiveUtils.getSearchBarHeight(context),
-        decoration: BoxDecoration(
-          color: surfaceColor,
-          borderRadius: BorderRadius.circular(
-            ResponsiveUtils.getDynamicPadding(context, 0.025),
-          ),
-          border: Border.all(
-            color: borderColor,
-            width: ResponsiveUtils.getBorderWidth(context) * 6,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+      height: ResponsiveUtils.getSearchBarHeight(context),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(
+          ResponsiveUtils.getDynamicPadding(context, 0.025),
         ),
-        child: Row(
-          children: [
-            // Search Icon
-            Padding(
-              padding: EdgeInsets.only(
-                left: ResponsiveUtils.getDynamicPadding(context, 0.03),
-              ),
-              child: Icon(
-                Icons.search_rounded,
-                color: textSecondary,
-                size: ResponsiveUtils.getIconSize(context) * 0.8,
-              ),
+        border: Border.all(
+          color: borderColor,
+          width: ResponsiveUtils.getBorderWidth(context) * 6,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color.fromRGBO(0, 0, 0, 0.05),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Padding(
+            padding: EdgeInsets.only(
+              left: ResponsiveUtils.getDynamicPadding(context, 0.03),
             ),
-
-            // Search Field
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: ResponsiveUtils.getDynamicPadding(context, 0.02),
+            child: Icon(
+              Icons.search_rounded,
+              color: textSecondary,
+              size: ResponsiveUtils.getIconSize(context) * 0.8,
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: ResponsiveUtils.getDynamicPadding(context, 0.02),
+              ),
+              child: TextField(
+                onChanged: (value) => setState(() => _searchQuery = value),
+                style: GoogleFonts.inter(
+                  fontSize: ResponsiveUtils.getBodyFontSize(context),
+                  color: textPrimary,
+                  fontWeight: FontWeight.w500,
                 ),
-                child: TextField(
-                  onChanged: (value) => setState(() => searchQuery = value),
-                  style: GoogleFonts.inter(
+                decoration: InputDecoration(
+                  hintText: "Search by name, location, or skill...",
+                  hintStyle: GoogleFonts.inter(
+                    color: textSecondary,
                     fontSize: ResponsiveUtils.getBodyFontSize(context),
-                    color: textPrimary,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w400,
                   ),
-                  decoration: InputDecoration(
-                    hintText: "Search by name, location, or skill...",
-                    hintStyle: GoogleFonts.inter(
-                      color: textSecondary,
-                      fontSize: ResponsiveUtils.getBodyFontSize(context),
-                      fontWeight: FontWeight.w400,
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
-                    isDense: true,
-                  ),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                  isDense: true,
                 ),
               ),
             ),
-
-            // Filter Button
-            Container(
-              width: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
-              height: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
-              margin: EdgeInsets.only(
-                right: ResponsiveUtils.getDynamicPadding(context, 0.012),
-              ),
-              decoration: BoxDecoration(
-                color: primaryColor,
-                borderRadius: BorderRadius.circular(
-                  ResponsiveUtils.getDynamicPadding(context, 0.018),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: primaryColor.withOpacity(0.3),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: IconButton(
-                icon: Icon(
-                  Icons.tune_rounded,
-                  color: Colors.white,
-                  size: ResponsiveUtils.getIconSize(context) * 0.7,
-                ),
-                onPressed: _showFilterSheet,
-                padding: EdgeInsets.zero,
-              ),
+          ),
+          Container(
+            width: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
+            height: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
+            margin: EdgeInsets.only(
+              right: ResponsiveUtils.getDynamicPadding(context, 0.012),
             ),
-          ],
-        )
+            decoration: BoxDecoration(
+              color: primaryColor,
+              borderRadius: BorderRadius.circular(
+                ResponsiveUtils.getDynamicPadding(context, 0.018),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: primaryColor.withOpacity(0.3),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: IconButton(
+              icon: Icon(
+                Icons.tune_rounded,
+                color: Colors.white,
+                size: ResponsiveUtils.getIconSize(context) * 0.7,
+              ),
+              onPressed: _showFilterSheet,
+              padding: EdgeInsets.zero,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -706,59 +563,13 @@ class _PilotPageState extends State<PilotPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.search_off_rounded,
-              size: ResponsiveUtils.getPilotEmptyStateIconSize(context),
-              color: textSecondary.withOpacity(0.3),
-            ),
             SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
             Text(
               "No Pilots Found",
               style: GoogleFonts.inter(
+                fontSize: ResponsiveUtils.getTitleFontSize(context) - 2,
                 color: textPrimary,
-                fontWeight: FontWeight.w700,
-                fontSize: ResponsiveUtils.getTitleFontSize(context),
-              ),
-            ),
-            SizedBox(height: ResponsiveUtils.getCardMargin(context)),
-            Text(
-              "Try adjusting your search or filters",
-              style: GoogleFonts.inter(
-                color: textSecondary,
-                fontSize: ResponsiveUtils.getBodyFontSize(context),
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-            SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  searchQuery = '';
-                  locationFilter = '';
-                  specificationFilter = '';
-                  priceRange = const RangeValues(500, 5000);
-                });
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(
-                  horizontal: ResponsiveUtils.getHorizontalPadding(context) * 1.5,
-                  vertical: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.04),
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(
-                    ResponsiveUtils.getDynamicPadding(context, 0.03),
-                  ),
-                ),
-                elevation: ResponsiveUtils.getElevation(context),
-              ),
-              child: Text(
-                "Reset Filters",
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w600,
-                  fontSize: ResponsiveUtils.getBodyFontSize(context),
-                ),
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -767,7 +578,7 @@ class _PilotPageState extends State<PilotPage> {
     }
 
     return RefreshIndicator(
-      onRefresh: fetchPilots,
+      onRefresh: _fetchPilots,
       backgroundColor: surfaceColor,
       color: primaryColor,
       child: GridView.builder(
@@ -790,82 +601,78 @@ class _PilotPageState extends State<PilotPage> {
       gridDelegate: ResponsiveUtils.getPilotGridDelegate(context),
       itemCount: ResponsiveUtils.getPilotShimmerItemCount(context),
       itemBuilder: (context, index) {
-        return Shimmer.fromColors(
-          baseColor: Colors.grey.shade300,
-          highlightColor: Colors.grey.shade100,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(
-                ResponsiveUtils.getPilotCardRadius(context),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(
+              ResponsiveUtils.getPilotCardRadius(context),
             ),
-            child: Padding(
-              padding: ResponsiveUtils.getPilotCardPadding(context),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: ResponsiveUtils.getPilotImageSize(context),
-                    height: ResponsiveUtils.getPilotImageSize(context),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(
-                        ResponsiveUtils.getDynamicPadding(context, 0.02),
-                      ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color.fromRGBO(0, 0, 0, 0.04),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: ResponsiveUtils.getPilotCardPadding(context),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: ResponsiveUtils.getPilotImageSize(context),
+                  height: ResponsiveUtils.getPilotImageSize(context),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(
+                      ResponsiveUtils.getDynamicPadding(context, 0.02),
                     ),
                   ),
-                  SizedBox(width: ResponsiveUtils.getPilotActionSpacing(context)),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          height: ResponsiveUtils.getShimmerTextHeight(context),
-                          width: ResponsiveUtils.getShimmerTextWidth(context, percentage: 0.7),
+                ),
+                SizedBox(width: ResponsiveUtils.getPilotActionSpacing(context)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: ResponsiveUtils.getShimmerTextHeight(context),
+                        width: ResponsiveUtils.getShimmerTextWidth(context, percentage: 0.7),
+                        color: Colors.grey[300],
+                      ),
+                      SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.005)),
+                      Container(
+                        height: ResponsiveUtils.getShimmerTextHeight(context, isSmall: true),
+                        width: ResponsiveUtils.getShimmerTextWidth(context, percentage: 0.5),
+                        color: Colors.grey[300],
+                      ),
+                      SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.01)),
+                      Container(
+                        height: ResponsiveUtils.getShimmerTextHeight(context, isSmall: true),
+                        width: ResponsiveUtils.getShimmerTextWidth(context, percentage: 0.8),
+                        color: Colors.grey[300],
+                      ),
+                      SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.005)),
+                      Container(
+                        height: ResponsiveUtils.getShimmerTextHeight(context, isSmall: true),
+                        width: ResponsiveUtils.getShimmerTextWidth(context, percentage: 0.7),
+                        color: Colors.grey[300],
+                      ),
+                      SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.01)),
+                      Container(
+                        height: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
+                        width: ResponsiveUtils.getPilotButtonWidth(context, percentage: 0.3),
+                        decoration: BoxDecoration(
                           color: Colors.grey[300],
-                        ),
-                        SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.005)),
-                        Container(
-                          height: ResponsiveUtils.getShimmerTextHeight(context, isSmall: true),
-                          width: ResponsiveUtils.getShimmerTextWidth(context, percentage: 0.5),
-                          color: Colors.grey[300],
-                        ),
-                        SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.01)),
-                        Container(
-                          height: ResponsiveUtils.getShimmerTextHeight(context, isSmall: true),
-                          width: ResponsiveUtils.getShimmerTextWidth(context, percentage: 0.8),
-                          color: Colors.grey[300],
-                        ),
-                        SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.005)),
-                        Container(
-                          height: ResponsiveUtils.getShimmerTextHeight(context, isSmall: true),
-                          width: ResponsiveUtils.getShimmerTextWidth(context, percentage: 0.7),
-                          color: Colors.grey[300],
-                        ),
-                        SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.01)),
-                        Container(
-                          height: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
-                          width: ResponsiveUtils.getPilotButtonWidth(context, percentage: 0.3),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(
-                              ResponsiveUtils.getDynamicPadding(context, 0.02),
-                            ),
+                          borderRadius: BorderRadius.circular(
+                            ResponsiveUtils.getDynamicPadding(context, 0.02),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );
@@ -903,7 +710,7 @@ class _PilotPageState extends State<PilotPage> {
           ),
           SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
           ElevatedButton.icon(
-            onPressed: fetchPilots,
+            onPressed: _fetchPilots,
             icon: Icon(
               Icons.refresh_rounded,
               color: Colors.white,
@@ -957,11 +764,11 @@ class _PilotPageState extends State<PilotPage> {
         borderRadius: BorderRadius.circular(
           ResponsiveUtils.getPilotCardRadius(context),
         ),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Color.fromRGBO(0, 0, 0, 0.08),
             blurRadius: 16,
-            offset: const Offset(0, 4),
+            offset: Offset(0, 4),
           ),
         ],
         border: Border.all(
@@ -975,21 +782,16 @@ class _PilotPageState extends State<PilotPage> {
           borderRadius: BorderRadius.circular(
             ResponsiveUtils.getPilotCardRadius(context),
           ),
-          onTap: () {
-            // ✅ CHANGED: Use the auth-checked handler
-            _handleBookNow(pilot);
-          },
+          onTap: () => _handleBookNow(pilot),
           child: Padding(
             padding: ResponsiveUtils.getPilotCardPadding(context),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top Row: Image and Main Content
                 Expanded(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Image Section
                       Column(
                         children: [
                           Stack(
@@ -1036,7 +838,6 @@ class _PilotPageState extends State<PilotPage> {
                                   ),
                                 ),
                               ),
-                              // Availability Indicator
                               if (available)
                                 Positioned(
                                   top: ResponsiveUtils.getDynamicPadding(context, 0.01),
@@ -1065,7 +866,6 @@ class _PilotPageState extends State<PilotPage> {
                                 ),
                             ],
                           ),
-                          // Certification Link - Positioned below image
                           if (hasCertification)
                             Container(
                               margin: EdgeInsets.only(
@@ -1073,9 +873,7 @@ class _PilotPageState extends State<PilotPage> {
                               ),
                               width: ResponsiveUtils.getPilotCertButtonSize(context),
                               child: InkWell(
-                                onTap: () async {
-                                  await launchUrl(Uri.parse(imageUrl));
-                                },
+                                onTap: () => launchUrl(Uri.parse(imageUrl)),
                                 child: Container(
                                   padding: EdgeInsets.symmetric(
                                     horizontal: ResponsiveUtils.getDynamicPadding(context, 0.015),
@@ -1114,13 +912,10 @@ class _PilotPageState extends State<PilotPage> {
                         ],
                       ),
                       SizedBox(width: ResponsiveUtils.getPilotActionSpacing(context)),
-
-                      // Content Section
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Title and Company
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -1148,8 +943,6 @@ class _PilotPageState extends State<PilotPage> {
                               ],
                             ),
                             SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.01)),
-
-                            // Location
                             Row(
                               children: [
                                 Icon(
@@ -1172,8 +965,6 @@ class _PilotPageState extends State<PilotPage> {
                               ],
                             ),
                             SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.01)),
-
-                            // Specification
                             if (pilot['specification'] != null && pilot['specification'].toString().isNotEmpty)
                               Text(
                                 pilot['specification'],
@@ -1191,8 +982,6 @@ class _PilotPageState extends State<PilotPage> {
                     ],
                   ),
                 ),
-
-                // Bottom Section: Price and Book Button
                 Container(
                   padding: EdgeInsets.only(
                     top: ResponsiveUtils.getPilotSectionPadding(context),
@@ -1207,7 +996,6 @@ class _PilotPageState extends State<PilotPage> {
                   ),
                   child: Row(
                     children: [
-                      // Price
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1244,15 +1032,11 @@ class _PilotPageState extends State<PilotPage> {
                           ],
                         ),
                       ),
-                      // Book Now Button
                       SizedBox(
                         width: ResponsiveUtils.getPilotButtonWidth(context, percentage: 0.3),
                         height: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
                         child: ElevatedButton(
-                          onPressed: () {
-                            // ✅ CHANGED: Use the auth-checked handler
-                            _handleBookNow(pilot);
-                          },
+                          onPressed: () => _handleBookNow(pilot),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: primaryColor,
                             foregroundColor: Colors.white,
@@ -1332,8 +1116,6 @@ class _PilotPageState extends State<PilotPage> {
                   ),
                 ),
                 SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-
-                // Price Range Filter
                 Text(
                   "Price Range (per hour)",
                   style: GoogleFonts.inter(
@@ -1360,7 +1142,7 @@ class _PilotPageState extends State<PilotPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            '₹${priceRange.start.round()}',
+                            '₹${_priceRange.start.round()}',
                             style: GoogleFonts.inter(
                               fontWeight: FontWeight.w700,
                               color: primaryColor,
@@ -1368,7 +1150,7 @@ class _PilotPageState extends State<PilotPage> {
                             ),
                           ),
                           Text(
-                            '₹${priceRange.end.round()}',
+                            '₹${_priceRange.end.round()}',
                             style: GoogleFonts.inter(
                               fontWeight: FontWeight.w700,
                               color: primaryColor,
@@ -1379,18 +1161,18 @@ class _PilotPageState extends State<PilotPage> {
                       ),
                       SizedBox(height: ResponsiveUtils.getCardMargin(context)),
                       RangeSlider(
-                        values: priceRange,
+                        values: _priceRange,
                         min: 500,
                         max: 5000,
                         divisions: 45,
                         activeColor: primaryColor,
                         inactiveColor: borderColor,
                         labels: RangeLabels(
-                          '₹${priceRange.start.round()}',
-                          '₹${priceRange.end.round()}',
+                          '₹${_priceRange.start.round()}',
+                          '₹${_priceRange.end.round()}',
                         ),
                         onChanged: (values) {
-                          setModalState(() => priceRange = values);
+                          setModalState(() => _priceRange = values);
                           setState(() {});
                         },
                       ),
@@ -1398,17 +1180,13 @@ class _PilotPageState extends State<PilotPage> {
                   ),
                 ),
                 SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-
-                // Apply Button
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () {
                           setState(() {
-                            priceRange = const RangeValues(500, 5000);
-                            locationFilter = '';
-                            specificationFilter = '';
+                            _priceRange = const RangeValues(500, 5000);
                           });
                           Navigator.pop(context);
                         },
@@ -1455,7 +1233,7 @@ class _PilotPageState extends State<PilotPage> {
                         ),
                         onPressed: () => Navigator.pop(context),
                         child: Text(
-                          'Apply (${filteredPilots.length} results)',
+                          'Apply (${_filteredPilots.length} results)',
                           style: GoogleFonts.inter(
                             fontWeight: FontWeight.w700,
                             fontSize: ResponsiveUtils.getBodyFontSize(context),

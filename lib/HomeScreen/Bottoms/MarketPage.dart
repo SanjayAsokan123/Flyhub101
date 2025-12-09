@@ -1,14 +1,18 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../../CommonClass/ApiClass.dart';
 import '../../CommonClass/utils.dart';
 import '../../DroneDetailPage.dart';
 import '../../BuyerDetails/MyCartPage.dart';
 import '../../BuyerDetails/WishlistPage.dart';
+import '../../config/env.dart';
 import '../../services/cart_wishlist_provider.dart';
+import '../../services/role_manager.dart';
 import '../Dynamichome.dart';
 import '../../utils/responsive_utils.dart';
 
@@ -151,26 +155,66 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
     _applyFilters();
   }
 
-  Future<void> _toggleWishlist(Map<String, dynamic> item) async {
-    try {
-      final provider = context.read<CartWishlistProvider>();
-      final wishlistItem = {
-        'id': item['id'] ?? 'unknown_${DateTime.now().millisecondsSinceEpoch}',
-        'name': item['name'] ?? 'Unknown Product',
-        'price': item['price'] ?? 0.0,
-        'image': item['image'] ?? '',
-        'brand': item['brand'] ?? '',
-        'category': item['category'] ?? '',
-        ...item,
-      };
-      final added = await provider.toggleWishlist(wishlistItem);
-      if (mounted) {
-        Utils.bottomToast(context, added ? "Added to wishlist" : "Removed from wishlist");
-        setState(() {});
-      }
-    } catch (e) {
-      if (mounted) Utils.bottomToast(context, "Error: $e");
+  Future<dynamic> _gql(String query, Map<String, dynamic> vars) async {
+    final res = await http.post(
+      Uri.parse(EnvConfig.baseUrl),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"query": query, "variables": vars}),
+    );
+
+    final body = jsonDecode(res.body);
+    if (body["errors"] != null) {
+      print("GraphQL Error: ${body["errors"]}");
+      return null;
     }
+    return body["data"];
+  }
+
+  Future<void> _toggleWishlist(Map<String, dynamic> item) async {
+    final buyerId = await RoleManager.getBuyerId();
+    if (buyerId == null) return;
+
+    final productId = item["productId"] ?? item["id"];
+
+    // Check current wishlist state — backend
+    const queryGet = r"""
+    query GetWishlist($buyerId: String!) {
+      getWishlist(buyerId: $buyerId) {
+        productId
+      }
+    }
+  """;
+
+    final data = await _gql(queryGet, {"buyerId": buyerId});
+    final wishlist = data?["getWishlist"] ?? [];
+
+    final isFav = wishlist.any(
+          (w) => w["productId"].toString() == productId.toString(),
+    );
+
+    // Toggle logic
+    final query = isFav
+        ? r"""
+          mutation Remove($buyerId: String!, $productId: String!) {
+            removeFromWishlist(buyerId: $buyerId, productId: $productId)
+          }
+        """
+        : r"""
+          mutation Add($buyerId: String!, $productId: String!) {
+            addToWishlist(buyerId: $buyerId, productId: $productId) {
+              id
+            }
+          }
+        """;
+
+    await _gql(query, {"buyerId": buyerId, "productId": productId});
+
+    setState(() {}); // Rebuild UI
+
+    Utils.bottomToast(
+      context,
+      isFav ? "Removed from wishlist" : "Added to wishlist ❤️",
+    );
   }
 
   void _showFilterModal() {
@@ -517,7 +561,7 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
     final imageHeight = itemWidth * 0.7;
 
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DroneDetailPage(drone: item, Drone: null))),
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DroneDetailPage(drone: item))),
       child: Container(
         decoration: BoxDecoration(color: kSurfaceColor, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))]),
         child: Stack(

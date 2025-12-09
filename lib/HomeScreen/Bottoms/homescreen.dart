@@ -1085,8 +1085,6 @@ class _HomeScreenState extends State<HomeScreen> {
         MaterialPageRoute(
           builder: (_) => DroneDetailPage(
             drone: item,
-            initialIsFavorite: false,
-            Drone: null,
           ),
         ),
       );

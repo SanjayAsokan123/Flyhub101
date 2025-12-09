@@ -24,11 +24,6 @@ class GraphQLService {
       },
     );
 
-
-
-
-
-
     final WebSocketLink wsLink = WebSocketLink(
       _wsUrl,
       config: SocketClientConfig(
@@ -61,6 +56,93 @@ class GraphQLService {
     );
   }
 
+  // ==========================================================
+// 🛒 CART API
+// ==========================================================
+
+  static Future<List<dynamic>> getCart(String buyerId) async {
+    const query = r'''
+    query GetCart($buyerId: String!) {
+      getCart(buyerId: $buyerId) {
+        id
+        buyerId
+        productId
+        quantity
+        addedAt
+      }
+    }
+  ''';
+
+    final res = await performQuery(query, variables: {"buyerId": buyerId});
+    return res?["getCart"] ?? [];
+  }
+
+  static Future<Map<String, dynamic>> addToCart({
+    required String buyerId,
+    required String productId,
+  }) async {
+    const mutation = r'''
+    mutation AddToCart($buyerId: String!, $productId: String!) {
+      addToCart(buyerId: $buyerId, productId: $productId) {
+        id
+        buyerId
+        productId
+        quantity
+        addedAt
+      }
+    }
+  ''';
+
+    final res = await performMutation(
+      mutation,
+      variables: {"buyerId": buyerId, "productId": productId},
+    );
+
+    return res!["addToCart"];
+  }
+
+  static Future<Map<String, dynamic>> updateCartQty({
+    required String buyerId,
+    required String productId,
+    required int quantity,
+  }) async {
+    const mutation = r'''
+    mutation UpdateCartQty($buyerId: String!, $productId: String!, $quantity: Int!) {
+      updateCartQty(buyerId: $buyerId, productId: $productId, quantity: $quantity) {
+        id
+        buyerId
+        productId
+        quantity
+      }
+    }
+  ''';
+
+    final res = await performMutation(
+      mutation,
+      variables: {"buyerId": buyerId, "productId": productId, "quantity": quantity},
+    );
+
+    return res!["updateCartQty"];
+  }
+
+  static Future<bool> removeFromCart({
+    required String buyerId,
+    required String productId,
+  }) async {
+    const mutation = r'''
+    mutation RemoveFromCart($buyerId: String!, $productId: String!) {
+      removeFromCart(buyerId: $buyerId, productId: $productId)
+    }
+  ''';
+
+    final res = await performMutation(
+      mutation,
+      variables: {"buyerId": buyerId, "productId": productId},
+    );
+
+    return res?["removeFromCart"] == true;
+  }
+
   /// ==========================================================
   /// 🔵 UNIVERSAL MUTATION
   /// ==========================================================
@@ -84,6 +166,177 @@ class GraphQLService {
     }
 
     return result.data;
+  }
+
+  // ==========================================================
+// 💛 WISHLIST API
+// ==========================================================
+
+  static Future<List<dynamic>> getWishlist(String buyerId) async {
+    const query = r'''
+    query GetWishlist($buyerId: String!) {
+      getWishlist(buyerId: $buyerId) {
+        id
+        buyerId
+        productId
+        addedAt
+        product {
+          productId
+          name
+          brand
+          price
+          image
+          category
+          status
+        }
+      }
+    }
+  ''';
+
+    final res = await performQuery(query, variables: {"buyerId": buyerId});
+    return res?["getWishlist"] ?? [];
+  }
+
+  static Future<Map<String, dynamic>> addToWishlist({
+    required String buyerId,
+    required String productId,
+  }) async {
+    const mutation = r'''
+    mutation AddToWishlist($buyerId: String!, $productId: String!) {
+      addToWishlist(buyerId: $buyerId, productId: $productId) {
+        id
+        buyerId
+        productId
+        addedAt
+      }
+    }
+  ''';
+
+    final res = await performMutation(
+      mutation,
+      variables: {"buyerId": buyerId, "productId": productId},
+    );
+
+    return res!["addToWishlist"];
+  }
+
+  static Future<bool> removeFromWishlist({
+    required String buyerId,
+    required String productId,
+  }) async {
+    const mutation = r'''
+    mutation RemoveFromWishlist($buyerId: String!, $productId: String!) {
+      removeFromWishlist(buyerId: $buyerId, productId: $productId)
+    }
+  ''';
+
+    final res = await performMutation(
+      mutation,
+      variables: {"buyerId": buyerId, "productId": productId},
+    );
+
+    return res?["removeFromWishlist"] == true;
+  }
+
+  // ==========================================================
+// 📦 PRODUCT FETCH
+// ==========================================================
+
+  static Future<Map<String, dynamic>?> getProduct(String productId) async {
+    const query = r'''
+    query GetProduct($productId: String!) {
+      getProduct(productId: $productId) {
+        productId
+        name
+        brand
+        price
+        image
+        description
+        category
+        status
+      }
+    }
+  ''';
+
+    final res = await performQuery(query, variables: {"productId": productId});
+    return res?["getProduct"];
+  }
+
+
+  // ==========================================================
+// 🛒 ORDER API HELPERS
+// ==========================================================
+
+  static Future<String> createRazorpayOrder(double amount) async {
+    const mutation = r'''
+    mutation CreateRazorpayOrder($amount: Int!) {
+      createRazorpayOrder(amount: $amount)
+    }
+  ''';
+
+    final res = await performMutation(mutation, variables: {"amount": amount.toInt()});
+    return res!["createRazorpayOrder"];
+  }
+
+  static Future<bool> verifyRazorpayPayment({
+    required String orderId,
+    required String paymentId,
+    required String signature,
+  }) async {
+    const mutation = r'''
+    mutation VerifyRazorpayPayment(
+      $razorpay_order_id: String!
+      $razorpay_payment_id: String!
+      $razorpay_signature: String!
+    ) {
+      verifyRazorpayPayment(
+        razorpay_order_id: $razorpay_order_id
+        razorpay_payment_id: $razorpay_payment_id
+        razorpay_signature: $razorpay_signature
+      )
+    }
+  ''';
+
+    final res = await performMutation(mutation, variables: {
+      "razorpay_order_id": orderId,
+      "razorpay_payment_id": paymentId,
+      "razorpay_signature": signature
+    });
+
+    return res?["verifyRazorpayPayment"] == true;
+  }
+
+  static Future<Map<String, dynamic>> createOrder({
+    required Map<String, dynamic> buyerData,
+    required List<Map<String, dynamic>> items,
+    required Map<String, dynamic> paymentData,
+  }) async {
+    const mutation = r'''
+    mutation CreateOrder(
+      $buyerData: BuyerInput!
+      $items: [ItemInput!]!
+      $paymentData: PaymentInput!
+    ) {
+      createOrder(
+        buyerData: $buyerData
+        items: $items
+        paymentData: $paymentData
+      ) {
+        orderId
+        totalAmount
+        status
+        createdAt
+      }
+    }
+  ''';
+
+    final res = await performMutation(mutation, variables: {
+      "buyerData": buyerData,
+      "items": items,
+      "paymentData": paymentData,
+    });
+
+    return res!["createOrder"];
   }
 
   /// ==========================================================
