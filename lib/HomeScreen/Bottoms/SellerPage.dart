@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flyhub/Login/FlyHubSelectionPage.dart';
 // Settings Pages
 import 'package:flyhub/T&C/Help_Support_Page.dart';
@@ -46,6 +47,7 @@ class SellerPage extends StatefulWidget {
 
 class _SellerPageState extends State<SellerPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final ScrollController _scrollController = ScrollController();
 
   User? _user;
   Map<String, dynamic>? _sellerData;
@@ -69,7 +71,91 @@ class _SellerPageState extends State<SellerPage> {
   static const Color warningColor = Color(0xFFF59E0B);
   static const Color successColor = Color(0xFF10B981);
 
+  // Social Media URLs - Same as buyer page
+  final Map<String, String> socialMediaUrls = {
+    'instagram': 'https://www.instagram.com/flyhub_info',
+    'linkedin': 'https://www.linkedin.com/company/flyhubinfo',
+    'facebook': 'https://www.facebook.com/share/1A8fBiqxmt/',
+    'whatsapp': 'https://wa.me/6379800193', // Replace with your number
+  };
+
   final String graphqlUrl = EnvConfig.baseUrl;
+
+  // Function to launch URLs
+  Future<void> _launchSocialMedia(String platform) async {
+    final url = socialMediaUrls[platform];
+
+    if (url == null) {
+      _showMessage("Link not available for $platform");
+      return;
+    }
+
+    try {
+      final uri = Uri.parse(url);
+
+      if (platform == 'whatsapp' && url.contains('wa.me')) {
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri);
+        } else {
+          final webUri = Uri.parse('https://web.whatsapp.com/');
+          if (await canLaunchUrl(webUri)) {
+            await launchUrl(webUri);
+          } else {
+            _showMessage("Could not launch WhatsApp");
+          }
+        }
+      } else {
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(
+            uri,
+            mode: LaunchMode.externalApplication,
+          );
+        } else {
+          _showMessage("Could not launch $platform");
+        }
+      }
+    } catch (e) {
+      debugPrint("Error launching $platform: $e");
+      _showMessage("Error opening $platform");
+    }
+  }
+
+  // Social Icon Widget - Same as buyer page
+  Widget _buildSocialIcon(String iconPath, {required VoidCallback onTap, String? tooltip}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Tooltip(
+        message: tooltip ?? '',
+        child: Container(
+          width: 40,
+          height: 40,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: themeColor.withOpacity(0.1),
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Image.asset(
+            iconPath,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              return Icon(
+                Icons.error_outline,
+                color: Colors.red,
+                size: 20,
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
 
   // SVG Helper Methods
   Widget _buildSvgIcon(String assetPath, {Color? color, double size = 22}) {
@@ -183,6 +269,12 @@ class _SellerPageState extends State<SellerPage> {
   void initState() {
     super.initState();
     _initSellerPage();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _initSellerPage() async {
@@ -299,9 +391,6 @@ class _SellerPageState extends State<SellerPage> {
 
   Future<void> _switchToBuyer() async {
     try {
-      // await RoleManager.updateRole("buyer");
-      if (!mounted) return;
-
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -495,7 +584,6 @@ class _SellerPageState extends State<SellerPage> {
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
-                          // String customId = "";
                           LogoutService.logoutSeller(context, _sellerId!);
                         },
                         style: ElevatedButton.styleFrom(
@@ -515,6 +603,19 @@ class _SellerPageState extends State<SellerPage> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  void _showMessage(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: themeColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
         ),
       ),
     );
@@ -1147,9 +1248,7 @@ class _SellerPageState extends State<SellerPage> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(),
 
@@ -1210,20 +1309,89 @@ class _SellerPageState extends State<SellerPage> {
             const SizedBox(height: 4),
             _buildLogoutItem(),
 
-            // Footer
+            // Follow Us Footer with Version info inside the same container
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+              decoration: BoxDecoration(
+                color: themeColor.withOpacity(0.05),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+              ),
               child: Column(
                 children: [
-                  const SizedBox(height: 4),
-                  Center(
-                    child: Text(
-                      "Version 1.0.0",
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: textLight,
+                  Text(
+                    "Follow us on",
+                    style: TextStyle(
+                      color: textSecondary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Instagram
+                      _buildSocialIcon(
+                        'assets/categories/instagram.png',
+                        onTap: () => _launchSocialMedia('instagram'),
+                        tooltip: 'Follow us on Instagram',
                       ),
+                      const SizedBox(width: 20),
+
+                      // Facebook
+                      _buildSocialIcon(
+                        'assets/categories/facebook.png',
+                        onTap: () => _launchSocialMedia('facebook'),
+                        tooltip: 'Like us on Facebook',
+                      ),
+                      const SizedBox(width: 20),
+
+                      // LinkedIn
+                      _buildSocialIcon(
+                        'assets/categories/linkedin.png',
+                        onTap: () => _launchSocialMedia('linkedin'),
+                        tooltip: 'Connect on LinkedIn',
+                      ),
+                      const SizedBox(width: 20),
+
+                      // WhatsApp
+                      _buildSocialIcon(
+                        'assets/categories/whatsapp.png',
+                        onTap: () => _launchSocialMedia('whatsapp'),
+                        tooltip: 'Message us on WhatsApp',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Contact info
+                  Text(
+                    "Contact: info@flyhub.com",
+                    style: TextStyle(
+                      color: textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Version and Copyright - Inside the same container
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Column(
+                      children: [
+                        Text(
+                          "v1.0.0",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],

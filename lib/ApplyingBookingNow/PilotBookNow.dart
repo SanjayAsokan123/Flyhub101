@@ -247,28 +247,61 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
 
     final name = (widget.pilot['pilotName'] ?? 'Pilot').trim();
     final initials = name.isNotEmpty
-        ? name.split(' ').map((s) => s[0]).take(2).join()
+        ? name.split(' ').map((s) => s.isNotEmpty ? s[0] : '').take(2).join()
         : 'P';
+
+    // Constrain the avatar so it cannot push layout outwards
+    final double avatarSize = size;
 
     if (imagePath != null && imagePath.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: Image.network(
-          imagePath,
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
+        child: SizedBox(
+          width: avatarSize,
+          height: avatarSize,
+          child: Image.network(
+            imagePath,
+            fit: BoxFit.cover,
+            // show a small progress indicator while loading
+            loadingBuilder: (context, child, progress) {
+              if (progress == null) return child;
+              return Center(
+                child: SizedBox(
+                  width: avatarSize * 0.4,
+                  height: avatarSize * 0.4,
+                  child: const CircularProgressIndicator(strokeWidth: 2),
+                ),
+              );
+            },
+            // Replace with circle avatar / initials if image fails
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                width: avatarSize,
+                height: avatarSize,
+                color: Colors.grey[200],
+                child: CircleAvatar(
+                  radius: avatarSize / 2,
+                  backgroundColor: primaryColor,
+                  child: Text(initials,
+                      style: GoogleFonts.poppins(
+                          color: Colors.white, fontSize: avatarSize / 3)),
+                ),
+              );
+            },
+          ),
         ),
       );
     }
+
+    // fallback when no imagePath
     return CircleAvatar(
-      radius: size / 2,
+      radius: avatarSize / 2,
       backgroundColor: primaryColor,
       child: Text(initials,
-          style:
-          GoogleFonts.poppins(color: Colors.white, fontSize: size / 3)),
+          style: GoogleFonts.poppins(color: Colors.white, fontSize: avatarSize / 3)),
     );
   }
+
 
   // ----------------------- BUILD UI ------------------------
   @override
@@ -343,45 +376,64 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
                   ],
                 ),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     _buildPilotAvatar(size: 80),
                     const SizedBox(width: 16),
+                    // Constrain the right side with Expanded
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(pilotName,
-                              style: GoogleFonts.poppins(
-                                fontSize: 18,
-                                color: primaryColor,
-                                fontWeight: FontWeight.w600,
-                              )),
-                          Text(pilotCompany,
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              )),
-                          const SizedBox(height: 4),
-                          Text("Skills: $pilotSpec",
-                              style: GoogleFonts.poppins(
-                                  fontSize: 13, color: Colors.grey[700])),
+                          Text(
+                            pilotName,
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              color: primaryColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            pilotCompany,
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            "Skills: $pilotSpec",
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color: Colors.grey[700],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              const Spacer(),
-                              Text("₹$pilotPrice/hr",
-                                  style: GoogleFonts.poppins(
-                                      fontSize: 15,
-                                      color: primaryColor,
-                                      fontWeight: FontWeight.w600)),
-                            ],
-                          )
+                          // Right-aligned price without forcing extra width
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              "₹$pilotPrice/hr",
+                              style: GoogleFonts.poppins(
+                                  fontSize: 15,
+                                  color: primaryColor,
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ],
                 ),
               ),
+
               const SizedBox(height: 24),
 
               // ---------------- BOOKING FORM ----------------

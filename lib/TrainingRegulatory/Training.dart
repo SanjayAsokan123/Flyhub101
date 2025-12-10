@@ -10,7 +10,7 @@ import '../../Login/BuyerLoginPage.dart';
 import '../../Login/BuyerRegisterPage.dart';
 
 class Training extends StatefulWidget {
-  const Training({super.key});
+  const Training({super.key, required Map course});
 
   @override
   State<Training> createState() => _TrainingState();

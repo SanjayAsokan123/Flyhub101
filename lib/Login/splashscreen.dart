@@ -217,8 +217,8 @@ class _SplashscreenState extends State<Splashscreen> with SingleTickerProviderSt
                       ),
                     ),
                     SizedBox(height: screenHeight * 0.015),
-                    SvgPicture.asset(
-                      'assets/images/flytutor_logo.svg',
+                   Image.asset(
+                      'assets/images/Aviatricks_logo.png',
                       width: screenWidth * 0.3,
                     ),
                   ],

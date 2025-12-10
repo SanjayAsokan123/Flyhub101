@@ -12,12 +12,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import '../../TrainingRegulatory/CourseDetails.dart';
+import '../../TrainingRegulatory/Regulatory.dart';
+import '../../TrainingRegulatory/Training.dart';
 import '../../config/env.dart';
 import '../../CommonClass/ApiClass.dart';
 import '../../CommonClass/utils.dart';
 import '../../BuyerDetails/MyCartPage.dart';
 import '../../BuyerDetails/WishlistPage.dart';
 import '../Bottoms/MarketPage.dart';
+import '../Bottoms/Popup.dart';
 import '../../DroneDetailPage.dart';
 import '../../firebase_options.dart';
 import '../../services/cart_wishlist_provider.dart';
@@ -55,9 +58,11 @@ class _HomeScreenState extends State<HomeScreen> {
   // State variables
   int _currentBanner = 0;
   Timer? _autoScrollTimer;
+  Timer? _popupTimer; // Timer for the welcome popup
   bool _showElevation = false;
   String _searchQuery = '';
   bool _isCategoryExpanded = false;
+  bool _showWelcomePopup = false;
 
   // User state
   User? _user;
@@ -100,7 +105,10 @@ class _HomeScreenState extends State<HomeScreen> {
     {"title": "Accessories", "icon": "assets/categories/accessories.svg"},
     {"title": "Jobs", "icon": "assets/categories/employee.svg"},
     {"title": "Services", "icon": "assets/categories/services.svg"},
+    {"title": "Rentals", "icon": "assets/categories/rentals.svg"},
+    {"title": "Pilots", "icon": "assets/categories/pilots.svg"},
     {"title": "Training", "icon": "assets/categories/presentation.svg"},
+    {"title": "Regulatory", "icon": "assets/categories/regulatory.svg"},
   ];
 
   List<Map<String, dynamic>> _promoBanners = [];
@@ -123,6 +131,28 @@ class _HomeScreenState extends State<HomeScreen> {
     await _initializeUser();
     await _loadInitialData();
     _startAutoScroll();
+
+    // Schedule the welcome popup after 10 seconds
+    _scheduleWelcomePopup();
+  }
+
+  void _scheduleWelcomePopup() async {
+    // Check if popup has been shown before
+    final prefs = await SharedPreferences.getInstance();
+    final hasShownWelcome = prefs.getBool('hasShownWelcomePopup') ?? false;
+
+    // Only schedule if not shown before
+    if (!hasShownWelcome) {
+      _popupTimer = Timer(const Duration(seconds: 5), () {
+        if (mounted) {
+          setState(() {
+            _showWelcomePopup = true;
+          });
+          // Mark as shown
+          prefs.setBool('hasShownWelcomePopup', true);
+        }
+      });
+    }
   }
 
   void _startAutoScroll() {
@@ -233,9 +263,13 @@ class _HomeScreenState extends State<HomeScreen> {
     await _loadSection(
       'drones',
           () async {
-        final drones = await _apiClass.getDrones();
+        final res = await _apiClass.getDronesPaginated(page: 1, limit: 50);
+
+        final List items =
+        res.data?["items"] is List ? res.data["items"] : [];
+
         if (mounted) {
-          _marketplaceData["Drones"] = (drones.data ?? [])
+          _marketplaceData["Drones"] = items
               .where((p) => p["status"] == "approved")
               .toList();
         }
@@ -247,9 +281,13 @@ class _HomeScreenState extends State<HomeScreen> {
     await _loadSection(
       'parts',
           () async {
-        final parts = await _apiClass.getParts();
+        final res = await _apiClass.getPartsPaginated(page: 1, limit: 50);
+
+        final List items =
+        res.data?["items"] is List ? res.data["items"] : [];
+
         if (mounted) {
-          _marketplaceData["Parts"] = (parts.data ?? [])
+          _marketplaceData["Parts"] = items
               .where((p) => p["status"] == "approved")
               .toList();
         }
@@ -261,15 +299,21 @@ class _HomeScreenState extends State<HomeScreen> {
     await _loadSection(
       'accessories',
           () async {
-        final accessories = await _apiClass.getAccessories();
+        final res =
+        await _apiClass.getAccessoriesPaginated(page: 1, limit: 50);
+
+        final List items =
+        res.data?["items"] is List ? res.data["items"] : [];
+
         if (mounted) {
-          _marketplaceData["Accessories"] = (accessories.data ?? [])
+          _marketplaceData["Accessories"] = items
               .where((p) => p["status"] == "approved")
               .toList();
         }
       },
     );
   }
+
 
   Future<void> _loadJobs() async {
     await _loadSection(
@@ -386,6 +430,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _scrollController.dispose();
     _searchController.dispose();
     _autoScrollTimer?.cancel();
+    _popupTimer?.cancel(); // Cancel the popup timer
     _pageController.dispose();
     super.dispose();
   }
@@ -732,9 +777,8 @@ class _HomeScreenState extends State<HomeScreen> {
         height: ResponsiveUtils.getScreenWidth(context) * 0.3,
       );
     }
-
     final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
-    const collapsedCount = 6;
+    const collapsedCount = 9;
 
     return Container(
       color: _kWhiteColor,
@@ -836,7 +880,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final categoryIconSize = ResponsiveUtils.getCategoryIconSize(context);
     final screenWidth = MediaQuery.of(context).size.width;
     final cardMargin = ResponsiveUtils.getCardMargin(context);
-
     return GestureDetector(
       onTap: () => _handleCategoryTap(item['title']),
       child: Container(
@@ -901,10 +944,11 @@ class _HomeScreenState extends State<HomeScreen> {
         Navigator.push(context, MaterialPageRoute(builder: (_) => const ServicesPage()));
         break;
       case "Training":
-        Navigator.push(context, MaterialPageRoute(builder: (_) => Coursedetails(course: {})));
+        Navigator.push(context, MaterialPageRoute(builder: (_) => Training(course: {})));
         break;
-      default:
-        Utils.bottomToast(context, "$title clicked!");
+      case "Regulatory":
+        Navigator.push(context, MaterialPageRoute(builder: (_) => RegulatoryPage()));
+        break;
     }
   }
 
@@ -932,6 +976,166 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // FIXED: Search Product Card - Added proper constraints
+  Widget _buildSearchProductCard(dynamic item, String sectionKey) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
+    final cardMargin = ResponsiveUtils.getCardMargin(context);
+
+    // Calculate dynamic card width for grid
+    final gridCount = ResponsiveUtils.getProductGridCount(context);
+    final totalPadding = horizontalPadding * 2 + cardMargin * (gridCount - 1);
+    final cardWidth = (screenWidth - totalPadding) / gridCount;
+
+    final imageUrl = _getImageUrl(item);
+    final productName = _getProductName(item);
+    final imageHeight = cardWidth * ResponsiveUtils.getMarketGridAspectRatio(context);
+
+    return Container(
+      margin: EdgeInsets.all(cardMargin / 2),
+      decoration: BoxDecoration(
+        color: _kWhiteColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF1F5F9), width: 1),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 4))],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _handleProductTap(item, sectionKey),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSearchProductImage(imageUrl, imageHeight, item),
+              _buildSearchProductInfo(item, productName, cardMargin),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchProductImage(String imageUrl, double height, dynamic item) {
+    final cardMargin = ResponsiveUtils.getCardMargin(context);
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      child: Container(
+        height: height,
+        width: double.infinity,
+        color: const Color(0xFFF5F5F5),
+        child: Stack(
+          children: [
+            CachedNetworkImage(
+              imageUrl: imageUrl,
+              height: height,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              placeholder: (_, __) => Container(
+                height: height,
+                width: double.infinity,
+                color: const Color(0xFFF5F5F5),
+              ),
+              errorWidget: (_, __, ___) => Container(
+                height: height,
+                width: double.infinity,
+                color: const Color(0xFFF5F5F5),
+                child: Icon(Icons.photo,
+                    size: ResponsiveUtils.getIconSize(context) + 18,
+                    color: Colors.grey
+                ),
+              ),
+            ),
+            if (item["discount"] != null && item["discount"] > 0)
+              Positioned(
+                top: 8,
+                left: 8,
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: cardMargin / 2,
+                      vertical: cardMargin / 4
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                        colors: [_kErrorColor, Color(0xFFDC2626)]
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    "${item["discount"]}% OFF",
+                    style: GoogleFonts.inter(
+                      color: _kWhiteColor,
+                      fontSize: ResponsiveUtils.getSmallFontSize(context) - 1,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchProductInfo(dynamic item, String productName, double cardMargin) {
+    final bodyFontSize = ResponsiveUtils.getBodyFontSize(context);
+    final smallFontSize = ResponsiveUtils.getSmallFontSize(context);
+
+    return Padding(
+      padding: EdgeInsets.all(cardMargin),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            constraints: BoxConstraints(
+              minHeight: bodyFontSize * 1.3 * 2,
+              maxHeight: bodyFontSize * 1.3 * 2,
+            ),
+            child: Text(
+              productName,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                fontSize: bodyFontSize,
+                color: _kDarkTextColor,
+                height: 1.3,
+              ),
+            ),
+          ),
+          SizedBox(height: cardMargin / 2),
+          Row(
+            children: [
+              Text(
+                "₹${item["price"] ?? 0}",
+                style: GoogleFonts.inter(
+                  color: _kDarkTextColor,
+                  fontWeight: FontWeight.w800,
+                  fontSize: bodyFontSize + 2,
+                ),
+              ),
+              if (item["originalPrice"] != null && item["originalPrice"] > item["price"])
+                Padding(
+                  padding: EdgeInsets.only(left: cardMargin / 2),
+                  child: Text(
+                    "₹${item["originalPrice"]}",
+                    style: GoogleFonts.inter(
+                      color: _kLightTextColor,
+                      fontWeight: FontWeight.w500,
+                      fontSize: smallFontSize,
+                      decoration: TextDecoration.lineThrough,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Original Product Card for horizontal scrolling (unchanged)
   Widget _buildProductCard(dynamic item, String sectionKey) {
     final imageUrl = _getImageUrl(item);
     final productName = _getProductName(item);
@@ -1084,7 +1288,7 @@ class _HomeScreenState extends State<HomeScreen> {
         context,
         MaterialPageRoute(
           builder: (_) => DroneDetailPage(
-            drone: item,
+            drone: item, initialIsFavorite: item, Drone: item,
           ),
         ),
       );
@@ -1395,33 +1599,88 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // FIXED: Search Results with proper responsive grid
   Widget _buildSearchResults() {
     final results = _searchResults;
     final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
     final sectionSpacing = ResponsiveUtils.getSectionSpacing(context);
     final titleFontSize = ResponsiveUtils.getTitleFontSize(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    if (results.isEmpty) {
+      return Container(
+        height: screenWidth * 0.6,
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.search_off,
+              size: ResponsiveUtils.getIconSize(context) * 2,
+              color: _kLightTextColor,
+            ),
+            SizedBox(height: sectionSpacing),
+            Text(
+              "No products found",
+              style: GoogleFonts.inter(
+                fontSize: titleFontSize - 2,
+                color: _kMediumTextColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: sectionSpacing / 2),
+            Text(
+              "Try different keywords",
+              style: GoogleFonts.inter(
+                fontSize: ResponsiveUtils.getBodyFontSize(context),
+                color: _kLightTextColor,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.fromLTRB(horizontalPadding, sectionSpacing, horizontalPadding, sectionSpacing),
-          child: Text("Search Results", style: GoogleFonts.inter(fontSize: titleFontSize, fontWeight: FontWeight.w800, color: _kDarkTextColor)),
+          padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              sectionSpacing,
+              horizontalPadding,
+              sectionSpacing / 2
+          ),
+          child: Text(
+              "Search Results (${results.length})",
+              style: GoogleFonts.inter(
+                  fontSize: titleFontSize,
+                  fontWeight: FontWeight.w800,
+                  color: _kDarkTextColor
+              )
+          ),
         ),
+        // FIX: Use calculated grid with proper spacing
         GridView.builder(
           padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: ResponsiveUtils.getProductGridDelegate(context),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: ResponsiveUtils.getProductGridCount(context),
+            mainAxisSpacing: ResponsiveUtils.getCardMargin(context),
+            crossAxisSpacing: ResponsiveUtils.getCardMargin(context),
+            childAspectRatio: ResponsiveUtils.getMarketGridAspectRatio(context) * 0.7,
+          ),
           itemCount: results.length,
           itemBuilder: (context, index) {
             final item = results[index];
             final isService = _marketplaceData["Services"]!.any((service) =>
             service["id"] == item["id"] || service["name"] == item["name"]);
             final sectionKey = isService ? 'services' : 'search';
-            return _buildProductCard(item, sectionKey);
+            return _buildSearchProductCard(item, sectionKey);
           },
         ),
+        SizedBox(height: sectionSpacing * 2),
       ],
     );
   }
@@ -1604,72 +1863,110 @@ class _HomeScreenState extends State<HomeScreen> {
       return Scaffold(
         backgroundColor: _kWhiteColor,
         body: Center(
-          child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(_kPrimaryColor)),
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(_kPrimaryColor),
+          ),
         ),
       );
     }
 
-    return Scaffold(
-      backgroundColor: _kBackgroundColor,
-      appBar: _buildAppBar(context),
-      body: RefreshIndicator(
-        color: _kPrimaryColor,
-        onRefresh: () async {
-          await Future.wait([
-            _loadPromoBanners(),
-            _loadDrones(),
-            _loadParts(),
-            _loadAccessories(),
-            _loadJobs(),
-            _loadServices(),
-          ]);
-        },
-        child: _searchQuery.isNotEmpty
-            ? ListView(
-          controller: _scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            _buildSearchBar(),
-            _buildSearchResults(),
-          ],
-        )
-            : ListView(
-          controller: _scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            _buildSearchBar(),
-            _buildCategorySection(),
-            _buildPromoBanner(),
-            _buildProductCarousel(
-              "Popular Drones",
-              _marketplaceData["Drones"]!,
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MarketPage(initialTab: 0))),
-              'drones',
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: _kBackgroundColor,
+          appBar: _buildAppBar(context),
+          body: RefreshIndicator(
+            color: _kPrimaryColor,
+            onRefresh: () async {
+              await Future.wait([
+                _loadPromoBanners(),
+                _loadDrones(),
+                _loadParts(),
+                _loadAccessories(),
+                _loadJobs(),
+                _loadServices(),
+              ]);
+            },
+            child: _searchQuery.isNotEmpty
+                ? ListView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                _buildSearchBar(),
+                _buildSearchResults(),
+              ],
+            )
+                : ListView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                _buildSearchBar(),
+                _buildCategorySection(),
+                _buildPromoBanner(),
+                _buildProductCarousel(
+                  "Popular Drones",
+                  _marketplaceData["Drones"]!,
+                      () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MarketPage(initialTab: 0),
+                    ),
+                  ),
+                  'drones',
+                ),
+                _buildFeaturedSection(),
+                _buildProductCarousel(
+                  "Drone Parts",
+                  _marketplaceData["Parts"]!,
+                      () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MarketPage(initialTab: 1),
+                    ),
+                  ),
+                  'parts',
+                ),
+                _buildProductCarousel(
+                  "Accessories",
+                  _marketplaceData["Accessories"]!,
+                      () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MarketPage(initialTab: 2),
+                    ),
+                  ),
+                  'accessories',
+                ),
+                _buildJobOpportunities(),
+                _buildProductCarousel(
+                  "Drone Services",
+                  _marketplaceData["Services"]!,
+                      () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ServicesPage()),
+                  ),
+                  'services',
+                ),
+                SizedBox(height: ResponsiveUtils.getSectionSpacing(context) * 2),
+              ],
             ),
-            _buildFeaturedSection(),
-            _buildProductCarousel(
-              "Drone Parts",
-              _marketplaceData["Parts"]!,
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MarketPage(initialTab: 1))),
-              'parts',
-            ),
-            _buildProductCarousel(
-              "Accessories",
-              _marketplaceData["Accessories"]!,
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MarketPage(initialTab: 2))),
-              'accessories',
-            ),
-            _buildJobOpportunities(),
-            _buildProductCarousel(
-              "Drone Services",
-              _marketplaceData["Services"]!,
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ServicesPage())),
-              'services',
-            ),
-            SizedBox(height: ResponsiveUtils.getSectionSpacing(context) * 2),
-          ],
+          ),
         ),
-      ),
+
+        // Welcome Popup Overlay - Will show after 10 seconds
+        if (_showWelcomePopup)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withOpacity(0.5),
+              child: WelcomePopup(
+                onClose: () => setState(() => _showWelcomePopup = false),
+                onGetStarted: () => setState(() => _showWelcomePopup = false),
+                showOnlyOnce: true,
+                showCloseButton: true,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

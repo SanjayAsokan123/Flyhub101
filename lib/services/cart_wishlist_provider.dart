@@ -25,6 +25,7 @@ class CartWishlistProvider with ChangeNotifier {
     _loadInitialData();
   }
 
+
   Future<void> _loadInitialData() async {
     print('=== PROVIDER INIT ===');
     await loadWishlistFromLocal();

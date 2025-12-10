@@ -29,6 +29,10 @@ class _RentalsPageState extends State<RentalsPage> {
   bool availableToday = false;
   String searchQuery = '';
   String sortBy = 'Recommended';
+  int currentPage = 1;
+  int totalPages = 1;
+  int limitPerPage = 10; // number of rentals per page
+  bool isFetchingPage = false;
 
   final Set<String> favoriteItems = {};
   final Map<String, dynamic> favoriteData = {};
@@ -41,24 +45,68 @@ class _RentalsPageState extends State<RentalsPage> {
   final Color textPrimary = const Color(0xFF1F2937);
   final Color textSecondary = const Color(0xFF6B7280);
   final Color borderColor = const Color(0xFFE5E7EB);
+  late ScrollController _scrollController;
 
   @override
   void initState() {
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
     super.initState();
     _loadFavorites();
     fetchRentals();
   }
 
-  Future<void> fetchRentals() async {
+  void _onScroll() {
+    if (_scrollController.position.pixels ==
+        _scrollController.position.maxScrollExtent) {
+      if (currentPage < totalPages && !isFetchingPage) {
+        fetchRentals(page: currentPage + 1);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   _loadFavorites();
+  //   fetchRentals();
+  // }
+
+  Future<void> fetchRentals({int page = 1}) async {
+    if (isFetchingPage) return;
+    isFetchingPage = true;
     HapticFeedback.selectionClick();
-    setState(() => isLoading = true);
+
+    if (page == 1) {
+      setState(() => isLoading = true);
+    }
 
     try {
-      final result = await _api.getRentals();
-      if (result.status == "success" && result.data is List) {
-        rentalList = (result.data as List)
-            .where((r) => r["status"] == "approved")
-            .toList();
+      final result = await _api.getRentalsPaginated(page: page, limit: limitPerPage);
+      // Make sure your API supports page & limit
+
+      if (result is Map && result.containsKey("items")) {
+        final items = result["items"] as List;
+
+        final totalCount = result["totalCount"] ?? items.length;
+        totalPages = ((totalCount + limitPerPage - 1) ~/ limitPerPage);
+
+        totalPages = ((totalCount + limitPerPage - 1) ~/ limitPerPage);
+
+        if (page == 1) {
+          rentalList = items;
+        } else {
+          rentalList.addAll(items);
+        }
+
+        currentPage = page;
         _applyFiltersAndSort();
       } else {
         Utils.bottomToast(context, "No rentals found");
@@ -67,7 +115,10 @@ class _RentalsPageState extends State<RentalsPage> {
       Utils.bottomToast(context, "Error loading rentals: $e");
     }
 
-    setState(() => isLoading = false);
+    setState(() {
+      isLoading = false;
+      isFetchingPage = false;
+    });
   }
 
   Future<void> _loadFavorites() async {
@@ -720,6 +771,23 @@ class _RentalsPageState extends State<RentalsPage> {
         ),
       );
     }
+    return NotificationListener<ScrollNotification>(
+      onNotification: (ScrollNotification scrollInfo) {
+        if (!isFetchingPage &&
+            scrollInfo.metrics.pixels == scrollInfo.metrics.maxScrollExtent &&
+            currentPage < totalPages) {
+          fetchRentals(page: currentPage + 1);
+        }
+        return false;
+      },
+      child: GridView.builder(
+        physics: const BouncingScrollPhysics(),
+        padding: EdgeInsets.all(ResponsiveUtils.getPilotGridPadding(context)),
+        gridDelegate: ResponsiveUtils.getPilotGridDelegate(context),
+        itemCount: filteredList.length,
+        itemBuilder: (context, index) => _buildRentalCard(filteredList[index]),
+      ),
+    );
 
     return RefreshIndicator(
       onRefresh: fetchRentals,

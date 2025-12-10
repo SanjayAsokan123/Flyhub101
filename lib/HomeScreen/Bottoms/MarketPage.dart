@@ -43,6 +43,10 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
   String searchQuery = '', selectedBrand = 'All', sortBy = 'Recommended';
   RangeValues currentPriceRange = const RangeValues(0, 100000);
   List<String> availableBrands = ['All'];
+  int _currentPage = 1;
+  int _limit = 10;
+  bool isLoadingMore = false;
+  bool hasMore = true;
 
   @override
   void initState() {
@@ -65,7 +69,7 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
   Future<void> _fetchAll() async {
     setState(() => isLoading = true);
     try {
-      final results = await Future.wait([_api.getDrones(), _api.getParts(), _api.getAccessories()]);
+      final results = await Future.wait([_api.getDronesPaginated(page: _currentPage,limit: _limit), _api.getPartsPaginated(page: _currentPage,limit: _limit), _api.getAccessoriesPaginated(page: _currentPage,limit: _limit)]);
       if (!mounted) return;
 
       drones = _processItems(results[0], 'drone');
@@ -88,11 +92,20 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
   }
 
   List<dynamic> _processItems(dynamic result, String category) {
-    return (result.status == "success" ? List.from(result.data) : [])
+    if (result.status != "success") return [];
+
+    // IMPORTANT: paginated result returns {items: [...], totalCount, ...}
+    final List items =
+    result.data is List ? result.data
+        : result.data["items"] is List ? result.data["items"]
+        : [];
+
+    return items
         .map((d) => _normalizeItem(d, category))
         .where((item) => item['status'] == "approved")
         .toList();
   }
+
 
   Map<String, dynamic> _normalizeItem(dynamic raw, String category) {
     final Map m = (raw is Map) ? Map<String, dynamic>.from(raw) : {'raw': raw};
@@ -526,6 +539,30 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
     );
   }
 
+  Future<void> _loadMore() async {
+    if (isLoadingMore || !hasMore) return;
+
+    setState(() => isLoadingMore = true);
+    _currentPage++;
+
+    final result = await _api.getDronesPaginated(
+      page: _currentPage,
+      limit: _limit,
+    );
+
+    final newItems = _processItems(result, "drone");
+
+    if (newItems.isEmpty) {
+      hasMore = false;
+    } else {
+      drones.addAll(newItems);
+      _applyFilters();
+    }
+
+    setState(() => isLoadingMore = false);
+  }
+
+
   Widget _buildGridView(List<dynamic> items) {
     if (isLoading) return _shimmer();
     if (items.isEmpty) return Center(child: Text("No products found", style: GoogleFonts.inter(fontSize: ResponsiveUtils.getTitleFontSize(context) - 2, color: kTextPrimary, fontWeight: FontWeight.w600)));
@@ -533,6 +570,18 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
     final crossCount = ResponsiveUtils.getMarketGridCrossAxisCount(context);
     final gridPadding = ResponsiveUtils.getMarketGridPadding(context);
     final gridSpacing = ResponsiveUtils.getMarketGridSpacing(context);
+    final controller = ScrollController();
+
+    @override
+    void initState() {
+      super.initState();
+      controller.addListener(() {
+        if (controller.position.pixels >= controller.position.maxScrollExtent - 100) {
+          _loadMore();
+        }
+      });
+    }
+
 
     return RefreshIndicator(
       onRefresh: _fetchAll,
@@ -542,8 +591,14 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
         padding: EdgeInsets.all(gridPadding),
         child: GridView.builder(
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: crossCount, childAspectRatio: 0.75, crossAxisSpacing: gridSpacing, mainAxisSpacing: gridSpacing),
-          itemCount: items.length,
-          itemBuilder: (context, index) => _buildProductItem(items[index]),
+          itemCount: items.length + (isLoadingMore ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (index == items.length) {
+              return Center(child: CircularProgressIndicator(color: kPrimaryColor));
+            }
+            return _buildProductItem(items[index]);
+          },
+
         ),
       ),
     );
@@ -561,7 +616,7 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
     final imageHeight = itemWidth * 0.7;
 
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DroneDetailPage(drone: item))),
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DroneDetailPage( drone: item, initialIsFavorite: item, Drone: item))),
       child: Container(
         decoration: BoxDecoration(color: kSurfaceColor, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))]),
         child: Stack(

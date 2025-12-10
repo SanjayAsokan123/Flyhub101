@@ -2,6 +2,34 @@
 import 'package:flutter/material.dart';
 
 class ResponsiveUtils {
+
+  static double getMarketGridAspectRatio(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width < 350) return 0.75;
+    if (width < 600) return 0.95;
+    return 0.9;
+  }
+
+  static int getProductGridCount(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width < 400) return 2;
+    if (width < 600) return 2;
+    return 3;
+  }
+
+  static double getProductCardHeight(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width < 350) return 220;
+    if (width < 600) return 240;
+    return 260;
+  }
+
+  static double getProductCardWidth(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width < 350) return 160;
+    if (width < 600) return 180;
+    return 200;
+  }
   // Basic screen dimensions
   static double getScreenWidth(BuildContext context) {
     return MediaQuery.of(context).size.width;
@@ -92,20 +120,6 @@ class ResponsiveUtils {
     return 0.10;
   }
 
-  // Product card dimensions
-  static double getProductCardWidth(BuildContext context) {
-    final width = getScreenWidth(context);
-    final crossCount = getMarketGridCrossAxisCount(context);
-    final padding = getMarketGridPadding(context);
-    final spacing = getMarketGridSpacing(context);
-
-    final availableWidth = width - (padding * 2) - (spacing * (crossCount - 1));
-    return availableWidth / crossCount;
-  }
-
-  static double getProductCardHeight(BuildContext context) {
-    return getProductCardWidth(context) * 1.2;
-  }
 
   // Banner height
   static double getBannerHeight(BuildContext context) {
@@ -218,17 +232,6 @@ class ResponsiveUtils {
     return 5;
   }
 
-  static double getMarketGridAspectRatio(BuildContext context) {
-    final width = getScreenWidth(context);
-    final height = getScreenHeight(context);
-    final aspectRatio = width / height;
-
-    if (width < 400) return 0.68;
-    if (width < 600) return 0.85;
-    if (width < 800) return 0.72;
-    if (aspectRatio > 1.5) return 0.8;
-    return 0.75;
-  }
 
   static double getMarketProductImageHeight(BuildContext context) {
     final cardWidth = getProductCardWidth(context);

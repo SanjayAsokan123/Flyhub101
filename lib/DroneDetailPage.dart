@@ -14,7 +14,7 @@ class DroneDetailPage extends StatefulWidget {
 
   const DroneDetailPage({
     super.key,
-    required this.drone,
+    required this.drone, required  initialIsFavorite, required Drone,
   });
 
   @override
@@ -133,7 +133,7 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(_isFavorite
-            ? "Added to wishlist ❤️"
+            ? "Added to wishlist ❤"
             : "Removed from wishlist"),
         backgroundColor: themeColor,
       ),

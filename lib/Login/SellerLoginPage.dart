@@ -37,9 +37,8 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
   // Social media URLs
   final Map<String, String> socialLinks = {
     'instagram': 'https://www.instagram.com/flyhub_info?igsh=OWM2a3E2Ym81bzRs',
-    'twitter': 'https://twitter.com/flyhub',
     'linkedin': 'https://www.linkedin.com/company/flyhubinfo/',
-    'facebook': 'https://facebook.com/flyhub',
+    'facebook': 'https://www.facebook.com/share/1A8fBiqxmt/',
     'whatsapp': 'https://wa.me/yourphonenumber',
   };
 
@@ -431,9 +430,6 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
                         _buildSocialIcon('assets/categories/facebook.png',
                             'facebook'),
                         const SizedBox(width: 20),
-                        _buildSocialIcon('assets/categories/twitter.png',
-                            'twitter'),
-                        const SizedBox(width: 20),
                         _buildSocialIcon('assets/categories/whatsapp.png',
                             'whatsapp'),
                       ],
@@ -547,10 +543,7 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
         icon = FontAwesomeIcons.instagram;
         color = const Color(0xFFE4405F);
         break;
-      case 'twitter':
-        icon = FontAwesomeIcons.twitter;
-        color = const Color(0xFF1DA1F2);
-        break;
+
       case 'linkedin':
         icon = FontAwesomeIcons.linkedin;
         color = const Color(0xFF0A66C2);

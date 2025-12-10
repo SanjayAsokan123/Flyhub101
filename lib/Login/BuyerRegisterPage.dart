@@ -59,11 +59,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
 
     },
     'facebook': {
-      'url': 'https://www.facebook.com/flyhub.official', // Replace with actual
-
-    },
-    'twitter': {
-      'url': 'https://twitter.com/flyhub_official', // Replace with actual
+      'url': 'https://www.facebook.com/share/1A8fBiqxmt/', // Replace with actual
 
     },
     'whatsapp': {
@@ -658,14 +654,6 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
                             'facebook',
                           ),
                           const SizedBox(width: 20),
-
-                          // Twitter
-                          _buildSocialIcon(
-                            'assets/categories/twitter.png',
-                            'twitter',
-                          ),
-                          const SizedBox(width: 20),
-
                           // WhatsApp
                           _buildSocialIcon(
                             'assets/categories/whatsapp.png',

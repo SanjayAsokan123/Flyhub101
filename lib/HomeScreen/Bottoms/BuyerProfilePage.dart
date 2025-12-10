@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flyhub/T&C/Help_Support_Page.dart';
 import 'package:flyhub/T&C/PrivacyPolicy.dart';
 import 'package:flyhub/T&C/Terms_Conditions.dart';
@@ -12,10 +13,10 @@ import '../../HomeScreen/Dynamichome.dart';
 import '../../HomeScreen/Bottoms/SellerPage.dart';
 import '../../HomeScreen/Bottoms/GuestProfilePage.dart';
 import '../../BuyerBookingStatuses/Buyer_Return_Refund_Policy.dart';
-import '../../SellerBookingStatuses/Seller_Shipping_Policy.dart';
 import '../../services/role_manager.dart';
 import '../../BuyerDetails/WishlistPage.dart';
 import '../../BuyerDetails/MyCartPage.dart';
+import '../../orders/MyOrderPage.dart';
 import '../../Login/SellerLoginPage.dart';
 import '../../BuyerBookingStatuses/DroneRentalConfirmation.dart';
 import '../../BuyerBookingStatuses/Pilot_Booking_Status.dart';
@@ -39,27 +40,15 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
 
   static const Color primaryColor = Color(0xFF1A0A5B);
   static const Color backgroundColor = Color(0xFFF8F9FA);
+  static const Color textSecondary = Color(0xFF6B7280);
 
-  // SVG Helper Method for drone only
-  Widget _buildDroneSvgIcon({Color? color, double size = 22}) {
-    return SvgPicture.asset(
-      'assets/categories/drone1.svg',
-      width: size,
-      height: size,
-      colorFilter: color != null
-          ? ColorFilter.mode(color, BlendMode.srcIn)
-          : null,
-      placeholderBuilder: (context) => Container(
-        width: size,
-        height: size,
-        padding: EdgeInsets.all(size * 0.2),
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
-        ),
-      ),
-    );
-  }
+  // Social Media URLs - Fixed with proper URLs
+  final Map<String, String> socialMediaUrls = {
+    'instagram': 'https://www.instagram.com/flyhub_info',
+    'linkedin': 'https://www.linkedin.com/company/flyhubinfo',
+    'facebook': 'https://www.facebook.com/share/1A8fBiqxmt/',
+    'whatsapp': 'https://wa.me/6379800293', // Replace with your WhatsApp number
+  };
 
   @override
   void initState() {
@@ -81,7 +70,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
         return;
       }
 
-      // 🔥 FIX: Query using firebaseUid instead of doc(_user.uid)
       final snap = await _firestore
           .collection('buyers')
           .where('firebaseUid', isEqualTo: _user!.uid)
@@ -89,7 +77,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
           .get();
 
       if (snap.docs.isEmpty) {
-        // No buyer record → create minimal session data
         await RoleManager.setLocalRole("buyer");
         setState(() {
           _buyerData = {
@@ -101,10 +88,9 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
         return;
       }
 
-      // 🔥 Correct buyer document found
       final doc = snap.docs.first;
       final data = doc.data();
-      final buyerDocId = doc.id; // <-- THIS is FLYHUBB0108
+      final buyerDocId = doc.id;
 
       data['buyerId'] = buyerDocId;
 
@@ -121,7 +107,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
       }
 
       await RoleManager.setLocalRole("buyer");
-
       setState(() => _buyerData = data);
     } catch (e) {
       debugPrint("⚠ BuyerPage init error: $e");
@@ -178,6 +163,48 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
     );
   }
 
+  // Launch social media URL - FIXED VERSION
+  Future<void> _launchSocialMedia(String platform) async {
+    final url = socialMediaUrls[platform];
+
+    if (url == null) {
+      _showMessage("Link not available for $platform");
+      return;
+    }
+
+    try {
+      final uri = Uri.parse(url);
+
+      // Check if WhatsApp URL and format properly
+      if (platform == 'whatsapp' && url.contains('wa.me')) {
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri);
+        } else {
+          // Try with web version
+          final webUri = Uri.parse('https://web.whatsapp.com/');
+          if (await canLaunchUrl(webUri)) {
+            await launchUrl(webUri);
+          } else {
+            _showMessage("Could not launch WhatsApp");
+          }
+        }
+      } else {
+        // For other social media
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(
+            uri,
+            mode: LaunchMode.externalApplication,
+          );
+        } else {
+          _showMessage("Could not launch $platform");
+        }
+      }
+    } catch (e) {
+      debugPrint("Error launching $platform: $e");
+      _showMessage("Error opening $platform");
+    }
+  }
+
   Widget _buildProfileHeader() {
     final name = _buyerData?['name'] ??
         _buyerData?['firstName'] ??
@@ -230,7 +257,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                     color: Colors.grey,
                   ),
                 ),
-                const SizedBox(height: 8),
                 const SizedBox(height: 8),
               ],
             ),
@@ -354,7 +380,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
     );
   }
 
-  // Special method for drone rental item with SVG
   Widget _buildDroneListItem({
     required String title,
     required VoidCallback onTap,
@@ -371,9 +396,14 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
           color: (iconColor ?? primaryColor).withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: _buildDroneSvgIcon(
-          color: iconColor ?? primaryColor,
-          size: 20,
+        child: SvgPicture.asset(
+          'assets/categories/drone1.svg',
+          width: 20,
+          height: 20,
+          colorFilter: ColorFilter.mode(
+            iconColor ?? primaryColor,
+            BlendMode.srcIn,
+          ),
         ),
       ),
       title: Text(
@@ -389,6 +419,56 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
           : null,
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       dense: true,
+    );
+  }
+
+  // Social Icon Widget
+  Widget _buildSocialIcon(String iconPath, {required VoidCallback onTap, String? tooltip}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Tooltip(
+        message: tooltip ?? '',
+        child: Container(
+          width: 40,
+          height: 40,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: primaryColor.withOpacity(0.1),
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Image.asset(
+            iconPath,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              return Icon(
+                Icons.error_outline,
+                color: Colors.red,
+                size: 20,
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showMessage(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: primaryColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
     );
   }
 
@@ -419,7 +499,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () {
-            // Navigate back to DynamicHome
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
@@ -428,7 +507,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
             );
           },
         ),
-        // REMOVED: Seller button from actions
       ),
       body: Column(
         children: [
@@ -469,7 +547,7 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                         color: Colors.green,
                         onTap: () => Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const WishlistPage()),
+                          MaterialPageRoute(builder: (_) => MyOrderPage()),
                         ),
                       ),
                     ],
@@ -480,15 +558,19 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                 _buildSection(
                   title: "My Activities",
                   children: [
-                    // Drone Rentals with SVG icon
-                    _buildDroneListItem(
+                    _buildListItem(
+                      icon: Icons.work_outline,
                       title: "Drone Rentals",
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const DroneRentalApprovalPage(buyerId: '',)),
-                      ),
+                      onTap: () {
+                        final buyerId = _buyerData?['buyerId'] ?? '';
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => DroneRentalApprovalPage(buyerId: buyerId),
+                          ),
+                        );
+                      },
                     ),
-                    // Other items with Material Icons
                     _buildListItem(
                       icon: Icons.work_outline,
                       title: "Job Applications",
@@ -616,22 +698,96 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                   ),
                 ),
 
-                // Footer
-                Padding(
-                  padding: const EdgeInsets.all(24),
+                // Follow Us Footer
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withOpacity(0.05),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        "Follow us on",
+                        style: TextStyle(
+                          color: textSecondary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Instagram
+                          _buildSocialIcon(
+                            'assets/categories/instagram.png',
+                            onTap: () => _launchSocialMedia('instagram'),
+                            tooltip: 'Follow us on Instagram',
+                          ),
+                          const SizedBox(width: 20),
+
+                          // Facebook
+                          _buildSocialIcon(
+                            'assets/categories/facebook.png',
+                            onTap: () => _launchSocialMedia('facebook'),
+                            tooltip: 'Like us on Facebook',
+                          ),
+                          const SizedBox(width: 20),
+
+                          // LinkedIn
+                          _buildSocialIcon(
+                            'assets/categories/linkedin.png',
+                            onTap: () => _launchSocialMedia('linkedin'),
+                            tooltip: 'Connect on LinkedIn',
+                          ),
+                          const SizedBox(width: 20),
+
+                          // WhatsApp
+                          _buildSocialIcon(
+                            'assets/categories/whatsapp.png',
+                            onTap: () => _launchSocialMedia('whatsapp'),
+                            tooltip: 'Message us on WhatsApp',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Optional: Contact info
+                      Text(
+                        "Contact: info@flyhub.com",
+                        style: TextStyle(
+                          color: textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Version and Copyright
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  color: primaryColor.withOpacity(0.05),
                   child: Column(
                     children: [
                       Text(
                         "v1.0.0",
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade600,
+                          color: textSecondary,
                         ),
                       ),
+                      const SizedBox(height: 4),
+
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
               ],
             ),
           ),

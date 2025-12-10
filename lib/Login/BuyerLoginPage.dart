@@ -43,9 +43,9 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
   final Map<String, String> socialMediaUrls = {
     'instagram': 'https://www.instagram.com/flyhub_info?igsh=OWM2a3E2Ym81bzRs',
     'linkedin': 'https://www.linkedin.com/company/flyhubinfo/',
-    'facebook': 'https://facebook.com/your_page',
+    'facebook': 'https://www.facebook.com/share/1A8fBiqxmt/',
     'twitter': 'https://twitter.com/your_handle',
-    'whatsapp': 'https://wa.me/+919003992693', // or use 'https://wa.me/1234567890?text=Hello'
+    // 'whatsapp': 'https://wa.me/+91',
   };
 
   // Back navigation to FlyHubSelectionPage
@@ -537,15 +537,6 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
                           tooltip: 'Like us on Facebook',
                         ),
                         const SizedBox(width: 20),
-
-                        // Twitter
-                        _buildSocialIcon(
-                          'assets/categories/twitter.png',
-                          onTap: () => _launchSocialMedia('twitter'),
-                          tooltip: 'Follow us on Twitter',
-                        ),
-                        const SizedBox(width: 20),
-
                         // WhatsApp
                         _buildSocialIcon(
                           'assets/categories/whatsapp.png',

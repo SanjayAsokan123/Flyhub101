@@ -80,6 +80,7 @@ class ApiClass {
   // 🛍 MARKETPLACE: DRONES / PARTS / ACCESSORIES
   // ============================================================
 
+
   Future<ApiResult> getDrones() async {
     const String query = r'''
       query {
@@ -97,10 +98,49 @@ class ApiClass {
     return _runQuery("getDrones", query, "drones");
   }
 
-  Future<ApiResult> getParts() async {
+
+  Future<ApiResult> getDronesPaginated({
+    required int page,
+    required int limit,
+  }) async {
     const String query = r'''
-      query {
-        parts {
+    query ApprovedDronePaginated($page: Int!, $limit: Int!) {
+      approvedDronePaginated(page: $page, limit: $limit) {
+        items {
+          droneId
+          name
+          brand
+          price
+          description
+          image
+          status
+        }
+        totalCount
+        page
+        limit
+        pageCount
+      }
+    }
+  ''';
+
+    return _runQuery(
+      "getDronesPaginated",
+      query,
+      "approvedDronePaginated",
+      variables: {"page": page, "limit": limit},
+    );
+  }
+
+
+
+  Future<ApiResult> getPartsPaginated({
+    required int page,
+    required int limit,
+  }) async {
+    const String query = r'''
+    query ApprovedPartPaginated($page: Int!, $limit: Int!) {
+      approvedPartPaginated(page: $page, limit: $limit) {
+        items {
           partId
           name
           brand
@@ -108,16 +148,29 @@ class ApiClass {
           description
           image
           status
+           }
+        totalCount
+        page
+        limit
+        pageCount
         }
       }
     ''';
-    return _runQuery("getParts", query, "parts");
+    return _runQuery(
+      "getPartsPaginated",
+      query,
+      "approvedPartPaginated",
+      variables: {"page": page, "limit": limit},);
   }
 
-  Future<ApiResult> getAccessories() async {
+  Future<ApiResult> getAccessoriesPaginated({
+    required int page,
+    required int limit,
+  }) async {
     const String query = r'''
-      query {
-        accessories {
+    query ApprovedAccessoriesPaginated($page: Int!, $limit: Int!) {
+      approvedAccessoriesPaginated(page: $page, limit: $limit) {
+      items {
           accessoryId
           name
           brand
@@ -125,10 +178,19 @@ class ApiClass {
           description
           image
           status
+           }
+        totalCount
+        page
+        limit
+        pageCount
         }
       }
     ''';
-    return _runQuery("getAccessories", query, "accessories");
+    return _runQuery(
+      "getAccessoriesPaginated",
+      query,
+      "approvedAccessoriesPaginated",
+      variables: {"page": page, "limit": limit},);
   }
 
   // ============================================================
@@ -526,6 +588,55 @@ class ApiClass {
     return _runQuery("getRentals", query, "rentals");
   }
 
+
+  Future<Map<String, dynamic>> getRentalsPaginated({
+    required int page,
+    required int limit,
+  }) async {
+    final client = await GraphQLService.initClient();   // ⭐ FIX
+
+    final QueryOptions options = QueryOptions(
+      document: gql(approvedRentalsPaginatedQuery),
+      variables: {
+        "page": page,
+        "limit": limit,
+      },
+    );
+
+    final result = await client.query(options);
+
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+
+    return result.data!["approvedRentalsPaginated"];
+  }
+
+
+  static const String approvedRentalsPaginatedQuery = """
+query ApprovedRentalsPaginated(\$page: Int!, \$limit: Int!) {
+  approvedRentalsPaginated(page: \$page, limit: \$limit) {
+    items {
+      rentalId
+      name
+      brand
+      location
+      pricePerHour
+      pricePerDay
+      image
+      sellerInfo {
+        email
+        phoneNumber
+      }
+    }
+    totalCount
+    page
+    limit
+    pageCount
+  }
+}
+""";
+
   Future<ApiResult> enrollTraining(Map<String, dynamic> data) async {
     const String mutation = r'''
       mutation EnrollTraining($input: TrainingEnrollInput!) {
@@ -596,6 +707,51 @@ class ApiClass {
     return _runQuery("getTrainingById", query, "getTrainingById",
         variables: {"id": id});
   }
+
+
+  Future<ApiResult> getApprovedHirePilotsPaginated({
+    required int page,
+    required int limit,
+  }) async {
+    const String query = r'''
+    query ApprovedHirePilotsPaginated($page: Int!, $limit: Int!) {
+      approvedHirePilotsPaginated(page: $page, limit: $limit) {
+        items {
+          pilotId
+          pilotName
+          pilotCompany
+          location
+          availability
+          specification
+          price { perHour perDay }
+          certifications { url filename uploadedAt }
+          resume { url filename uploadedAt }
+          description
+          newemail
+          newphoneNumber
+          adminStatus
+          buyerStatus
+          seller {
+            name
+            email
+            phoneNumber
+          }
+        }
+        totalCount
+        page
+        limit
+        pageCount
+      }
+    }
+  ''';
+
+    return _runQuery(
+        "getApprovedHirePilotsPaginated",
+        query,
+        "approvedHirePilotsPaginated",
+        variables: {"page": page, "limit": limit}
+        );
+    }
 
   // ============================================================
   // 🧠 Helper for Queries

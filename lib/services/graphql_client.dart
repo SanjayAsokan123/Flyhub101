@@ -473,7 +473,9 @@ class GraphQLService {
 
     return data!["loginBuyerGoogle"];
   }
-
+  static Future<GraphQLClient> getClient() async {
+    return await initClient();
+  }
   /// ==========================================================
   /// 🔵 INTERNAL ERROR LOGGER
   /// ==========================================================

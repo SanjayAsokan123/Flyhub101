@@ -88,4 +88,4 @@ flutter:
 flutter_icons:
   android: true
   ios: true
-  image_path: "assets/images/MaskGroup34.png"  # 👈 Project logo
+  image_path: "assets/images/MaskGroup34.png"

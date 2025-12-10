@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../CommonClass/ApiClass.dart';
@@ -13,6 +14,38 @@ import '../../utils/responsive_utils.dart';
 import '../../services/role_manager.dart';
 import '../../Login/BuyerLoginPage.dart';
 import '../../Login/BuyerRegisterPage.dart';
+
+final String getPaginatedPilotsQuery = r'''
+  query ApprovedHirePilotsPaginated($page: Int!, $limit: Int!) {
+    approvedHirePilotsPaginated(page: $page, limit: $limit) {
+      items {
+        pilotId
+        pilotName
+        pilotCompany
+        location
+        specification
+        availability
+        price { perHour perDay }
+        certifications { url filename }
+        resume { url filename }
+        description
+        newemail
+        newphoneNumber
+        adminStatus
+        buyerStatus
+        seller {
+          name
+          email
+          phoneNumber
+        }
+      }
+      totalCount
+      page
+      limit
+      pageCount
+    }
+  }
+''';
 
 class PilotPage extends StatefulWidget {
   const PilotPage({super.key});
@@ -40,6 +73,11 @@ class _PilotPageState extends State<PilotPage> {
   String _searchQuery = '';
   RangeValues _priceRange = const RangeValues(500, 5000);
   String _selectedSort = "Default";
+  int _currentPage = 1;
+  int _limit = 10;
+  int _totalPages = 1;
+  bool _isPaginating = false;
+  final ScrollController _scrollController = ScrollController();
 
   int _cartCount = 0;
   List<dynamic> _pilots = [];
@@ -53,6 +91,15 @@ class _PilotPageState extends State<PilotPage> {
     _loadCartCount();
     _fetchPilots();
     _subscribeToNewBookings();
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 200) {
+        if (!_isPaginating && _currentPage < _totalPages) {
+          _currentPage++;
+          _fetchPilots();
+        }
+      }
+    });
   }
 
   void _subscribeToNewBookings() {
@@ -90,42 +137,75 @@ class _PilotPageState extends State<PilotPage> {
     });
   }
 
-  Future<void> _fetchPilots() async {
-    HapticFeedback.selectionClick();
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
+  Future<void> _fetchPilots() async {
     if (!mounted) return;
 
     setState(() {
-      _isLoading = true;
+      _isLoading = _currentPage == 1;
+      _isPaginating = _currentPage > 1;
       _isError = false;
     });
 
     try {
-      final result = await _apiClass.getApprovedHirePilots();
-      if (result.status == "success" && result.data is List) {
-        if (!mounted) return;
+      final client = await GraphQLService.getClient();
 
-        setState(() {
-          _pilots = List.from(result.data);
-          _isLoading = false;
-        });
-        debugPrint("✅ Loaded ${_pilots.length} approved pilots");
-      } else {
-        debugPrint("⚠ No pilots found: ${result.message}");
-        if (!mounted) return;
+      final response = await client.query(
+        QueryOptions(
+          document: gql(getPaginatedPilotsQuery),
+          variables: {
+            "page": _currentPage,
+            "limit": _limit,
+          },
+          fetchPolicy: FetchPolicy.networkOnly,
+        ),
+      );
 
+      if (response.hasException) {
+        debugPrint("❌ GraphQL Error: ${response.exception}");
         setState(() {
-          _pilots = [];
           _isLoading = false;
+          _isPaginating = false;
+          _isError = true;
         });
+        return;
       }
-    } catch (e) {
-      debugPrint("❌ Error loading pilots: $e");
-      if (!mounted) return;
+
+      final pageData = response.data?["approvedHirePilotsPaginated"];
+
+      if (pageData == null) {
+        debugPrint("❌ No pagination data returned");
+        setState(() {
+          _isLoading = false;
+          _isPaginating = false;
+          _isError = true;
+        });
+        return;
+      }
+
+      final newItems = List<Map<String, dynamic>>.from(pageData["items"] ?? []);
 
       setState(() {
-        _pilots = [];
+        if (_currentPage == 1) {
+          _pilots = newItems;
+        } else {
+          _pilots.addAll(newItems);
+        }
+
+        _totalPages = pageData["pageCount"] ?? 1;
         _isLoading = false;
+        _isPaginating = false;
+      });
+    } catch (e) {
+      debugPrint("❌ Pagination fetch error: $e");
+      setState(() {
+        _isLoading = false;
+        _isPaginating = false;
         _isError = true;
       });
     }
@@ -582,6 +662,7 @@ class _PilotPageState extends State<PilotPage> {
       backgroundColor: surfaceColor,
       color: primaryColor,
       child: GridView.builder(
+        controller: _scrollController,
         physics: const BouncingScrollPhysics(),
         padding: EdgeInsets.all(
           ResponsiveUtils.getPilotGridPadding(context),

@@ -1,12 +1,12 @@
 class EnvConfig {
-  static String baseUrl = 'http://192.168.0.180:5001/graphql';
+  static String baseUrl = 'http://192.168.1.178:5001/graphql';
 
 }
 
 
 class EnvConfig1 {
 
-static String hostUrl = 'http://192.168.0.180:5001';
+static String hostUrl = 'http://192.168.1.178:5001';
 }
 
 class Mail_User {
