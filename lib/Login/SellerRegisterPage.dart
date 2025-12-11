@@ -621,9 +621,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                         const SizedBox(width: 20),
 
                         // Twitter
-                        _buildSocialIcon('assets/categories/twitter.png',
-                            'https://twitter.com'),
-                        const SizedBox(width: 20),
+                        // _buildSocialIcon('assets/categories/twitter.png',
+                        //     'https://twitter.com'),
+                        // const SizedBox(width: 20),
 
                         // WhatsApp
                         _buildSocialIcon('assets/categories/whatsapp.png',

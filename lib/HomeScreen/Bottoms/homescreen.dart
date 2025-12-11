@@ -29,6 +29,8 @@ import '../Bottoms/JobPage.dart';
 import '../Bottoms/ServicesPage.dart';
 import '../../ApplyingBookingNow/ServiceBookNow.dart';
 import '../../ApplyingBookingNow/JobApplyNow.dart';
+import 'PilotPage.dart';
+import 'RentalsPage.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -263,7 +265,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await _loadSection(
       'drones',
           () async {
-        final res = await _apiClass.getDronesPaginated(page: 1, limit: 50);
+        final res = await _apiClass.getDronesPaginated(page: 1, limit: 10);
 
         final List items =
         res.data?["items"] is List ? res.data["items"] : [];
@@ -281,7 +283,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await _loadSection(
       'parts',
           () async {
-        final res = await _apiClass.getPartsPaginated(page: 1, limit: 50);
+        final res = await _apiClass.getPartsPaginated(page: 1, limit: 10);
 
         final List items =
         res.data?["items"] is List ? res.data["items"] : [];
@@ -300,7 +302,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'accessories',
           () async {
         final res =
-        await _apiClass.getAccessoriesPaginated(page: 1, limit: 50);
+        await _apiClass.getAccessoriesPaginated(page: 1, limit: 10);
 
         final List items =
         res.data?["items"] is List ? res.data["items"] : [];
@@ -937,6 +939,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
         break;
+      case "Pilots":
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const PilotPage()));
+        break;
+      case "Rentals":
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const RentalsPage()));
+        break;
       case "Jobs":
         Navigator.push(context, MaterialPageRoute(builder: (_) => const JobsPage()));
         break;
@@ -1440,7 +1448,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 SizedBox(height: cardMargin / 2),
                 Text(
-                  jobTitle,
+                 "",
                   style: GoogleFonts.inter(
                     color: Colors.black.withOpacity(0.9),
                     fontSize: titleFontSize - 4,

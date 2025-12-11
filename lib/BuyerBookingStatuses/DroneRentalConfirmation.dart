@@ -129,7 +129,7 @@ class _DroneRentalApprovalPageState extends State<DroneRentalApprovalPage>
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         subtitle: Text(
-          "Customer: ${rental['name']}\nDate: ${rental['rentalDate']}",
+          "Seller: ${rental['name']}\nDate: ${rental['rentalDate']}",
           style: const TextStyle(height: 1.5),
         ),
         trailing: Text(
@@ -150,7 +150,7 @@ class _DroneRentalApprovalPageState extends State<DroneRentalApprovalPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text("Booking ID: ${rental['drone_rental_id']}"),
-                  Text("Customer: ${rental['name']}"),
+                  Text("Seller: ${rental['name']}"),
                   Text("Phone: ${rental['phone']}"),
                   Text("Date: ${rental['rentalDate']}"),
                   Text(

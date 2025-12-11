@@ -218,7 +218,7 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
         Stack(
           children: [
             IconButton(
-              icon: Icon(Icons.shopping_cart_outlined, color: themeColor),
+              icon: Icon(Icons.shopping_bag_outlined, color: themeColor),
               onPressed: () async {
                 await Navigator.push(
                   context,

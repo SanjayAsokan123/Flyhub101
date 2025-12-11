@@ -92,7 +92,6 @@ class _SplashscreenState extends State<Splashscreen> with SingleTickerProviderSt
     }
   }
 
-  /// Navigate to DynamicHome screen
   void _navigateToHome() {
     if (!mounted) return;
 
@@ -108,7 +107,6 @@ class _SplashscreenState extends State<Splashscreen> with SingleTickerProviderSt
     );
   }
 
-  /// Navigate to login/selection page
   void _navigateToLogin() {
     if (!mounted) return;
 
