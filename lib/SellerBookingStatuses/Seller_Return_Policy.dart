@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class SRRPolicy extends StatelessWidget {
-  const SRRPolicy ({super.key});
+  const SRRPolicy({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -13,968 +13,1209 @@ class SRRPolicy extends StatelessWidget {
           'Returns & Refund Policy',
           style: GoogleFonts.inter(
             fontWeight: FontWeight.w600,
-            color: const Color(0xFF1F2937),
+            color: const Color(0xFF111827),
           ),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1F2937)),
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF111827)),
           onPressed: () => Navigator.pop(context),
         ),
         centerTitle: true,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
-              const SizedBox(height: 8),
+              // Last Updated
               Center(
                 child: Text(
-                  'Last Updated: December 1, 2025',
+                  'Last Updated December 1, 2025',
                   style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: const Color(0xFF6B7280),
+                    fontSize: 15,
+                    color: const Color(0xFF4B5563),
+                    height: 1.6,
                   ),
                 ),
               ),
               const SizedBox(height: 24),
+              const Divider(height: 1, color: Color(0xFFE5E7EB)),
 
-              // PART A: BUYERS SECTION
-              _buildSectionTitle('RETURNS & REFUND POLICY'),
-              const SizedBox(height: 16),
-
-              _buildSectionSubtitle('Overview'),
-              const SizedBox(height: 8),
-              _buildParagraph(
-                  'At Flyhub, we want you to be completely satisfied with your purchase. This policy outlines the conditions under which you can return products and receive refunds.'
-              ),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('1. Return Window'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Standard Products:', [
-                '7 days from delivery date for returns',
-                'Product must be unused, undamaged, and in original packaging'
-              ]),
-              const SizedBox(height: 12),
-              _buildBulletPoint('Drones & High-Value Items (above ₹10,000):', [
-                '7 days from delivery date for returns',
-                'Unopened box preferred for full refund',
-                'Opened box returns subject to inspection (may incur restocking fee)'
-              ]),
-              const SizedBox(height: 12),
-              _buildBulletPoint('Accessories & Parts:', [
-                '7 days from delivery date',
-                'Must be unused with original packaging and tags'
-              ]),
-              const SizedBox(height: 12),
-              _buildBulletPoint('Non-Returnable Items:', [
-                'Custom-built or modified drones',
-                'Software, licenses, and digital products',
-                'Opened batteries (safety regulations)',
-                'Items marked as "Final Sale" or "Non-Returnable"',
-                'Products damaged due to misuse or customer negligence'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('2. Return Eligibility Conditions'),
-              const SizedBox(height: 8),
-              _buildParagraph('You can return a product if:'),
-              const SizedBox(height: 8),
-              _buildConditionList([
-                'Defective or Damaged Product',
-                'Wrong Product Received',
-                'Product Not as Described',
-                'Change of Mind (within 7 days)'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('3. Non-Returnable Conditions'),
-              const SizedBox(height: 8),
-              _buildParagraph('You CANNOT Return if:'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('', [
-                '7-day return window has expired',
-                'Product shows signs of use or damage',
-                'Original packaging is damaged or missing',
-                'Product is a custom order or personalized item',
-                'Batteries have been opened or installed',
-                'Serial numbers/stickers have been removed or tampered with',
-                'Drone has been flown (confirmed via flight logs)',
-                'Product was marked "Non-Returnable" at purchase'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('4. How to Initiate a Return'),
-              const SizedBox(height: 8),
-              _buildStepTitle('Step 1: Request Return'),
-              const SizedBox(height: 8),
-              _buildNumberedList([
-                'Open Flyhub app and go to "My Orders"',
-                'Select the order you want to return',
-                'Click "Return/Refund Request"',
-                'Choose reason for return',
-                'Upload photos/videos showing the issue (for defective/damaged items)',
-                'Submit request'
-              ]),
-              const SizedBox(height: 12),
-              _buildStepTitle('Step 2: Approval Process'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('', [
-                'Seller has 24 hours to approve or reject your request',
-                'If approved, you\'ll receive return instructions',
-                'If rejected, you can escalate to Flyhub support'
-              ]),
-              const SizedBox(height: 12),
-              _buildStepTitle('Step 3: Return Shipping'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('', [
-                'Seller\'s Fault (defective/wrong item): Free return pickup scheduled',
-                'Buyer\'s Fault (change of mind): You arrange and pay for return shipping',
-                'Pack item securely in original packaging',
-                'Attach return shipping label (if provided)'
-              ]),
-              const SizedBox(height: 12),
-              _buildStepTitle('Step 4: Inspection & Refund'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('', [
-                'Seller inspects returned item within 2 working days',
-                'Refund processed within 3-5 working days after inspection',
-                'You\'ll receive confirmation via email and app notification'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('5. Return Shipping Costs'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Seller\'s Responsibility (FREE for you):', [
-                'Defective or damaged product',
-                'Wrong item sent',
-                'Missing parts or accessories',
-                'Product not as described'
-              ]),
-              const SizedBox(height: 12),
-              _buildBulletPoint('Your Responsibility:', [
-                'Change of mind returns',
-                'Buyer\'s remorse',
-                'Ordered wrong product by mistake'
-              ]),
-              const SizedBox(height: 12),
-              _buildBulletPoint('Return Shipping Charges:', [
-                '₹150 for standard items (deducted from refund)',
-                '₹250 for drones and large items (deducted from refund)'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('6. Refund Methods & Timeline'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('Refund Amount'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Full Refund (Product Price + Shipping):', [
-                'Defective, damaged, or wrong product',
-                'Seller\'s error'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Partial Refund (Product Price Only):', [
-                'Change of mind returns',
-                'Original shipping charges non-refundable',
-                'Return shipping cost deducted'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Refund with Deductions:', [
-                'Opened box on high-value items: 10% restocking fee',
-                'Damaged packaging: 5-15% deduction',
-                'Missing accessories: Cost of missing items deducted'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Refund Timeline'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Processing Time:', [
-                'Seller inspection: 2 working days from receiving return',
-                'Refund approval: 1 working day',
-                'Total: 3-5 working days from seller receiving returned item'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Refund Method'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Original Payment Method:', [
-                'Credit/Debit Card: 5-7 business days',
-                'UPI/Net Banking: 3-5 business days',
-                'Flyhub Wallet: Instant (credited immediately)',
-                'Cash on Delivery: Bank transfer (provide bank details)'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Flyhub Wallet Option:', [
-                'Get instant refund to Flyhub Wallet',
-                'Use for future purchases',
-                '5% bonus credit on wallet refunds (promotional)'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('7. Replacement vs Refund'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('When You Can Get Replacement'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('', [
-                'Defective product within 7 days',
-                'Wrong item received',
-                'Damaged during shipping'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Replacement Process'),
-              const SizedBox(height: 8),
-              _buildNumberedList([
-                'Request replacement instead of refund during return request',
-                'Return defective/wrong item',
-                'Replacement shipped once return is received and verified',
-                'No additional shipping charges'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Replacement Availability:', [
-                'Subject to stock availability',
-                'If out of stock, full refund issued',
-                'Replacement ships within 3 working days of verification'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('8. Damaged or Defective Items'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('Report Immediately'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Within 48 hours of delivery:', [
-                'Take clear photos/videos of damage',
-                'Do not use or further damage the product',
-                'Report through Flyhub app with evidence'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('What to Photograph'),
-              const SizedBox(height: 8),
-              _buildCheckList([
-                'Outer package damage',
-                'Product damage from all angles',
-                'Missing parts or accessories',
-                'Serial number/product label',
-                'Packing materials showing poor packaging'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Resolution'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('', [
-                'Free return pickup arranged',
-                'Full refund including shipping costs',
-                'Or immediate replacement (if available)',
-                'No restocking fees or deductions'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('9. Rental Equipment Returns'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('Rental Return Process'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('End of Rental Period:', [
-                'Must return within 24 hours of rental end date',
-                'Use pre-paid return label provided',
-                'Pack equipment securely in original packaging',
-                'Drop off at courier location or schedule pickup'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Rental Deposit Refund'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Security Deposit:', [
-                'Held during rental period',
-                'Refunded within 3-5 working days after equipment inspection',
-                'Full refund if no damage'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Damage Deductions:', [
-                'Minor wear: No deduction',
-                'Scratches/cosmetic damage: ₹500-₹2,000 deduction',
-                'Functional damage: Repair cost deducted',
-                'Lost/stolen equipment: Full equipment cost deducted'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Late Return Fees'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('', [
-                '₹500 per day for first 3 days',
-                '₹1,000 per day after 3 days',
-                'After 7 days: Considered lost, full cost charged'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('10. Cancellations'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('Before Dispatch'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('You Can Cancel:', [
-                'Anytime before seller ships the order',
-                'Full refund with no cancellation fees',
-                'Instant refund to original payment method'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('How to Cancel:', [
-                'Go to "My Orders" in Flyhub app',
-                'Select order and click "Cancel Order"',
-                'Choose cancellation reason',
-                'Confirm cancellation'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('After Dispatch'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Cannot Cancel:', [
-                'Once order is shipped, cancellation not possible',
-                'You can refuse delivery (return shipping + restocking fees apply)',
-                'Or receive and return within 7 days (as per return policy)'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Seller Cancellation'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('If seller cancels your order:', [
-                'Full refund including shipping charges',
-                'Compensation of ₹100 Flyhub Wallet credit',
-                'Seller may face penalty'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('11. Quality Check Returns'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('DOA (Dead on Arrival)'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Product doesn\'t work out of the box:', [
-                'Report within 48 hours',
-                'Free return and full refund',
-                'Or immediate replacement',
-                'No questions asked'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Manufacturing Defects'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Discovered within 7 days:', [
-                'Free return',
-                'Full refund or replacement',
-                'Seller bears all costs'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('After 7 days:', [
-                'Covered under manufacturer warranty',
-                'Contact brand service center',
-                'Flyhub can assist with warranty claims'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('12. Opened vs Unopened Returns'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('Unopened Returns'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('', [
-                'Original packaging sealed and intact',
-                'Full refund (minus return shipping if change of mind)',
-                'No restocking fees'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Opened Returns'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Inspected but Unused:', [
-                '10% restocking fee on items above ₹10,000',
-                '5% restocking fee on items under ₹10,000',
-                'All accessories must be present'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Used/Damaged:', [
-                'Return rejected',
-                'Or reduced refund based on condition',
-                'Seller provides detailed condition report'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('13. Disputed Returns'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('If Seller Rejects Your Return'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('You Can:', [
-                'Contact Flyhub customer support',
-                'Provide evidence (photos, videos, communications)',
-                'Flyhub mediates between buyer and seller',
-                'Resolution within 5-7 working days'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('If Return Goes Missing'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('', [
-                'Report within 24 hours of shipping',
-                'Provide tracking details',
-                'Flyhub files claim with courier',
-                'Refund processed once investigation completes'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('If Seller Claims Item Damaged'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('', [
-                'Seller must provide proof (photos/videos)',
-                'You can dispute with counter-evidence',
-                'Flyhub reviews both sides',
-                'Fair resolution based on evidence'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('14. Warranty Information'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('Flyhub Protection (Optional Purchase)'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('What It Covers:', [
-                'Accidental damage within 1 year',
-                'Extended return window (30 days)',
-                'Free replacements for defects',
-                'Priority customer support'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Cost:', [
-                '5% of product price',
-                'One-time fee at checkout'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Manufacturer Warranty'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('', [
-                'All branded products come with manufacturer warranty',
-                'Duration varies by brand (6 months to 2 years)',
-                'Warranty card included with product',
-                'Claim directly with brand or through Flyhub assistance'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('15. Exceptions & Special Cases'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('During Sales/Promotions'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('', [
-                'Same return policy applies',
-                'No special restrictions',
-                'Sale items are returnable unless marked "Final Sale"'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Pre-Orders'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('', [
-                'Can cancel before product ships',
-                'After delivery, standard 7-day return applies'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Combo/Bundle Offers'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('', [
-                'Must return entire bundle',
-                'Cannot return individual items from bundle',
-                'All items must be unused and in original packaging'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('16. Customer Support for Returns'),
-              const SizedBox(height: 8),
-              _buildContactInfo(
-                  'For Return Queries:',
-                  'returns@flyhub.com',
-                  '+91-9003992693',
-                  'Monday - Friday, 9:00 AM - 6:00 PM IST'
+              // Overview
+              Text(
+                'Overview',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
               ),
               const SizedBox(height: 12),
-              _buildBulletPoint('Track Return Status:', [
-                'Flyhub app > My Orders > Returns',
-                'Real-time status updates',
-                'Email and SMS notifications'
-              ]),
+              Text(
+                'As a Flyhub seller, you must comply with this refund policy to maintain good standing on the platform and ensure customer satisfaction.',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
               const SizedBox(height: 32),
 
-              // PART B: SELLERS SECTION
-              _buildSectionTitle('PART B: REFUND POLICY FOR SELLERS'),
-              const SizedBox(height: 16),
-
-              _buildSectionSubtitle('Overview'),
-              const SizedBox(height: 8),
-              _buildParagraph(
-                  'As a Flyhub seller, you must comply with this refund policy to maintain good standing on the platform and ensure customer satisfaction.'
-              ),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('1. Seller Obligations'),
-              const SizedBox(height: 8),
-              _buildParagraph('You Must Accept Returns For:'),
-              const SizedBox(height: 8),
-              _buildConditionList([
-                'Defective Products',
-                'Wrong Item Shipped',
-                'Damaged Products',
-                'Not as Described',
-                'Change of Mind (within 7 days)'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('2. Return Approval Timeline'),
-              const SizedBox(height: 8),
-              _buildParagraph('Mandatory Response Time: 24 hours'),
-              const SizedBox(height: 8),
-              _buildNumberedList([
-                'Review request in Seller Dashboard',
-                'Check buyer\'s reason and evidence',
-                'Approve or reject within 24 hours',
-                'Provide clear reason if rejecting'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Late Response Penalty:', [
-                'Auto-approval after 24 hours',
-                'Seller rating impact',
-                '₹200 penalty for repeated violations'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('3. Valid Reasons to Reject Returns'),
-              const SizedBox(height: 8),
-              _buildParagraph('You CAN reject return if:'),
-              const SizedBox(height: 8),
-              _buildRejectList([
-                'Return request after 7-day window',
-                'Product has been used (verified via photos/flight logs)',
-                'Original packaging destroyed',
-                'Product damaged by customer',
-                'Custom/personalized order',
-                'Item marked "Non-Returnable" in listing',
-                'Serial numbers tampered/removed'
-              ]),
-              const SizedBox(height: 8),
-              _buildImportantNote('Important: You must provide clear evidence when rejecting returns. Upload photos/documentation to support your rejection.'),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('4. Return Shipping Responsibility'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('Seller Pays Return Shipping For:'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('', [
-                'Defective or damaged product',
-                'Wrong item sent',
-                'Not as described',
-                'Missing parts/accessories'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Process:', [
-                'Flyhub auto-schedules reverse pickup',
-                'Cost deducted from your payout',
-                'Standard return pickup: ₹150',
-                'Large items/drones: ₹250'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Buyer Pays Return Shipping For:'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('', [
-                'Change of mind',
-                'Buyer ordered wrong item',
-                'Buyer\'s remorse'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Your Action:', [
-                'Accept the return',
-                'Buyer arranges shipping at their cost',
-                'Inspect upon receiving'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('5. Inspection Timeline'),
-              const SizedBox(height: 8),
-              _buildParagraph('You Must Inspect Within: 2 Working Days'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('Inspection Checklist'),
-              const SizedBox(height: 8),
-              _buildCheckList([
-                'Verify product condition matches buyer\'s claim',
-                'Check all accessories and components present',
-                'Test functionality (if applicable)',
-                'Check packaging condition',
-                'Verify serial numbers'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Update Status in Dashboard'),
-              const SizedBox(height: 8),
-              _buildNumberedList([
-                '"Received Return" - when you get the package',
-                'Upload inspection photos',
-                'Mark "Approved" or "Disputed"',
-                'Process refund or state reason for dispute'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Late Inspection Penalty:', [
-                'Auto-approval after 2 working days',
-                'Full refund auto-processed',
-                'Negative impact on seller rating'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('6. Refund Processing'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('Full Refund Required For:'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('', [
-                'Defective/damaged product (confirmed)',
-                'Wrong item sent',
-                'Not as described',
-                'Product returned unopened and unused'
-              ]),
-              const SizedBox(height: 8),
-              _buildParagraph('Amount: Product price + shipping charges'),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Partial Refund Allowed For:'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Opened Box (High-Value Items >₹10,000):', [
-                '10% restocking fee (maximum)',
-                'Only if product is unused and resellable'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Damaged Packaging:', [
-                '5-15% deduction (proportional to damage)',
-                'Must provide photo evidence'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Missing Accessories:', [
-                'Deduct cost of missing items',
-                'Provide detailed breakdown to buyer'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Refund Processing Timeline'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('You Must Process Within:', [
-                '3 working days from inspection completion',
-                'Flyhub processes to buyer after your approval',
-                'Buyer receives in 3-5 days via their payment method'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Late Processing Penalty:', [
-                '₹500 penalty',
-                'Auto-refund processed at your expense',
-                'Seller rating reduction'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('7. Restocking Fees'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('When You Can Charge Restocking Fee:'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Maximum Allowed:', [
-                '10% for items above ₹10,000',
-                '5% for items under ₹10,000'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Conditions:', [
-                'Product box opened but item unused',
-                'All components and accessories intact',
-                'Product still resellable',
-                'Change of mind returns only'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('You CANNOT Charge Restocking Fee For:', [
-                'Defective products',
-                'Wrong items sent',
-                'Damaged products',
-                'Products not as described'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('8. Disputed Returns'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('If You Disagree with Return Request'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Document Everything:', [
-                'Take detailed photos of received item',
-                'Compare with original shipping photos',
-                'Note any discrepancies',
-                'Upload evidence to seller dashboard'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Dispute Process'),
-              const SizedBox(height: 8),
-              _buildNumberedList([
-                'Mark return as "Disputed" in dashboard',
-                'Provide detailed explanation and evidence',
-                'Flyhub reviews both sides',
-                'Decision made within 5-7 working days'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Possible Outcomes:', [
-                'Full refund to buyer (you lose)',
-                'Partial refund (compromise)',
-                'Return rejected (you win)',
-                'Flyhub\'s decision is final'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('9. Replacement Handling'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('If Buyer Requests Replacement'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Your Options:', [
-                'Send replacement (if in stock)',
-                'Offer refund (if out of stock)'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Replacement Process'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('', [
-                'Receive and verify returned item',
-                'Ship replacement within 3 working days',
-                'Use same/better shipping method',
-                'No additional shipping charges to buyer'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Replacement Costs:', [
-                'You bear shipping cost for replacement',
-                'Deducted from your payout'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('10. Seller Refund Penalties'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('Automatic Penalties'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Late Return Approval (>24 hours):', [
-                '₹200 penalty',
-                'Auto-approval triggered'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Late Inspection (>2 days):', [
-                '₹300 penalty',
-                'Auto-refund processed'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Late Refund Processing (>3 days):', [
-                '₹500 penalty',
-                'Interest charged on delayed amount'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Wrongful Return Rejection:', [
-                'Full refund to buyer',
-                '₹500 penalty to seller',
-                'Negative rating impact'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Repeat Violations'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('3+ violations in 30 days:', [
-                'Account warning',
-                'Featured listing removal',
-                'Payout holds'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('5+ violations in 30 days:', [
-                'Account suspension (7 days)',
-                'All listings hidden',
-                'Mandatory seller training'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('10+ violations:', [
-                'Permanent account suspension',
-                'Blacklisted from platform'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('11. Payout Impact'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('How Returns Affect Your Payouts'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Refund Deductions:', [
-                'Refund amount deducted from next payout',
-                'Return shipping cost deducted (if seller\'s fault)',
-                'Penalties deducted',
-                'Restocking fee credited to you (if applicable)'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Payout Hold:', [
-                '10% of order value held for 7 days',
-                'Released if no return request',
-                'Used to process refunds if needed'
-              ]),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('Example:'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('', [
-                'Order value: ₹10,000',
-                'Payout hold: ₹1,000 (7 days)',
-                'Immediate payout: ₹9,000',
-                'After 7 days: +₹1,000 (if no return)'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('12. Preventing Returns'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('Best Practices'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Accurate Listings:', [
-                'Detailed product descriptions',
-                'Clear, high-quality photos',
-                'Mention all specifications',
-                'List any defects or imperfections'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Quality Control:', [
-                'Test products before shipping',
-                'Check all accessories included',
-                'Verify product matches listing',
-                'Note serial numbers'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Proper Packaging:', [
-                'Use sturdy boxes',
-                'Adequate padding for fragile items',
-                'Secure all components',
-                'Include all manuals and accessories'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Clear Communication:', [
-                'Respond to buyer queries promptly',
-                'Set realistic expectations',
-                'Confirm order details before shipping',
-                'Provide accurate tracking'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('13. High Return Rate Consequences'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('Return Rate Tracking:'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('', [
-                'Flyhub tracks your return rate',
-                'Industry standard: <5%',
-                'Target: <3% for featured sellers'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Consequences of High Return Rate (>10%):'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Immediate:', [
-                'Account review',
-                'Featured listing removal',
-                'Search ranking reduction'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Continued High Rate:', [
-                'Increased payout hold (up to 20%)',
-                'Category restrictions',
-                'Required product certifications'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Severe Cases (>20%):', [
-                'Account suspension',
-                'Mandatory quality audit',
-                'Possible permanent ban'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('14. Seller Reporting'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('Monthly Return Analytics'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Access in Seller Dashboard:', [
-                'Total returns by reason',
-                'Return rate percentage',
-                'Refund processing time',
-                'Customer satisfaction scores',
-                'Comparison with category average'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Use This Data To:', [
-                'Identify problem products',
-                'Improve listing accuracy',
-                'Enhance packaging',
-                'Reduce future returns'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('15. Special Return Scenarios'),
-              const SizedBox(height: 8),
-              _buildSubSubtitle('Rental Equipment Returns'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Late Returns:', [
-                'Charge late fees as per rental agreement',
-                'Daily rates specified in listing',
-                'Auto-deducted from security deposit'
-              ]),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Damaged Rental Returns:', [
-                'Assess damage level',
-                'Deduct repair cost from deposit',
-                'Provide detailed damage report with photos',
-                'Buyer can dispute if disagrees'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Custom Orders'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Non-Returnable:', [
-                'Mark clearly in listing',
-                'Buyers acknowledge before purchase',
-                'Exception: If defective or not as specified'
-              ]),
-              const SizedBox(height: 12),
-              _buildSubSubtitle('Bulk Orders (5+ units)'),
-              const SizedBox(height: 8),
-              _buildBulletPoint('Special Terms:', [
-                'Negotiate return policy with buyer',
-                'Document in writing',
-                'Get Flyhub approval for custom terms'
-              ]),
-              const SizedBox(height: 24),
-
-              _buildSectionSubtitle('16. Seller Support'),
-              const SizedBox(height: 8),
-              _buildContactInfo(
-                  'For Refund/Return Issues:',
-                  'seller.support@flyhub.com',
-                  '+91-9003992693 (Option 2)',
-                  'Monday - Saturday, 9:00 AM - 7:00 PM IST'
+              // 1. Seller Obligations
+              Text(
+                '1 Seller Obligations',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
               ),
               const SizedBox(height: 12),
-              _buildBulletPoint('Seller Dashboard:', [
-                'Manage all returns in one place',
-                'Track refund status',
-                'Download return reports',
-                'View penalty history'
-              ]),
-              const SizedBox(height: 24),
+              Text(
+                'You must accept returns for:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Defective products manufacturing defects product malfunction out of the box quality issues'),
+              _buildBulletPoint('Wrong item shipped you sent incorrect product wrong variantcolormodel'),
+              _buildBulletPoint('Damaged products damage during shipping poor packaging causing damage'),
+              _buildBulletPoint('Not as described product doesn\'t match your listing misleading description or photos'),
+              _buildBulletPoint('Change of mind within 7 days unopened box product unused and resellable customer\'s right under policy'),
+              const SizedBox(height: 32),
 
-              _buildSectionSubtitle('17. Seller Protection'),
+              // 2. Return Approval Timeline
+              Text(
+                '2 Return Approval Timeline',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Mandatory response time 24 hours',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
               const SizedBox(height: 8),
-              _buildSubSubtitle('You Are Protected When:'),
+              Text(
+                'When buyer requests return:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
               const SizedBox(height: 8),
-              _buildBulletPoint('Buyer Claims Not Received:', [
-                'You have proof of delivery',
-                'Signed POD (Proof of Delivery)',
-                'Tracking shows delivered'
-              ]),
+              _buildNumberedItem(1, 'Review request in seller dashboard'),
+              _buildNumberedItem(2, 'Check buyer\'s reason and evidence'),
+              _buildNumberedItem(3, 'Approve or reject within 24 hours'),
+              _buildNumberedItem(4, 'Provide clear reason if rejecting'),
               const SizedBox(height: 8),
-              _buildBulletPoint('Buyer Misuses Product:', [
-                'Flight logs show usage',
-                'Damage clearly from misuse',
-                'Photos prove wear and tear'
-              ]),
+              Text(
+                'Late response penalty:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
               const SizedBox(height: 8),
-              _buildBulletPoint('Return Fraud:', [
-                'Wrong item returned',
-                'Weighted box scam',
-                'Serial number doesn\'t match'
-              ]),
-              const SizedBox(height: 8),
-              _buildParagraph('Action: Report to Flyhub immediately with evidence'),
-              const SizedBox(height: 24),
+              _buildBulletPoint('Autoapproval after 24 hours'),
+              _buildBulletPoint('Seller rating impact'),
+              _buildBulletPoint('₹200 penalty for repeated violations'),
+              const SizedBox(height: 32),
 
-              _buildSectionSubtitle('Important Reminders for Sellers'),
+              // 3. Valid Reasons to Reject Returns
+              Text(
+                '3 Valid Reasons to Reject Returns',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'You can reject return if:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
               const SizedBox(height: 8),
-              _buildReminderList([
-                'Respond to returns within 24 hours',
-                'Inspect returned items within 2 working days',
-                'Process refunds within 3 working days',
-                'Provide evidence when disputing returns',
-                'Maintain return rate below 5%',
-                'Accept valid returns gracefully',
-                'Use returns to improve product quality',
-                'Keep detailed records of all transactions'
-              ]),
+              _buildBulletPoint('Return request after 7day window'),
+              _buildBulletPoint('Product has been used verified via photosflight logs'),
+              _buildBulletPoint('Original packaging destroyed'),
+              _buildBulletPoint('Product damaged by customer'),
+              _buildBulletPoint('Custompersonalized order'),
+              _buildBulletPoint('Item marked "nonreturnable" in listing'),
+              _buildBulletPoint('Serial numbers tamperedremoved'),
+              const SizedBox(height: 8),
+              Text(
+                'Important: You must provide clear evidence when rejecting returns. Upload photosdocumentation to support your rejection.',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // 4. Return Shipping Responsibility
+              Text(
+                '4 Return Shipping Responsibility',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Seller pays return shipping for:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Defective or damaged product'),
+              _buildBulletPoint('Wrong item sent'),
+              _buildBulletPoint('Not as described'),
+              _buildBulletPoint('Missing partsaccessories'),
+              const SizedBox(height: 8),
+              Text(
+                'Process:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Flyhub autoschedules reverse pickup'),
+              _buildBulletPoint('Cost deducted from your payout'),
+              _buildBulletPoint('Standard return pickup: ₹150'),
+              _buildBulletPoint('Large itemsdrones: ₹250'),
+              const SizedBox(height: 12),
+              Text(
+                'Buyer pays return shipping for:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Change of mind'),
+              _buildBulletPoint('Buyer ordered wrong item'),
+              _buildBulletPoint('Buyer\'s remorse'),
+              const SizedBox(height: 8),
+              Text(
+                'Your action:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Accept the return'),
+              _buildBulletPoint('Buyer arranges shipping at their cost'),
+              _buildBulletPoint('Inspect upon receiving'),
+              const SizedBox(height: 32),
+
+              // 5. Inspection Timeline
+              Text(
+                '5 Inspection Timeline',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'You must inspect within 2 working days',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Upon receiving returned item:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Inspection checklist:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Verify product condition matches buyer\'s claim'),
+              _buildBulletPoint('Check all accessories and components present'),
+              _buildBulletPoint('Test functionality if applicable'),
+              _buildBulletPoint('Check packaging condition'),
+              _buildBulletPoint('Verify serial numbers'),
+              const SizedBox(height: 12),
+              Text(
+                'Update status in dashboard:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildNumberedItem(1, '"Received return" when you get the package'),
+              _buildNumberedItem(2, 'Upload inspection photos'),
+              _buildNumberedItem(3, 'Mark "approved" or "disputed"'),
+              _buildNumberedItem(4, 'Process refund or state reason for dispute'),
+              const SizedBox(height: 8),
+              Text(
+                'Late inspection penalty:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Autoapproval after 2 working days'),
+              _buildBulletPoint('Full refund autoprocessed'),
+              _buildBulletPoint('Negative impact on seller rating'),
+              const SizedBox(height: 32),
+
+              // 6. Refund Processing
+              Text(
+                '6 Refund Processing',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Full refund required for:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Defectivedamaged product confirmed'),
+              _buildBulletPoint('Wrong item sent'),
+              _buildBulletPoint('Not as described'),
+              _buildBulletPoint('Product returned unopened and unused'),
+              const SizedBox(height: 8),
+              Text(
+                'Amount: Product price + shipping charges',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Partial refund allowed for:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Opened box HighValue Items >₹10000:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('10% restocking fee maximum'),
+              _buildBulletPoint('Only if product is unused and resellable'),
+              const SizedBox(height: 8),
+              Text(
+                'Damaged packaging:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('515% deduction proportional to damage'),
+              _buildBulletPoint('Must provide photo evidence'),
+              const SizedBox(height: 8),
+              Text(
+                'Missing accessories:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Deduct cost of missing items'),
+              _buildBulletPoint('Provide detailed breakdown to buyer'),
+              const SizedBox(height: 12),
+              Text(
+                'Refund processing timeline:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'You must process within:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('3 working days from inspection completion'),
+              _buildBulletPoint('Flyhub processes to buyer after your approval'),
+              _buildBulletPoint('Buyer receives in 35 days via their payment method'),
+              const SizedBox(height: 8),
+              Text(
+                'Late processing penalty:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('₹500 penalty'),
+              _buildBulletPoint('Autorefund processed at your expense'),
+              _buildBulletPoint('Seller rating reduction'),
+              const SizedBox(height: 32),
+
+              // 7. Restocking Fees
+              Text(
+                '7 Restocking Fees',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'When you can charge restocking fee:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Maximum allowed:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('10% for items above ₹10000'),
+              _buildBulletPoint('5% for items under ₹10000'),
+              const SizedBox(height: 8),
+              Text(
+                'Conditions:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Product box opened but item unused'),
+              _buildBulletPoint('All components and accessories intact'),
+              _buildBulletPoint('Product still resellable'),
+              _buildBulletPoint('Change of mind returns only'),
+              const SizedBox(height: 8),
+              Text(
+                'You cannot charge restocking fee for:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Defective products'),
+              _buildBulletPoint('Wrong items sent'),
+              _buildBulletPoint('Damaged products'),
+              _buildBulletPoint('Products not as described'),
+              const SizedBox(height: 32),
+
+              // 8. Disputed Returns
+              Text(
+                '8 Disputed Returns',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'If you disagree with return request:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Document everything:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Take detailed photos of received item'),
+              _buildBulletPoint('Compare with original shipping photos'),
+              _buildBulletPoint('Note any discrepancies'),
+              _buildBulletPoint('Upload evidence to seller dashboard'),
+              const SizedBox(height: 12),
+              Text(
+                'Dispute process:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildNumberedItem(1, 'Mark return as "disputed" in dashboard'),
+              _buildNumberedItem(2, 'Provide detailed explanation and evidence'),
+              _buildNumberedItem(3, 'Flyhub reviews both sides'),
+              _buildNumberedItem(4, 'Decision made within 57 working days'),
+              const SizedBox(height: 8),
+              Text(
+                'Possible outcomes:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Full refund to buyer you lose'),
+              _buildBulletPoint('Partial refund compromise'),
+              _buildBulletPoint('Return rejected you win'),
+              _buildBulletPoint('Flyhub\'s decision is final'),
+              const SizedBox(height: 32),
+
+              // 9. Replacement Handling
+              Text(
+                '9 Replacement Handling',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'If buyer requests replacement:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Your options:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Send replacement if in stock'),
+              _buildBulletPoint('Offer refund if out of stock'),
+              const SizedBox(height: 12),
+              Text(
+                'Replacement process:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Receive and verify returned item'),
+              _buildBulletPoint('Ship replacement within 3 working days'),
+              _buildBulletPoint('Use samebetter shipping method'),
+              _buildBulletPoint('No additional shipping charges to buyer'),
+              const SizedBox(height: 8),
+              Text(
+                'Replacement costs:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('You bear shipping cost for replacement'),
+              _buildBulletPoint('Deducted from your payout'),
+              const SizedBox(height: 32),
+
+              // 10. Seller Refund Penalties
+              Text(
+                '10 Seller Refund Penalties',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Automatic penalties:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Late return approval >24 hours:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('₹200 penalty'),
+              _buildBulletPoint('Autoapproval triggered'),
+              const SizedBox(height: 8),
+              Text(
+                'Late inspection >2 days:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('₹300 penalty'),
+              _buildBulletPoint('Autorefund processed'),
+              const SizedBox(height: 8),
+              Text(
+                'Late refund processing >3 days:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('₹500 penalty'),
+              _buildBulletPoint('Interest charged on delayed amount'),
+              const SizedBox(height: 8),
+              Text(
+                'Wrongful return rejection:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Full refund to buyer'),
+              _buildBulletPoint('₹500 penalty to seller'),
+              _buildBulletPoint('Negative rating impact'),
+              const SizedBox(height: 12),
+              Text(
+                'Repeat violations:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '3+ violations in 30 days:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Account warning'),
+              _buildBulletPoint('Featured listing removal'),
+              _buildBulletPoint('Payout holds'),
+              const SizedBox(height: 8),
+              Text(
+                '5+ violations in 30 days:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Account suspension 7 days'),
+              _buildBulletPoint('All listings hidden'),
+              _buildBulletPoint('Mandatory seller training'),
+              const SizedBox(height: 8),
+              Text(
+                '10+ violations:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Permanent account suspension'),
+              _buildBulletPoint('Blacklisted from platform'),
+              const SizedBox(height: 32),
+
+              // 11. Payout Impact
+              Text(
+                '11 Payout Impact',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'How returns affect your payouts:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Refund deductions:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Refund amount deducted from next payout'),
+              _buildBulletPoint('Return shipping cost deducted if seller\'s fault'),
+              _buildBulletPoint('Penalties deducted'),
+              _buildBulletPoint('Restocking fee credited to you if applicable'),
+              const SizedBox(height: 8),
+              Text(
+                'Payout hold:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('10% of order value held for 7 days'),
+              _buildBulletPoint('Released if no return request'),
+              _buildBulletPoint('Used to process refunds if needed'),
+              const SizedBox(height: 8),
+              Text(
+                'Example:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Order value: ₹10000'),
+              _buildBulletPoint('Payout hold: ₹1000 7 days'),
+              _buildBulletPoint('Immediate payout: ₹9000'),
+              _buildBulletPoint('After 7 days: +₹1000 if no return'),
+              const SizedBox(height: 32),
+
+              // 12. Preventing Returns
+              Text(
+                '12 Preventing Returns',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Best practices:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Accurate listings:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Detailed product descriptions'),
+              _buildBulletPoint('Clear highquality photos'),
+              _buildBulletPoint('Mention all specifications'),
+              _buildBulletPoint('List any defects or imperfections'),
+              const SizedBox(height: 8),
+              Text(
+                'Quality control:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Test products before shipping'),
+              _buildBulletPoint('Check all accessories included'),
+              _buildBulletPoint('Verify product matches listing'),
+              _buildBulletPoint('Note serial numbers'),
+              const SizedBox(height: 8),
+              Text(
+                'Proper packaging:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Use sturdy boxes'),
+              _buildBulletPoint('Adequate padding for fragile items'),
+              _buildBulletPoint('Secure all components'),
+              _buildBulletPoint('Include all manuals and accessories'),
+              const SizedBox(height: 8),
+              Text(
+                'Clear communication:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Respond to buyer queries promptly'),
+              _buildBulletPoint('Set realistic expectations'),
+              _buildBulletPoint('Confirm order details before shipping'),
+              _buildBulletPoint('Provide accurate tracking'),
+              const SizedBox(height: 32),
+
+              // 13. High Return Rate Consequences
+              Text(
+                '13 High Return Rate Consequences',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Return rate tracking:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Flyhub tracks your return rate'),
+              _buildBulletPoint('Industry standard: <5%'),
+              _buildBulletPoint('Target: <3% for featured sellers'),
+              const SizedBox(height: 12),
+              Text(
+                'Consequences of high return rate >10%:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Immediate:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Account review'),
+              _buildBulletPoint('Featured listing removal'),
+              _buildBulletPoint('Search ranking reduction'),
+              const SizedBox(height: 8),
+              Text(
+                'Continued high rate:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Increased payout hold up to 20%'),
+              _buildBulletPoint('Category restrictions'),
+              _buildBulletPoint('Required product certifications'),
+              const SizedBox(height: 8),
+              Text(
+                'Severe cases >20%:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Account suspension'),
+              _buildBulletPoint('Mandatory quality audit'),
+              _buildBulletPoint('Possible permanent ban'),
+              const SizedBox(height: 32),
+
+              // 14. Seller Reporting
+              Text(
+                '14 Seller Reporting',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Monthly return analytics:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Access in seller dashboard:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Total returns by reason'),
+              _buildBulletPoint('Return rate percentage'),
+              _buildBulletPoint('Refund processing time'),
+              _buildBulletPoint('Customer satisfaction scores'),
+              _buildBulletPoint('Comparison with category average'),
+              const SizedBox(height: 8),
+              Text(
+                'Use this data to:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Identify problem products'),
+              _buildBulletPoint('Improve listing accuracy'),
+              _buildBulletPoint('Enhance packaging'),
+              _buildBulletPoint('Reduce future returns'),
+              const SizedBox(height: 32),
+
+              // 15. Special Return Scenarios
+              Text(
+                '15 Special Return Scenarios',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Rental equipment returns:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Late returns:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Charge late fees as per rental agreement'),
+              _buildBulletPoint('Daily rates specified in listing'),
+              _buildBulletPoint('Autodeducted from security deposit'),
+              const SizedBox(height: 8),
+              Text(
+                'Damaged rental returns:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Assess damage level'),
+              _buildBulletPoint('Deduct repair cost from deposit'),
+              _buildBulletPoint('Provide detailed damage report with photos'),
+              _buildBulletPoint('Buyer can dispute if disagrees'),
+              const SizedBox(height: 12),
+              Text(
+                'Custom orders:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Nonreturnable:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Mark clearly in listing'),
+              _buildBulletPoint('Buyers acknowledge before purchase'),
+              _buildBulletPoint('Exception: If defective or not as specified'),
+              const SizedBox(height: 12),
+              Text(
+                'Bulk orders 5+ units:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Special terms:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Negotiate return policy with buyer'),
+              _buildBulletPoint('Document in writing'),
+              _buildBulletPoint('Get Flyhub approval for custom terms'),
+              const SizedBox(height: 32),
+
+              // 16. Seller Support
+              Text(
+                '16 Seller Support',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'For refundreturn issues:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Email sellersupportflyhubcom',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Phone +919003992693 Option 2',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Support Hours Monday  Saturday 900 AM  700 PM IST',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Seller dashboard:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Manage all returns in one place'),
+              _buildBulletPoint('Track refund status'),
+              _buildBulletPoint('Download return reports'),
+              _buildBulletPoint('View penalty history'),
+              const SizedBox(height: 32),
+
+              // 17. Seller Protection
+              Text(
+                '17 Seller Protection',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'You are protected when:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Buyer claims not received:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('You have proof of delivery'),
+              _buildBulletPoint('Signed POD proof of delivery'),
+              _buildBulletPoint('Tracking shows delivered'),
+              const SizedBox(height: 8),
+              Text(
+                'Buyer misuses product:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Flight logs show usage'),
+              _buildBulletPoint('Damage clearly from misuse'),
+              _buildBulletPoint('Photos prove wear and tear'),
+              const SizedBox(height: 8),
+              Text(
+                'Return fraud:',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBulletPoint('Wrong item returned'),
+              _buildBulletPoint('Weighted box scam'),
+              _buildBulletPoint('Serial number doesn\'t match'),
+              const SizedBox(height: 8),
+              Text(
+                'Action: Report to Flyhub immediately with evidence',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // Important Reminders for Sellers
+              Text(
+                'Important Reminders for Sellers',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF4B5563),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildBulletPoint('Respond to returns within 24 hours'),
+              _buildBulletPoint('Inspect returned items within 2 working days'),
+              _buildBulletPoint('Process refunds within 3 working days'),
+              _buildBulletPoint('Provide evidence when disputing returns'),
+              _buildBulletPoint('Maintain return rate below 5%'),
+              _buildBulletPoint('Accept valid returns gracefully'),
+              _buildBulletPoint('Use returns to improve product quality'),
+              _buildBulletPoint('Keep detailed records of all transactions'),
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -986,16 +1227,15 @@ class SRRPolicy extends StatelessWidget {
                 child: Text(
                   'Good return management = Happy customers = Better ratings = More sales!',
                   style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
                     color: const Color(0xFF0369A1),
-                    fontStyle: FontStyle.italic,
+                    height: 1.6,
                   ),
                 ),
               ),
               const SizedBox(height: 32),
 
-              // Footer Note
+              // Note
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -1006,9 +1246,9 @@ class SRRPolicy extends StatelessWidget {
                 child: Text(
                   'Note: This Returns & Refund Policy should be read in conjunction with Flyhub\'s Shipping Policy and Terms of Service.',
                   style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: const Color(0xFF6B7280),
-                    fontStyle: FontStyle.italic,
+                    fontSize: 15,
+                    color: const Color(0xFF4B5563),
+                    height: 1.6,
                   ),
                 ),
               ),
@@ -1038,358 +1278,61 @@ class SRRPolicy extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionSubtitle(String subtitle) {
-    return Text(
-      subtitle,
-      style: GoogleFonts.inter(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-        color: const Color(0xFF111827),
-      ),
-    );
-  }
-
-  Widget _buildStepTitle(String title) {
-    return Text(
-      title,
-      style: GoogleFonts.inter(
-        fontSize: 15,
-        fontWeight: FontWeight.w600,
-        color: const Color(0xFF374151),
-      ),
-    );
-  }
-
-  Widget _buildSubSubtitle(String subtitle) {
-    return Text(
-      subtitle,
-      style: GoogleFonts.inter(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: const Color(0xFF374151),
-      ),
-    );
-  }
-
-  Widget _buildParagraph(String text) {
-    return Text(
-      text,
-      style: GoogleFonts.inter(
-        fontSize: 14,
-        color: const Color(0xFF4B5563),
-        height: 1.5,
-      ),
-    );
-  }
-
-  Widget _buildImportantNote(String text) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFEF3C7),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFF59E0B)),
-      ),
-      child: Text(
-        text,
-        style: GoogleFonts.inter(
-          fontSize: 13,
-          color: const Color(0xFF92400E),
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBulletPoint(String title, List<String> points) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (title.isNotEmpty)
-          Text(
-            title,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF111827),
-            ),
-          ),
-        if (title.isNotEmpty) const SizedBox(height: 4),
-        ...points.map((point) => Padding(
-          padding: const EdgeInsets.only(left: 8.0, bottom: 4),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '• ',
-                style: TextStyle(color: Color(0xFF4B5563)),
-              ),
-              Expanded(
-                child: Text(
-                  point,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: const Color(0xFF4B5563),
-                    height: 1.5,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        )).toList(),
-      ],
-    );
-  }
-
-  Widget _buildConditionList(List<String> conditions) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: conditions.map((condition) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 4, right: 8),
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: const Color(0xFF10B981),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.check,
-                  color: Colors.white,
-                  size: 16,
-                ),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                condition,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF111827),
-                ),
-              ),
-            ),
-          ],
-        ),
-      )).toList(),
-    );
-  }
-
-  Widget _buildRejectList(List<String> items) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: items.map((item) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 4, right: 8),
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: const Color(0xFFEF4444),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 16,
-                ),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                item,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF111827),
-                ),
-              ),
-            ),
-          ],
-        ),
-      )).toList(),
-    );
-  }
-
-  Widget _buildCheckList(List<String> items) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: items.map((item) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 3, right: 8),
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: const Color(0xFF10B981),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.check,
-                  color: Colors.white,
-                  size: 14,
-                ),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                item,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: const Color(0xFF4B5563),
-                  height: 1.4,
-                ),
-              ),
-            ),
-          ],
-        ),
-      )).toList(),
-    );
-  }
-
-  Widget _buildReminderList(List<String> items) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: items.map((item) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 4, right: 8),
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: const Color(0xFF3B82F6),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.check_circle,
-                  color: Colors.white,
-                  size: 16,
-                ),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                item,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF111827),
-                ),
-              ),
-            ),
-          ],
-        ),
-      )).toList(),
-    );
-  }
-
-  Widget _buildNumberedList(List<String> steps) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: steps.asMap().entries.map((entry) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 2, right: 8),
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: const Color(0xFF4F46E5),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Center(
-                child: Text(
-                  '${entry.key + 1}',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                entry.value,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: const Color(0xFF4B5563),
-                  height: 1.4,
-                ),
-              ),
-            ),
-          ],
-        ),
-      )).toList(),
-    );
-  }
-
-  Widget _buildContactInfo(String title, String email, String phone, String hours) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: Column(
+  Widget _buildBulletPoint(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, bottom: 8),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF111827),
+          const Padding(
+            padding: EdgeInsets.only(top: 8, right: 8),
+            child: Text(
+              '•',
+              style: TextStyle(color: Color(0xFF4B5563), fontSize: 16),
             ),
           ),
-          const SizedBox(height: 8),
-          _buildContactRow(Icons.email_outlined, email),
-          const SizedBox(height: 6),
-          _buildContactRow(Icons.phone_outlined, phone),
-          const SizedBox(height: 6),
-          _buildContactRow(Icons.access_time_outlined, hours),
+          Expanded(
+            child: Text(
+              text,
+              style: GoogleFonts.inter(
+                fontSize: 15,
+                color: const Color(0xFF4B5563),
+                height: 1.5,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildContactRow(IconData icon, String text) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 16, color: const Color(0xFF6B7280)),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text,
+  Widget _buildNumberedItem(int number, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$number',
             style: GoogleFonts.inter(
-              fontSize: 13,
+              fontSize: 15,
               color: const Color(0xFF4B5563),
+              height: 1.6,
             ),
           ),
-        ),
-      ],
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: GoogleFonts.inter(
+                fontSize: 15,
+                color: const Color(0xFF4B5563),
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

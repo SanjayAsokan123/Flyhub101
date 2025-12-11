@@ -811,11 +811,6 @@ class _ServicesPageState extends State<ServicesPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.search_off_rounded,
-                size: ResponsiveUtils.getServicesEmptyStateIconSize(context),
-                color: kBorderColor,
-              ),
               SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
               Text(
                 "No Services Found",
@@ -826,36 +821,8 @@ class _ServicesPageState extends State<ServicesPage> {
                 ),
               ),
               SizedBox(height: ResponsiveUtils.getCardMargin(context)),
-              Text(
-                "Try adjusting your search or filters",
-                style: GoogleFonts.inter(
-                  fontSize: ResponsiveUtils.getBodyFontSize(context),
-                  color: kTextSecondary,
 
-                ),
-              ),
               SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-              ElevatedButton(
-                onPressed: _resetFilters,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: kPrimaryColor,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: ResponsiveUtils.getCardMargin(context) * 2,
-                    vertical: ResponsiveUtils.getCardMargin(context),
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(ResponsiveUtils.getOptimalCardRadius(context)),
-                  ),
-                ),
-                child: Text(
-                  "Reset Filters",
-                  style: GoogleFonts.inter(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: ResponsiveUtils.getBodyFontSize(context),
-                  ),
-                ),
-              ),
             ],
           ),
         ),
@@ -874,7 +841,7 @@ class _ServicesPageState extends State<ServicesPage> {
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: kTextPrimary,
+            color: kPrimaryColor ,
             size: ResponsiveUtils.getIconSize(context) * 0.9,
           ),
           onPressed: () => Navigator.pop(context),
@@ -884,7 +851,7 @@ class _ServicesPageState extends State<ServicesPage> {
           style: GoogleFonts.inter(
             fontSize: ResponsiveUtils.getTitleFontSize(context),
             fontWeight: FontWeight.w600,
-            color: kTextPrimary,
+            color: kPrimaryColor ,
           ),
         ),
         centerTitle: false,

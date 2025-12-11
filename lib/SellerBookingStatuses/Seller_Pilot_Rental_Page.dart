@@ -319,9 +319,15 @@ mutation UpdateStatus(\$bookingId: String!, \$status: String!) {
       appBar: AppBar(
         backgroundColor: const Color(0xFF1E0E5C),
         title: const Text("Pilot Bookings", style: TextStyle(color: Colors.white)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white), // Changed arrow color to white
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,
+          labelColor: Colors.white, // Tab text color changed to white
+          unselectedLabelColor: Colors.white.withOpacity(0.7), // Unselected tab text in white with opacity
           tabs: const [
             Tab(text: "Approved"),
             Tab(text: "Pending"),

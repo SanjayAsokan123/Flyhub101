@@ -243,7 +243,6 @@ class _JobApplyStatusPageState extends State<JobApplyStatusPage>
       },
     );
   }
-
   @override
   Widget build(BuildContext context) {
     const themeColor = Color(0xFF1A0A5B);
@@ -252,8 +251,12 @@ class _JobApplyStatusPageState extends State<JobApplyStatusPage>
       appBar: AppBar(
         title: const Text('Seller Applications'),
         backgroundColor: themeColor,
+        foregroundColor: Colors.white,
         bottom: TabBar(
           controller: _tabController,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white, // Explicit white for selected tab
+          unselectedLabelColor: Colors.white.withOpacity(0.8), // Slightly transparent white for unselected
           tabs: const [
             Tab(text: 'Approved'),
             Tab(text: 'Pending'),

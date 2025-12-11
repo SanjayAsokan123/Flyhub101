@@ -22,9 +22,9 @@ import '../../Return_Product_Page.dart';
 import '../../SellerBookingStatuses/Seller_Drone_Rental_Page.dart';
 import '../../SellerBookingStatuses/Seller_Pilot_Rental_Page.dart';
 // Product Status Pages
-import '../../SellerBookingStatuses/Seller_Return_Refund_Policy.dart';
+import '../../SellerBookingStatuses/Seller_Return_Policy.dart';
 import '../../SellerBookingStatuses/Seller_Shipping_Policy.dart';
-import '../../BuyerBookingStatuses/ServiceBookingStatus.dart';
+import '../../SellerBookingStatuses/ServiceBookingStatus.dart';
 import '../../Sold_Product_Page.dart';
 import '../../SellerAddingForm/add_accessories_form.dart';
 import '../../SellerAddingForm/add_drone_rental_form.dart';

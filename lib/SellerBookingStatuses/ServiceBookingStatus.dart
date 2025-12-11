@@ -154,6 +154,7 @@ class _ServiceBookingStatusPageState extends State<ServiceBookingStatusPage>
       appBar: AppBar(
         title: const Text('Service Booking Status'),
         backgroundColor: themeColor,
+        foregroundColor: Colors.white,
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,
@@ -165,9 +166,6 @@ class _ServiceBookingStatusPageState extends State<ServiceBookingStatusPage>
             Tab(text: 'Cancelled'),
           ],
         ),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: fetchBookings),
-        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
