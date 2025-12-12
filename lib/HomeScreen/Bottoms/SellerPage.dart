@@ -1482,7 +1482,7 @@ class _SellerPageState extends State<SellerPage> {
         icon: Icons.keyboard_return_outlined,
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const ReturnedProductsPage()),
+          MaterialPageRoute(builder: (_) => ReturnedProductsPage(sellerCustomId: _sellerId!)),
         ),
         disabled: !_isApproved,
         iconColor: themeColor,
