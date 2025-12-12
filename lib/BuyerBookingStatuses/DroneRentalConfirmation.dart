@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import '../config/env.dart';
 
@@ -107,7 +108,6 @@ class _DroneRentalApprovalPageState extends State<DroneRentalApprovalPage>
     Color color = Colors.blue;
     if (status == "confirmed") color = Colors.green;
     if (status == "cancelled") color = Colors.red;
-
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -122,14 +122,29 @@ class _DroneRentalApprovalPageState extends State<DroneRentalApprovalPage>
             height: 55,
             fit: BoxFit.cover,
           )
-              : Icon(Icons.airplanemode_active, size: 40, color: color),
+              : Container(
+            width: 55,
+            height: 55,
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(10.0),
+              child: SvgPicture.asset(
+                'assets/categories/drone1.svg',
+                color: color,
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
         ),
         title: Text(
           rental['drone']?['name'] ?? "Drone",
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         subtitle: Text(
-          "Seller: ${rental['name']}\nDate: ${rental['rentalDate']}",
+          "Customer: ${rental['name']}\nDate: ${rental['rentalDate']}",
           style: const TextStyle(height: 1.5),
         ),
         trailing: Text(
@@ -150,7 +165,7 @@ class _DroneRentalApprovalPageState extends State<DroneRentalApprovalPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text("Booking ID: ${rental['drone_rental_id']}"),
-                  Text("Seller: ${rental['name']}"),
+                  Text("Customer: ${rental['name']}"),
                   Text("Phone: ${rental['phone']}"),
                   Text("Date: ${rental['rentalDate']}"),
                   Text(

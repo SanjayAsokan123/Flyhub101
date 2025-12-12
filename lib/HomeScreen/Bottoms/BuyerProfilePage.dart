@@ -545,10 +545,15 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                         icon: Icons.receipt_long,
                         label: "Orders",
                         color: Colors.green,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => MyOrderPage()),
-                        ),
+                        onTap: () {
+                          final buyerId = _buyerData?['buyerId'] ?? '';
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => MyOrderPage(buyerId: buyerId),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),

@@ -69,22 +69,22 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
       final user = FirebaseAuth.instance.currentUser;
 
       if (user == null) {
-        setState(() => _buyerIdError = "Not logged in");
+        setState(() => _buyerIdError = "Please login to view your cart");
         return;
       }
 
       final firebaseUid = user.uid;
 
       const String query = r'''
-        query getBuyerfirebaseUidCart($firebaseUid: String!) {
-          getBuyerfirebaseUidCart(firebaseUid: $firebaseUid) {
-            buyerId
-            firebaseUid
-            name
-            email
-          }
+      query getBuyerfirebaseUidCart($firebaseUid: String!) {
+        getBuyerfirebaseUidCart(firebaseUid: $firebaseUid) {
+          buyerId
+          firebaseUid
+          name
+          email
         }
-      ''';
+      }
+    ''';
 
       final res = await http.post(
         Uri.parse(graphUrl),
@@ -95,28 +95,40 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
         }),
       );
 
-      final data = jsonDecode(res.body);
-
-      if (data["errors"] != null) {
-        setState(() => _buyerIdError = data["errors"].toString());
+      if (res.statusCode != 200) {
+        setState(() => _buyerIdError = "Unable to fetch account details");
         return;
       }
 
-      final db = data["data"]["getBuyerfirebaseUidCart"];
+      final data = jsonDecode(res.body);
 
-      if (db != null && db["buyerId"] != null) {
-        buyerId = db["buyerId"];
+      // Check if response has errors
+      if (data["errors"] != null) {
+        setState(() => _buyerIdError = "Unable to fetch account details");
+        return;
+      }
+
+      // Check if data exists
+      if (data["data"] == null || data["data"]["getBuyerfirebaseUidCart"] == null) {
+        setState(() => _buyerIdError = "Buyer account not found");
+        return;
+      }
+
+      final buyerData = data["data"]["getBuyerfirebaseUidCart"];
+
+      if (buyerData != null && buyerData["buyerId"] != null) {
+        buyerId = buyerData["buyerId"];
         await RoleManager.saveBuyerId(buyerId!);
       } else {
-        setState(() => _buyerIdError = "Buyer profile not found");
+        setState(() => _buyerIdError = "Buyer account not found");
       }
     } catch (e) {
-      setState(() => _buyerIdError = e.toString());
+      // Generic error message instead of technical details
+      setState(() => _buyerIdError = "Network error. Please try again.");
     } finally {
       setState(() => _loadingBuyerId = false);
     }
   }
-
   // ---------------------------------------------------------
   // 🔵 GRAPHQL HELPER
   // ---------------------------------------------------------
@@ -316,25 +328,15 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.error_outline,
-                    size: 80,
-                    color: Colors.red,
-                  ),
-                ),
+
                 const SizedBox(height: 24),
                 Text(
-                  "Failed to Load Cart",
+                  "Account Required",
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: themeColor,
+
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -350,14 +352,14 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
                 const SizedBox(height: 32),
                 ElevatedButton.icon(
                   onPressed: _loadBuyerId,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text("Retry"),
+
+                  label: const Text("Try again"),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: themeColor,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     elevation: 2,
                   ),

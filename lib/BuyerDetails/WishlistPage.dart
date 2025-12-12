@@ -581,12 +581,9 @@ class _WishlistPageState extends State<WishlistPage> {
         padding: EdgeInsets.all(_getResponsiveSize(context, 24, 32, 40)),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+
           children: [
-            Icon(
-              Icons.error_outline_rounded,
-              size: _getResponsiveSize(context, 64, 80, 96),
-              color: textSecondary,
-            ),
+
             SizedBox(height: _getResponsiveSize(context, 24, 32, 40)),
             Text(
               "Account Required",
@@ -610,7 +607,7 @@ class _WishlistPageState extends State<WishlistPage> {
             ElevatedButton(
               onPressed: _loadBuyerId,
               style: ElevatedButton.styleFrom(
-                backgroundColor: secondaryColor,
+                backgroundColor: primaryColor,
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(
                   horizontal: _getResponsiveSize(context, 28, 36, 44),

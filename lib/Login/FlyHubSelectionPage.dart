@@ -44,16 +44,16 @@ class _FlyHubSelectionPageState extends State<FlyHubSelectionPage>
   }
 
   // ✅ SIMPLIFIED: Check if user already has a selected role
-  Future<bool> _hasSelectedRole(String role) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedRole = prefs.getString('role');
-      return savedRole == role;
-    } catch (e) {
-      print('❌ Error checking role: $e');
-      return false;
-    }
-  }
+  // Future<bool> _hasSelectedRole(String role) async {
+  //   try {
+  //     final prefs = await SharedPreferences.getInstance();
+  //     final savedRole = prefs.getString('role');
+  //     return savedRole == role;
+  //   } catch (e) {
+  //     print('❌ Error checking role: $e');
+  //     return false;
+  //   }
+  // }
 
   // ✅ Handle Seller Navigation - SIMPLIFIED VERSION
   Future<void> _handleSellerTap() async {
@@ -63,24 +63,24 @@ class _FlyHubSelectionPageState extends State<FlyHubSelectionPage>
 
     try {
       // ALWAYS go to SellerLoginPage for new selection
-      print('✅ Seller selected → Going to SellerLoginPage');
+      print('✅ Seller selected → sellerOption------------------------------------------------------------');
 
       // Save role preference
       await RoleManager.setLocalRole("seller");
-      await LocalStorageService.saveUserDetails(
-        userId: "",
-        name: "",
-        role: "seller",
-      );
+      bool isLoggedIn = await LocalStorageService.isLoggedIn();
+      print('✅ Seller selected → Checking login status $isLoggedIn');
 
       if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => const SellerLoginPage(),
+              builder: (_) => isLoggedIn
+                  ? const Dynamichome(selectedIndex: 0)
+                  : const SellerLoginPage()
           ),
         );
       }
+
     } catch (e) {
       print('❌ Error in seller tap: $e');
       if (mounted) {
@@ -105,27 +105,28 @@ class _FlyHubSelectionPageState extends State<FlyHubSelectionPage>
     setState(() => _isLoading = true);
 
     try {
-      // ALWAYS go to BuyerLoginPage for new selection
-      print('✅ Buyer selected → Going to BuyerLoginPage');
+      print('✅ Buyer selected → Checking login status');
 
       // Save role preference
       await RoleManager.setLocalRole("buyer");
-      await LocalStorageService.saveUserDetails(
-        userId: "",
-        name: "",
-        role: "buyer",
-      );
 
+      // Check if buyer is logged in
+      bool isLoggedIn = await LocalStorageService.isLoggedIn();
+      print('✅ Buyer selected → Checking login status $isLoggedIn');
       if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => const BuyerLoginPage(),
+            builder: (_) => isLoggedIn
+                ? const Dynamichome(selectedIndex: 0)
+                : const BuyerLoginPage(),
           ),
         );
       }
+
     } catch (e) {
       print('❌ Error in buyer tap: $e');
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -134,6 +135,7 @@ class _FlyHubSelectionPageState extends State<FlyHubSelectionPage>
           ),
         );
       }
+
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -149,11 +151,7 @@ class _FlyHubSelectionPageState extends State<FlyHubSelectionPage>
 
     try {
       await RoleManager.setLocalRole("guest");
-      await LocalStorageService.saveUserDetails(
-        userId: "",
-        name: "",
-        role: "guest",
-      );
+      // await LocalStorageService.setLoggedIn(false);
 
       if (mounted) {
         Navigator.pushReplacement(
@@ -219,7 +217,7 @@ class _FlyHubSelectionPageState extends State<FlyHubSelectionPage>
         ),
         const SizedBox(height: 24),
         Text(
-          "Welcome to Flyhub",
+          "Welcome to FlyHub",
           style: GoogleFonts.inter(
             fontSize: 24,
             fontWeight: FontWeight.w700,

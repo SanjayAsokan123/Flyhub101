@@ -226,7 +226,7 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
 
     Utils.bottomToast(
       context,
-      isFav ? "Removed from wishlist" : "Added to wishlist ❤️",
+      isFav ? "Removed from wishlist" : "Added to wishlist ❤",
     );
   }
 
@@ -648,7 +648,12 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
                         SizedBox(height: ResponsiveUtils.getCardMargin(context) / 4),
                         Expanded(child: Text(item['name'] ?? '', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: ResponsiveUtils.getBodyFontSize(context), color: kTextPrimary), maxLines: 2, overflow: TextOverflow.ellipsis)),
                         SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
-                        Text("₹${(item['price'] ?? 0).round()}", style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: ResponsiveUtils.getBodyFontSize(context) + 2, color: kPrimaryColor), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text(
+                            "₹${(item['price'] ?? 0.0).toStringAsFixed(2).replaceAll(RegExp(r'([.]0)(?!.\d)'), '')}",
+                            style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: ResponsiveUtils.getBodyFontSize(context) + 2, color: kPrimaryColor),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis
+                        ),
                       ],
                     ),
                   ),
