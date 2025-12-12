@@ -5,7 +5,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../config/env.dart';
 
 class AddDroneRentalForm extends StatefulWidget {
@@ -33,36 +33,24 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
   final Color _warningColor = Color(0xFFF59E0B);
   final Color _dangerColor = Color(0xFFEF4444);
 
-  // Form controllers for validation
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _brandController = TextEditingController();
-  final TextEditingController _locationController = TextEditingController();
-  final TextEditingController _pricePerHourController = TextEditingController();
-  final TextEditingController _pricePerDayController = TextEditingController();
-  final TextEditingController _quantityController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
-
+  String name = '';
+  String brand = '';
+  String location = '';
+  String description = '';
+  double? pricePerHour;
+  double? pricePerDay;
+  int quantity = 1;
   File? imageFile;
+
   bool _isSubmitting = false;
   bool _hasUploadedImage = false;
   bool _showImageError = false;
+  double _uploadProgress = 0.0;
 
   final picker = ImagePicker();
   final String graphqlUrl = EnvConfig.baseUrl;
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _brandController.dispose();
-    _locationController.dispose();
-    _pricePerHourController.dispose();
-    _pricePerDayController.dispose();
-    _quantityController.dispose();
-    _descriptionController.dispose();
-    super.dispose();
-  }
-
-  // 📸 Pick image from gallery
+  /// 📸 Pick image from gallery
   Future<void> _pickImage() async {
     try {
       final pickedFile = await picker.pickImage(
@@ -71,7 +59,6 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
         maxHeight: 1080,
         imageQuality: 85,
       );
-
       if (pickedFile != null) {
         final file = File(pickedFile.path);
         final fileSize = await file.length();
@@ -87,7 +74,6 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
           _hasUploadedImage = true;
           _showImageError = false;
         });
-        debugPrint("📸 Selected image: ${pickedFile.path} (${fileSize ~/ 1024}KB)");
       }
     } catch (e) {
       debugPrint("❌ Error picking image: $e");
@@ -95,7 +81,7 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
     }
   }
 
-  // 📸 Take photo with camera
+  /// 📱 Take photo with camera
   Future<void> _takePhoto() async {
     try {
       final pickedFile = await picker.pickImage(
@@ -104,7 +90,6 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
         maxHeight: 1080,
         imageQuality: 85,
       );
-
       if (pickedFile != null) {
         final file = File(pickedFile.path);
         setState(() {
@@ -112,7 +97,6 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
           _hasUploadedImage = true;
           _showImageError = false;
         });
-        debugPrint("📸 Captured photo: ${pickedFile.path}");
       }
     } catch (e) {
       debugPrint("❌ Error taking photo: $e");
@@ -120,7 +104,7 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
     }
   }
 
-  // Show image picker options (Gallery or Camera)
+  /// 📱 Show image picker options
   void _showImagePickerOptions() {
     showModalBottomSheet(
       context: context,
@@ -215,7 +199,7 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
     );
   }
 
-  // Validate image selection
+  /// ✅ Validate if image is selected
   bool _validateImage() {
     if (imageFile == null) {
       setState(() {
@@ -231,11 +215,7 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
     try {
       final auth = FirebaseAuth.instance;
       if (auth.currentUser == null) {
-        debugPrint("👤 No Firebase user, signing in anonymously...");
         await auth.signInAnonymously();
-        debugPrint("✅ Signed in anonymously: ${auth.currentUser!.uid}");
-      } else {
-        debugPrint("✅ Firebase user: ${auth.currentUser!.uid}");
       }
     } catch (e) {
       debugPrint("❌ Firebase auth error: $e");
@@ -243,44 +223,12 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
     }
   }
 
-  // Check if user is seller
-  Future<bool> _isSeller() async {
-    try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid == null) return false;
-
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get();
-
-      if (!doc.exists) {
-        debugPrint("⚠ User document doesn't exist");
-        return false;
-      }
-
-      final role = doc.data()?['role']?.toString().toLowerCase();
-      final isVerified = doc.data()?['isVerified'] ?? false;
-
-      debugPrint("🔍 Firestore check - Role: $role, Verified: $isVerified");
-
-      return role == "seller" && isVerified == true;
-    } catch (e) {
-      debugPrint("⚠ Role check error: $e");
-      return false;
-    }
-  }
-
-  /// ☁ Upload to Firebase Storage
+  /// ☁ Upload image to Firebase Storage with progress tracking
   Future<String> _uploadImageToFirebase(File file) async {
+    await _ensureFirebaseAuth();
     try {
-      await _ensureFirebaseAuth();
-
-      if (!await _isSeller()) {
-        throw Exception("Unauthorized: Only verified sellers can upload rental drones.");
-      }
-
-      final fileName = "rental_drones/${DateTime.now().millisecondsSinceEpoch}_${file.path.split('/').last}";
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? "unknown";
+      final fileName = "rental_drones/${uid}_${DateTime.now().millisecondsSinceEpoch}.jpg";
       final ref = FirebaseStorage.instance.ref().child(fileName);
 
       debugPrint("🚀 Uploading rental drone image: $fileName");
@@ -295,32 +243,23 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
 
       final uploadTask = ref.putFile(file, metadata);
 
-      uploadTask.snapshotEvents.listen((taskSnapshot) {
-        double progress = (taskSnapshot.bytesTransferred / taskSnapshot.totalBytes) * 100;
-        debugPrint("📤 Upload progress: ${progress.toStringAsFixed(1)}%");
+      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+        setState(() {
+          _uploadProgress =
+              snapshot.bytesTransferred / snapshot.totalBytes.toDouble();
+        });
       });
 
-      final taskSnapshot = await uploadTask.whenComplete(() {});
-      final downloadUrl = await taskSnapshot.ref.getDownloadURL();
-
-      debugPrint("✅ Firebase upload complete: $downloadUrl");
-      return downloadUrl;
-    } on FirebaseException catch (e) {
-      debugPrint("❌ Firebase upload error: $e");
-      if (e.code == 'storage/unauthorized') {
-        throw Exception('Storage permission denied');
-      } else if (e.code == 'storage/canceled') {
-        throw Exception('Upload cancelled');
-      } else {
-        throw Exception('Failed to upload image: ${e.message}');
-      }
+      await uploadTask;
+      final url = await ref.getDownloadURL();
+      debugPrint("✅ Uploaded Rental Drone Image: $url");
+      return url;
     } catch (e) {
-      debugPrint("❌ Upload failed: $e");
-      rethrow;
+      debugPrint("❌ Firebase Upload Error: $e");
+      throw Exception("Image upload failed: $e");
     }
   }
 
-  // Show snackbar
   void _showSnackBar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -337,11 +276,11 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
     );
   }
 
-  // 🚀 Submit form
+  /// 🚀 Submit Rental Drone to GraphQL
   Future<void> _submitForm() async {
-    // Validate image first
+    // First validate image
     if (!_validateImage()) {
-      _showSnackBar('Please upload a rental drone image', isError: true);
+      _showSnackBar('Please upload a drone image', isError: true);
       return;
     }
 
@@ -351,29 +290,40 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
       return;
     }
 
+    _formKey.currentState!.save();
+
+    // Validate prices
+    if (pricePerHour == null || pricePerHour! <= 0) {
+      _showSnackBar('Please enter a valid hourly rate', isError: true);
+      return;
+    }
+
+    if (pricePerDay == null || pricePerDay! <= 0) {
+      _showSnackBar('Please enter a valid daily rate', isError: true);
+      return;
+    }
+
+    // Validate quantity
+    if (quantity <= 0) {
+      _showSnackBar('Please enter a valid quantity', isError: true);
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
       await _ensureFirebaseAuth();
 
-      if (!await _isSeller()) {
-        _showSnackBar('❌ Only verified sellers can add rental drones.', isError: true);
-        setState(() => _isSubmitting = false);
-        return;
-      }
-
-      // Upload image
       String imageUrl = await _uploadImageToFirebase(imageFile!);
+
+      debugPrint("📤 Uploading Rental Drone:");
+      debugPrint("SellerId: ${widget.sellerId}");
+      debugPrint("Data: name=$name, brand=$brand, pricePerHour=$pricePerHour, pricePerDay=$pricePerDay");
 
       final client = GraphQLClient(
         link: HttpLink(graphqlUrl),
         cache: GraphQLCache(store: InMemoryStore()),
       );
-
-      // Parse values
-      double pricePerHour = double.tryParse(_pricePerHourController.text) ?? 0;
-      double pricePerDay = double.tryParse(_pricePerDayController.text) ?? 0;
-      int quantity = int.tryParse(_quantityController.text) ?? 1;
 
       final mutation = gql("""
         mutation CreateRental(\$input: RentalInput!) {
@@ -398,22 +348,23 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
           document: mutation,
           variables: {
             'input': {
-              'name': _nameController.text.trim(),
-              'brand': _brandController.text.trim(),
-              'location': _locationController.text.trim(),
+              'name': name.trim(),
+              'brand': brand.trim(),
+              'location': location.trim(),
               'pricePerHour': pricePerHour,
               'pricePerDay': pricePerDay,
-              'description': _descriptionController.text.trim(),
+              'description': description.trim(),
               'image': imageUrl,
               'quantity': quantity,
               'sellerId': widget.sellerId,
-              'status': 'pending',
             },
           },
+          fetchPolicy: FetchPolicy.noCache,
         ),
       );
 
       if (result.hasException) {
+        debugPrint("❌ GraphQL Error: ${result.exception.toString()}");
         String errorMessage = "Submission failed";
         if (result.exception!.graphqlErrors.isNotEmpty) {
           errorMessage = result.exception!.graphqlErrors.first.message;
@@ -422,19 +373,22 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
         }
         _showSnackBar('❌ Error: $errorMessage', isError: true);
       } else {
-        _showSnackBar('✅ Rental Drone Added Successfully!');
+        debugPrint("✅ Rental Drone Created Successfully!");
+        _showSnackBar('✅ Rental drone submitted successfully!');
         await Future.delayed(Duration(milliseconds: 500));
-        Navigator.pop(context);
+        Navigator.pop(context, true);
       }
     } catch (e) {
-      debugPrint("⚠ Submit error: $e");
+      debugPrint("⚠ Unexpected Error: $e");
       _showSnackBar('Error: ${e.toString()}', isError: true);
     } finally {
-      setState(() => _isSubmitting = false);
+      setState(() {
+        _isSubmitting = false;
+        _uploadProgress = 0.0;
+      });
     }
   }
 
-  // Build image preview widget
   Widget _buildImagePreview() {
     if (imageFile == null) {
       return Column(
@@ -447,14 +401,14 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
               color: _primaryColor.withOpacity(0.1),
             ),
             child: Icon(
-              Icons.cloud_upload_rounded,
+              Icons.camera_alt_rounded,
               size: 40,
               color: _primaryColor,
             ),
           ),
           const SizedBox(height: 16),
           Text(
-            "Upload Rental Drone Image",
+            "Upload Drone Image",
             style: GoogleFonts.lexend(
               color: _textPrimary,
               fontSize: 16,
@@ -495,15 +449,14 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
         ],
       );
     } else {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Stack(
-          children: [
-            Image.file(
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.file(
               imageFile!,
               fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
               errorBuilder: (context, error, stackTrace) => Container(
                 color: _borderColor,
                 child: Center(
@@ -515,74 +468,48 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
                 ),
               ),
             ),
-            Positioned(
-              bottom: 10,
-              right: 10,
+          ),
+          if (_uploadProgress > 0 && _uploadProgress < 1)
+            Positioned.fill(
               child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.edit_rounded, size: 16, color: Colors.white),
-                    SizedBox(width: 4),
-                    Text(
-                      'Change',
-                      style: GoogleFonts.lexend(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+                color: Colors.black.withOpacity(0.4),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    value: _uploadProgress,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
+          Positioned(
+            bottom: 10,
+            right: 10,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.edit_rounded, size: 16, color: Colors.white),
+                  SizedBox(width: 4),
+                  Text(
+                    'Change',
+                    style: GoogleFonts.lexend(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       );
     }
-  }
-
-  // Validator for required fields
-  String? _requiredValidator(String? value, String fieldName) {
-    if (value == null || value.isEmpty) {
-      return "Please enter $fieldName";
-    }
-    return null;
-  }
-
-  // Validator for price
-  String? _priceValidator(String? value, String fieldName) {
-    if (value == null || value.isEmpty) {
-      return "Please enter $fieldName";
-    }
-    final price = double.tryParse(value);
-    if (price == null) {
-      return "Please enter a valid $fieldName";
-    }
-    if (price <= 0) {
-      return "$fieldName must be greater than 0";
-    }
-    return null;
-  }
-
-  // Validator for quantity
-  String? _quantityValidator(String? value) {
-    if (value == null || value.isEmpty) {
-      return "Please enter quantity";
-    }
-    final quantity = int.tryParse(value);
-    if (quantity == null) {
-      return "Please enter a valid quantity";
-    }
-    if (quantity <= 0) {
-      return "Quantity must be greater than 0";
-    }
-    return null;
   }
 
   @override
@@ -601,9 +528,14 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
         ),
         backgroundColor: _primaryColor,
         foregroundColor: Colors.white,
-        elevation: 0,
+        elevation: 2,
         centerTitle: true,
         iconTheme: IconThemeData(color: Colors.white),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            bottom: Radius.circular(12),
+          ),
+        ),
         actions: [
           if (_isSubmitting)
             Padding(
@@ -633,7 +565,7 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
                 // Image Upload Section
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     color: _cardColor,
                     borderRadius: BorderRadius.circular(16),
@@ -643,9 +575,9 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 20,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
@@ -710,7 +642,7 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
                         Padding(
                           padding: const EdgeInsets.only(top: 8, left: 4),
                           child: Text(
-                            "Please upload a rental drone image",
+                            "Please upload a drone image",
                             style: GoogleFonts.lexend(
                               color: _dangerColor,
                               fontSize: 12,
@@ -718,9 +650,9 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
                             ),
                           ),
                         ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       GestureDetector(
-                        onTap: _showImagePickerOptions,
+                        onTap: _isSubmitting ? null : _showImagePickerOptions,
                         child: Container(
                           height: 180,
                           width: double.infinity,
@@ -743,7 +675,7 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             ElevatedButton.icon(
-                              onPressed: _pickImage,
+                              onPressed: _isSubmitting ? null : _pickImage,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: _primaryColor.withOpacity(0.1),
                                 foregroundColor: _primaryColor,
@@ -769,21 +701,21 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
                   ),
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
 
                 // Form Fields Section
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     color: _cardColor,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: _borderColor, width: 1),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 20,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
@@ -814,29 +746,29 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       _buildTextField(
                         "Drone Name *",
-                        _nameController,
-                            (v) => _requiredValidator(v, "drone name"),
-                        hintText: "Enter drone name",
+                            (v) => name = v!,
+                        hintText: "Enter drone model/name",
                         icon: Icons.airplanemode_active_rounded,
+                        validator: (v) => v!.isEmpty ? "Drone name is required" : null,
                       ),
                       const SizedBox(height: 16),
                       _buildTextField(
                         "Brand *",
-                        _brandController,
-                            (v) => _requiredValidator(v, "brand"),
+                            (v) => brand = v!,
                         hintText: "Enter brand name",
                         icon: Icons.business_rounded,
+                        validator: (v) => v!.isEmpty ? "Brand is required" : null,
                       ),
                       const SizedBox(height: 16),
                       _buildTextField(
                         "Location *",
-                        _locationController,
-                            (v) => _requiredValidator(v, "location"),
-                        hintText: "Enter location",
+                            (v) => location = v!,
+                        hintText: "Enter rental location",
                         icon: Icons.location_on_rounded,
+                        validator: (v) => v!.isEmpty ? "Location is required" : null,
                       ),
                       const SizedBox(height: 16),
                       _buildPricePerHourField(),
@@ -847,17 +779,17 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
                       const SizedBox(height: 16),
                       _buildTextField(
                         "Description *",
-                        _descriptionController,
-                            (v) => _requiredValidator(v, "description"),
+                            (v) => description = v!,
                         maxLines: 3,
                         hintText: "Describe rental terms, drone condition, features, etc...",
                         icon: Icons.description_rounded,
+                        validator: (v) => v!.isEmpty ? "Description is required" : null,
                       ),
                     ],
                   ),
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 28),
 
                 // Submit Button
                 SizedBox(
@@ -900,10 +832,10 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
                         : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.cloud_upload_rounded, size: 22),
+                        Icon(Icons.add_circle_rounded, size: 22),
                         const SizedBox(width: 12),
                         Text(
-                          "Upload Rental Drone",
+                          "Submit Rental Listing",
                           style: GoogleFonts.lexend(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
@@ -914,7 +846,7 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
                 // Info Text
                 Container(
@@ -926,46 +858,28 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
                       color: _primaryColor.withOpacity(0.2),
                     ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline_rounded,
-                            size: 18,
-                            color: _primaryColor,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            "Important Information",
-                            style: GoogleFonts.lexend(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: _primaryColor,
-                            ),
-                          ),
-                        ],
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 18,
+                        color: _primaryColor,
                       ),
-                      SizedBox(height: 8),
-                      Text(
-                        "• Your rental drone will be reviewed before going live\n"
-                            "• Ensure all information is accurate\n"
-                            "• Price should include all applicable taxes\n"
-                            "• High-quality images increase visibility\n"
-                            "• Clearly state rental terms and conditions\n"
-                            "• Specify any additional fees or requirements",
-                        style: GoogleFonts.lexend(
-                          fontSize: 12.5,
-                          color: _textSecondary,
-                          fontWeight: FontWeight.w500,
-                          height: 1.5,
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          "Your rental drone will be reviewed before going live on the marketplace",
+                          style: GoogleFonts.lexend(
+                            fontSize: 13,
+                            color: _textSecondary,
+                            fontWeight: FontWeight.w500,
+                            height: 1.4,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 40),
               ],
             ),
@@ -977,11 +891,11 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
 
   Widget _buildTextField(
       String label,
-      TextEditingController controller,
-      FormFieldValidator<String> validator, {
+      FormFieldSetter<String> onSaved, {
         int maxLines = 1,
         String hintText = "",
         required IconData icon,
+        String? Function(String?)? validator,
       }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -994,9 +908,8 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
             color: _textPrimary,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         TextFormField(
-          controller: controller,
           decoration: InputDecoration(
             hintText: hintText,
             prefixIcon: Icon(icon, color: _primaryColor),
@@ -1045,7 +958,8 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
           ),
           maxLines: maxLines,
           minLines: maxLines,
-          validator: validator,
+          validator: validator ?? ((v) => (v == null || v.isEmpty) ? "Please enter ${label.replaceAll('*', '').trim()}" : null),
+          onSaved: onSaved,
         ),
       ],
     );
@@ -1063,9 +977,8 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
             color: _textPrimary,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         TextFormField(
-          controller: _pricePerHourController,
           decoration: InputDecoration(
             hintText: "Enter hourly rate",
             prefixIcon: Icon(Icons.schedule_rounded, color: _primaryColor),
@@ -1118,7 +1031,17 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
             fontWeight: FontWeight.w500,
           ),
           keyboardType: TextInputType.numberWithOptions(decimal: true),
-          validator: (v) => _priceValidator(v, "hourly rate"),
+          validator: (v) {
+            if (v == null || v.isEmpty) {
+              return "Hourly rate is required";
+            }
+            final price = double.tryParse(v);
+            if (price == null || price <= 0) {
+              return "Enter a valid hourly rate";
+            }
+            return null;
+          },
+          onSaved: (v) => pricePerHour = double.tryParse(v!) ?? 0,
         ),
       ],
     );
@@ -1136,9 +1059,8 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
             color: _textPrimary,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         TextFormField(
-          controller: _pricePerDayController,
           decoration: InputDecoration(
             hintText: "Enter daily rate",
             prefixIcon: Icon(Icons.calendar_today_rounded, color: _primaryColor),
@@ -1191,7 +1113,17 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
             fontWeight: FontWeight.w500,
           ),
           keyboardType: TextInputType.numberWithOptions(decimal: true),
-          validator: (v) => _priceValidator(v, "daily rate"),
+          validator: (v) {
+            if (v == null || v.isEmpty) {
+              return "Daily rate is required";
+            }
+            final price = double.tryParse(v);
+            if (price == null || price <= 0) {
+              return "Enter a valid daily rate";
+            }
+            return null;
+          },
+          onSaved: (v) => pricePerDay = double.tryParse(v!) ?? 0,
         ),
       ],
     );
@@ -1209,9 +1141,8 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
             color: _textPrimary,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         TextFormField(
-          controller: _quantityController,
           decoration: InputDecoration(
             hintText: "Enter quantity",
             prefixIcon: Icon(Icons.inventory_2_rounded, color: _primaryColor),
@@ -1258,7 +1189,17 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
             fontWeight: FontWeight.w500,
           ),
           keyboardType: TextInputType.number,
-          validator: _quantityValidator,
+          validator: (v) {
+            if (v == null || v.isEmpty) {
+              return "Quantity is required";
+            }
+            final quantity = int.tryParse(v);
+            if (quantity == null || quantity <= 0) {
+              return "Enter a valid quantity (minimum 1)";
+            }
+            return null;
+          },
+          onSaved: (v) => quantity = int.tryParse(v!) ?? 1,
         ),
       ],
     );

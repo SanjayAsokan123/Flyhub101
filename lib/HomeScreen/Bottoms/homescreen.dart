@@ -501,6 +501,7 @@ class _HomeScreenState extends State<HomeScreen> {
       actions: [
         _buildIconButton(
           icon: Icons.favorite_outline,
+          color: const Color(0xFF1A0A5B),
           onPressed: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const WishlistPage()),
@@ -509,6 +510,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         _buildIconButton(
           icon: Icons.shopping_bag_outlined,
+          color: const Color(0xFF1A0A5B),
           onPressed: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const MyCartPage()),
@@ -523,24 +525,28 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildIconButton({
     required IconData icon,
     required VoidCallback onPressed,
-    required EdgeInsets margin,
+    EdgeInsets? margin,
     Widget? badge,
+    Color color = Colors.black,
   }) {
     return Container(
       margin: margin,
-      decoration: BoxDecoration(
-        color: _kCardBackgroundColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _kBorderColor),
-      ),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           IconButton(
-            icon: Icon(icon, color: _kMediumTextColor, size: ResponsiveUtils.getIconSize(context)),
+            icon: Icon(
+              icon,
+              color: color, // MAKE SURE THIS IS HERE
+            ),
             onPressed: onPressed,
           ),
-          if (badge != null) Positioned(right: 6, top: 6, child: badge),
+          if (badge != null)
+            Positioned(
+              right: 0,
+              top: 0,
+              child: badge,
+            ),
         ],
       ),
     );

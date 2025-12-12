@@ -414,10 +414,26 @@ mutation SubmitJobApplication($input: JobApplicationInput!) {
                       controller: _mobileC,
                       type: TextInputType.phone,
                       validator: (v) {
-                        if (v == null || v.isEmpty) return "Enter contact";
-                        if (!RegExp(r'^\d{10}$').hasMatch(v)) {
-                          return "Enter valid 10-digit number";
+                        if (v == null || v.isEmpty) {
+                          return "Enter your contact number";
                         }
+
+                        // Remove all non-digit characters (spaces, dashes, plus sign, etc.)
+                        String digitsOnly = v.replaceAll(RegExp(r'[^\d]'), '');
+
+                        // Check if it's a valid Indian mobile number
+                        // Indian mobile numbers: 6,7,8,9 followed by 9 digits (total 10 digits)
+                        if (digitsOnly.length != 10) {
+                          return "Mobile number must be 10 digits";
+                        }
+
+                        // Check if the first digit is valid (6,7,8,9)
+                        String firstDigit = digitsOnly.substring(0, 1);
+                        if (!RegExp(r'[6-9]').hasMatch(firstDigit)) {
+                          return "Enter a valid Indian mobile number";
+                        }
+
+                        // All validations passed
                         return null;
                       },
                     ),

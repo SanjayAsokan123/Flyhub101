@@ -43,39 +43,75 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
   String searchQuery = '', selectedBrand = 'All', sortBy = 'Recommended';
   RangeValues currentPriceRange = const RangeValues(0, 100000);
   List<String> availableBrands = ['All'];
-  int _currentPage = 1;
-  int _limit = 10;
-  bool isLoadingMore = false;
-  bool hasMore = true;
+
+  // Pagination variables for each category
+  Map<String, dynamic> paginationState = {
+    'drones': {'currentPage': 1, 'limit': 10, 'isLoadingMore': false, 'hasMore': true},
+    'parts': {'currentPage': 1, 'limit': 10, 'isLoadingMore': false, 'hasMore': true},
+    'accessories': {'currentPage': 1, 'limit': 10, 'isLoadingMore': false, 'hasMore': true},
+  };
+
+  // Controllers for each tab
+  final ScrollController _dronesScrollController = ScrollController();
+  final ScrollController _partsScrollController = ScrollController();
+  final ScrollController _accessoriesScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTab);
-    _fetchAll();
+    _fetchInitialData();
     _searchController.addListener(() {
       setState(() => searchQuery = _searchController.text);
       _applyFilters();
     });
+
+    // Add scroll listeners
+    _dronesScrollController.addListener(() => _handleScroll('drones', _dronesScrollController));
+    _partsScrollController.addListener(() => _handleScroll('parts', _partsScrollController));
+    _accessoriesScrollController.addListener(() => _handleScroll('accessories', _accessoriesScrollController));
+
+    // Listen to tab changes to reset filters if needed
+    _tabController.addListener(_onTabChanged);
+  }
+
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) {
+      // Reset search and filters when switching tabs if needed
+      // _searchController.clear();
+      // _resetFilters();
+    }
+  }
+
+  void _handleScroll(String category, ScrollController controller) {
+    if (controller.position.pixels >= controller.position.maxScrollExtent - 200 &&
+        !paginationState[category]['isLoadingMore'] &&
+        paginationState[category]['hasMore']) {
+      _loadMore(category);
+    }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _searchController.dispose();
+    _dronesScrollController.dispose();
+    _partsScrollController.dispose();
+    _accessoriesScrollController.dispose();
     super.dispose();
   }
 
-  Future<void> _fetchAll() async {
+  Future<void> _fetchInitialData() async {
     setState(() => isLoading = true);
     try {
-      final results = await Future.wait([_api.getDronesPaginated(page: _currentPage,limit: _limit), _api.getPartsPaginated(page: _currentPage,limit: _limit), _api.getAccessoriesPaginated(page: _currentPage,limit: _limit)]);
-      if (!mounted) return;
+      // Fetch initial data for all categories
+      await Future.wait([
+        _fetchCategoryData('drones', isInitial: true),
+        _fetchCategoryData('parts', isInitial: true),
+        _fetchCategoryData('accessories', isInitial: true),
+      ]);
 
-      drones = _processItems(results[0], 'drone');
-      parts = _processItems(results[1], 'part');
-      accessories = _processItems(results[2], 'accessory');
-
+      // Extract all brands
       final brands = <String>{'All'};
       for (var item in [...drones, ...parts, ...accessories]) {
         final b = (item['brand'] ?? '').toString();
@@ -86,8 +122,89 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
       _applyFilters();
       setState(() => isLoading = false);
     } catch (e) {
-      if (mounted) Utils.bottomToast(context, "Error: $e");
+      if (mounted) Utils.bottomToast(context, "Error loading data: $e");
       setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _fetchCategoryData(String category, {bool isInitial = false}) async {
+    if (isInitial) {
+      paginationState[category]['currentPage'] = 1;
+      paginationState[category]['hasMore'] = true;
+    }
+
+    final currentPage = paginationState[category]['currentPage'];
+    final limit = paginationState[category]['limit'];
+
+    dynamic result;
+    switch (category) {
+      case 'drones':
+        result = await _api.getDronesPaginated(page: currentPage, limit: limit);
+        break;
+      case 'parts':
+        result = await _api.getPartsPaginated(page: currentPage, limit: limit);
+        break;
+      case 'accessories':
+        result = await _api.getAccessoriesPaginated(page: currentPage, limit: limit);
+        break;
+    }
+
+    if (!mounted) return;
+
+    final newItems = _processItems(result, category);
+
+    if (isInitial) {
+      // Clear existing data and set new data
+      switch (category) {
+        case 'drones':
+          drones = newItems;
+          break;
+        case 'parts':
+          parts = newItems;
+          break;
+        case 'accessories':
+          accessories = newItems;
+          break;
+      }
+    } else {
+      // Append new items
+      switch (category) {
+        case 'drones':
+          drones.addAll(newItems);
+          break;
+        case 'parts':
+          parts.addAll(newItems);
+          break;
+        case 'accessories':
+          accessories.addAll(newItems);
+          break;
+      }
+    }
+
+    // Update pagination state
+    if (newItems.length < limit) {
+      paginationState[category]['hasMore'] = false;
+    }
+
+    _applyFilters();
+  }
+
+  Future<void> _loadMore(String category) async {
+    if (paginationState[category]['isLoadingMore'] || !paginationState[category]['hasMore']) return;
+
+    setState(() {
+      paginationState[category]['isLoadingMore'] = true;
+    });
+
+    // Increment page
+    paginationState[category]['currentPage']++;
+
+    await _fetchCategoryData(category);
+
+    if (mounted) {
+      setState(() {
+        paginationState[category]['isLoadingMore'] = false;
+      });
     }
   }
 
@@ -142,7 +259,7 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
       if (searchQuery.isNotEmpty) {
         final name = (item['name'] ?? '').toString().toLowerCase();
         final brand = (item['brand'] ?? '').toString().toLowerCase();
-        if (!(name.contains(searchQuery) || brand.contains(searchQuery))) return false;
+        if (!(name.contains(searchQuery.toLowerCase()) || brand.contains(searchQuery.toLowerCase()))) return false;
       }
       if (selectedBrand != 'All' && (item['brand'] ?? '') != selectedBrand) return false;
       final price = (item['price'] ?? 0.0).toDouble();
@@ -531,74 +648,69 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildGridView(filteredDrones),
-          _buildGridView(filteredParts),
-          _buildGridView(filteredAccessories),
+          _buildGridView('drones', filteredDrones, _dronesScrollController),
+          _buildGridView('parts', filteredParts, _partsScrollController),
+          _buildGridView('accessories', filteredAccessories, _accessoriesScrollController),
         ],
       ),
     );
   }
 
-  Future<void> _loadMore() async {
-    if (isLoadingMore || !hasMore) return;
-
-    setState(() => isLoadingMore = true);
-    _currentPage++;
-
-    final result = await _api.getDronesPaginated(
-      page: _currentPage,
-      limit: _limit,
-    );
-
-    final newItems = _processItems(result, "drone");
-
-    if (newItems.isEmpty) {
-      hasMore = false;
-    } else {
-      drones.addAll(newItems);
-      _applyFilters();
-    }
-
-    setState(() => isLoadingMore = false);
-  }
-
-
-  Widget _buildGridView(List<dynamic> items) {
+  Widget _buildGridView(String category, List<dynamic> items, ScrollController scrollController) {
     if (isLoading) return _shimmer();
-    if (items.isEmpty) return Center(child: Text("No products found", style: GoogleFonts.inter(fontSize: ResponsiveUtils.getTitleFontSize(context) - 2, color: kTextPrimary, fontWeight: FontWeight.w600)));
 
     final crossCount = ResponsiveUtils.getMarketGridCrossAxisCount(context);
     final gridPadding = ResponsiveUtils.getMarketGridPadding(context);
     final gridSpacing = ResponsiveUtils.getMarketGridSpacing(context);
-    final controller = ScrollController();
-
-    @override
-    void initState() {
-      super.initState();
-      controller.addListener(() {
-        if (controller.position.pixels >= controller.position.maxScrollExtent - 100) {
-          _loadMore();
-        }
-      });
-    }
-
+    final isLoadingMore = paginationState[category]['isLoadingMore'];
+    final hasMore = paginationState[category]['hasMore'];
 
     return RefreshIndicator(
-      onRefresh: _fetchAll,
+      onRefresh: () async {
+        // Reset pagination for this category
+        paginationState[category]['currentPage'] = 1;
+        paginationState[category]['hasMore'] = true;
+        await _fetchCategoryData(category, isInitial: true);
+      },
       color: kPrimaryColor,
       backgroundColor: kSurfaceColor,
       child: Padding(
         padding: EdgeInsets.all(gridPadding),
         child: GridView.builder(
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: crossCount, childAspectRatio: 0.75, crossAxisSpacing: gridSpacing, mainAxisSpacing: gridSpacing),
-          itemCount: items.length + (isLoadingMore ? 1 : 0),
+          controller: scrollController,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossCount,
+            childAspectRatio: 0.75,
+            crossAxisSpacing: gridSpacing,
+            mainAxisSpacing: gridSpacing,
+          ),
+          itemCount: items.length + (isLoadingMore ? 1 : 0) + (hasMore && items.length >= paginationState[category]['limit'] ? 1 : 0),
           itemBuilder: (context, index) {
+            // Show loading indicator at the bottom
             if (index == items.length) {
-              return Center(child: CircularProgressIndicator(color: kPrimaryColor));
+              if (isLoadingMore) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: CircularProgressIndicator(color: kPrimaryColor),
+                  ),
+                );
+              } else if (hasMore && items.length >= paginationState[category]['limit']) {
+                // Trigger load more when this item becomes visible
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!paginationState[category]['isLoadingMore']) {
+                    _loadMore(category);
+                  }
+                });
+                return Container(); // Empty container as trigger
+              } else {
+                return Container(); // No more items
+              }
             }
+
+            // Show product item
             return _buildProductItem(items[index]);
           },
-
         ),
       ),
     );
@@ -616,9 +728,28 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
     final imageHeight = itemWidth * 0.7;
 
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DroneDetailPage( drone: item, initialIsFavorite: item, Drone: item))),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DroneDetailPage(
+            drone: item,
+            initialIsFavorite: item,
+            Drone: item,
+          ),
+        ),
+      ),
       child: Container(
-        decoration: BoxDecoration(color: kSurfaceColor, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))]),
+        decoration: BoxDecoration(
+          color: kSurfaceColor,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
         child: Stack(
           children: [
             Column(
@@ -627,14 +758,38 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
                 Container(
                   width: double.infinity,
                   height: imageHeight,
-                  decoration: BoxDecoration(color: kLightBackground, borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12))),
+                  decoration: BoxDecoration(
+                    color: kLightBackground,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                    ),
+                  ),
                   child: ClipRRect(
-                    borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                    ),
                     child: CachedNetworkImage(
                       imageUrl: (item['image'] ?? '').toString(),
                       fit: BoxFit.cover,
-                      placeholder: (ctx, url) => Container(color: kShimmerColor, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: kPrimaryColor.withOpacity(0.5)))),
-                      errorWidget: (ctx, url, err) => Container(color: kShimmerColor, child: Icon(Icons.photo_camera_back, color: kTextSecondary, size: ResponsiveUtils.getIconSize(context) + 10)),
+                      placeholder: (ctx, url) => Container(
+                        color: kShimmerColor,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: kPrimaryColor.withOpacity(0.5),
+                          ),
+                        ),
+                      ),
+                      errorWidget: (ctx, url, err) => Container(
+                        color: kShimmerColor,
+                        child: Icon(
+                          Icons.photo_camera_back,
+                          color: kTextSecondary,
+                          size: ResponsiveUtils.getIconSize(context) + 10,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -644,15 +799,39 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(item['brand'] ?? '', style: GoogleFonts.inter(color: kSecondaryColor, fontSize: ResponsiveUtils.getSmallFontSize(context), fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text(
+                          item['brand'] ?? '',
+                          style: GoogleFonts.inter(
+                            color: kSecondaryColor,
+                            fontSize: ResponsiveUtils.getSmallFontSize(context),
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         SizedBox(height: ResponsiveUtils.getCardMargin(context) / 4),
-                        Expanded(child: Text(item['name'] ?? '', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: ResponsiveUtils.getBodyFontSize(context), color: kTextPrimary), maxLines: 2, overflow: TextOverflow.ellipsis)),
+                        Expanded(
+                          child: Text(
+                            item['name'] ?? '',
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600,
+                              fontSize: ResponsiveUtils.getBodyFontSize(context),
+                              color: kTextPrimary,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
                         Text(
-                            "₹${(item['price'] ?? 0.0).toStringAsFixed(2).replaceAll(RegExp(r'([.]0)(?!.\d)'), '')}",
-                            style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: ResponsiveUtils.getBodyFontSize(context) + 2, color: kPrimaryColor),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis
+                          "₹${(item['price'] ?? 0.0).toStringAsFixed(2).replaceAll(RegExp(r'([.]0)(?!.\d)'), '')}",
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w800,
+                            fontSize: ResponsiveUtils.getBodyFontSize(context) + 2,
+                            color: kPrimaryColor,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
@@ -668,8 +847,22 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
                 child: Container(
                   width: ResponsiveUtils.getButtonHeight(context) - 24,
                   height: ResponsiveUtils.getButtonHeight(context) - 24,
-                  decoration: BoxDecoration(color: kSurfaceColor.withOpacity(0.9), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))]),
-                  child: Icon(isFav ? Icons.favorite : Icons.favorite_border, color: isFav ? Colors.red.shade500 : kTextSecondary, size: ResponsiveUtils.getIconSize(context) - 2),
+                  decoration: BoxDecoration(
+                    color: kSurfaceColor.withOpacity(0.9),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    isFav ? Icons.favorite : Icons.favorite_border,
+                    color: isFav ? Colors.red.shade500 : kTextSecondary,
+                    size: ResponsiveUtils.getIconSize(context) - 2,
+                  ),
                 ),
               ),
             ),

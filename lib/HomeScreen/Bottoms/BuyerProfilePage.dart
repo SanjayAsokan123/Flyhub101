@@ -559,12 +559,11 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                   ),
                 ),
 
-                // Activities Section
+                // Activities Section - UPDATED: Drone Rentals now uses SVG icon
                 _buildSection(
                   title: "My Activities",
                   children: [
-                    _buildListItem(
-                      icon: Icons.work_outline,
+                    _buildDroneListItem(
                       title: "Drone Rentals",
                       onTap: () {
                         final buyerId = _buyerData?['buyerId'] ?? '';
@@ -605,10 +604,15 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                     _buildListItem(
                       icon: Icons.handyman_outlined,
                       title: "Service Bookings",
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const BuyerServiceBookingStatusPage(buyerId: '',)),
-                      ),
+                      onTap: () {
+                        final buyerId = _buyerData?['buyerId'] ?? '';
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => BuyerServiceBookingStatusPage(buyerId: buyerId),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -703,10 +707,10 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                   ),
                 ),
 
-                // Follow Us Footer
+                // Follow Us Footer - CORRECTED SIZE
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+                  padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
                   decoration: BoxDecoration(
                     color: primaryColor.withOpacity(0.05),
                     borderRadius: const BorderRadius.only(
@@ -724,7 +728,7 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
 
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -761,7 +765,7 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
 
                       // Optional: Contact info
                       Text(
@@ -771,21 +775,15 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                           fontSize: 12,
                         ),
                       ),
-                    ],
-                  ),
-                ),
 
-                // Version and Copyright
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                  color: primaryColor.withOpacity(0.05),
-                  child: Column(
-                    children: [
+                      // Version and Copyright - MOVED INSIDE THE SAME CONTAINER
+                      const SizedBox(height: 20),
                       Text(
                         "v1.0.0",
                         style: TextStyle(
                           fontSize: 12,
                           color: textSecondary,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                       const SizedBox(height: 4),

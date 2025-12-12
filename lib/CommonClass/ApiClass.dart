@@ -639,24 +639,26 @@ query ApprovedRentalsPaginated(\$page: Int!, \$limit: Int!) {
 
   Future<ApiResult> enrollTraining(Map<String, dynamic> data) async {
     const String mutation = r'''
-      mutation EnrollTraining($input: TrainingEnrollInput!) {
-        enrollTraining(input: $input) {
-          id
-          name
-          email
-          phone
-          address
-          status
-        }
+    mutation EnrollTraining($input: TrainingEnrollInput!) {
+      enrollTraining(input: $input) {
+        id
+        name
+        email
+        phone
+        address
+        status
       }
-    ''';
+    }
+  ''';
 
     try {
       final client = await GraphQLService.initClient();
-      final result = await client.mutate(MutationOptions(
-        document: gql(mutation),
-        variables: {"input": data},
-      ));
+      final result = await client.mutate(
+        MutationOptions(
+          document: gql(mutation),
+          variables: {"input": data},
+        ),
+      ).timeout(const Duration(seconds: 30)); // Match the client timeout
 
       if (result.hasException) {
         debugPrint("❌ [EnrollTraining] ${result.exception}");
@@ -664,7 +666,9 @@ query ApprovedRentalsPaginated(\$page: Int!, \$limit: Int!) {
       }
 
       return ApiResult.success(result.data?['enrollTraining']);
-    } catch (e) {
+    } on TimeoutException {
+      return ApiResult.error("Request timed out. Please check your internet connection and try again.");
+    } on Exception catch (e) {
       debugPrint("⚠ [EnrollTraining] Exception: $e");
       return ApiResult.error(e.toString());
     }

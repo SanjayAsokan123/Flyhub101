@@ -89,6 +89,16 @@ class _PilotBookingStatusPageState extends State<PilotBookingStatusPage>
     }
   """;
 
+  // Mutation for deleting pending booking
+  String deletePendingBookingMutation() => """
+    mutation DeletePendingBooking(\$bookingId: String!) {
+      deletePendingPilotBooking(bookingId: \$bookingId) {
+        success
+        message
+      }
+    }
+  """;
+
   // --------------------------------------------
   // STATUS COLORS
   // --------------------------------------------
@@ -109,7 +119,7 @@ class _PilotBookingStatusPageState extends State<PilotBookingStatusPage>
   // --------------------------------------------
   // BOOKING CARD UI
   // --------------------------------------------
-  Widget buildBookingCard(Map<String, dynamic> b) {
+  Widget buildBookingCard(Map<String, dynamic> b, {bool showDelete = false}) {
     final status = b['status'] ?? "--";
     final statusColor = getStatusColor(status);
 
@@ -165,22 +175,82 @@ class _PilotBookingStatusPageState extends State<PilotBookingStatusPage>
               ),
             ),
 
-            // Status badge
-            Container(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                status.toString().toUpperCase(),
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: statusColor,
+            // Status badge or Delete button
+            if (showDelete)
+              Mutation(
+                options: MutationOptions(
+                  document: gql(deletePendingBookingMutation()),
+                  onCompleted: (data) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(data?['deletePendingPilotBooking']?['message'] ?? "Booking deleted"),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  },
+                  onError: (error) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text("Error: ${error.toString()}"),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  },
+                ),
+                builder: (runMutation, result) {
+                  return IconButton(
+                    onPressed: () {
+                      // Show confirmation dialog
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text("Delete Booking"),
+                          content: const Text("Are you sure you want to delete this pending booking?"),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text("Cancel"),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                runMutation({
+                                  'bookingId': b['bookingId'],
+                                });
+                              },
+                              child: const Text(
+                                "Delete",
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    icon: Icon(
+                      Icons.delete_outline,
+                      color: Colors.red,
+                      size: 28,
+                    ),
+                  );
+                },
+              )
+            else
+              Container(
+                padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  status.toString().toUpperCase(),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: statusColor,
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -190,7 +260,7 @@ class _PilotBookingStatusPageState extends State<PilotBookingStatusPage>
   // --------------------------------------------
   // TAB VIEW BUILDER
   // --------------------------------------------
-  Widget buildTab(String Function() queryBuilder) {
+  Widget buildTab(String Function() queryBuilder, {bool isPending = false}) {
     return Query(
       options: QueryOptions(
         document: gql(queryBuilder()),
@@ -224,7 +294,7 @@ class _PilotBookingStatusPageState extends State<PilotBookingStatusPage>
 
         return ListView.builder(
           itemCount: list.length,
-          itemBuilder: (_, i) => buildBookingCard(list[i]),
+          itemBuilder: (_, i) => buildBookingCard(list[i], showDelete: isPending),
         );
       },
     );
@@ -240,11 +310,19 @@ class _PilotBookingStatusPageState extends State<PilotBookingStatusPage>
 
       appBar: AppBar(
         backgroundColor: const Color(0xFF1E0E5C),
-        title: const Text("Pilot Booking Status",
-            style: TextStyle(color: Colors.white)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          "Pilot Booking Status",
+          style: TextStyle(color: Colors.white),
+        ),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white.withOpacity(0.7),
           tabs: const [
             Tab(text: "Approved"),
             Tab(text: "Pending"),
@@ -258,7 +336,7 @@ class _PilotBookingStatusPageState extends State<PilotBookingStatusPage>
         controller: _tabController,
         children: [
           buildTab(getApprovedQuery),
-          buildTab(getPendingQuery),
+          buildTab(getPendingQuery, isPending: true),
           buildTab(getRejectedQuery),
           buildTab(getCompletedQuery),
         ],

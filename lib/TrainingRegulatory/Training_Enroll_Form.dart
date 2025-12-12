@@ -23,6 +23,9 @@ class _TrainingEnrollFormState extends State<TrainingEnrollForm> {
   bool isAbove18 = false;
   bool isLoading = false;
 
+  // Add these variables for validation tracking
+  bool _showCheckboxErrors = false;
+
   final Color primaryColor = const Color(0xFF1A0A5B);
   final Color backgroundColor = const Color(0xFFF7F7FB);
   final Color accentColor = const Color(0xFF4C35E3);
@@ -50,6 +53,17 @@ class _TrainingEnrollFormState extends State<TrainingEnrollForm> {
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // Set flag to show checkbox errors
+    setState(() {
+      _showCheckboxErrors = true;
+    });
+
+    // Check required checkboxes
+    if (!isTenthPass || !isAbove18) {
+      _showErrorSnackBar("Please meet all eligibility criteria to enroll");
+      return;
+    }
+
     setState(() => isLoading = true);
 
     try {
@@ -71,13 +85,21 @@ class _TrainingEnrollFormState extends State<TrainingEnrollForm> {
       if (result.status == "success") {
         _showSuccessSnackBar("Enrollment submitted successfully!");
         _resetForm();
-        Navigator.pop(context, true);
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            Navigator.pop(context, true);
+          }
+        });
       } else {
-        _showErrorSnackBar("Submission failed: ${result.message}");
+        String errorMessage = "Submission failed";
+        if (result.message.isNotEmpty) {
+          errorMessage = result.message;
+        }
+        _showErrorSnackBar(errorMessage);
       }
     } catch (e) {
       if (mounted) {
-        _showErrorSnackBar("An unexpected error occurred");
+        _showErrorSnackBar("An unexpected error occurred: ${e.toString()}");
       }
     } finally {
       if (mounted) {
@@ -129,6 +151,7 @@ class _TrainingEnrollFormState extends State<TrainingEnrollForm> {
       isTenthPass = false;
       isHaveLicence = false;
       isAbove18 = false;
+      _showCheckboxErrors = false;
     });
   }
 
@@ -192,6 +215,31 @@ class _TrainingEnrollFormState extends State<TrainingEnrollForm> {
             height: 1.5,
           ),
         ),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: primaryColor.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: primaryColor.withOpacity(0.2)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: primaryColor, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  "Address must be at least 5 characters long",
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: primaryColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -247,13 +295,35 @@ class _TrainingEnrollFormState extends State<TrainingEnrollForm> {
           ),
         ),
         const SizedBox(height: 20),
-        _buildTextField(nameController, "Full Name", Icons.person_outline),
+        _buildTextField(
+          nameController,
+          "Full Name",
+          Icons.person_outline,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return "Full name is required";
+            }
+            if (value.trim().length < 2) {
+              return "Name must be at least 2 characters";
+            }
+            return null;
+          },
+        ),
         const SizedBox(height: 16),
         _buildTextField(
           emailController,
           "Email Address",
           Icons.email_outlined,
           keyboardType: TextInputType.emailAddress,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return "Email address is required";
+            }
+            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+              return "Please enter a valid email address";
+            }
+            return null;
+          },
         ),
         const SizedBox(height: 16),
         _buildTextField(
@@ -261,6 +331,16 @@ class _TrainingEnrollFormState extends State<TrainingEnrollForm> {
           "Phone Number",
           Icons.phone_outlined,
           keyboardType: TextInputType.phone,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return "Phone number is required";
+            }
+            final digitsOnly = value.replaceAll(RegExp(r'\D'), '');
+            if (digitsOnly.length < 10) {
+              return "Please enter a valid 10-digit phone number";
+            }
+            return null;
+          },
         ),
         const SizedBox(height: 16),
         _buildTextField(
@@ -268,6 +348,15 @@ class _TrainingEnrollFormState extends State<TrainingEnrollForm> {
           "Complete Address",
           Icons.location_on_outlined,
           maxLines: 3,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return "Address is required";
+            }
+            if (value.trim().length < 5) {
+              return "Address must be at least 5 characters long";
+            }
+            return null;
+          },
         ),
       ],
     );
@@ -298,18 +387,24 @@ class _TrainingEnrollFormState extends State<TrainingEnrollForm> {
           "I have passed the 10th grade or equivalent",
           isTenthPass,
               (val) => setState(() => isTenthPass = val!),
+          isRequired: true,
+          showError: _showCheckboxErrors && !isTenthPass,
         ),
         const SizedBox(height: 12),
         _buildEnhancedCheckbox(
           "I possess a valid driving license",
           isHaveLicence,
               (val) => setState(() => isHaveLicence = val!),
+          isRequired: false,
+          showError: false,
         ),
         const SizedBox(height: 12),
         _buildEnhancedCheckbox(
           "I am 18 years of age or older",
           isAbove18,
               (val) => setState(() => isAbove18 = val!),
+          isRequired: true,
+          showError: _showCheckboxErrors && !isAbove18,
         ),
       ],
     );
@@ -388,6 +483,7 @@ class _TrainingEnrollFormState extends State<TrainingEnrollForm> {
       IconData prefixIcon, {
         TextInputType keyboardType = TextInputType.text,
         int maxLines = 1,
+        String? Function(String?)? validator,
       }) {
     return Container(
       decoration: BoxDecoration(
@@ -443,18 +539,7 @@ class _TrainingEnrollFormState extends State<TrainingEnrollForm> {
             borderSide: BorderSide(color: errorColor, width: 2),
           ),
         ),
-        validator: (value) {
-          if (value == null || value.trim().isEmpty) {
-            return "This field is required";
-          }
-          if (label.contains("Email") && !value.contains('@')) {
-            return "Please enter a valid email address";
-          }
-          if (label.contains("Phone") && value.length < 10) {
-            return "Please enter a valid phone number";
-          }
-          return null;
-        },
+        validator: validator,
       ),
     );
   }
@@ -462,13 +547,17 @@ class _TrainingEnrollFormState extends State<TrainingEnrollForm> {
   Widget _buildEnhancedCheckbox(
       String title,
       bool value,
-      Function(bool?) onChanged,
-      ) {
+      Function(bool?) onChanged, {
+        bool isRequired = false,
+        bool showError = false,
+      }) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(
+          color: showError ? errorColor.withOpacity(0.3) : Colors.grey.shade200,
+        ),
       ),
       child: Material(
         color: Colors.transparent,
@@ -478,6 +567,7 @@ class _TrainingEnrollFormState extends State<TrainingEnrollForm> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
@@ -487,7 +577,8 @@ class _TrainingEnrollFormState extends State<TrainingEnrollForm> {
                     color: value ? primaryColor : Colors.white,
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                      color: value ? primaryColor : Colors.grey.shade400,
+                      color: showError && !value ? errorColor :
+                      value ? primaryColor : Colors.grey.shade400,
                       width: value ? 0 : 1.5,
                     ),
                   ),
@@ -497,13 +588,45 @@ class _TrainingEnrollFormState extends State<TrainingEnrollForm> {
                 ),
                 const SizedBox(width: 14),
                 Expanded(
-                  child: Text(
-                    title,
-                    style: GoogleFonts.poppins(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.black87,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: GoogleFonts.poppins(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                          if (isRequired)
+                            Text(
+                              "*",
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: errorColor,
+                              ),
+                            ),
+                        ],
+                      ),
+                      if (showError && !value)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            "This field is required",
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              color: errorColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ],

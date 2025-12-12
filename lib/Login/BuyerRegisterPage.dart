@@ -4,11 +4,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart'; // Add this import
+import 'package:url_launcher/url_launcher.dart';
 
 import '../HomeScreen/Dynamichome.dart';
 import '../services/role_manager.dart';
 import '../config/env.dart';
+
+// Add import for your Terms & Conditions page
+import '../T&C/Buyer_t&c.dart'; // Adjust path as needed
 
 class BuyerRegisterPage extends StatefulWidget {
   const BuyerRegisterPage({super.key,this.logoPath});
@@ -48,7 +51,6 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
   String _selectedCountryFlag = "🇮🇳";
 
   // ---------------- SOCIAL MEDIA URLs ----------------
-  // Replace these with your actual URLs
   final Map<String, Map<String, String>> _socialMediaData = {
     'instagram': {
       'url': 'https://www.instagram.com/flyhub_info?igsh=OWM2a3E2Ym81bzRs',
@@ -59,11 +61,11 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
 
     },
     'facebook': {
-      'url': 'https://www.facebook.com/share/1A8fBiqxmt/', // Replace with actual
+      'url': 'https://www.facebook.com/share/1A8fBiqxmt/',
 
     },
     'whatsapp': {
-      'url': 'https://wa.me/+919003992693', // Replace with actual number
+      'url': 'https://wa.me/+919003992693',
 
     },
   };
@@ -1076,13 +1078,19 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
                       const TextSpan(text: "I agree to the "),
                       WidgetSpan(
                         child: GestureDetector(
-                          onTap: () {
-                            // You can add Terms of Service URL here
-                            final uri = Uri.parse('https://yourwebsite.com/terms');
-                            launchUrl(uri, mode: LaunchMode.externalApplication);
+                          onTap: () async {
+                            final accepted = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const BuyerTermsAndConditions(),
+                              ),
+                            );
+                            if (accepted == true) {
+                              setState(() => _agreeToTerms = true);
+                            }
                           },
                           child: Text(
-                            "Terms of Service",
+                            "Terms of Service & ",
                             style: TextStyle(
                               color: themeColor,
                               fontWeight: FontWeight.w600,
@@ -1091,13 +1099,18 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
                           ),
                         ),
                       ),
-                      const TextSpan(text: " and "),
                       WidgetSpan(
                         child: GestureDetector(
-                          onTap: () {
-                            // You can add Privacy Policy URL here
-                            final uri = Uri.parse('https://yourwebsite.com/privacy');
-                            launchUrl(uri, mode: LaunchMode.externalApplication);
+                          onTap: () async {
+                            final accepted = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const BuyerTermsAndConditions(),
+                              ),
+                            );
+                            if (accepted == true) {
+                              setState(() => _agreeToTerms = true);
+                            }
                           },
                           child: Text(
                             "Privacy Policy",

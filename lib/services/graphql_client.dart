@@ -46,15 +46,59 @@ class GraphQLService {
     );
 
     return GraphQLClient(
-        cache: GraphQLCache(store: InMemoryStore()),
-        link: link,
-        defaultPolicies: DefaultPolicies(
-          query: Policies(fetch: FetchPolicy.networkOnly),
-          mutate: Policies(fetch: FetchPolicy.networkOnly),
-          subscribe: Policies(fetch: FetchPolicy.noCache),
-        ),
+      cache: GraphQLCache(store: InMemoryStore()),
+      link: link,
+      defaultPolicies: DefaultPolicies(
+        query: Policies(fetch: FetchPolicy.networkOnly),
+        mutate: Policies(fetch: FetchPolicy.networkOnly),
+        subscribe: Policies(fetch: FetchPolicy.noCache),
+      ),
+      queryRequestTimeout: const Duration(seconds: 30), // Add this line for timeout
     );
   }
+  // static Future<GraphQLClient> initClient() async {
+  //   final HttpLink httpLink = HttpLink(_httpUrl);
+  //
+  //   final AuthLink authLink = AuthLink(
+  //     getToken: () async {
+  //       final user = FirebaseAuth.instance.currentUser;
+  //       if (user == null) return "";
+  //       final token = await user.getIdToken(true);
+  //       return "Bearer $token";
+  //     },
+  //   );
+  //
+  //   final WebSocketLink wsLink = WebSocketLink(
+  //     _wsUrl,
+  //     config: SocketClientConfig(
+  //       autoReconnect: true,
+  //       inactivityTimeout: const Duration(minutes: 5),
+  //       initialPayload: () async {
+  //         final user = FirebaseAuth.instance.currentUser;
+  //         final token = user != null ? await user.getIdToken(true) : null;
+  //         return {
+  //           "Authorization": token != null ? "Bearer $token" : "",
+  //         };
+  //       },
+  //     ),
+  //   );
+  //
+  //   final Link link = Link.split(
+  //         (request) => request.isSubscription,
+  //     wsLink,
+  //     authLink.concat(httpLink),
+  //   );
+  //
+  //   return GraphQLClient(
+  //       cache: GraphQLCache(store: InMemoryStore()),
+  //       link: link,
+  //       defaultPolicies: DefaultPolicies(
+  //         query: Policies(fetch: FetchPolicy.networkOnly),
+  //         mutate: Policies(fetch: FetchPolicy.networkOnly),
+  //         subscribe: Policies(fetch: FetchPolicy.noCache),
+  //       ),
+  //   );
+  // }
 
   // ==========================================================
 // 🛒 CART API

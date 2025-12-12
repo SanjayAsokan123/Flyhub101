@@ -1408,10 +1408,18 @@ class _SellerPageState extends State<SellerPage> {
       _buildMenuItem(
         title: "Sold Products",
         icon: Icons.check_circle_outline,
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const SoldProductsPage()),
-        ),
+        onTap: () {
+          if (_sellerId == null) {
+            _showMissingSellerSnack();
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SoldProductsPage(sellerCustomId: _sellerId!),
+            ),
+          );
+        },
         disabled: !_isApproved,
         iconColor: themeColor,
       ),
