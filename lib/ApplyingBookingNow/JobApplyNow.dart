@@ -1,9 +1,11 @@
 import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+
 import '../../../config/env.dart';
 
 class JobApplyNow extends StatefulWidget {
@@ -34,19 +36,21 @@ class _JobApplyNowState extends State<JobApplyNow> {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        duration: isLoading ? const Duration(seconds: 1) : const Duration(seconds: 3),
+        duration:
+            isLoading ? const Duration(seconds: 1) : const Duration(seconds: 3),
         backgroundColor: error
             ? Colors.redAccent
             : isLoading
-            ? Colors.blueAccent
-            : primaryColor,
+                ? Colors.blueAccent
+                : primaryColor,
         content: Row(
           children: [
             if (isLoading)
               const SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2),
               ),
             if (isLoading) const SizedBox(width: 12),
             Expanded(
@@ -165,7 +169,6 @@ mutation SubmitJobApplication($input: JobApplicationInput!) {
 
       showSnack(data['message']);
       Navigator.pop(context);
-
     } catch (e) {
       showSnack("Error: $e", error: true);
     } finally {
@@ -209,7 +212,7 @@ mutation SubmitJobApplication($input: JobApplicationInput!) {
               decoration: InputDecoration(
                 labelText: label,
                 labelStyle:
-                GoogleFonts.poppins(color: Colors.grey[600], fontSize: 14),
+                    GoogleFonts.poppins(color: Colors.grey[600], fontSize: 14),
                 border: InputBorder.none,
               ),
             ),
@@ -258,7 +261,12 @@ mutation SubmitJobApplication($input: JobApplicationInput!) {
   Widget _buildJobAvatar({double size = 80}) {
     final company = widget.job['companyName'] ?? widget.job['company'] ?? '';
     final initials = company.isNotEmpty
-        ? company.split(' ').map((s) => s.isNotEmpty ? s[0] : '').take(2).join().toUpperCase()
+        ? company
+            .split(' ')
+            .map((s) => s.isNotEmpty ? s[0] : '')
+            .take(2)
+            .join()
+            .toUpperCase()
         : 'JB';
 
     return Container(
@@ -300,7 +308,8 @@ mutation SubmitJobApplication($input: JobApplicationInput!) {
               // Header - EXACTLY LIKE PILOT BOOKING PAGE
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [primaryColor, accentColor],
@@ -406,7 +415,7 @@ mutation SubmitJobApplication($input: JobApplicationInput!) {
                       icon: Icons.person,
                       controller: _nameC,
                       validator: (v) =>
-                      v == null || v.isEmpty ? "Enter your name" : null,
+                          v == null || v.isEmpty ? "Enter your name" : null,
                     ),
                     _buildTextField(
                       label: "Mobile Number",
@@ -414,10 +423,26 @@ mutation SubmitJobApplication($input: JobApplicationInput!) {
                       controller: _mobileC,
                       type: TextInputType.phone,
                       validator: (v) {
-                        if (v == null || v.isEmpty) return "Enter contact";
-                        if (!RegExp(r'^\d{10}$').hasMatch(v)) {
-                          return "Enter valid 10-digit number";
+                        if (v == null || v.isEmpty) {
+                          return "Enter your contact number";
                         }
+
+                        // Remove all non-digit characters (spaces, dashes, plus sign, etc.)
+                        String digitsOnly = v.replaceAll(RegExp(r'[^\d]'), '');
+
+                        // Check if it's a valid Indian mobile number
+                        // Indian mobile numbers: 6,7,8,9 followed by 9 digits (total 10 digits)
+                        if (digitsOnly.length != 10) {
+                          return "Mobile number must be 10 digits";
+                        }
+
+                        // Check if the first digit is valid (6,7,8,9)
+                        String firstDigit = digitsOnly.substring(0, 1);
+                        if (!RegExp(r'[6-9]').hasMatch(firstDigit)) {
+                          return "Enter a valid Indian mobile number";
+                        }
+
+                        // All validations passed
                         return null;
                       },
                     ),
@@ -428,7 +453,8 @@ mutation SubmitJobApplication($input: JobApplicationInput!) {
                       type: TextInputType.emailAddress,
                       validator: (v) {
                         if (v == null || v.isEmpty) return "Enter email";
-                        if (!RegExp(r"^[^@]+@[^@]+\.[^@]+").hasMatch(v.trim())) {
+                        if (!RegExp(r"^[^@]+@[^@]+\.[^@]+")
+                            .hasMatch(v.trim())) {
                           return "Enter valid email";
                         }
                         return null;
@@ -461,15 +487,15 @@ mutation SubmitJobApplication($input: JobApplicationInput!) {
                   ),
                   child: submitting
                       ? const CircularProgressIndicator(
-                      color: Colors.white, strokeWidth: 2)
+                          color: Colors.white, strokeWidth: 2)
                       : Text(
-                    "Submit Application",
-                    style: GoogleFonts.poppins(
-                      fontSize: 17,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                          "Submit Application",
+                          style: GoogleFonts.poppins(
+                            fontSize: 17,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ),
               ),
             ],

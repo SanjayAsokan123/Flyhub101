@@ -1,10 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+
 import '../../../CommonClass/ApiClass.dart';
-import '../services/role_manager.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 final ApiClass _api = ApiClass();
 
@@ -44,15 +44,16 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
 
   Future<void> _pickStartTime() async {
     final TimeOfDay? picked =
-    await showTimePicker(context: context, initialTime: TimeOfDay.now());
+        await showTimePicker(context: context, initialTime: TimeOfDay.now());
     if (picked != null) setState(() => startTime = picked);
   }
 
   Future<void> _pickEndTime() async {
     final TimeOfDay? picked =
-    await showTimePicker(context: context, initialTime: TimeOfDay.now());
+        await showTimePicker(context: context, initialTime: TimeOfDay.now());
     if (picked != null) setState(() => endTime = picked);
   }
+
   Future<Map<String, dynamic>> getBuyerDetails() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -132,7 +133,6 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
     }
   }
 
-
   // ----------------------- SNACKBAR ------------------------
   void _showSnack(String message,
       {bool isError = false, bool isLoading = false}) {
@@ -140,20 +140,20 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         duration:
-        isLoading ? const Duration(seconds: 1) : const Duration(seconds: 3),
+            isLoading ? const Duration(seconds: 1) : const Duration(seconds: 3),
         backgroundColor: isError
             ? Colors.redAccent
             : isLoading
-            ? Colors.blueAccent
-            : primaryColor,
+                ? Colors.blueAccent
+                : primaryColor,
         content: Row(
           children: [
             if (isLoading)
               const SizedBox(
                 width: 20,
                 height: 20,
-                child:
-                CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2),
               ),
             if (isLoading) const SizedBox(width: 12),
             Expanded(
@@ -196,7 +196,7 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
               decoration: InputDecoration(
                 labelText: label,
                 labelStyle:
-                GoogleFonts.poppins(color: Colors.grey[600], fontSize: 14),
+                    GoogleFonts.poppins(color: Colors.grey[600], fontSize: 14),
                 border: InputBorder.none,
               ),
             ),
@@ -241,7 +241,7 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
 
   Widget _buildPilotAvatar({double size = 80}) {
     final imagePath = widget.pilot['certifications'] != null &&
-        widget.pilot['certifications'].isNotEmpty
+            widget.pilot['certifications'].isNotEmpty
         ? widget.pilot['certifications'][0]['url']
         : null;
 
@@ -298,10 +298,10 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
       radius: avatarSize / 2,
       backgroundColor: primaryColor,
       child: Text(initials,
-          style: GoogleFonts.poppins(color: Colors.white, fontSize: avatarSize / 3)),
+          style: GoogleFonts.poppins(
+              color: Colors.white, fontSize: avatarSize / 3)),
     );
   }
-
 
   // ----------------------- BUILD UI ------------------------
   @override
@@ -322,7 +322,7 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
               Container(
                 width: double.infinity,
                 padding:
-                const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [primaryColor, accentColor],
@@ -450,45 +450,54 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
                       onTap: _pickDate,
                     ),
                     const SizedBox(height: 16),
-
                     _buildTile(
                       title: "Select Start Time",
-                      value: startTime != null
-                          ? startTime!.format(context)
-                          : null,
+                      value:
+                          startTime != null ? startTime!.format(context) : null,
                       icon: Icons.access_time,
                       onTap: _pickStartTime,
                     ),
                     const SizedBox(height: 16),
-
                     _buildTile(
                       title: "Select End Time",
-                      value: endTime != null
-                          ? endTime!.format(context)
-                          : null,
+                      value: endTime != null ? endTime!.format(context) : null,
                       icon: Icons.access_time_outlined,
                       onTap: _pickEndTime,
                     ),
                     const SizedBox(height: 16),
-
                     _buildTextField(
                       label: "Enter Location",
                       icon: Icons.location_on,
                       controller: locationController,
                       validator: (v) =>
-                      v == null || v.isEmpty ? "Enter location" : null,
+                          v == null || v.isEmpty ? "Enter location" : null,
                     ),
-
                     _buildTextField(
                       label: "Contact Number",
                       icon: Icons.phone,
                       controller: contactController,
                       type: TextInputType.phone,
                       validator: (v) {
-                        if (v == null || v.isEmpty) return "Enter contact";
-                        if (!RegExp(r'^\d{10}$').hasMatch(v)) {
-                          return "Enter valid 10-digit number";
+                        if (v == null || v.isEmpty) {
+                          return "Enter your contact number";
                         }
+
+                        // Remove all non-digit characters (spaces, dashes, plus sign, etc.)
+                        String digitsOnly = v.replaceAll(RegExp(r'[^\d]'), '');
+
+                        // Check if it's a valid Indian mobile number
+                        // Indian mobile numbers: 6,7,8,9 followed by 9 digits (total 10 digits)
+                        if (digitsOnly.length != 10) {
+                          return "Mobile number must be 10 digits";
+                        }
+
+                        // Check if the first digit is valid (6,7,8,9)
+                        String firstDigit = digitsOnly.substring(0, 1);
+                        if (!RegExp(r'[6-9]').hasMatch(firstDigit)) {
+                          return "Enter a valid Indian mobile number";
+                        }
+
+                        // All validations passed
                         return null;
                       },
                     ),
@@ -512,15 +521,15 @@ class _PilotBookNowPageState extends State<PilotBookNowPage> {
                   ),
                   child: isLoading
                       ? const CircularProgressIndicator(
-                      color: Colors.white, strokeWidth: 2)
+                          color: Colors.white, strokeWidth: 2)
                       : Text(
-                    "Book Now",
-                    style: GoogleFonts.poppins(
-                      fontSize: 17,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                          "Book Now",
+                          style: GoogleFonts.poppins(
+                            fontSize: 17,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ),
               ),
             ],

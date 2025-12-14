@@ -1,23 +1,29 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:flyhub/Login/FlyHubSelectionPage.dart';
 // Settings Pages
 import 'package:flyhub/T&C/Help_Support_Page.dart';
 import 'package:flyhub/T&C/PrivacyPolicy.dart';
 import 'package:flyhub/T&C/Terms_Conditions.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-// Add Product Pages
-import '../../SellerAddingForm/AddDrone.dart';
-import '../../SellerBookingStatuses/Approval_Products_Page.dart';
 import '../../HomeScreen/Bottoms/BuyerProfilePage.dart';
 import '../../Login/SellerLoginPage.dart';
 import '../../Login/splashscreen.dart';
+import '../../Return_Product_Page.dart';
+// Add Product Pages
+import '../../SellerAddingForm/AddDrone.dart';
+import '../../SellerAddingForm/add_accessories_form.dart';
+import '../../SellerAddingForm/add_drone_rental_form.dart';
+import '../../SellerAddingForm/add_hire_pilots_form.dart';
+import '../../SellerAddingForm/add_job_form.dart';
+import '../../SellerAddingForm/add_service_form.dart';
+import '../../SellerAddingForm/add_spare_parts.dart';
+import '../../SellerBookingStatuses/Approval_Products_Page.dart';
 import '../../SellerBookingStatuses/Pending_Products_Page.dart';
 import '../../SellerBookingStatuses/Rejected_Products_Page.dart';
-import '../../Return_Product_Page.dart';
 // Rental pages
 import '../../SellerBookingStatuses/Seller_Drone_Rental_Page.dart';
 import '../../SellerBookingStatuses/Seller_Pilot_Rental_Page.dart';
@@ -25,16 +31,11 @@ import '../../SellerBookingStatuses/Seller_Pilot_Rental_Page.dart';
 import '../../SellerBookingStatuses/Seller_Return_Policy.dart';
 import '../../SellerBookingStatuses/Seller_Shipping_Policy.dart';
 import '../../SellerBookingStatuses/ServiceBookingStatus.dart';
-import '../../Sold_Product_Page.dart';
-import '../../SellerAddingForm/add_accessories_form.dart';
-import '../../SellerAddingForm/add_drone_rental_form.dart';
-import '../../SellerAddingForm/add_hire_pilots_form.dart';
-import '../../SellerAddingForm/add_job_form.dart';
-import '../../SellerAddingForm/add_service_form.dart';
-import '../../SellerAddingForm/add_spare_parts.dart';
-import '../../config/env.dart';
-import '../../T&C/feedback_form.dart';
 import '../../SellerBookingStatuses/jobApplyStatus.dart';
+import '../../Sold_Product_Page.dart';
+import '../../T&C/Seller_settings.dart';
+import '../../T&C/feedback_form.dart';
+import '../../config/env.dart';
 import '../../services/logout_service.dart';
 import '../../services/role_manager.dart';
 
@@ -121,7 +122,8 @@ class _SellerPageState extends State<SellerPage> {
   }
 
   // Social Icon Widget - Same as buyer page
-  Widget _buildSocialIcon(String iconPath, {required VoidCallback onTap, String? tooltip}) {
+  Widget _buildSocialIcon(String iconPath,
+      {required VoidCallback onTap, String? tooltip}) {
     return GestureDetector(
       onTap: onTap,
       child: Tooltip(
@@ -163,9 +165,8 @@ class _SellerPageState extends State<SellerPage> {
       assetPath,
       width: size,
       height: size,
-      colorFilter: color != null
-          ? ColorFilter.mode(color, BlendMode.srcIn)
-          : null,
+      colorFilter:
+          color != null ? ColorFilter.mode(color, BlendMode.srcIn) : null,
       placeholderBuilder: (context) => Container(
         width: size,
         height: size,
@@ -178,8 +179,8 @@ class _SellerPageState extends State<SellerPage> {
     );
   }
 
-  // Method to get SVG asset path for each item
-  String _getSvgAssetPath(String label) {
+  // Method to get SVG asset path for My Store section
+  String _getStoreSvgAssetPath(String label) {
     switch (label.toLowerCase()) {
       case 'add drone':
         return 'assets/categories/drone1.svg';
@@ -191,12 +192,28 @@ class _SellerPageState extends State<SellerPage> {
         return 'assets/categories/rentals.svg';
       case 'services':
         return 'assets/categories/services.svg';
-      case 'jobs/gigs':
+      case 'jobs':
         return 'assets/categories/employee.svg';
       case 'hire pilot':
         return 'assets/categories/pilots.svg';
       default:
         return 'assets/icons/default.svg';
+    }
+  }
+
+  // Method to get SVG asset path for Rental & Services section
+  String _getRentalServiceSvgAssetPath(String title) {
+    switch (title.toLowerCase()) {
+      case 'rental drones':
+        return 'assets/categories/drone1.svg';
+      case 'pilot rental':
+        return 'assets/categories/pilots.svg';
+      case 'job apply status':
+        return 'assets/categories/employee.svg';
+      case 'service booking status':
+        return 'assets/categories/services.svg';
+      default:
+        return 'assets/categories/default.svg';
     }
   }
 
@@ -795,7 +812,7 @@ class _SellerPageState extends State<SellerPage> {
               if (!_isApproved)
                 Container(
                   padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: warningColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
@@ -905,9 +922,11 @@ class _SellerPageState extends State<SellerPage> {
     );
   }
 
+  // Updated _buildMenuItem to support SVG icons
   Widget _buildMenuItem({
     required String title,
-    required IconData icon,
+    String? svgAsset,
+    IconData? icon,
     required VoidCallback onTap,
     Color? iconColor,
     bool disabled = false,
@@ -938,10 +957,22 @@ class _SellerPageState extends State<SellerPage> {
                     color: (iconColor ?? themeColor).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(
-                    icon,
-                    color: disabled ? textLight : (iconColor ?? themeColor),
-                    size: 18,
+                  child: Center(
+                    child: svgAsset != null
+                        ? _buildSvgIcon(
+                            svgAsset,
+                            color: disabled
+                                ? textLight
+                                : (iconColor ?? themeColor),
+                            size: 20,
+                          )
+                        : Icon(
+                            icon,
+                            color: disabled
+                                ? textLight
+                                : (iconColor ?? themeColor),
+                            size: 18,
+                          ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1047,7 +1078,7 @@ class _SellerPageState extends State<SellerPage> {
                 const SizedBox(height: 12),
                 Text(
                   "After verifying your details, we will send your ID and email. "
-                      "My Store and Product Status sections will be enabled once approved.",
+                  "My Store and Product Status sections will be enabled once approved.",
                   style: TextStyle(
                     fontSize: 14,
                     color: textSecondary,
@@ -1086,7 +1117,7 @@ class _SellerPageState extends State<SellerPage> {
 
     final storeItems = [
       {
-        'svgAsset': _getSvgAssetPath('Add Drone'),
+        'svgAsset': _getStoreSvgAssetPath('Add Drone'),
         'label': 'Add Drone',
         'color': Colors.blue,
         'disabled': !_isApproved,
@@ -1104,7 +1135,7 @@ class _SellerPageState extends State<SellerPage> {
         },
       },
       {
-        'svgAsset': _getSvgAssetPath('Spare Parts'),
+        'svgAsset': _getStoreSvgAssetPath('Spare Parts'),
         'label': 'Spare Parts',
         'color': Colors.green,
         'disabled': !_isApproved,
@@ -1122,7 +1153,7 @@ class _SellerPageState extends State<SellerPage> {
         },
       },
       {
-        'svgAsset': _getSvgAssetPath('Accessories'),
+        'svgAsset': _getStoreSvgAssetPath('Accessories'),
         'label': 'Accessories',
         'color': Colors.orange,
         'disabled': !_isApproved,
@@ -1140,7 +1171,7 @@ class _SellerPageState extends State<SellerPage> {
         },
       },
       {
-        'svgAsset': _getSvgAssetPath('Rental Drone'),
+        'svgAsset': _getStoreSvgAssetPath('Rental Drone'),
         'label': 'Rental Drone',
         'color': Colors.purple,
         'disabled': !_isApproved,
@@ -1158,7 +1189,7 @@ class _SellerPageState extends State<SellerPage> {
         },
       },
       {
-        'svgAsset': _getSvgAssetPath('Services'),
+        'svgAsset': _getStoreSvgAssetPath('Services'),
         'label': 'Services',
         'color': Colors.teal,
         'disabled': !_isApproved,
@@ -1176,8 +1207,8 @@ class _SellerPageState extends State<SellerPage> {
         },
       },
       {
-        'svgAsset': _getSvgAssetPath('Jobs/Gigs'),
-        'label': 'Jobs/Gigs',
+        'svgAsset': _getStoreSvgAssetPath('Jobs'),
+        'label': 'Jobs',
         'color': Colors.red,
         'disabled': !_isApproved,
         'onTap': () {
@@ -1194,7 +1225,7 @@ class _SellerPageState extends State<SellerPage> {
         },
       },
       {
-        'svgAsset': _getSvgAssetPath('Hire Pilot'),
+        'svgAsset': _getStoreSvgAssetPath('Hire Pilot'),
         'label': 'Hire Pilot',
         'color': Colors.indigo,
         'disabled': !_isApproved,
@@ -1227,25 +1258,6 @@ class _SellerPageState extends State<SellerPage> {
         backgroundColor: cardColor,
         elevation: 0,
         centerTitle: false,
-        actions: [
-          IconButton(
-            onPressed: _switchToBuyer,
-            icon: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: themeColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                Icons.swap_horiz,
-                color: themeColor,
-                size: 20,
-              ),
-            ),
-            tooltip: "Switch to Buyer",
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -1291,22 +1303,43 @@ class _SellerPageState extends State<SellerPage> {
             const SizedBox(height: 4),
             ..._buildProductStatusItems(),
 
-            // Rental & Services Section
+            // Rental & Services Section (Now with SVG icons)
             const SizedBox(height: 16),
-            _buildSectionHeader("Rental & Services", Icons.work_outline),
+            _buildSectionHeader("Rental & Services", Icons.handshake),
             const SizedBox(height: 4),
             ..._buildRentalServicesItems(),
 
             // Legal & Support Section
             const SizedBox(height: 16),
-            _buildSectionHeader("Legal & Support", Icons.gavel),
+            _buildSectionHeader("Support", Icons.support_agent),
             const SizedBox(height: 4),
             ..._buildLegalSupportItems(),
 
-            // Account Settings Section
+            // Account Section
             const SizedBox(height: 16),
-            _buildSectionHeader("Account Settings", Icons.settings),
+            _buildSectionHeader("Account", Icons.person_outline),
             const SizedBox(height: 4),
+
+            // Settings Menu Item
+            _buildMenuItem(
+              title: "Settings",
+              icon: Icons.settings,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => SellerSettingsPage(
+                      user: _user,
+                      sellerData: _sellerData,
+                      sellerId: _sellerId,
+                    ),
+                  ),
+                );
+              },
+              iconColor: themeColor,
+            ),
+
+            // Logout Menu Item
             _buildLogoutItem(),
 
             // Follow Us Footer with Version info inside the same container
@@ -1408,10 +1441,18 @@ class _SellerPageState extends State<SellerPage> {
       _buildMenuItem(
         title: "Sold Products",
         icon: Icons.check_circle_outline,
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const SoldProductsPage()),
-        ),
+        onTap: () {
+          if (_sellerId == null) {
+            _showMissingSellerSnack();
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SoldProductsPage(sellerCustomId: _sellerId!),
+            ),
+          );
+        },
         disabled: !_isApproved,
         iconColor: themeColor,
       ),
@@ -1474,7 +1515,8 @@ class _SellerPageState extends State<SellerPage> {
         icon: Icons.keyboard_return_outlined,
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const ReturnedProductsPage()),
+          MaterialPageRoute(
+              builder: (_) => ReturnedProductsPage(sellerCustomId: _sellerId!)),
         ),
         disabled: !_isApproved,
         iconColor: themeColor,
@@ -1486,17 +1528,17 @@ class _SellerPageState extends State<SellerPage> {
     return [
       _buildMenuItem(
         title: "Rental Drones",
-        icon: Icons.air_outlined,
+        svgAsset: _getRentalServiceSvgAssetPath('Rental Drones'),
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const SellerDroneRentalPage()),
         ),
         disabled: !_isApproved,
-        iconColor: themeColor,
+        iconColor: Color(0xFF3B82F6), // Blue
       ),
       _buildMenuItem(
         title: "Pilot Rental",
-        icon: Icons.person_pin_circle_rounded,
+        svgAsset: _getRentalServiceSvgAssetPath('Pilot Rental'),
         onTap: () {
           if (_sellerId == null) {
             _showMissingSellerSnack();
@@ -1505,27 +1547,28 @@ class _SellerPageState extends State<SellerPage> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => SellerPilotBookingStatusPage(sellerId: _sellerId!),
+              builder: (_) =>
+                  SellerPilotBookingStatusPage(sellerId: _sellerId!),
             ),
           );
         },
         disabled: !_isApproved,
-        iconColor: themeColor,
+        iconColor: Color(0xFF8B5CF6), // Purple
       ),
       _buildMenuItem(
         title: "Job Apply Status",
-        icon: Icons.work_history,
+        svgAsset: _getRentalServiceSvgAssetPath('Job Apply Status'),
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
               builder: (_) => JobApplyStatusPage(sellerId: _sellerId!)),
         ),
         disabled: !_isApproved,
-        iconColor: themeColor,
+        iconColor: Color(0xFF10B981), // Green
       ),
       _buildMenuItem(
         title: "Service Booking Status",
-        icon: Icons.work_history,
+        svgAsset: _getRentalServiceSvgAssetPath('Service Booking Status'),
         onTap: () {
           if (_sellerId == null) {
             _showMissingSellerSnack();
@@ -1539,7 +1582,7 @@ class _SellerPageState extends State<SellerPage> {
           );
         },
         disabled: !_isApproved,
-        iconColor: themeColor,
+        iconColor: Color(0xFFF59E0B), // Amber
       ),
     ];
   }

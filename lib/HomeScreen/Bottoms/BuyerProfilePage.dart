@@ -1,27 +1,28 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:flyhub/T&C/Help_Support_Page.dart';
 import 'package:flyhub/T&C/PrivacyPolicy.dart';
 import 'package:flyhub/T&C/Terms_Conditions.dart';
 import 'package:flyhub/T&C/feedback_form.dart';
-import '../../BuyerBookingStatuses/Buyer_Shipping_Policy.dart';
-import '../../HomeScreen/Dynamichome.dart';
-import '../../HomeScreen/Bottoms/SellerPage.dart';
-import '../../HomeScreen/Bottoms/GuestProfilePage.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../BuyerBookingStatuses/BuyerJobApplyStatus.dart';
+import '../../BuyerBookingStatuses/BuyerServiceBookingStatus.dart';
 import '../../BuyerBookingStatuses/Buyer_Return_Refund_Policy.dart';
-import '../../services/role_manager.dart';
-import '../../BuyerDetails/WishlistPage.dart';
-import '../../BuyerDetails/MyCartPage.dart';
-import '../../orders/MyOrderPage.dart';
-import '../../Login/SellerLoginPage.dart';
+import '../../BuyerBookingStatuses/Buyer_Shipping_Policy.dart';
 import '../../BuyerBookingStatuses/DroneRentalConfirmation.dart';
 import '../../BuyerBookingStatuses/Pilot_Booking_Status.dart';
-import '../../BuyerBookingStatuses/BuyerServiceBookingStatus.dart';
-import '../../BuyerBookingStatuses/BuyerJobApplyStatus.dart';
+import '../../BuyerDetails/MyCartPage.dart';
+import '../../BuyerDetails/WishlistPage.dart';
+import '../../HomeScreen/Bottoms/GuestProfilePage.dart';
+import '../../HomeScreen/Bottoms/SellerPage.dart';
+import '../../HomeScreen/Dynamichome.dart';
+import '../../Login/SellerLoginPage.dart';
+import '../../orders/MyOrderPage.dart';
+import '../../services/role_manager.dart';
 
 class BuyerProfilePage extends StatefulWidget {
   const BuyerProfilePage({super.key});
@@ -150,7 +151,7 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                 MaterialPageRoute(
                   builder: (_) => const Dynamichome(selectedIndex: 0),
                 ),
-                    (route) => false,
+                (route) => false,
               );
             },
             child: const Text(
@@ -337,7 +338,8 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
           ),
         ),
         ...children,
-        if (showDivider) const Divider(height: 0, thickness: 1, color: Color(0xFFF0F0F0)),
+        if (showDivider)
+          const Divider(height: 0, thickness: 1, color: Color(0xFFF0F0F0)),
       ],
     );
   }
@@ -423,7 +425,8 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
   }
 
   // Social Icon Widget
-  Widget _buildSocialIcon(String iconPath, {required VoidCallback onTap, String? tooltip}) {
+  Widget _buildSocialIcon(String iconPath,
+      {required VoidCallback onTap, String? tooltip}) {
     return GestureDetector(
       onTap: onTap,
       child: Tooltip(
@@ -519,7 +522,8 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                 // Quick Actions
                 Container(
                   color: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -538,7 +542,8 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                         color: Colors.pink,
                         onTap: () => Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const WishlistPage()),
+                          MaterialPageRoute(
+                              builder: (_) => const WishlistPage()),
                         ),
                       ),
                       _buildActionButton(
@@ -571,7 +576,8 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => DroneRentalApprovalPage(buyerId: buyerId),
+                            builder: (_) =>
+                                DroneRentalApprovalPage(buyerId: buyerId),
                           ),
                         );
                       },
@@ -584,7 +590,8 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => BuyerJobApplyStatusPage(buyerId: buyerId),
+                            builder: (_) =>
+                                BuyerJobApplyStatusPage(buyerId: buyerId),
                           ),
                         );
                       },
@@ -597,7 +604,8 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => PilotBookingStatusPage(buyerId: buyerId),
+                            builder: (_) =>
+                                PilotBookingStatusPage(buyerId: buyerId),
                           ),
                         );
                       },
@@ -605,10 +613,16 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                     _buildListItem(
                       icon: Icons.handyman_outlined,
                       title: "Service Bookings",
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const BuyerServiceBookingStatusPage(buyerId: '',)),
-                      ),
+                      onTap: () {
+                        final buyerId = _buyerData?['buyerId'] ?? '';
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                BuyerServiceBookingStatusPage(buyerId: buyerId),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -622,7 +636,8 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                       title: "Become a Seller",
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const SellerLoginPage()),
+                        MaterialPageRoute(
+                            builder: (_) => const SellerLoginPage()),
                       ),
                     ),
                   ],
@@ -637,7 +652,8 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                       title: "Help & Support",
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const HelpAndSupportPage()),
+                        MaterialPageRoute(
+                            builder: (_) => const HelpAndSupportPage()),
                       ),
                     ),
                     _buildListItem(
@@ -645,7 +661,8 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                       title: "Send Feedback",
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const FeedbackFormPage()),
+                        MaterialPageRoute(
+                            builder: (_) => const FeedbackFormPage()),
                       ),
                     ),
                   ],
@@ -660,7 +677,8 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                       title: "Terms & Conditions",
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const TermsAndConditionsPage()),
+                        MaterialPageRoute(
+                            builder: (_) => const TermsAndConditionsPage()),
                       ),
                     ),
                     _buildListItem(
@@ -668,7 +686,8 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                       title: "Privacy Policy",
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()),
+                        MaterialPageRoute(
+                            builder: (_) => const PrivacyPolicyPage()),
                       ),
                     ),
                     _buildListItem(
@@ -676,7 +695,8 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                       title: "Shipping Policy",
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const BuyerShippingPolicyPage()),
+                        MaterialPageRoute(
+                            builder: (_) => const BuyerShippingPolicyPage()),
                       ),
                     ),
                     _buildListItem(
@@ -706,7 +726,8 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                 // Follow Us Footer
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
                   decoration: BoxDecoration(
                     color: primaryColor.withOpacity(0.05),
                     borderRadius: const BorderRadius.only(
@@ -777,7 +798,8 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
 
                 // Version and Copyright
                 Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                   color: primaryColor.withOpacity(0.05),
                   child: Column(
                     children: [
@@ -789,7 +811,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                         ),
                       ),
                       const SizedBox(height: 4),
-
                     ],
                   ),
                 ),

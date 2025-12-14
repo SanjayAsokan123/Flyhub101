@@ -1,14 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:io';
-import 'package:firebase_storage/firebase_storage.dart';
+
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flyhub/config/env.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:developer' as developer;
+
 import '../services/graphql_client.dart';
 
 /// ✅ Unified API Result for all network operations
@@ -38,8 +40,6 @@ class ApiResponse {
     this.data,
   });
 
-
-
   @override
   String toString() {
     return 'ApiResponse(success: $success, message: $message, data: $data)';
@@ -53,7 +53,8 @@ class ApiClass {
   // ============================================================
   // ☁ Firebase File Upload via Backend REST API
   // ============================================================
-  Future<String?> uploadToFirebaseStorage(File file, String folder, {String? fileName}) async {
+  Future<String?> uploadToFirebaseStorage(File file, String folder,
+      {String? fileName}) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception("User not authenticated");
@@ -74,12 +75,9 @@ class ApiClass {
     }
   }
 
-
-
   // ============================================================
   // 🛍 MARKETPLACE: DRONES / PARTS / ACCESSORIES
   // ============================================================
-
 
   Future<ApiResult> getDrones() async {
     const String query = r'''
@@ -97,7 +95,6 @@ class ApiClass {
     ''';
     return _runQuery("getDrones", query, "drones");
   }
-
 
   Future<ApiResult> getDronesPaginated({
     required int page,
@@ -131,8 +128,6 @@ class ApiClass {
     );
   }
 
-
-
   Future<ApiResult> getPartsPaginated({
     required int page,
     required int limit,
@@ -160,7 +155,8 @@ class ApiClass {
       "getPartsPaginated",
       query,
       "approvedPartPaginated",
-      variables: {"page": page, "limit": limit},);
+      variables: {"page": page, "limit": limit},
+    );
   }
 
   Future<ApiResult> getAccessoriesPaginated({
@@ -190,7 +186,8 @@ class ApiClass {
       "getAccessoriesPaginated",
       query,
       "approvedAccessoriesPaginated",
-      variables: {"page": page, "limit": limit},);
+      variables: {"page": page, "limit": limit},
+    );
   }
 
   // ============================================================
@@ -283,7 +280,6 @@ class ApiClass {
     );
   }
 
-
   // --------------------------------------------------------------
   // Final Add Hire Pilot (GraphQL Mutation)
   // --------------------------------------------------------------
@@ -353,6 +349,7 @@ class ApiClass {
       return ApiResult.error(e.toString());
     }
   }
+
   Future<Map<String, dynamic>> bookPilot({
     required String pilotId,
     required String buyerId,
@@ -393,10 +390,7 @@ class ApiClass {
       }
     };
 
-    final body = jsonEncode({
-      "query": mutation,
-      "variables": variables
-    });
+    final body = jsonEncode({"query": mutation, "variables": variables});
 
     try {
       final res = await http.post(
@@ -408,10 +402,7 @@ class ApiClass {
       final json = jsonDecode(res.body);
 
       if (json["errors"] != null) {
-        return {
-          "status": "error",
-          "message": json["errors"][0]["message"]
-        };
+        return {"status": "error", "message": json["errors"][0]["message"]};
       }
 
       return {"status": "success", "data": json["data"]["bookPilot"]};
@@ -419,8 +410,6 @@ class ApiClass {
       return {"status": "error", "message": e.toString()};
     }
   }
-
-
 
   // ============================================================
   // 💼 JOBS
@@ -588,12 +577,11 @@ class ApiClass {
     return _runQuery("getRentals", query, "rentals");
   }
 
-
   Future<Map<String, dynamic>> getRentalsPaginated({
     required int page,
     required int limit,
   }) async {
-    final client = await GraphQLService.initClient();   // ⭐ FIX
+    final client = await GraphQLService.initClient(); // ⭐ FIX
 
     final QueryOptions options = QueryOptions(
       document: gql(approvedRentalsPaginatedQuery),
@@ -611,7 +599,6 @@ class ApiClass {
 
     return result.data!["approvedRentalsPaginated"];
   }
-
 
   static const String approvedRentalsPaginatedQuery = """
 query ApprovedRentalsPaginated(\$page: Int!, \$limit: Int!) {
@@ -639,24 +626,28 @@ query ApprovedRentalsPaginated(\$page: Int!, \$limit: Int!) {
 
   Future<ApiResult> enrollTraining(Map<String, dynamic> data) async {
     const String mutation = r'''
-      mutation EnrollTraining($input: TrainingEnrollInput!) {
-        enrollTraining(input: $input) {
-          id
-          name
-          email
-          phone
-          address
-          status
-        }
+    mutation EnrollTraining($input: TrainingEnrollInput!) {
+      enrollTraining(input: $input) {
+        id
+        name
+        email
+        phone
+        address
+        status
       }
-    ''';
+    }
+  ''';
 
     try {
       final client = await GraphQLService.initClient();
-      final result = await client.mutate(MutationOptions(
-        document: gql(mutation),
-        variables: {"input": data},
-      ));
+      final result = await client
+          .mutate(
+            MutationOptions(
+              document: gql(mutation),
+              variables: {"input": data},
+            ),
+          )
+          .timeout(const Duration(seconds: 30)); // Match the client timeout
 
       if (result.hasException) {
         debugPrint("❌ [EnrollTraining] ${result.exception}");
@@ -664,7 +655,10 @@ query ApprovedRentalsPaginated(\$page: Int!, \$limit: Int!) {
       }
 
       return ApiResult.success(result.data?['enrollTraining']);
-    } catch (e) {
+    } on TimeoutException {
+      return ApiResult.error(
+          "Request timed out. Please check your internet connection and try again.");
+    } on Exception catch (e) {
       debugPrint("⚠ [EnrollTraining] Exception: $e");
       return ApiResult.error(e.toString());
     }
@@ -708,7 +702,6 @@ query ApprovedRentalsPaginated(\$page: Int!, \$limit: Int!) {
         variables: {"id": id});
   }
 
-
   Future<ApiResult> getApprovedHirePilotsPaginated({
     required int page,
     required int limit,
@@ -746,22 +739,19 @@ query ApprovedRentalsPaginated(\$page: Int!, \$limit: Int!) {
   ''';
 
     return _runQuery(
-        "getApprovedHirePilotsPaginated",
-        query,
-        "approvedHirePilotsPaginated",
-        variables: {"page": page, "limit": limit}
-        );
-    }
+        "getApprovedHirePilotsPaginated", query, "approvedHirePilotsPaginated",
+        variables: {"page": page, "limit": limit});
+  }
 
   // ============================================================
   // 🧠 Helper for Queries
   // ============================================================
   Future<ApiResult> _runQuery(
-      String tag,
-      String query,
-      String field, {
-        Map<String, dynamic>? variables,
-      }) async {
+    String tag,
+    String query,
+    String field, {
+    Map<String, dynamic>? variables,
+  }) async {
     try {
       final client = await GraphQLService.initClient();
       final result = await client.query(
@@ -784,5 +774,4 @@ query ApprovedRentalsPaginated(\$page: Int!, \$limit: Int!) {
       return ApiResult.error(e.toString());
     }
   }
-
 }

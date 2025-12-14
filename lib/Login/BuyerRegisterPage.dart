@@ -1,18 +1,20 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart'; // Add this import
+import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../HomeScreen/Dynamichome.dart';
-import '../services/role_manager.dart';
+// Add import for your Terms & Conditions page
+import '../T&C/Buyer_t&c.dart'; // Adjust path as needed
 import '../config/env.dart';
+import '../services/role_manager.dart';
 
 class BuyerRegisterPage extends StatefulWidget {
-  const BuyerRegisterPage({super.key,this.logoPath});
-
+  const BuyerRegisterPage({super.key, this.logoPath});
 
   final String? logoPath;
 
@@ -48,23 +50,18 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
   String _selectedCountryFlag = "🇮🇳";
 
   // ---------------- SOCIAL MEDIA URLs ----------------
-  // Replace these with your actual URLs
   final Map<String, Map<String, String>> _socialMediaData = {
     'instagram': {
       'url': 'https://www.instagram.com/flyhub_info?igsh=OWM2a3E2Ym81bzRs',
-
     },
     'linkedin': {
       'url': 'https://www.linkedin.com/company/flyhubinfo',
-
     },
     'facebook': {
-      'url': 'https://www.facebook.com/share/1A8fBiqxmt/', // Replace with actual
-
+      'url': 'https://www.facebook.com/share/1A8fBiqxmt/',
     },
     'whatsapp': {
-      'url': 'https://wa.me/+919003992693', // Replace with actual number
-
+      'url': 'https://wa.me/+919003992693',
     },
   };
 
@@ -120,12 +117,18 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
 
   int _getExpectedPhoneLength(String countryCode) {
     switch (countryCode) {
-      case '+1': return 10;
-      case '+91': return 10;
-      case '+44': return 10;
-      case '+61': return 9;
-      case '+971': return 9;
-      default: return 8;
+      case '+1':
+        return 10;
+      case '+91':
+        return 10;
+      case '+44':
+        return 10;
+      case '+61':
+        return 9;
+      case '+971':
+        return 9;
+      default:
+        return 8;
     }
   }
 
@@ -224,7 +227,10 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
       final uid = phoneUser.uid;
 
       // 3️⃣ Save phone → uid mapping
-      await _firestore.collection("BuyerOtp").doc("phone${_phone.text.trim()}").set({
+      await _firestore
+          .collection("BuyerOtp")
+          .doc("phone${_phone.text.trim()}")
+          .set({
         'uid': uid,
         'phone': "$_selectedCountryCode${_phone.text.trim()}",
         'createdAt': FieldValue.serverTimestamp(),
@@ -270,7 +276,6 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
       );
 
       showMessage("Registration successful! 🎉", success: true);
-
     } catch (e) {
       showMessage(e.toString(), error: true);
     } finally {
@@ -375,13 +380,19 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
       SnackBar(
         content: Row(
           children: [
-            if (success) const Icon(Icons.check_circle, color: Colors.white, size: 20),
-            if (error) const Icon(Icons.error_outline, color: Colors.white, size: 20),
+            if (success)
+              const Icon(Icons.check_circle, color: Colors.white, size: 20),
+            if (error)
+              const Icon(Icons.error_outline, color: Colors.white, size: 20),
             const SizedBox(width: 8),
             Expanded(child: Text(msg)),
           ],
         ),
-        backgroundColor: success ? successColor : error ? errorColor : themeColor,
+        backgroundColor: success
+            ? successColor
+            : error
+                ? errorColor
+                : themeColor,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
@@ -553,21 +564,21 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
                                 ),
                                 child: _loading
                                     ? const SizedBox(
-                                  height: 22,
-                                  width: 22,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                    color: Colors.white,
-                                  ),
-                                )
+                                        height: 22,
+                                        width: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          color: Colors.white,
+                                        ),
+                                      )
                                     : Text(
-                                  "Create Account",
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
+                                        "Create Account",
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
                               ),
                             ),
                           ],
@@ -610,7 +621,8 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
                 // ---------------- SOCIAL MEDIA FOOTER ----------------
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 25, horizontal: 20),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 25, horizontal: 20),
                   decoration: BoxDecoration(
                     color: themeColor.withOpacity(0.05),
                     borderRadius: const BorderRadius.only(
@@ -664,7 +676,6 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
 
                       const SizedBox(height: 16),
 
-
                       const SizedBox(height: 8),
 
                       // Overlay Text on Footer
@@ -708,7 +719,8 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: themeColor, width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       ),
       validator: (v) => v == null || v.isEmpty ? "Enter first name" : null,
     );
@@ -734,7 +746,8 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: themeColor, width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       ),
       validator: (v) => v == null || v.isEmpty ? "Enter last name" : null,
     );
@@ -761,7 +774,8 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: themeColor, width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       ),
       validator: (v) {
         if (v == null || v.isEmpty) return "Enter email address";
@@ -802,7 +816,8 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: themeColor, width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       ),
       validator: (v) {
         if (v == null || v.isEmpty) return "Enter password";
@@ -847,7 +862,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
                   onChanged: (String? newValue) {
                     if (newValue != null) {
                       final selectedCountry = _countryCodes.firstWhere(
-                            (country) => country["code"] == newValue,
+                        (country) => country["code"] == newValue,
                       );
                       setState(() {
                         _selectedCountryCode = newValue;
@@ -893,7 +908,8 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: InputDecoration(
                   hintText: "Phone number",
-                  hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 15),
+                  hintStyle:
+                      TextStyle(color: Colors.grey.shade500, fontSize: 15),
                   border: const OutlineInputBorder(
                     borderRadius: BorderRadius.only(
                       topRight: Radius.circular(12),
@@ -915,14 +931,14 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
                     ),
                     borderSide: BorderSide(color: themeColor, width: 1.5),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-                  suffixIcon: !_otpSent
-                      ? _otpSendButton()
-                      : _otpVerifyButton(),
+                  contentPadding:
+                      const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                  suffixIcon: !_otpSent ? _otpSendButton() : _otpVerifyButton(),
                 ),
                 validator: (v) {
                   if (v == null || v.isEmpty) return "Enter phone number";
-                  final expectedLength = _getExpectedPhoneLength(_selectedCountryCode);
+                  final expectedLength =
+                      _getExpectedPhoneLength(_selectedCountryCode);
                   if (v.length < expectedLength) {
                     return "Enter valid phone number";
                   }
@@ -948,21 +964,21 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
         ),
         child: _sendingOtp
             ? SizedBox(
-          height: 16,
-          width: 16,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: Colors.white,
-          ),
-        )
+                height: 16,
+                width: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
             : Text(
-          "Send OTP",
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+                "Send OTP",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
       ),
     );
   }
@@ -980,13 +996,13 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
         child: _otpVerified
             ? const Icon(Icons.check, size: 20, color: Colors.white)
             : Text(
-          "Verify",
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+                "Verify",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
       ),
     );
   }
@@ -1031,7 +1047,8 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
                 borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(color: themeColor, width: 1.5),
               ),
-              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+              contentPadding:
+                  const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
             ),
           ),
           const SizedBox(height: 8),
@@ -1076,13 +1093,20 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
                       const TextSpan(text: "I agree to the "),
                       WidgetSpan(
                         child: GestureDetector(
-                          onTap: () {
-                            // You can add Terms of Service URL here
-                            final uri = Uri.parse('https://yourwebsite.com/terms');
-                            launchUrl(uri, mode: LaunchMode.externalApplication);
+                          onTap: () async {
+                            final accepted = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const BuyerTermsAndConditions(),
+                              ),
+                            );
+                            if (accepted == true) {
+                              setState(() => _agreeToTerms = true);
+                            }
                           },
                           child: Text(
-                            "Terms of Service",
+                            "Terms of Service & ",
                             style: TextStyle(
                               color: themeColor,
                               fontWeight: FontWeight.w600,
@@ -1091,13 +1115,19 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
                           ),
                         ),
                       ),
-                      const TextSpan(text: " and "),
                       WidgetSpan(
                         child: GestureDetector(
-                          onTap: () {
-                            // You can add Privacy Policy URL here
-                            final uri = Uri.parse('https://yourwebsite.com/privacy');
-                            launchUrl(uri, mode: LaunchMode.externalApplication);
+                          onTap: () async {
+                            final accepted = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const BuyerTermsAndConditions(),
+                              ),
+                            );
+                            if (accepted == true) {
+                              setState(() => _agreeToTerms = true);
+                            }
                           },
                           child: Text(
                             "Privacy Policy",

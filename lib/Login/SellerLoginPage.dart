@@ -1,20 +1,22 @@
 import 'dart:convert';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../HomeScreen/Dynamichome.dart';
-import '../../services/role_manager.dart';
 import '../../services/local_storage_service.dart';
+import '../../services/role_manager.dart';
+import '../Login/FlyHubSelectionPage.dart';
 import '../config/env.dart';
 import './ForgotPasswordPage.dart';
 import './SellerRegisterPage.dart';
-import '../Login/FlyHubSelectionPage.dart';
+import 'email_verification_page.dart';
 
 class SellerLoginPage extends StatefulWidget {
   final String? logoPath;
@@ -76,7 +78,8 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
     return body["data"]?["sellerByEmail"];
   }
 
-  Future<void> saveFcmTokenToSellerBackend(String customId, String? fcmToken) async {
+  Future<void> saveFcmTokenToSellerBackend(
+      String customId, String? fcmToken) async {
     if (fcmToken == null) return;
 
     final String url = EnvConfig.baseUrl;
@@ -111,7 +114,8 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
     await prefs.setString("role", "seller");
     await prefs.setString("seller_customId", customId);
     await prefs.setString("seller_email", email);
-    debugPrint("${prefs.getString("role")}, ${prefs.getString("seller_customId")}, ${prefs.getString("seller_email")}");
+    debugPrint(
+        "${prefs.getString("role")}, ${prefs.getString("seller_customId")}, ${prefs.getString("seller_email")}");
   }
 
   // ---------------- SELLER LOGIN ----------------
@@ -139,13 +143,43 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
       final String email = seller["email"] ?? "";
       final String status = seller["status"] ?? "pending";
 
-      debugPrint("------------------------------------------sellerid and email--------------------------");
+      debugPrint(
+          "------------------------------------------sellerid and email--------------------------");
       debugPrint("Seller ID: $customId, Email: $email, Status: $status");
 
+      // ==================================================
+
+      //                 ACTIVATE ACCOUNT
+
+      // ==================================================
+
       // Check seller status
-      if (status == "pending") {
-        showMessage("Seller account is pending approval");
-        setState(() => loading = false);
+      if (status == "deactivated") {
+        // Show activation dialog with button
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('Account Deactivated'),
+            content: const Text(
+              'Your account has been deactivated. Please verify your email to reactivate it.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  // Navigate to email verification
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => ReactivateAccountPage(),
+                    ),
+                  );
+                },
+                child: const Text('Activate Account'),
+              ),
+            ],
+          ),
+        );
         return;
       }
 
@@ -174,7 +208,8 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
       }
 
       // Firebase Authentication
-      await _auth.signInWithEmailAndPassword(email: email, password: enteredPass);
+      await _auth.signInWithEmailAndPassword(
+          email: email, password: enteredPass);
 
       // Save role
       await RoleManager.setLocalRole("seller");
@@ -356,21 +391,21 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
                         ),
                         child: loading
                             ? const SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
+                                height: 22,
+                                width: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
                             : Text(
-                          "Sign in",
-                          style: GoogleFonts.inter(
-                            fontSize: 16,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                                "Sign in",
+                                style: GoogleFonts.inter(
+                                  fontSize: 16,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                       ),
                     ),
                     const SizedBox(height: 25),
@@ -410,7 +445,8 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
               // ---------------- SOCIAL FOOTER ----------------
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
                 decoration: BoxDecoration(
                   color: themeColor.withOpacity(0.05),
                   borderRadius: const BorderRadius.only(
@@ -429,17 +465,20 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _buildSocialIcon('assets/categories/instagram.png', 'instagram'),
+                        _buildSocialIcon(
+                            'assets/categories/instagram.png', 'instagram'),
                         const SizedBox(width: 20),
-                        _buildSocialIcon('assets/categories/linkedin.png', 'linkedin'),
+                        _buildSocialIcon(
+                            'assets/categories/linkedin.png', 'linkedin'),
                         const SizedBox(width: 20),
-                        _buildSocialIcon('assets/categories/facebook.png', 'facebook'),
+                        _buildSocialIcon(
+                            'assets/categories/facebook.png', 'facebook'),
                         const SizedBox(width: 20),
-                        _buildSocialIcon('assets/categories/whatsapp.png', 'whatsapp'),
+                        _buildSocialIcon(
+                            'assets/categories/whatsapp.png', 'whatsapp'),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -470,9 +509,11 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
         decoration: InputDecoration(
           prefixIcon: Icon(icon, color: themeColor, size: 22),
           hintText: hint,
-          hintStyle: GoogleFonts.inter(color: Colors.grey.shade500, fontSize: 15),
+          hintStyle:
+              GoogleFonts.inter(color: Colors.grey.shade500, fontSize: 15),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          contentPadding:
+              const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
         ),
       ),
     );
@@ -490,7 +531,8 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
         obscureText: !showPassword,
         style: GoogleFonts.inter(fontSize: 15),
         decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.lock_outline, color: themeColor, size: 22),
+          prefixIcon:
+              const Icon(Icons.lock_outline, color: themeColor, size: 22),
           suffixIcon: IconButton(
             icon: Icon(
               showPassword ? Icons.visibility : Icons.visibility_off,
@@ -500,9 +542,11 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
             onPressed: () => setState(() => showPassword = !showPassword),
           ),
           hintText: "Password",
-          hintStyle: GoogleFonts.inter(color: Colors.grey.shade500, fontSize: 15),
+          hintStyle:
+              GoogleFonts.inter(color: Colors.grey.shade500, fontSize: 15),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          contentPadding:
+              const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
         ),
       ),
     );

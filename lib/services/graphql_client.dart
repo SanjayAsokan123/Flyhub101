@@ -1,10 +1,8 @@
 // lib/services/graphql_client.dart
 
-import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
-import 'package:http/http.dart' as http;
 
 import '../../config/env.dart';
 
@@ -40,19 +38,21 @@ class GraphQLService {
     );
 
     final Link link = Link.split(
-          (request) => request.isSubscription,
+      (request) => request.isSubscription,
       wsLink,
       authLink.concat(httpLink),
     );
 
     return GraphQLClient(
-        cache: GraphQLCache(store: InMemoryStore()),
-        link: link,
-        defaultPolicies: DefaultPolicies(
-          query: Policies(fetch: FetchPolicy.networkOnly),
-          mutate: Policies(fetch: FetchPolicy.networkOnly),
-          subscribe: Policies(fetch: FetchPolicy.noCache),
-        ),
+      cache: GraphQLCache(store: InMemoryStore()),
+      link: link,
+      defaultPolicies: DefaultPolicies(
+        query: Policies(fetch: FetchPolicy.networkOnly),
+        mutate: Policies(fetch: FetchPolicy.networkOnly),
+        subscribe: Policies(fetch: FetchPolicy.noCache),
+      ),
+      queryRequestTimeout:
+          const Duration(seconds: 30), // Add this line for timeout
     );
   }
 
@@ -119,7 +119,11 @@ class GraphQLService {
 
     final res = await performMutation(
       mutation,
-      variables: {"buyerId": buyerId, "productId": productId, "quantity": quantity},
+      variables: {
+        "buyerId": buyerId,
+        "productId": productId,
+        "quantity": quantity
+      },
     );
 
     return res!["updateCartQty"];
@@ -147,9 +151,9 @@ class GraphQLService {
   /// 🔵 UNIVERSAL MUTATION
   /// ==========================================================
   static Future<Map<String, dynamic>?> performMutation(
-      String mutation, {
-        Map<String, dynamic>? variables,
-      }) async {
+    String mutation, {
+    Map<String, dynamic>? variables,
+  }) async {
     final client = await initClient();
 
     final result = await client.mutate(
@@ -262,7 +266,6 @@ class GraphQLService {
     return res?["getProduct"];
   }
 
-
   // ==========================================================
 // 🛒 ORDER API HELPERS
 // ==========================================================
@@ -274,7 +277,8 @@ class GraphQLService {
     }
   ''';
 
-    final res = await performMutation(mutation, variables: {"amount": amount.toInt()});
+    final res =
+        await performMutation(mutation, variables: {"amount": amount.toInt()});
     return res!["createRazorpayOrder"];
   }
 
@@ -343,9 +347,9 @@ class GraphQLService {
   /// 🔵 UNIVERSAL QUERY
   /// ==========================================================
   static Future<Map<String, dynamic>?> performQuery(
-      String query, {
-        Map<String, dynamic>? variables,
-      }) async {
+    String query, {
+    Map<String, dynamic>? variables,
+  }) async {
     final client = await initClient();
 
     final result = await client.query(
@@ -368,13 +372,14 @@ class GraphQLService {
   /// 🔵 SUBSCRIPTIONS
   /// ==========================================================
   static Stream<Map<String, dynamic>?> subscribe(
-      String subscription, {
-        Map<String, dynamic>? variables,
-      }) async* {
+    String subscription, {
+    Map<String, dynamic>? variables,
+  }) async* {
     final client = await initClient();
 
     final stream = client.subscribe(
-      SubscriptionOptions(document: gql(subscription), variables: variables ?? {}),
+      SubscriptionOptions(
+          document: gql(subscription), variables: variables ?? {}),
     );
 
     await for (final result in stream) {
@@ -473,9 +478,11 @@ class GraphQLService {
 
     return data!["loginBuyerGoogle"];
   }
+
   static Future<GraphQLClient> getClient() async {
     return await initClient();
   }
+
   /// ==========================================================
   /// 🔵 INTERNAL ERROR LOGGER
   /// ==========================================================

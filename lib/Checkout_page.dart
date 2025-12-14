@@ -1,17 +1,12 @@
-// ==============================================
-// 📌 CheckoutPage.dart (FINAL VERSION)
-// ==============================================
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 import '../services/graphql_client.dart';
-import '../services/role_manager.dart';
 import 'OrderSuccessPage.dart';
 
 class CheckoutPage extends StatefulWidget {
-  final Map<String, dynamic> order;  // from AddressPage
+  final Map<String, dynamic> order; // from AddressPage
   final double total;
 
   const CheckoutPage({
@@ -180,8 +175,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text("Order failed: $e"),
-            backgroundColor: Colors.red),
+            content: Text("Order failed: $e"), backgroundColor: Colors.red),
       );
     }
   }
@@ -191,8 +185,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   // ========================================================
   void _startRazorpayPayment() async {
     try {
-      String razorpayOrderId =
-      await _createRazorpayOrder(widget.total);
+      String razorpayOrderId = await _createRazorpayOrder(widget.total);
 
       var options = {
         'key': 'rzp_test_RhThC0c8VixBN8', // your Razorpay key
@@ -311,8 +304,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text("Total Amount",
-              style:
-              GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w500)),
+              style: GoogleFonts.poppins(
+                  fontSize: 16, fontWeight: FontWeight.w500)),
           Text("₹${widget.total.toStringAsFixed(0)}",
               style: GoogleFonts.poppins(
                   fontSize: 18,
