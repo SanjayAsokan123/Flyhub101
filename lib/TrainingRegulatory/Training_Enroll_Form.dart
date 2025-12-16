@@ -44,9 +44,11 @@ class _TrainingEnrollFormState extends State<TrainingEnrollForm> {
   void _populateUserData() {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
+      // Only populate name and email from Firebase
       nameController.text = user.displayName ?? "";
       emailController.text = user.email ?? "";
-      phoneController.text = user.phoneNumber ?? "";
+      // Phone number is NOT populated - user must enter manually
+      phoneController.text = "";
     }
   }
 
@@ -229,7 +231,7 @@ class _TrainingEnrollFormState extends State<TrainingEnrollForm> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  "Address must be at least 5 characters long",
+                  "Phone number must be a valid 10-digit number",
                   style: GoogleFonts.poppins(
                     fontSize: 12,
                     color: primaryColor,
@@ -336,7 +338,7 @@ class _TrainingEnrollFormState extends State<TrainingEnrollForm> {
               return "Phone number is required";
             }
             final digitsOnly = value.replaceAll(RegExp(r'\D'), '');
-            if (digitsOnly.length < 10) {
+            if (digitsOnly.length != 10) {
               return "Please enter a valid 10-digit phone number";
             }
             return null;

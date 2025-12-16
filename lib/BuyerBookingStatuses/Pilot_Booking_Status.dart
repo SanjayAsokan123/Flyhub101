@@ -16,11 +16,19 @@ class _PilotBookingStatusPageState extends State<PilotBookingStatusPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
+  late GraphQLClient client;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
+
+    client = GraphQLClient(
+      link: HttpLink(EnvConfig.baseUrl),
+      cache: GraphQLCache(),
+    );
   }
+
 
   // --------------------------------------------
   // QUERIES FOR BUYER STATUS
@@ -73,31 +81,18 @@ class _PilotBookingStatusPageState extends State<PilotBookingStatusPage>
     }
   """;
 
-  String getCompletedQuery() => """
-    query {
-      getBuyerCompletedPilotBookings(buyerId: "${widget.buyerId}") {
-        bookingId
-        pilotId
-        pilotName
-        buyerName
-        location
-        date
-        startTime
-        endTime
-        status
-      }
-    }
-  """;
-
-  // Mutation for deleting pending booking
   String deletePendingBookingMutation() => """
-    mutation DeletePendingBooking(\$bookingId: String!) {
-      deletePendingPilotBooking(bookingId: \$bookingId) {
-        success
-        message
-      }
-    }
-  """;
+mutation DeletePendingBooking(\$bookingId: String!, \$buyerId: String!) {
+  deletePilotBookingByBuyer(
+    bookingId: \$bookingId,
+    buyerId: \$buyerId
+  ) {
+    success
+    message
+  }
+}
+""";
+
 
   // --------------------------------------------
   // STATUS COLORS
@@ -180,14 +175,18 @@ class _PilotBookingStatusPageState extends State<PilotBookingStatusPage>
               Mutation(
                 options: MutationOptions(
                   document: gql(deletePendingBookingMutation()),
-                  onCompleted: (data) {
+                  onCompleted: (data) async {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(data?['deletePendingPilotBooking']?['message'] ?? "Booking deleted"),
+                        content: Text(
+                          data?['deletePilotRentalByBuyer']?['message'] ?? "Booking deleted",
+                        ),
                         backgroundColor: Colors.green,
                       ),
                     );
+                    await client.resetStore();
                   },
+
                   onError: (error) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -200,22 +199,23 @@ class _PilotBookingStatusPageState extends State<PilotBookingStatusPage>
                 builder: (runMutation, result) {
                   return IconButton(
                     onPressed: () {
-                      // Show confirmation dialog
                       showDialog(
                         context: context,
                         builder: (context) => AlertDialog(
                           title: const Text("Delete Booking"),
-                          content: const Text("Are you sure you want to delete this pending booking?"),
+                          content: const Text(
+                              "Are you sure you want to delete this pending booking?"),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.pop(context),
                               child: const Text("Cancel"),
                             ),
                             TextButton(
-                              onPressed: () {
+                              onPressed: () async {
                                 Navigator.pop(context);
                                 runMutation({
                                   'bookingId': b['bookingId'],
+                                  'buyerId': widget.buyerId,
                                 });
                               },
                               child: const Text(
@@ -227,13 +227,10 @@ class _PilotBookingStatusPageState extends State<PilotBookingStatusPage>
                         ),
                       );
                     },
-                    icon: Icon(
-                      Icons.delete_outline,
-                      color: Colors.red,
-                      size: 28,
-                    ),
+                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 28),
                   );
                 },
+
               )
             else
               Container(
@@ -258,7 +255,7 @@ class _PilotBookingStatusPageState extends State<PilotBookingStatusPage>
   }
 
   // --------------------------------------------
-  // TAB VIEW BUILDER
+  // TAB VIEW BUILDER WITH REFRESH INDICATOR
   // --------------------------------------------
   Widget buildTab(String Function() queryBuilder, {bool isPending = false}) {
     return Query(
@@ -267,36 +264,67 @@ class _PilotBookingStatusPageState extends State<PilotBookingStatusPage>
         pollInterval: const Duration(seconds: 3),
       ),
       builder: (result, {refetch, fetchMore}) {
-        if (result.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (result.hasException) {
-          return Center(child: Text("Error: ${result.exception}"));
-        }
-
-        final data = result.data ?? {};
-
-        // detect correct response key
-        String key = data.keys.firstWhere(
-              (k) => k != "__typename",
-          orElse: () => "",
-        );
-
-        final list = (data[key] ?? []) as List;
-
-        if (list.isEmpty) {
-          return const Center(
-            child: Text("No bookings found",
-                style: TextStyle(color: Colors.grey)),
-          );
-        }
-
-        return ListView.builder(
-          itemCount: list.length,
-          itemBuilder: (_, i) => buildBookingCard(list[i], showDelete: isPending),
+        // Pull-to-refresh functionality
+        return RefreshIndicator(
+          onRefresh: () async {
+            if (refetch != null) {
+              await refetch();
+            }
+          },
+          child: _buildTabContent(result, isPending, refetch),
         );
       },
+    );
+  }
+
+  Widget _buildTabContent(QueryResult result, bool isPending, Future<QueryResult?> Function()? refetch) {
+    if (result.isLoading && result.data == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (result.hasException) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text("Error: ${result.exception.toString()}"),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: refetch,
+              child: const Text("Retry"),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final data = result.data ?? {};
+
+    // detect correct response key
+    String key = data.keys.firstWhere(
+          (k) => k != "__typename",
+      orElse: () => "",
+    );
+
+    final list = (data[key] ?? []) as List;
+
+    if (list.isEmpty) {
+      return ListView(
+        children: [
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.7,
+            child: const Center(
+              child: Text("No bookings found",
+                  style: TextStyle(color: Colors.grey)),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return ListView.builder(
+      itemCount: list.length,
+      itemBuilder: (_, i) => buildBookingCard(list[i], showDelete: isPending),
     );
   }
 
@@ -327,7 +355,6 @@ class _PilotBookingStatusPageState extends State<PilotBookingStatusPage>
             Tab(text: "Approved"),
             Tab(text: "Pending"),
             Tab(text: "Rejected"),
-            Tab(text: "Completed"),
           ],
         ),
       ),
@@ -338,7 +365,6 @@ class _PilotBookingStatusPageState extends State<PilotBookingStatusPage>
           buildTab(getApprovedQuery),
           buildTab(getPendingQuery, isPending: true),
           buildTab(getRejectedQuery),
-          buildTab(getCompletedQuery),
         ],
       ),
     );

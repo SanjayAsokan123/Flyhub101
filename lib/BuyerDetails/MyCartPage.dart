@@ -274,7 +274,7 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
 
   double get discount => subtotal * 0.10;
 
-  double get deliveryFee => subtotal > 500 ? 0.0 : 40.0;
+  double get deliveryFee => subtotal > 5000 ? 0.0 : 40.0;
 
   double get total => subtotal - discount + deliveryFee;
 

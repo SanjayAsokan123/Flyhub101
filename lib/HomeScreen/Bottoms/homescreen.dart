@@ -1454,7 +1454,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 SizedBox(height: cardMargin / 2),
                 Text(
-                 "",
+                  "",
                   style: GoogleFonts.inter(
                     color: Colors.black.withOpacity(0.9),
                     fontSize: titleFontSize - 4,

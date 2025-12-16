@@ -438,7 +438,7 @@ class _ServiceBookNowState extends State<ServiceBookNow> {
                     ),
                     _buildTextField(
                       label: "Additional Notes (Optional)",
-                      icon: Icons.note,
+                      icon: Icons.description ,
                       controller: noteCtrl,
                       maxLines: 3,
                     ),

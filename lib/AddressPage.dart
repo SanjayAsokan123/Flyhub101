@@ -4,6 +4,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../Checkout_page.dart';
+import 'config/env.dart';
 
 class AddressPage extends StatefulWidget {
   final double total;
@@ -46,14 +47,15 @@ class _AddressPageState extends State<AddressPage> {
     _setupGraphQLClient();
     _fetchBuyerIdFromFirebase();
   }
-
   void _setupGraphQLClient() {
-    final HttpLink link = HttpLink("http://192.168.1.136:5001/graphql");
+    final HttpLink link = HttpLink(EnvConfig.baseUrl);
+
     client = GraphQLClient(
       link: link,
       cache: GraphQLCache(store: InMemoryStore()),
     );
   }
+
 
   Future<void> _fetchBuyerIdFromFirebase() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -270,10 +272,18 @@ class _AddressPageState extends State<AddressPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text("Delivery Address", style: GoogleFonts.lexend(color: themeColor)),
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF6F7FB),
+        elevation: 0.8,
+        centerTitle: true,
+        title: Text(
+          "Delivery Address",
+          style: GoogleFonts.lexend(
+            color: themeColor,
+            fontWeight: FontWeight.w600,
+            fontSize: 18,
+          ),
+        ),
         iconTheme: IconThemeData(color: themeColor),
-        elevation: 1,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -288,10 +298,17 @@ class _AddressPageState extends State<AddressPage> {
       ),
       floatingActionButton: !showForm
           ? FloatingActionButton.extended(
+        elevation: 2,
         backgroundColor: themeColor,
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text("Add Address", style: TextStyle(color: Colors.white)),
-        onPressed: () => _openNewAddressForm(),
+        label: Text(
+          "Add New Address",
+          style: GoogleFonts.lexend(
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        onPressed: _openNewAddressForm,
       )
           : null,
     );
@@ -301,29 +318,42 @@ class _AddressPageState extends State<AddressPage> {
     const steps = ["Cart", "Address", "Checkout"];
     const current = 2;
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: List.generate(3, (index) {
-        bool isActive = index + 1 == current;
-        return Row(
-          children: [
-            CircleAvatar(
-              radius: 14,
-              backgroundColor: isActive ? themeColor : Colors.grey.shade300,
-              child: Text("${index + 1}", style: const TextStyle(color: Colors.white)),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              steps[index],
-              style: GoogleFonts.lexend(
-                  color: isActive ? themeColor : Colors.black54, fontWeight: FontWeight.w600),
-            ),
-            if (index != 2) const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
-          ],
-        );
-      }),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: List.generate(3, (index) {
+          final isActive = index + 1 == current;
+          return Column(
+            children: [
+              CircleAvatar(
+                radius: 14,
+                backgroundColor: isActive ? themeColor : Colors.grey.shade300,
+                child: Text(
+                  "${index + 1}",
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                steps[index],
+                style: GoogleFonts.lexend(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: isActive ? themeColor : Colors.black54,
+                ),
+              ),
+            ],
+          );
+        }),
+      ),
     );
   }
+
 
   Widget _buildAddressList() {
     if (savedAddresses.isEmpty) {
@@ -338,35 +368,57 @@ class _AddressPageState extends State<AddressPage> {
       itemBuilder: (ctx, i) {
         final a = savedAddresses[i];
         return Card(
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          elevation: 3,
-          shadowColor: Colors.black.withOpacity(0.1),
-          child: ListTile(
-            leading: Radio(
-              value: i,
-              groupValue: selectedIndex,
-              activeColor: themeColor,
-              onChanged: (v) => setState(() => selectedIndex = v as int?),
-            ),
-            title: Text(
-              "${a['firstName']} ${a['lastName']}",
-              style: GoogleFonts.lexend(fontWeight: FontWeight.w600, color: themeColor),
-            ),
-            subtitle: Text(
-              "${a['streetAddress']}, ${a['city']}, ${a['state']} - ${a['zipCode']}\nPhone: ${a['phone']}",
-              style: GoogleFonts.lexend(fontSize: 13),
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          margin: const EdgeInsets.symmetric(vertical: 10),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.edit, color: Colors.orange),
-                  onPressed: () => _editAddress(a),
+                Radio(
+                  value: i,
+                  groupValue: selectedIndex,
+                  activeColor: themeColor,
+                  onChanged: (v) => setState(() => selectedIndex = v as int?),
                 ),
-                IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => _confirmDelete(a["addressId"])
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "${a['firstName']} ${a['lastName']}",
+                        style: GoogleFonts.lexend(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: themeColor,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        "${a['streetAddress']}, ${a['city']}, ${a['state']} - ${a['zipCode']}",
+                        style: GoogleFonts.lexend(fontSize: 13),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "Phone: ${a['phone']}",
+                        style: GoogleFonts.lexend(fontSize: 12, color: Colors.grey),
+                      ),
+                    ],
+                  ),
                 ),
+                Column(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.orange),
+                      onPressed: () => _editAddress(a),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      onPressed: () => _confirmDelete(a["addressId"]),
+                    ),
+                  ],
+                )
               ],
             ),
           ),
@@ -393,34 +445,59 @@ class _AddressPageState extends State<AddressPage> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Delete Address"),
-        content: const Text("Are you sure you want to delete this address?"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text("Remove Address"),
+        content: const Text(
+          "This address will be permanently removed from your account.",
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel")),
-          TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _deleteAddress(addressId);
-              },
-              child: const Text("Delete", style: TextStyle(color: Colors.red))),
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteAddress(addressId);
+            },
+            child: const Text("Remove"),
+          ),
         ],
       ),
     );
   }
 
+
   Widget _buildContinueButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-            backgroundColor: themeColor, padding: const EdgeInsets.symmetric(vertical: 14)),
-        onPressed: _proceedToCheckout,
-        child: Text("Continue to Checkout", style: GoogleFonts.lexend(color: Colors.white, fontSize: 16)),
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: themeColor,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+          onPressed: _proceedToCheckout,
+          child: Text(
+            "Continue to Checkout",
+            style: GoogleFonts.lexend(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
       ),
     );
   }
+
 
   Future<void> _proceedToCheckout() async {
     final a = savedAddresses[selectedIndex!];
@@ -482,15 +559,25 @@ class _AddressPageState extends State<AddressPage> {
 
   Widget _field(String label, String initial, Function(String?) onSaved) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: TextFormField(
         initialValue: initial,
-        decoration: InputDecoration(labelText: label, border: OutlineInputBorder()),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: GoogleFonts.lexend(fontSize: 13),
+          filled: true,
+          fillColor: Colors.grey.shade100,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+        ),
         validator: (v) => v == null || v.trim().isEmpty ? "Required" : null,
         onSaved: onSaved,
       ),
     );
   }
+
 
 
   Widget _saveFormButtons() {

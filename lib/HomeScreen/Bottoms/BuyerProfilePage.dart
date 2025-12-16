@@ -8,6 +8,7 @@ import 'package:flyhub/T&C/Help_Support_Page.dart';
 import 'package:flyhub/T&C/PrivacyPolicy.dart';
 import 'package:flyhub/T&C/Terms_Conditions.dart';
 import 'package:flyhub/T&C/feedback_form.dart';
+import 'package:flyhub/T&C/BuyerSettings.dart';
 import '../../BuyerBookingStatuses/Buyer_Shipping_Policy.dart';
 import '../../HomeScreen/Dynamichome.dart';
 import '../../HomeScreen/Bottoms/SellerPage.dart';
@@ -135,28 +136,38 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
         title: const Text("Logout"),
         content: const Text("Are you sure you want to logout?"),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _auth.signOut();
-              await RoleManager.clearRole();
-              if (!mounted) return;
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const Dynamichome(selectedIndex: 0),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Cancel button stays on left
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Cancel"),
+              ),
+              // Logout button aligned to right with red color
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await _auth.signOut();
+                    await RoleManager.clearRole();
+                    if (!mounted) return;
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const Dynamichome(selectedIndex: 0),
+                      ),
+                          (route) => false,
+                    );
+                  },
+                  child: const Text(
+                    "Logout",
+                    style: TextStyle(color: Colors.red),
+                  ),
                 ),
-                    (route) => false,
-              );
-            },
-            child: const Text(
-              "Logout",
-              style: TextStyle(color: Colors.red),
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -622,8 +633,23 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                   title: "Account",
                   children: [
                     _buildListItem(
+                      icon: Icons.settings_outlined,
+                      title: "Settings",
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SettingsPage()),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // Seller Account Section
+                _buildSection(
+                  title: "Earn with Flyhub",
+                  children: [
+                    _buildListItem(
                       icon: Icons.storefront_outlined,
-                      title: "Become a Seller",
+                      title: "Sell on Flyhub",
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const SellerLoginPage()),
@@ -652,13 +678,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                         MaterialPageRoute(builder: (_) => const FeedbackFormPage()),
                       ),
                     ),
-                  ],
-                ),
-
-                // Legal Section
-                _buildSection(
-                  title: "Legal",
-                  children: [
                     _buildListItem(
                       icon: Icons.description_outlined,
                       title: "Terms & Conditions",
@@ -695,15 +714,18 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                   showDivider: false,
                 ),
 
-                // Logout Button
-                Container(
-                  margin: const EdgeInsets.all(20),
-                  child: _buildListItem(
-                    icon: Icons.logout,
-                    title: "Logout",
-                    iconColor: Colors.red,
-                    onTap: _logout,
-                    showTrailing: false,
+                // Logout Button in bottom left corner
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    margin: const EdgeInsets.all(0),
+                    child: _buildListItem(
+                      icon: Icons.logout,
+                      title: "Logout",
+                      iconColor: Colors.red,
+                      onTap: _logout,
+                      showTrailing: false,
+                    ),
                   ),
                 ),
 
@@ -766,15 +788,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                         ],
                       ),
                       const SizedBox(height: 16),
-
-                      // Optional: Contact info
-                      Text(
-                        "Contact: info@flyhub.com",
-                        style: TextStyle(
-                          color: textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
 
                       // Version and Copyright - MOVED INSIDE THE SAME CONTAINER
                       const SizedBox(height: 20),
