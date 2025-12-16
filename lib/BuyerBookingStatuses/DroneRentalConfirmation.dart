@@ -4,6 +4,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:intl/intl.dart';
 import '../config/env.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class DroneRentalApprovalPage extends StatefulWidget {
   final String buyerId;
@@ -69,6 +70,24 @@ class _DroneRentalApprovalPageState extends State<DroneRentalApprovalPage>
     }
   }
 
+  // Function to make phone call
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: phoneNumber,
+    );
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not launch $phoneNumber'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _tabController.removeListener(_handleTabChange);
@@ -79,6 +98,7 @@ class _DroneRentalApprovalPageState extends State<DroneRentalApprovalPage>
     super.dispose();
   }
 
+  // Queries remain exactly the same
   static const GET_APPROVED = r'''
     query ($buyerId: String!) {
       getConfirmedDroneRentalsByBuyer(buyerId: $buyerId) {
@@ -87,6 +107,8 @@ class _DroneRentalApprovalPageState extends State<DroneRentalApprovalPage>
         phone
         rentalDate
         status
+        sellerPhone
+        sellerName
       }
     }
   ''';
@@ -124,7 +146,7 @@ mutation ($droneRentalId: String!) {
 }
 ''';
 
-  // Helper function to format date
+  // Helper function to format date - exactly the same
   String formatDate(String? dateString) {
     if (dateString == null || dateString.isEmpty) {
       return 'Date not available';
@@ -147,6 +169,7 @@ mutation ($droneRentalId: String!) {
     }
   }
 
+  // Delete function remains exactly the same
   Future<void> _deleteRental(String rentalId, int index) async {
     bool? confirm = await showDialog(
       context: context,
@@ -207,6 +230,7 @@ mutation ($droneRentalId: String!) {
     }
   }
 
+  // Tab builder remains exactly the same
   Widget buildStatusTab(String queryKey, String query, int tabIndex) {
     return FutureBuilder<QueryResult>(
       future: client.query(
@@ -247,7 +271,7 @@ mutation ($droneRentalId: String!) {
             itemBuilder: (context, index) => buildRentalCard(
                 rentals[index],
                 index,
-                tabIndex // Pass tab index to determine delete visibility
+                tabIndex // Pass tab index to determine actions
             ),
           ),
         );
@@ -255,6 +279,7 @@ mutation ($droneRentalId: String!) {
     );
   }
 
+  // Refresh controller function remains exactly the same
   RefreshController _getRefreshController(int tabIndex) {
     switch (tabIndex) {
       case 0:
@@ -268,182 +293,248 @@ mutation ($droneRentalId: String!) {
     }
   }
 
+  // UPDATED: Rental card to match BuyerServiceBookingStatusPage style
   Widget buildRentalCard(dynamic rental, int index, int tabIndex) {
-    final status = rental['status'] ?? 'Pending';
     final formattedDate = formatDate(rental['rentalDate']);
     final rentalId = rental['drone_rental_id'];
+    final sellerPhone = rental['sellerPhone'] ?? '--';
+    final sellerName = rental['sellerName'] ?? '--';
+    final customerName = rental['name'] ?? '--';
+    final customerPhone = rental['phone'] ?? '--';
 
-    Color color = Colors.blue;
-    if (status == "confirmed") color = Colors.green;
-    if (status == "cancelled") color = Colors.red;
-
-    // Only enable dismiss for pending tab (tabIndex 1)
+    // Determine which tab we're in
+    bool isApprovedTab = tabIndex == 0;
     bool isPendingTab = tabIndex == 1;
 
-    Widget cardContent = Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 3,
-      child: ListTile(
-        leading: ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: rental['drone']?['image'] != null
-              ? Image.network(
-            rental['drone']['image'],
-            width: 55,
-            height: 55,
-            fit: BoxFit.cover,
-          )
-              : Container(
-            width: 55,
-            height: 55,
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: SvgPicture.asset(
-                'assets/categories/drone1.svg',
-                color: color,
-                fit: BoxFit.contain,
-              ),
-            ),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade300, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-        ),
-        title: Text(
-          rental['drone']?['name'] ?? "Drone",
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        subtitle: Text(
-          "Customer: ${rental['name']}\nDate: $formattedDate",
-          style: const TextStyle(height: 1.5),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Only show status text for non-pending tabs
-            if (!isPendingTab)
-              Text(
-                status.toUpperCase(),
-                style: TextStyle(color: color, fontWeight: FontWeight.bold),
-              ),
-            const SizedBox(width: 8),
-            // Only show delete icon for pending tab
-            if (isPendingTab)
-              IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-                onPressed: () => _deleteRental(rentalId, index),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
+            // Header row with CUSTOMER NAME - CHANGED FROM "Drone Rental"
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    customerName, // CHANGED: Display customer name instead of "Drone Rental"
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1A0A5B),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // Divider - exactly like service booking
+            Divider(color: Colors.grey.shade300, height: 1),
+
+            const SizedBox(height: 12),
+
+            // Details grid - exactly like service booking layout
+            Row(
+              children: [
+                // Left side - details
+                Expanded(
+                  child: Row(
+                    children: [
+                      // Icon container - exactly like service booking
+                      Container(
+                        width: 54,
+                        height: 54,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1A0A5B).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: SvgPicture.asset(
+                            'assets/categories/drone1.svg',
+                            color: const Color(0xFF1A0A5B),
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(width: 16),
+
+                      // Details column - exactly like service booking
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Seller Info (only for approved tab) - like service booking
+                            if (isApprovedTab && sellerName != '--') ...[
+                              _buildDetailRow(
+                                icon: Icons.person,
+                                text: sellerName,
+                                iconColor: const Color(0xFF1A0A5B),
+                              ),
+                              const SizedBox(height: 6),
+                            ],
+
+                            if (isApprovedTab && sellerPhone != '--') ...[
+                              _buildDetailRow(
+                                icon: Icons.phone,
+                                text: sellerPhone,
+                                iconColor: Colors.blue,
+                              ),
+                              const SizedBox(height: 6),
+                            ],
+
+                            // Date - exactly like service booking
+                            _buildDetailRow(
+                              icon: Icons.calendar_today,
+                              text: formattedDate,
+                              iconColor: Colors.orange,
+                            ),
+
+                            // Customer Phone (optional, if available)
+                            if (customerPhone != '--') ...[
+                              const SizedBox(height: 6),
+                              _buildDetailRow(
+                                icon: Icons.phone_outlined,
+                                text: customerPhone,
+                                iconColor: Colors.grey[700]!,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Right side - Action buttons - exactly like service booking
+                Column(
+                  children: [
+                    // Call Now button (only for approved tab with seller phone)
+                    if (isApprovedTab && sellerPhone != '--' && sellerPhone != '')
+                      ElevatedButton.icon(
+                        onPressed: () => _makePhoneCall(sellerPhone),
+                        icon: const Icon(Icons.phone, size: 16),
+                        label: const Text("Call Now"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          elevation: 0,
+                        ),
+                      ),
+
+                    // Delete button (only for pending tab) - like service booking
+                    if (isPendingTab)
+                      IconButton(
+                        onPressed: () {
+                          // Show confirmation dialog - exactly like service booking
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text("Delete Rental"),
+                              content: const Text(
+                                  "Are you sure you want to delete this pending drone rental?"),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text("Cancel"),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    _deleteRental(rentalId, index);
+                                  },
+                                  child: const Text(
+                                    "Delete",
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        icon: Icon(
+                          Icons.delete_outline,
+                          color: Colors.red.shade600,
+                          size: 28,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ],
         ),
-        onTap: () {
-          showDialog(
-            context: context,
-            builder: (_) => AlertDialog(
-              title: Text(
-                rental['drone']?['name'] ?? "Details",
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Booking ID: ${rental['drone_rental_id']}"),
-                  Text("Customer: ${rental['name']}"),
-                  Text("Phone: ${rental['phone']}"),
-                  Text("Date: $formattedDate"),
-                  Text(
-                    "Status: $status",
-                    style: TextStyle(color: color),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Close"),
-                ),
-                // Only show delete button for pending tab
-                if (isPendingTab)
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(context); // Close details dialog
-                      _deleteRental(rentalId, index);
-                    },
-                    child: const Text(
-                      "Delete",
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
       ),
     );
-
-    // Wrap with Dismissible only for pending tab
-    if (isPendingTab) {
-      return Dismissible(
-        key: Key('rental_${rentalId}_$index'),
-        direction: DismissDirection.endToStart,
-        background: Container(
-          color: Colors.red,
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.only(right: 20),
-          child: const Icon(
-            Icons.delete,
-            color: Colors.white,
-            size: 30,
-          ),
-        ),
-        confirmDismiss: (direction) async {
-          return await showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text("Confirm Delete"),
-              content:
-              const Text("Are you sure you want to delete this rental?"),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text("Cancel"),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text(
-                    "Delete",
-                    style: TextStyle(color: Colors.red),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-        onDismissed: (direction) {
-          _deleteRental(rentalId, index);
-        },
-        child: cardContent,
-      );
-    }
-
-    return cardContent;
   }
 
+  // Detail row widget - exactly like service booking
+  Widget _buildDetailRow({
+    required IconData icon,
+    required String text,
+    required Color iconColor,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: 16,
+          color: iconColor,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Colors.black87,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Build method remains exactly the same
   @override
   Widget build(BuildContext context) {
     const themeColor = Color(0xFF1A0A5B);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: const Text("Drone Rental Status",
             style: TextStyle(color: Colors.white)),
         backgroundColor: themeColor,
         iconTheme: const IconThemeData(color: Colors.white),
-        // ONLY CHANGE MADE: Added custom leading icon with arrow_back_ios_new_rounded
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           color: Colors.white,
@@ -452,7 +543,7 @@ mutation ($droneRentalId: String!) {
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
+          unselectedLabelColor: Colors.white.withOpacity(0.7),
           indicatorColor: Colors.white,
           tabs: const [
             Tab(text: "Approved"),

@@ -297,17 +297,10 @@ class _AddressPageState extends State<AddressPage> {
         ),
       ),
       floatingActionButton: !showForm
-          ? FloatingActionButton.extended(
+          ? FloatingActionButton(
         elevation: 2,
         backgroundColor: themeColor,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: Text(
-          "Add New Address",
-          style: GoogleFonts.lexend(
-            color: Colors.white,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+        child: const Icon(Icons.add, color: Colors.white),
         onPressed: _openNewAddressForm,
       )
           : null,

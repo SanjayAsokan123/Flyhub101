@@ -35,6 +35,7 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
     super.initState();
     _loadWishlistStatus();
     _loadCartCount();
+    debugPrint("DETAIL ITEM ID => ${widget.drone['id']}");
   }
 
   // -------------------------------------------------------------------

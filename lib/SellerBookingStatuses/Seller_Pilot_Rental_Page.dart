@@ -228,7 +228,7 @@ mutation UpdateStatus(\$bookingId: String!, \$status: String!) {
                       ),
                       if (b["pilotName"] != null && b["pilotName"].isNotEmpty)
                         Text(
-                          "👨‍✈ Pilot: ${b["pilotName"]}",
+                          "👨‍✈️ Pilot: ${b["pilotName"]}",
                           style: const TextStyle(color: Colors.black54),
                         ),
                       if (b["contact"] != null && b["contact"].isNotEmpty)
