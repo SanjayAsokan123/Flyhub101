@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
+import 'package:photo_view/photo_view.dart'; // Add this import for zoom
 
 import '../../config/env.dart';
 import '../../services/role_manager.dart';
@@ -14,7 +15,9 @@ class DroneDetailPage extends StatefulWidget {
 
   const DroneDetailPage({
     super.key,
-    required this.drone, required  initialIsFavorite, required Drone,
+    required this.drone,
+    required initialIsFavorite,
+    required Drone,
   });
 
   @override
@@ -24,9 +27,7 @@ class DroneDetailPage extends StatefulWidget {
 class _DroneDetailPageState extends State<DroneDetailPage> {
   int quantity = 1;
   int cartCount = 0;
-
   bool _isFavorite = false;
-
   final Color themeColor = const Color(0xFF1A0A5B);
 
   @override
@@ -34,6 +35,7 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
     super.initState();
     _loadWishlistStatus();
     _loadCartCount();
+    debugPrint("DETAIL ITEM ID => ${widget.drone['id']}");
   }
 
   // -------------------------------------------------------------------
@@ -63,10 +65,13 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
 
     const query = r"""
       query GetCart($buyerId: String!) {
-        getCart(buyerId: $buyerId) {
-          id
-        }
-      }
+  getCart(buyerId: $buyerId) {
+    productId
+    quantity
+    category
+  }
+}
+
     """;
 
     final data = await _gql(query, {"buyerId": buyerId});
@@ -83,6 +88,7 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
     if (buyerId == null) return;
 
     final productId = widget.drone["productId"] ?? widget.drone["id"];
+    // final productId = widget.drone["id"];
 
     const query = r"""
       query GetWishlist($buyerId: String!) {
@@ -291,10 +297,37 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
             fit: BoxFit.cover,
           ),
         ),
+        child: Align(
+          alignment: Alignment.bottomRight,
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.zoom_in, color: Colors.white, size: 16),
+                  SizedBox(width: 4),
+                  Text(
+                    "Tap to zoom",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
-
   // -------------------------------------------------------------------
   // 📌 Product Info Section
   // -------------------------------------------------------------------
@@ -333,40 +366,6 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
 
           const SizedBox(height: 20),
 
-          // Quantity Selector
-          Row(
-            children: [
-              Text("Quantity:", style: GoogleFonts.lexend(fontSize: 16)),
-              const SizedBox(width: 12),
-              _qtySelector(),
-            ],
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _qtySelector() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.remove_circle_outline),
-            onPressed: () {
-              if (quantity > 1) {
-                setState(() => quantity--);
-              }
-            },
-          ),
-          Text("$quantity", style: GoogleFonts.lexend(fontSize: 16)),
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline),
-            onPressed: () => setState(() => quantity++),
-          ),
         ],
       ),
     );
@@ -431,7 +430,8 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
                       orderData: {
                         "type": "single",
                         "product": {
-                          ...drone,
+                          "productId": drone["id"],          // ✅ REQUIRED
+                          "category": drone["category"],     // e.g. "drones"
                           "quantity": quantity,
                         }
                       },
@@ -464,7 +464,7 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
 }
 
 // -------------------------------------------------------------------
-// 📌 FULL SCREEN IMAGE VIEWER (UNCHANGED)
+// 📌 FULL SCREEN IMAGE VIEWER WITH ZOOM
 // -------------------------------------------------------------------
 class FullScreenImageViewer extends StatelessWidget {
   final String? imageUrl;
@@ -482,25 +482,165 @@ class FullScreenImageViewer extends StatelessWidget {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          Center(
-            child: Image.network(
-              imageUrl ?? "",
-              fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) =>
-              const Icon(Icons.broken_image, color: Colors.white, size: 80),
-            ),
-          ),
-          Positioned(
-            top: 40,
-            left: 16,
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: const CircleAvatar(
-                backgroundColor: Colors.black54,
-                child: Icon(Icons.arrow_back, color: Colors.white),
+          // PhotoView for zooming
+          PhotoView(
+            imageProvider: NetworkImage(imageUrl ?? ""),
+            backgroundDecoration: BoxDecoration(color: Colors.black),
+            minScale: PhotoViewComputedScale.contained,
+            maxScale: PhotoViewComputedScale.covered * 2.0,
+            initialScale: PhotoViewComputedScale.contained,
+            loadingBuilder: (context, event) => Center(
+              child: Container(
+                width: 50,
+                height: 50,
+                child: CircularProgressIndicator(
+                  value: event == null
+                      ? 0
+                      : event.cumulativeBytesLoaded / event.expectedTotalBytes!,
+                ),
               ),
             ),
-          )
+            errorBuilder: (context, error, stackTrace) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.broken_image, color: Colors.white, size: 80),
+                  SizedBox(height: 16),
+                  Text(
+                    "Failed to load image",
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // App Bar with back button and title
+          Positioned(
+            top: MediaQuery.of(context).padding.top,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 56,
+              color: Colors.black54,
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  // Back Button
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.black38,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.arrow_back, color: Colors.white),
+                    ),
+                  ),
+
+                  SizedBox(width: 12),
+
+                  // Product Name
+                  Expanded(
+                    child: Text(
+                      productName ?? "Product Image",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+
+                  // Zoom Info
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black38,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.zoom_in, color: Colors.white, size: 16),
+                        SizedBox(width: 6),
+                        Text(
+                          "Pinch to zoom",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Bottom zoom controls
+          Positioned(
+            bottom: MediaQuery.of(context).padding.bottom + 20,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          "Zoom Controls",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.zoom_out, color: Colors.white, size: 14),
+                            SizedBox(width: 4),
+                            Text(
+                              "Pinch in/out",
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                              ),
+                            ),
+                            SizedBox(width: 12),
+                            Icon(Icons.swipe, color: Colors.white, size: 14),
+                            SizedBox(width: 4),
+                            Text(
+                              "Drag to pan",
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );

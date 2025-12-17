@@ -1,24 +1,17 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LocalStorageService {
-  static Future<void> saveUserDetails({
-    required String userId,
-    required String name,
-    required String role,
-  }) async {
+  static Future<void> setLoggedIn(bool value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('userId', userId);
-    await prefs.setString('name', name);
-    await prefs.setString('role', role);
-    await prefs.setBool('isLoggedIn', true);
+    await prefs.setBool("isLoggedIn", value);
   }
 
   static Future<bool> isLoggedIn() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('isLoggedIn') ?? false;
+    return prefs.getBool("isLoggedIn") ?? false;
   }
 
-  static Future<void> logout() async {
+  static Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
   }

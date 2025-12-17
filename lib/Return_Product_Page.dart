@@ -1,7 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+
+// ---------------------------
+// GRAPHQL QUERY FIXED HERE
+// ---------------------------
+const String getReturnedOrdersQuery = """
+query GetReturnedOrders {
+  orders {
+    
+    status
+    items {
+      sellerId
+      name
+      type
+      price
+      quantity
+    }
+  }
+}
+""";
 
 class ReturnedProductsPage extends StatefulWidget {
-  const ReturnedProductsPage({super.key});
+  final String sellerCustomId;
+
+  const ReturnedProductsPage({
+    super.key,
+    required this.sellerCustomId,
+  });
 
   @override
   State<ReturnedProductsPage> createState() => _ReturnedProductsPageState();
@@ -12,7 +37,6 @@ class _ReturnedProductsPageState extends State<ReturnedProductsPage>
   late TabController _tabController;
 
   final Color themeColor = const Color(0xFF1E0E5C);
-  final Color borderColor = const Color(0xFFE5E7EB);
 
   @override
   void initState() {
@@ -30,13 +54,17 @@ class _ReturnedProductsPageState extends State<ReturnedProductsPage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+
       appBar: AppBar(
         backgroundColor: themeColor,
+        iconTheme: const IconThemeData(color: Colors.white),
         title: const Text(
           "Returned Products",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
@@ -52,88 +80,128 @@ class _ReturnedProductsPageState extends State<ReturnedProductsPage>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          CategoryListView(
-            title: "Returned Drones",
-            themeColor: themeColor,
-            borderColor: borderColor,
-          ),
-          CategoryListView(
-            title: "Returned Spare Parts",
-            themeColor: themeColor,
-            borderColor: borderColor,
-          ),
-          CategoryListView(
-            title: "Returned Accessories",
-            themeColor: themeColor,
-            borderColor: borderColor,
-          ),
-          CategoryListView(
-            title: "Returned Rentals",
-            themeColor: themeColor,
-            borderColor: borderColor,
-          ),
-          CategoryListView(
-            title: "Returned Services",
-            themeColor: themeColor,
-            borderColor: borderColor,
-          ),
-        ],
+
+      // ------------------------------------------
+      // GRAPHQL QUERY CONNECTED
+      // ------------------------------------------
+      body: Query(
+        options: QueryOptions(
+          document: gql(getReturnedOrdersQuery),
+          fetchPolicy: FetchPolicy.networkOnly,
+        ),
+        builder: (result, {refetch, fetchMore}) {
+          if (result.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (result.hasException) {
+            return Center(child: Text("Error: ${result.exception.toString()}"));
+          }
+
+          List orders = result.data?["orders"] ?? [];
+
+          // -----------------------------
+          // FILTER RETURNED ITEMS
+          // -----------------------------
+          List returnedItems = [];
+
+          for (var order in orders) {
+            if (order["status"] != "return") continue;
+
+            for (var item in order["items"]) {
+              if (item["sellerId"] == widget.sellerCustomId) {
+                returnedItems.add(item);
+              }
+            }
+          }
+
+          return TabBarView(
+            controller: _tabController,
+            children: [
+              CategoryListView(
+                title: "Returned Drones",
+                items: returnedItems.where((e) => e["type"] == "Drone").toList(),
+              ),
+              CategoryListView(
+                title: "Returned Parts",
+                items: returnedItems.where((e) => e["type"] == "Part").toList(),
+              ),
+              CategoryListView(
+                title: "Returned Accessories",
+                items:
+                returnedItems.where((e) => e["type"] == "Accessory").toList(),
+              ),
+              CategoryListView(
+                title: "Returned Rentals",
+                items: returnedItems.where((e) => e["type"] == "Rental").toList(),
+              ),
+              CategoryListView(
+                title: "Returned Services",
+                items: returnedItems.where((e) => e["type"] == "Service").toList(),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
+// ---------------------------------------------
+// Category List UI
+// ---------------------------------------------
 class CategoryListView extends StatelessWidget {
   final String title;
-  final Color themeColor;
-  final Color borderColor;
+  final List items;
 
   const CategoryListView({
     super.key,
     required this.title,
-    required this.themeColor,
-    required this.borderColor,
+    required this.items,
   });
+
+  final Color themeColor = const Color(0xFF1E0E5C);
 
   @override
   Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const Center(
+        child: Text(
+          "No returned products",
+          style: TextStyle(fontSize: 16),
+        ),
+      );
+    }
+
     return ListView.builder(
       padding: const EdgeInsets.all(12),
-      itemCount: 5, // Sample placeholder list
+      itemCount: items.length,
       itemBuilder: (context, index) {
+        final item = items[index];
+
         return Card(
-          color: Colors.white,
           elevation: 0,
           margin: const EdgeInsets.symmetric(vertical: 8),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: borderColor,
+            side: const BorderSide(
+              color: Color(0xFFE5E7EB),
               width: 1,
             ),
           ),
           child: ListTile(
-            leading: Icon(
-              Icons.assignment_return,
-              color: themeColor,
-            ),
+            leading: Icon(Icons.assignment_return, color: themeColor),
             title: Text(
-              "$title ${index + 1}",
-              style: TextStyle(
+              item["name"] ?? "Unknown Product",
+              style: const TextStyle(
                 fontWeight: FontWeight.w600,
-                color: themeColor,
+                fontSize: 16,
               ),
             ),
-            subtitle: const Text(
-              "Returned by customer for replacement/refund.",
-              style: TextStyle(color: Colors.black87),
+            subtitle: Text(
+              "Price: ₹${item["price"]} | Qty: ${item["quantity"]}",
+              style: const TextStyle(fontSize: 14),
             ),
-
-            /// 👉 Removed trailing icon here
-            trailing: null,
           ),
         );
       },

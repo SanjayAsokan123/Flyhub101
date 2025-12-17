@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -9,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../HomeScreen/Dynamichome.dart';
 import '../../services/role_manager.dart';
+import '../../services/local_storage_service.dart';
 import '../config/env.dart';
 import './ForgotPasswordPage.dart';
 import './SellerRegisterPage.dart';
@@ -74,7 +76,7 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
     return body["data"]?["sellerByEmail"];
   }
 
-  Future<void> saveFcmTokenToBackend(String customId, String? fcmToken) async {
+  Future<void> saveFcmTokenToSellerBackend(String customId, String? fcmToken) async {
     if (fcmToken == null) return;
 
     final String url = EnvConfig.baseUrl;
@@ -109,6 +111,7 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
     await prefs.setString("role", "seller");
     await prefs.setString("seller_customId", customId);
     await prefs.setString("seller_email", email);
+    debugPrint("${prefs.getString("role")}, ${prefs.getString("seller_customId")}, ${prefs.getString("seller_email")}");
   }
 
   // ---------------- SELLER LOGIN ----------------
@@ -136,6 +139,10 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
       final String email = seller["email"] ?? "";
       final String status = seller["status"] ?? "pending";
 
+      debugPrint("------------------------------------------sellerid and email--------------------------");
+      debugPrint("Seller ID: $customId, Email: $email, Status: $status");
+
+      // Check seller status
       if (status == "pending") {
         showMessage("Seller account is pending approval");
         setState(() => loading = false);
@@ -160,13 +167,19 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
         return;
       }
 
+      // Get FCM token and save to backend
+      String? fcmToken = await FirebaseMessaging.instance.getToken();
+      if (fcmToken != null) {
+        await saveFcmTokenToSellerBackend(customId, fcmToken);
+      }
+
       // Firebase Authentication
-      await _auth.signInWithEmailAndPassword(
-          email: email, password: enteredPass);
+      await _auth.signInWithEmailAndPassword(email: email, password: enteredPass);
 
       // Save role
       await RoleManager.setLocalRole("seller");
       await saveSellerLocal(customId, email);
+      await LocalStorageService.setLoggedIn(true);
 
       showMessage("Login Successful!");
 
@@ -397,8 +410,7 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
               // ---------------- SOCIAL FOOTER ----------------
               Container(
                 width: double.infinity,
-                padding:
-                const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
                 decoration: BoxDecoration(
                   color: themeColor.withOpacity(0.05),
                   borderRadius: const BorderRadius.only(
@@ -421,17 +433,13 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _buildSocialIcon('assets/categories/instagram.png',
-                            'instagram'),
+                        _buildSocialIcon('assets/categories/instagram.png', 'instagram'),
                         const SizedBox(width: 20),
-                        _buildSocialIcon('assets/categories/linkedin.png',
-                            'linkedin'),
+                        _buildSocialIcon('assets/categories/linkedin.png', 'linkedin'),
                         const SizedBox(width: 20),
-                        _buildSocialIcon('assets/categories/facebook.png',
-                            'facebook'),
+                        _buildSocialIcon('assets/categories/facebook.png', 'facebook'),
                         const SizedBox(width: 20),
-                        _buildSocialIcon('assets/categories/whatsapp.png',
-                            'whatsapp'),
+                        _buildSocialIcon('assets/categories/whatsapp.png', 'whatsapp'),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -462,11 +470,9 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
         decoration: InputDecoration(
           prefixIcon: Icon(icon, color: themeColor, size: 22),
           hintText: hint,
-          hintStyle:
-          GoogleFonts.inter(color: Colors.grey.shade500, fontSize: 15),
+          hintStyle: GoogleFonts.inter(color: Colors.grey.shade500, fontSize: 15),
           border: InputBorder.none,
-          contentPadding:
-          const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
         ),
       ),
     );
@@ -484,8 +490,7 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
         obscureText: !showPassword,
         style: GoogleFonts.inter(fontSize: 15),
         decoration: InputDecoration(
-          prefixIcon:
-          const Icon(Icons.lock_outline, color: themeColor, size: 22),
+          prefixIcon: const Icon(Icons.lock_outline, color: themeColor, size: 22),
           suffixIcon: IconButton(
             icon: Icon(
               showPassword ? Icons.visibility : Icons.visibility_off,
@@ -495,11 +500,9 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
             onPressed: () => setState(() => showPassword = !showPassword),
           ),
           hintText: "Password",
-          hintStyle:
-          GoogleFonts.inter(color: Colors.grey.shade500, fontSize: 15),
+          hintStyle: GoogleFonts.inter(color: Colors.grey.shade500, fontSize: 15),
           border: InputBorder.none,
-          contentPadding:
-          const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
         ),
       ),
     );
@@ -543,7 +546,6 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
         icon = FontAwesomeIcons.instagram;
         color = const Color(0xFFE4405F);
         break;
-
       case 'linkedin':
         icon = FontAwesomeIcons.linkedin;
         color = const Color(0xFF0A66C2);
@@ -572,7 +574,7 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
           msg,
           style: GoogleFonts.inter(),
         ),
-        backgroundColor: themeColor,
+        backgroundColor: msg.contains("Successful") ? Colors.green : themeColor,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),

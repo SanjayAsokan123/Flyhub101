@@ -811,14 +811,9 @@ class _PilotPageState extends State<PilotPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.error_outline_rounded,
-            size: ResponsiveUtils.getPilotEmptyStateIconSize(context),
-            color: Colors.red.shade300,
-          ),
           SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
           Text(
-            "Error Loading Pilots",
+            "No Pilot found",
             style: GoogleFonts.inter(
               fontSize: ResponsiveUtils.getTitleFontSize(context),
               fontWeight: FontWeight.w700,
@@ -826,44 +821,8 @@ class _PilotPageState extends State<PilotPage> {
             ),
           ),
           SizedBox(height: ResponsiveUtils.getCardMargin(context)),
-          Text(
-            "Please check your connection and try again",
-            style: GoogleFonts.inter(
-              color: textSecondary,
-              fontSize: ResponsiveUtils.getBodyFontSize(context),
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-          SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-          ElevatedButton.icon(
-            onPressed: _fetchPilots,
-            icon: Icon(
-              Icons.refresh_rounded,
-              color: Colors.white,
-              size: ResponsiveUtils.getIconSize(context),
-            ),
-            label: Text(
-              "Try Again",
-              style: GoogleFonts.inter(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: ResponsiveUtils.getBodyFontSize(context),
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              padding: EdgeInsets.symmetric(
-                horizontal: ResponsiveUtils.getHorizontalPadding(context) * 1.2,
-                vertical: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.04),
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(
-                  ResponsiveUtils.getDynamicPadding(context, 0.03),
-                ),
-              ),
-              elevation: ResponsiveUtils.getElevation(context),
-            ),
-          ),
+
+
         ],
       ),
     );

@@ -18,16 +18,31 @@ class _SellerPilotBookingStatusPageState
   late TabController _tabController;
   late GraphQLClient client;
 
+
+  // Refresh indicator keys for each tab
+  final GlobalKey<RefreshIndicatorState> _approvedRefreshKey = GlobalKey<RefreshIndicatorState>();
+  final GlobalKey<RefreshIndicatorState> _pendingRefreshKey = GlobalKey<RefreshIndicatorState>();
+  final GlobalKey<RefreshIndicatorState> _rejectedRefreshKey = GlobalKey<RefreshIndicatorState>();
+  final GlobalKey<RefreshIndicatorState> _completedRefreshKey = GlobalKey<RefreshIndicatorState>();
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(_handleTabChange);
 
     client = GraphQLClient(
       link: HttpLink(EnvConfig.baseUrl),
       cache: GraphQLCache(),
     );
   }
+
+  void _handleTabChange() {
+    if (_tabController.indexIsChanging) {
+      setState(() {});
+    }
+  }
+
   // ---------------------------------------------------
   // 🔥 QUERIES FOR SELLER BOOKING STATUS
   // ---------------------------------------------------
@@ -48,7 +63,6 @@ class _SellerPilotBookingStatusPageState
   }
 """;
 
-
   String getApprovedQuery() => """
   query {
     getSellerApprovedPilotBookings(sellerId: "${widget.sellerId}") {
@@ -66,7 +80,6 @@ class _SellerPilotBookingStatusPageState
   }
 """;
 
-
   String getRejectedQuery() => """
   query {
     getSellerRejectedPilotBookings(sellerId: "${widget.sellerId}") {
@@ -83,7 +96,6 @@ class _SellerPilotBookingStatusPageState
     }
   }
 """;
-
 
   String getCompletedQuery() => """
   query {
@@ -111,6 +123,21 @@ mutation UpdateStatus(\$bookingId: String!, \$status: String!) {
 }
 """;
 
+  // Get refresh key based on tab index
+  GlobalKey<RefreshIndicatorState> _getRefreshKey(int tabIndex) {
+    switch (tabIndex) {
+      case 0:
+        return _approvedRefreshKey;
+      case 1:
+        return _pendingRefreshKey;
+      case 2:
+        return _rejectedRefreshKey;
+      case 3:
+        return _completedRefreshKey;
+      default:
+        return _pendingRefreshKey;
+    }
+  }
 
   // ---------------------------------------------------
   // COLORS BASED ON STATUS
@@ -132,9 +159,10 @@ mutation UpdateStatus(\$bookingId: String!, \$status: String!) {
   // ---------------------------------------------------
   // CARD UI FOR SELLER VIEW
   // ---------------------------------------------------
-  Widget buildBookingCard(Map<String, dynamic> b, VoidCallback? refetch) {
+  Widget buildBookingCard(Map<String, dynamic> b, VoidCallback? refetch, int tabIndex) {
     final status = b["status"] ?? "--";
     final statusColor = getStatusColor(status);
+    bool isApprovedTab = tabIndex == 0;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -186,9 +214,28 @@ mutation UpdateStatus(\$bookingId: String!, \$status: String!) {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text("📍 ${b["location"] ?? '--'}"),
-                      Text("📅 ${b["date"] ?? '--'}"),
-                      Text("⏰ ${b["startTime"]} - ${b["endTime"]}"),
+                      Text(
+                        "📍 ${b["location"] ?? '--'}",
+                        style: const TextStyle(color: Colors.black54),
+                      ),
+                      Text(
+                        "📅 ${b["date"] ?? '--'}",
+                        style: const TextStyle(color: Colors.black54),
+                      ),
+                      Text(
+                        "⏰ ${b["startTime"]} - ${b["endTime"]}",
+                        style: const TextStyle(color: Colors.black54),
+                      ),
+                      if (b["pilotName"] != null && b["pilotName"].isNotEmpty)
+                        Text(
+                          "👨‍✈️ Pilot: ${b["pilotName"]}",
+                          style: const TextStyle(color: Colors.black54),
+                        ),
+                      if (b["contact"] != null && b["contact"].isNotEmpty)
+                        Text(
+                          "📞 Contact: ${b["contact"]}",
+                          style: const TextStyle(color: Colors.black54),
+                        ),
                     ],
                   ),
                 ),
@@ -210,7 +257,7 @@ mutation UpdateStatus(\$bookingId: String!, \$status: String!) {
 
             const SizedBox(height: 14),
 
-            // 🔥 ACTION BUTTONS ONLY IF STATUS == PENDING
+            // ACTION BUTTONS BASED ON STATUS AND TAB
             if (status == "pending")
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -260,18 +307,47 @@ mutation UpdateStatus(\$bookingId: String!, \$status: String!) {
                     },
                   ),
                 ],
-              )
+              ),
+
+            // MARK AS COMPLETED BUTTON FOR APPROVED BOOKINGS
+            if (isApprovedTab && status == "approved")
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Mutation(
+                    options: MutationOptions(
+                      document: gql(updateStatusMutation),
+                      onCompleted: (_) => refetch?.call(),
+                    ),
+                    builder: (runMutation, result) {
+                      return ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () {
+                          runMutation({
+                            "bookingId": b["bookingId"],
+                            "status": "completed",
+                          });
+                        },
+                        child: const Text("Mark as Completed"),
+                      );
+                    },
+                  ),
+                ],
+              ),
           ],
         ),
       ),
     );
   }
 
-
   // ---------------------------------------------------
-  // TAB VIEW BUILDER
+  // TAB VIEW BUILDER WITH SWIPE-TO-REFRESH
   // ---------------------------------------------------
-  Widget buildTab(String Function() queryBuilder) {
+  Widget buildTab(String Function() queryBuilder, int tabIndex) {
     return Query(
       options: QueryOptions(
         document: gql(queryBuilder()),
@@ -279,10 +355,56 @@ mutation UpdateStatus(\$bookingId: String!, \$status: String!) {
       ),
       builder: (result, {refetch, fetchMore}) {
         if (result.isLoading) {
-          return const Center(child: CircularProgressIndicator());
+          return Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFF1E0E5C)),
+            ),
+          );
         }
+
         if (result.hasException) {
-          return Center(child: Text("Error: ${result.exception}"));
+          return RefreshIndicator(
+            key: _getRefreshKey(tabIndex),
+            onRefresh: () async {
+              if (refetch != null) {
+                await refetch();
+              }
+            },
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text(
+                    "Error loading data",
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "${result.exception}",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => refetch?.call(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E0E5C),
+                    ),
+                    child: const Text("Retry", style: TextStyle(color: Colors.white)),
+                  ),
+                ],
+              ),
+            ),
+          );
         }
 
         final data = result.data ?? {};
@@ -293,19 +415,67 @@ mutation UpdateStatus(\$bookingId: String!, \$status: String!) {
 
         final List list = data[listKey] ?? [];
 
+        Widget content;
+
         if (list.isEmpty) {
-          return const Center(
-            child:
-            Text("No bookings found", style: TextStyle(color: Colors.grey)),
+          content = Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.assignment,
+                  size: 64,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  "No bookings found",
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "Swipe down to refresh",
+                  style: TextStyle(
+                    color: Colors.grey[500],
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          );
+        } else {
+          content = ListView.builder(
+            itemCount: list.length,
+            itemBuilder: (_, i) => buildBookingCard(list[i], refetch, tabIndex),
           );
         }
 
-        return ListView.builder(
-          itemCount: list.length,
-          itemBuilder: (_, i) => buildBookingCard(list[i], refetch),
+        return RefreshIndicator(
+          key: _getRefreshKey(tabIndex),
+          onRefresh: () async {
+            if (refetch != null) {
+              await refetch();
+            }
+          },
+          color: const Color(0xFF1E0E5C),
+          backgroundColor: Colors.white,
+          strokeWidth: 2.5,
+          displacement: 40,
+          edgeOffset: 0,
+          child: content,
         );
       },
     );
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   // ---------------------------------------------------
@@ -320,14 +490,14 @@ mutation UpdateStatus(\$bookingId: String!, \$status: String!) {
         backgroundColor: const Color(0xFF1E0E5C),
         title: const Text("Pilot Bookings", style: TextStyle(color: Colors.white)),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white), // Changed arrow color to white
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,
-          labelColor: Colors.white, // Tab text color changed to white
-          unselectedLabelColor: Colors.white.withOpacity(0.7), // Unselected tab text in white with opacity
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white.withOpacity(0.7),
           tabs: const [
             Tab(text: "Approved"),
             Tab(text: "Pending"),
@@ -340,10 +510,10 @@ mutation UpdateStatus(\$bookingId: String!, \$status: String!) {
       body: TabBarView(
         controller: _tabController,
         children: [
-          buildTab(getApprovedQuery),
-          buildTab(getPendingQuery),
-          buildTab(getRejectedQuery),
-          buildTab(getCompletedQuery),
+          buildTab(getApprovedQuery, 0),
+          buildTab(getPendingQuery, 1),
+          buildTab(getRejectedQuery, 2),
+          buildTab(getCompletedQuery, 3),
         ],
       ),
     );

@@ -750,12 +750,6 @@ class _RentalsPageState extends State<RentalsPage> {
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.search_off,
-            size: 80,
-            color: textSecondary.withOpacity(0.3),
-          ),
-          SizedBox(height: 16),
           Text(
             searchQuery.isEmpty ? "No rentals available" : "No results for '$searchQuery'",
             style: GoogleFonts.inter(

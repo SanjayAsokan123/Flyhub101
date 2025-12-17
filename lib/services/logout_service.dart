@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flyhub/Login/FlyHubSelectionPage.dart';
+import 'package:flyhub/Login/SellerLoginPage.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -21,16 +23,22 @@ Future<void> removeTokenFromBackendSeller(
     String customId, String? fcmToken) async {
   if (fcmToken == null) return;
 
-  final String url = EnvConfig.baseUrl; // your GraphQL endpoint
+  final String url = EnvConfig.baseUrl;
 
-  const String mutation = """
-    mutation removeSellerFcmToken(\$customId: String!, \$fcmToken: String!) {
-      removeSellerFcmToken(customId: \$customId, fcmToken: \$fcmToken) {
-        success
-        message
-      }
+  const String mutation = r'''
+mutation RemoveSellerFcmToken($customId: String!, $fcmToken: String!) {
+  removeSellerFcmToken(customId: $customId, fcmToken: $fcmToken) {
+    success
+    message
+    seller {
+      fcmTokens
+      fcmToken
     }
-  """;
+  }
+}
+''';
+
+
 
   final response = await http.post(
     Uri.parse(url),
@@ -47,25 +55,90 @@ Future<void> removeTokenFromBackendSeller(
   final data = jsonDecode(response.body);
   print("REMOVE FCM RESPONSE → $data");
 }
+Future<void> removeBuyerTokenFromBackend(String buyerId, String? fcmToken) async {
+  final String removeTokenMutation = r'''
+    mutation RemoveBuyerFcmToken($buyerId: String!, $fcmToken: String!) {
+      removeBuyerFcmToken(buyerId: $buyerId, fcmToken: $fcmToken) {
+        success
+        message
+        buyer {
+          fcmTokens
+          fcmToken
+        }
+      }
+    }
+  ''';
+
+  final variables = {
+    "buyerId": buyerId,
+    "fcmToken": fcmToken,
+  };
+
+  try {
+    final client = GraphQLClient(
+      link: HttpLink(EnvConfig.baseUrl),
+      cache: GraphQLCache(store: InMemoryStore()),
+    );
+
+    final result = await client.mutate(
+      MutationOptions(
+        document: gql(removeTokenMutation),
+        variables: variables,
+      ),
+    );
+
+    if (result.hasException) {
+      print("❌ GraphQL Error: ${result.exception.toString()}");
+      return;
+    }
+
+    final data = result.data?["removeBuyerFcmToken"];
+
+    if (data == null) {
+      print("❌ No response from backend");
+      return;
+    }
+
+    print("✅ Token removed successfully");
+    print("Message: ${data['message']}");
+    print("Updated Tokens: ${data['buyer']['fcmTokens']}");
+  } catch (e) {
+    print("❌ Exception while removing token: $e");
+  }
+}
+
+class Env {
+}
+
 
 class LogoutService {
-  static Future<void> logoutSeller(
-      BuildContext context, String customId) async {
+  static Future<void> logoutSeller(BuildContext context, String sellerId) async {
     try {
       // 1️⃣ Get current FCM Token
       String? fcmToken = await FirebaseMessaging.instance.getToken();
+      print("✅ got the token in LOGOUT SERVICE PAGE $fcmToken");
 
       // 2️⃣ Remove token from backend using customId
-      await removeTokenFromBackendSeller(customId, fcmToken);
+      if (fcmToken != null) {
+        await removeTokenFromBackendSeller(sellerId, fcmToken);
+        print("✅ cleared the token from the backend");
+        // Optionally delete token locally so next login generates a fresh one
+        try {
+          await FirebaseMessaging.instance.deleteToken();
+          print("✅ local FCM token deleted");
+        } catch (e) {
+          print("⚠ failed to delete local FCM token: $e");
+        }
+      }
 
       // 3️⃣ Firebase Logout
       await FirebaseAuth.instance.signOut();
+      print("✅ cleared the auth service");
 
-      // 4️⃣ Clear local storage
+      // ... clear local prefs and navigate as before
       SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.clear();
-
-      // 6️⃣ Navigate to login
+      print("✅ cleared the local store preference");
       if (context.mounted) {
         Navigator.pushAndRemoveUntil(
           context,
@@ -73,7 +146,8 @@ class LogoutService {
               (route) => false,
         );
       }
-    } catch (e) {
+    }
+    catch (e) {
       print("Logout error: $e");
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -83,7 +157,7 @@ class LogoutService {
     }
   }
 
-  static Future<void> logoutBuyer(BuildContext context, String customId) async {
+  static Future<void> logoutBuyer(BuildContext context,{required String buyerId}) async {
     try {
       // ------------------------------
       // 1. Get current FCM token
@@ -93,7 +167,7 @@ class LogoutService {
       // ------------------------------
       // 2. Remove token from backend
       // ------------------------------
-      // await removeTokenFromBackend(BuyerId , fcmToken);
+      await removeBuyerTokenFromBackend(buyerId ,fcmToken);
 
       // ------------------------------
       // 3. Firebase logout
@@ -110,7 +184,7 @@ class LogoutService {
       // 5. Reset provider state
       // ------------------------------
       // if (context.mounted) {
-      //   context.read<UserProvider>().clear();
+      //   context.http.read<UserProvider>().clear();
       // }
 
       // ------------------------------

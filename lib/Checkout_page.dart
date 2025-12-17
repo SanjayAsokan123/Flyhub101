@@ -1,13 +1,10 @@
-// ==============================================
-// 📌 CheckoutPage.dart (FINAL VERSION)
-// ==============================================
-
 import 'package:flutter/material.dart';
+import 'package:flyhub/services/cart_wishlist_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart';
+import 'package:provider/provider.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
-
 import '../services/graphql_client.dart';
-import '../services/role_manager.dart';
 import 'OrderSuccessPage.dart';
 
 class CheckoutPage extends StatefulWidget {
@@ -101,6 +98,24 @@ class _CheckoutPageState extends State<CheckoutPage> {
     return res?["verifyRazorpayPayment"] == true;
   }
 
+  List<Map<String, dynamic>> items = [];
+
+  String normalizeType(String raw) {
+    switch (raw.toLowerCase()) {
+      case "drone":
+      case "drones":
+        return "Drone";
+      case "part":
+      case "parts":
+        return "Part";
+      case "accessory":
+      case "accessories":
+        return "Accessory";
+      default:
+        throw "Invalid product type: $raw";
+    }
+  }
+
   // ========================================================
   // 🔥 CREATE ORDER IN BACKEND — FINAL STEP
   // ========================================================
@@ -111,46 +126,44 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }) async {
     try {
       final buyer = widget.order["buyerData"];
+      final List rawItems = widget.order["items"];
 
-      // Final items payload
-      List<Map<String, dynamic>> items = [];
-
-      if (widget.order["type"] == "single") {
-        final p = widget.order["singleProduct"];
-        items.add({
-          "productId": p["productId"],
-          "type": p["category"],
-          "quantity": p["quantity"],
-        });
+      if (rawItems.isEmpty) {
+        throw "No items found for checkout";
       }
 
-      if (widget.order["type"] == "cart") {
-        for (var c in widget.order["cartItems"]) {
-          items.add({
-            "productId": c["productId"],
-            "type": c["category"],
-            "quantity": c["quantity"],
-          });
+      final List<Map<String, dynamic>> items = rawItems.map((i) {
+        if (i["productId"] == null) {
+          throw "Item missing productId";
         }
-      }
+        if (i["category"] == null) {
+          throw "Item missing category";
+        }
+
+        return {
+          "productId": i["productId"],
+          "type": normalizeType(i["category"]),
+          "quantity": i["quantity"] ?? 1,
+        };
+      }).toList();
 
       const String mutation = r'''
-        mutation CreateOrder(
-          $buyerData: BuyerInput!
-          $items: [ItemInput!]!
-          $paymentData: PaymentInput!
+      mutation CreateOrder(
+        $buyerData: BuyerInput!
+        $items: [ItemInput!]!
+        $paymentData: PaymentInput!
+      ) {
+        createOrder(
+          buyerData: $buyerData
+          items: $items
+          paymentData: $paymentData
         ) {
-          createOrder(
-            buyerData: $buyerData
-            items: $items
-            paymentData: $paymentData
-          ) {
-            orderId
-            totalAmount
-            status
-          }
+          orderId
+          totalAmount
+          status
         }
-      ''';
+      }
+    ''';
 
       final res = await GraphQLService.performMutation(
         mutation,
@@ -168,6 +181,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final order = res?["createOrder"];
       if (order == null) throw "Order creation failed";
 
+      if (mounted) {
+        context.read<CartWishlistProvider>().clearCart();
+      }
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -177,14 +194,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
           ),
         ),
       );
+
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text("Order failed: $e"),
-            backgroundColor: Colors.red),
+          content: Text("Order failed: $e"),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
+
 
   // ========================================================
   // 🔥 Trigger Razorpay Payment Flow
@@ -301,52 +321,156 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   Widget _summaryCard() {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Total Amount",
-              style:
-              GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w500)),
-          Text("₹${widget.total.toStringAsFixed(0)}",
-              style: GoogleFonts.poppins(
-                  fontSize: 18,
+          Text(
+            "Order Summary",
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("Total Amount",
+                  style: GoogleFonts.poppins(fontSize: 14)),
+              Text(
+                "₹${widget.total.toStringAsFixed(0)}",
+                style: GoogleFonts.poppins(
+                  fontSize: 20,
                   fontWeight: FontWeight.w700,
-                  color: themeColor)),
+                  color: themeColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            "Inclusive of all taxes",
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: Colors.grey,
+            ),
+          ),
         ],
       ),
     );
   }
 
+
   Widget _paymentTiles() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _tile(
-          "UPI (Google Pay / PhonePe)",
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: themeColor),
-            onPressed: _startRazorpayPayment,
-            child: Text("Pay ₹${widget.total}",
-                style: const TextStyle(color: Colors.white)),
+        Text(
+          "Choose Payment Method",
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        _tile(
-          "Cash on Delivery",
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: themeColor),
-            onPressed: _handleCOD,
-            child: const Text("Confirm COD",
-                style: TextStyle(color: Colors.white)),
-          ),
+        const SizedBox(height: 12),
+
+        _paymentCard(
+          icon: Icons.qr_code_rounded,
+          title: "UPI / Razorpay",
+          subtitle: "Google Pay, PhonePe, Paytm",
+          actionText: "Pay Now",
+          onTap: _startRazorpayPayment,
+          primary: true,
+        ),
+
+        _paymentCard(
+          icon: Icons.money_rounded,
+          title: "Cash on Delivery",
+          subtitle: "Pay when product is delivered",
+          actionText: "Confirm COD",
+          onTap: _handleCOD,
+          primary: false,
         ),
       ],
     );
   }
+  Widget _paymentCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required String actionText,
+    required VoidCallback onTap,
+    bool primary = false,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: primary
+                  ? themeColor.withOpacity(0.1)
+                  : Colors.grey.shade200,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: themeColor),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: GoogleFonts.poppins(
+                        fontSize: 15, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(subtitle,
+                    style: GoogleFonts.poppins(
+                        fontSize: 12, color: Colors.grey)),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: themeColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: onTap,
+            child: Text(actionText,
+                style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Widget _tile(String title, Widget child) {
     return Container(

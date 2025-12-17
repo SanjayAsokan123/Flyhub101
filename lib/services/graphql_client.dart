@@ -46,15 +46,111 @@ class GraphQLService {
     );
 
     return GraphQLClient(
-        cache: GraphQLCache(store: InMemoryStore()),
-        link: link,
-        defaultPolicies: DefaultPolicies(
-          query: Policies(fetch: FetchPolicy.networkOnly),
-          mutate: Policies(fetch: FetchPolicy.networkOnly),
-          subscribe: Policies(fetch: FetchPolicy.noCache),
-        ),
+      cache: GraphQLCache(store: InMemoryStore()),
+      link: link,
+      defaultPolicies: DefaultPolicies(
+        query: Policies(fetch: FetchPolicy.networkOnly),
+        mutate: Policies(fetch: FetchPolicy.networkOnly),
+        subscribe: Policies(fetch: FetchPolicy.noCache),
+      ),
+      queryRequestTimeout: const Duration(seconds: 30), // Add this line for timeout
     );
   }
+
+
+
+  // ==========================================================
+  // 🔐 SELLER PASSWORD CHANGE
+  // ==========================================================
+  static Future<Map<String, dynamic>> changeSellerPassword({
+    required String customId,
+    required String newPassword,
+  }) async {
+    const String mutation = r'''
+    mutation ChangeSellerPassword($customId: ID!, $newPassword: String!) {
+      changeSellerPassword(customId: $customId, newPassword: $newPassword) {
+        customId
+        name
+        email
+        companyName
+        status
+      }
+    }
+  ''';
+
+    try {
+      debugPrint('🔐 Attempting to change password for seller: $customId');
+
+      final data = await performMutation(
+        mutation,
+        variables: {
+          "customId": customId,
+          "newPassword": newPassword,
+        },
+      );
+
+      if (data != null && data.containsKey("changeSellerPassword")) {
+        final sellerData = data["changeSellerPassword"] as Map<String, dynamic>;
+        debugPrint('✅ Password changed successfully for: ${sellerData['email']}');
+        return sellerData;
+      } else {
+        throw Exception("Invalid response from server");
+      }
+    } catch (e) {
+      debugPrint("❌ Password change error: $e");
+      rethrow;
+    }
+  }
+
+  // ==========================================================
+  // 🚫 ACCOUNT DEACTIVATION - FIXED
+  // ==========================================================
+
+  /// Perform a GraphQL mutation with error handling
+  static Future<Map<String, dynamic>?> performMutationWithAuth(
+      String mutation, {
+        Map<String, dynamic>? variables,
+      }) async {
+    try {
+      final client = await initClient();
+
+      // Get current user for debugging
+      final user = FirebaseAuth.instance.currentUser;
+      debugPrint("🔑 Current Firebase user: ${user?.uid ?? 'None'}");
+
+      if (user != null) {
+        try {
+          final token = await user.getIdToken(true);
+          debugPrint("✅ Firebase token: ${token?.substring(0, 20)}...");
+        } catch (e) {
+          debugPrint("❌ Error getting token: $e");
+        }
+      }
+
+      final result = await client.mutate(
+        MutationOptions(
+          document: gql(mutation),
+          variables: variables ?? {},
+        ),
+      );
+
+      if (result.hasException) {
+        _logError("Deactivation Mutation", result.exception);
+        throw Exception(
+          result.exception!.graphqlErrors.isNotEmpty
+              ? result.exception!.graphqlErrors.first.message
+              : "Unknown mutation error",
+        );
+      }
+
+      debugPrint("✅ Mutation response received");
+      return result.data;
+    } catch (e) {
+      debugPrint("❌ Mutation error: $e");
+      rethrow;
+    }
+  }
+
 
   // ==========================================================
 // 🛒 CART API

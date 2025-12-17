@@ -12,6 +12,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../T&C/Seller_t&c.dart';
 
 // ============================================
 // SELLER REGISTRATION FLOW MAIN SCREEN
@@ -1046,7 +1047,7 @@ class _SellerDetailsScreenState extends State<SellerDetailsScreen> {
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) =>
-                                        TermsAndConditionsPage(),
+                                        SellerTermsAndConditions(),
                                   ),
                                 );
                               },
