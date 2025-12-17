@@ -47,6 +47,13 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
     _animationController.dispose();
     super.dispose();
   }
+  Map<String, dynamic> mapCartItemToOrderItem(Map<String, dynamic> cart) {
+    return {
+      "productId": cart["productId"],   // MUST exist
+      "category": cart["category"],     // "drone" | "part" | etc
+      "quantity": cart["quantity"] ?? 1,
+    };
+  }
 
   // ---------------------------------------------------------
   // 🔵 NEW: Initialize sequence (get buyerId → load cart)

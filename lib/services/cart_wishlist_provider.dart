@@ -222,6 +222,20 @@ class CartWishlistProvider with ChangeNotifier {
       _cartCount = 0;
     }
   }
+  Future<void> clearCart() async {
+    cartItems.clear();
+    cartIds.clear();
+    _cartCount = 0;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('cart');
+    } catch (e) {
+      print('❌ Error clearing cart local storage: $e');
+    }
+
+    notifyListeners();
+  }
 
   Future<void> _syncCartWithFirebase() async {
     try {

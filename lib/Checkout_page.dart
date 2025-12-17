@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flyhub/services/cart_wishlist_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart';
+import 'package:provider/provider.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../services/graphql_client.dart';
 import 'OrderSuccessPage.dart';
@@ -95,6 +98,24 @@ class _CheckoutPageState extends State<CheckoutPage> {
     return res?["verifyRazorpayPayment"] == true;
   }
 
+  List<Map<String, dynamic>> items = [];
+
+  String normalizeType(String raw) {
+    switch (raw.toLowerCase()) {
+      case "drone":
+      case "drones":
+        return "Drone";
+      case "part":
+      case "parts":
+        return "Part";
+      case "accessory":
+      case "accessories":
+        return "Accessory";
+      default:
+        throw "Invalid product type: $raw";
+    }
+  }
+
   // ========================================================
   // 🔥 CREATE ORDER IN BACKEND — FINAL STEP
   // ========================================================
@@ -105,46 +126,44 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }) async {
     try {
       final buyer = widget.order["buyerData"];
+      final List rawItems = widget.order["items"];
 
-      // Final items payload
-      List<Map<String, dynamic>> items = [];
-
-      if (widget.order["type"] == "single") {
-        final p = widget.order["singleProduct"];
-        items.add({
-          "productId": p["productId"],
-          "type": p["category"],
-          "quantity": p["quantity"],
-        });
+      if (rawItems.isEmpty) {
+        throw "No items found for checkout";
       }
 
-      if (widget.order["type"] == "cart") {
-        for (var c in widget.order["cartItems"]) {
-          items.add({
-            "productId": c["productId"],
-            "type": c["category"],
-            "quantity": c["quantity"],
-          });
+      final List<Map<String, dynamic>> items = rawItems.map((i) {
+        if (i["productId"] == null) {
+          throw "Item missing productId";
         }
-      }
+        if (i["category"] == null) {
+          throw "Item missing category";
+        }
+
+        return {
+          "productId": i["productId"],
+          "type": normalizeType(i["category"]),
+          "quantity": i["quantity"] ?? 1,
+        };
+      }).toList();
 
       const String mutation = r'''
-        mutation CreateOrder(
-          $buyerData: BuyerInput!
-          $items: [ItemInput!]!
-          $paymentData: PaymentInput!
+      mutation CreateOrder(
+        $buyerData: BuyerInput!
+        $items: [ItemInput!]!
+        $paymentData: PaymentInput!
+      ) {
+        createOrder(
+          buyerData: $buyerData
+          items: $items
+          paymentData: $paymentData
         ) {
-          createOrder(
-            buyerData: $buyerData
-            items: $items
-            paymentData: $paymentData
-          ) {
-            orderId
-            totalAmount
-            status
-          }
+          orderId
+          totalAmount
+          status
         }
-      ''';
+      }
+    ''';
 
       final res = await GraphQLService.performMutation(
         mutation,
@@ -162,6 +181,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final order = res?["createOrder"];
       if (order == null) throw "Order creation failed";
 
+      if (mounted) {
+        context.read<CartWishlistProvider>().clearCart();
+      }
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -171,14 +194,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
           ),
         ),
       );
+
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text("Order failed: $e"),
-            backgroundColor: Colors.red),
+          content: Text("Order failed: $e"),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
+
 
   // ========================================================
   // 🔥 Trigger Razorpay Payment Flow

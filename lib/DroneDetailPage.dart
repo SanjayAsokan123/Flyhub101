@@ -65,10 +65,13 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
 
     const query = r"""
       query GetCart($buyerId: String!) {
-        getCart(buyerId: $buyerId) {
-          id
-        }
-      }
+  getCart(buyerId: $buyerId) {
+    productId
+    quantity
+    category
+  }
+}
+
     """;
 
     final data = await _gql(query, {"buyerId": buyerId});
@@ -85,6 +88,7 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
     if (buyerId == null) return;
 
     final productId = widget.drone["productId"] ?? widget.drone["id"];
+    // final productId = widget.drone["id"];
 
     const query = r"""
       query GetWishlist($buyerId: String!) {
@@ -461,7 +465,8 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
                       orderData: {
                         "type": "single",
                         "product": {
-                          ...drone,
+                          "productId": drone["id"],          // ✅ REQUIRED
+                          "category": drone["category"],     // e.g. "drones"
                           "quantity": quantity,
                         }
                       },

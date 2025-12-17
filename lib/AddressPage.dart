@@ -20,6 +20,26 @@ class AddressPage extends StatefulWidget {
   State<AddressPage> createState() => _AddressPageState();
 }
 
+Map<String, dynamic> normalizeOrderItem(Map<String, dynamic> raw) {
+  final productId = raw["productId"] ?? raw["id"];
+  final category = raw["category"] ?? raw["type"];
+
+  if (productId == null) {
+    throw Exception("Order item missing productId");
+  }
+
+  if (category == null) {
+    throw Exception("Order item missing category/type");
+  }
+
+  return {
+    "productId": productId,
+    "category": category,
+    "quantity": raw["quantity"] ?? 1,
+  };
+}
+
+
 class _AddressPageState extends State<AddressPage> {
   final _formKey = GlobalKey<FormState>();
   List<Map<String, dynamic>> savedAddresses = [];
@@ -504,12 +524,40 @@ class _AddressPageState extends State<AddressPage> {
       "address": "${a['streetAddress']}, ${a['city']}, ${a['state']} - ${a['zipCode']}, $country",
     };
 
+    List<Map<String, dynamic>> normalizedItems = [];
+
+    if (widget.orderData["type"] == "single") {
+      normalizedItems.add(
+        normalizeOrderItem(widget.orderData["product"]),
+      );
+    }
+
+    if (widget.orderData["type"] == "cart") {
+      normalizedItems = (widget.orderData["cartItems"] as List)
+          .where((e) => e != null)
+          .map((e) => normalizeOrderItem(e))
+          .toList();
+    }
+
     final orderPayload = {
       "type": widget.orderData["type"],
       "buyerData": buyerData,
-      "singleProduct": widget.orderData["product"],
-      "cartItems": widget.orderData["cartItems"],
+      "items": normalizedItems, // ✅ ONE KEY
     };
+
+    if (normalizedItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("No valid items found for checkout"),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    debugPrint("✅ FINAL ORDER PAYLOAD =>");
+    debugPrint(jsonEncode(orderPayload));
+
 
     Navigator.push(
       context,
