@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class HelpAndSupportPage extends StatelessWidget {
   const HelpAndSupportPage({super.key});
@@ -13,15 +12,19 @@ class HelpAndSupportPage extends StatelessWidget {
         backgroundColor: Colors.white,
         title: Text(
           "Help & Support",
-          style: GoogleFonts.lexend(
+          style: TextStyle(
             color: mainColor,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w700,
+            fontSize: 20,
+            letterSpacing: -0.5,
+            fontFamily: 'Roboto', // Changed font family
           ),
         ),
         iconTheme: IconThemeData(color: mainColor),
         elevation: 1,
+        centerTitle: true,
       ),
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Colors.white,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -29,24 +32,26 @@ class HelpAndSupportPage extends StatelessWidget {
           children: [
             Text(
               "Frequently Asked Questions",
-              style: GoogleFonts.lexend(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: mainColor,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 20,
+                color: Colors.grey[800],
+                letterSpacing: -0.3,
+                fontFamily: 'Roboto', // Changed font family
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
-// FAQ section
+            // FAQ section
             _buildFAQItem(
               question: "How do I track my order?",
               answer:
-              "You can track your order in the 'My Orders' section under your profile. You’ll see live updates and delivery details there.",
+              "You can track your order in the 'My Orders' section under your profile. You'll see live updates and delivery details there.",
             ),
             _buildFAQItem(
               question: "How can I reset my password?",
               answer:
-              "Go to Settings > Account > Change Password. You’ll get an OTP on your registered email or phone number.",
+              "Go to Settings > Account > Change Password. You'll get an OTP on your registered email or phone number.",
             ),
             _buildFAQItem(
               question: "Can I cancel an order after placing it?",
@@ -56,67 +61,74 @@ class HelpAndSupportPage extends StatelessWidget {
             _buildFAQItem(
               question: "I found a bug in the app, what do I do?",
               answer:
-              "We’re sorry about that! Please report it in the 'Send Feedback' section so our devs can look into it ASAP.",
+              "We're sorry about that! Please report it in the 'Send Feedback' section so our devs can look into it ASAP.",
             ),
 
-            const SizedBox(height: 30),
+            const SizedBox(height: 32),
             Text(
               "Need more help?",
-              style: GoogleFonts.lexend(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: mainColor,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 20,
+                color: Colors.grey[800],
+                letterSpacing: -0.3,
+                fontFamily: 'Roboto', // Changed font family
               ),
             ),
-            const SizedBox(height: 10),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 6,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.email_outlined, color: mainColor),
-                      const SizedBox(width: 10),
-                      Text(
-                        "support@flyhub.com",
-                        style: GoogleFonts.lexend(fontSize: 14),
+            const SizedBox(height: 12),
+
+            // Contact Information Section
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.email_outlined, color: Colors.grey[700], size: 22),
+                    const SizedBox(width: 12),
+                    Text(
+                      "support@flyhub.com",
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey[700],
+                        fontFamily: 'Roboto', // Changed font family
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Icon(Icons.phone_outlined, color: mainColor),
-                      const SizedBox(width: 10),
-                      Text(
-                        "+91 98765 43210",
-                        style: GoogleFonts.lexend(fontSize: 14),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Icon(Icons.phone_outlined, color: Colors.grey[700], size: 22),
+                    const SizedBox(width: 12),
+                    Text(
+                      "+91 9566546937",
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey[700],
+                        fontFamily: 'Roboto', // Changed font family
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Padding(
+                  padding: const EdgeInsets.only(left: 34),
+                  child: Text(
                     "Available Mon–Sat, 9 AM to 6 PM",
-                    style: GoogleFonts.lexend(
+                    style: TextStyle(
                       color: Colors.grey[600],
-                      fontSize: 13,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      fontFamily: 'Roboto', // Changed font family
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+
+            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -125,26 +137,72 @@ class HelpAndSupportPage extends StatelessWidget {
 
   Widget _buildFAQItem({required String question, required String answer}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: ExpansionTile(
-        collapsedBackgroundColor: Colors.white,
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        title: Text(
-          question,
-          style: GoogleFonts.lexend(
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF1A0A5B),
-          ),
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.grey[300]!, width: 1),
         ),
+        color: Colors.grey[50],
+        child: ExpansionTile(
+          collapsedBackgroundColor: Colors.grey[50],
+          backgroundColor: Colors.grey[50],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+          childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          title: Text(
+            question,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+              color: Colors.grey[800],
+              fontFamily: 'Roboto', // Changed font family
+            ),
+          ),
+          children: [
+            Divider(color: Colors.grey[300], height: 1),
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                answer,
+                style: TextStyle(
+                  color: Colors.grey[700],
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  height: 1.5,
+                  fontFamily: 'Roboto', // Changed font family
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTipItem(String tip) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          Icon(
+            Icons.check_circle,
+            color: Colors.grey[700],
+            size: 18,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
             child: Text(
-              answer,
-              style: GoogleFonts.lexend(
-                color: Colors.grey[700],
+              tip,
+              style: TextStyle(
                 fontSize: 14,
+                color: Colors.grey[700],
+                fontWeight: FontWeight.w400,
+                fontFamily: 'Roboto', // Changed font family
               ),
             ),
           ),

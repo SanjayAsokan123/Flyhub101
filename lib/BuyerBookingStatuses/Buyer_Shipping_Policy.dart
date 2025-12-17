@@ -14,6 +14,7 @@ class BuyerShippingPolicyPage extends StatelessWidget {
           style: GoogleFonts.inter(
             fontWeight: FontWeight.w600,
             color: const Color(0xFF111827),
+            fontSize: 13,
           ),
         ),
         backgroundColor: Colors.white,
@@ -33,9 +34,9 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               // Last Updated
               Center(
                 child: Text(
-                  'Last Updated December 1,2025',
+                  'Last Updated December 1, 2025',
                   style: GoogleFonts.inter(
-                    fontSize: 15,
+                    fontSize: 13,
                     color: const Color(0xFF4B5563),
                     height: 1.6,
                   ),
@@ -43,21 +44,10 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               const Divider(height: 1, color: Color(0xFFE5E7EB)),
-
-              // Overview
               Text(
-                'Overview',
+                'This policy applies to customers purchasing drones, drone parts, accessories and renting equipment through the Flyhub platform.',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
-                  color: const Color(0xFF4B5563),
-                  height: 1.6,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'This policy applies to customers purchasing drones drone parts accessories and renting equipment through the Flyhub platform',
-                style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -66,9 +56,9 @@ class BuyerShippingPolicyPage extends StatelessWidget {
 
               // 1. What We Ship
               Text(
-                '1 What We Ship',
+                '1. What We Ship',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -76,58 +66,58 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               const SizedBox(height: 12),
               _buildBulletPoint('Complete drone systems'),
               _buildBulletPoint('Drone parts and components'),
-              _buildBulletPoint('Accessories batteries propellers cases controllers etc'),
-              _buildBulletPoint('Rental equipment subject to separate rental agreement'),
+              _buildBulletPoint('Accessories, batteries, propellers, cases, controllers, etc.'),
+              _buildBulletPoint('Rental equipment (subject to separate rental agreement)'),
               const SizedBox(height: 12),
               Text(
                 'This Policy Does NOT Cover',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
               ),
               const SizedBox(height: 8),
-              _buildBulletPoint('Drone pilot hiring services digital coordination only'),
-              _buildBulletPoint('Drone training courses digital or inperson services'),
+              _buildBulletPoint('Drone pilot hiring services (digital coordination only)'),
+              _buildBulletPoint('Drone training courses (digital or in‑person services)'),
               _buildBulletPoint('Job listings and placements'),
-              _buildBulletPoint('Digital products regulations manuals software'),
+              _buildBulletPoint('Digital products, regulations, manuals, software'),
               const SizedBox(height: 32),
 
               // 2. Delivery Timeframes
               Text(
-                '2 Delivery Timeframes',
+                '2. Delivery Timeframes',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
               ),
               const SizedBox(height: 12),
-              _buildBulletPoint('Standard Orders 7 working days from dispatch'),
-              _buildBulletPoint('CustomBuilttoOrder Drones 14 working days from order confirmation'),
-              _buildBulletPoint('PreOrder Items As specified on product page'),
-              _buildBulletPoint('Rental Equipment Ships within 24 hours of rental start date confirmation'),
+              _buildBulletPoint('Standard Orders: 7 working days from dispatch'),
+              _buildBulletPoint('Custom / Built‑to‑Order Drones: 14 working days from order confirmation'),
+              _buildBulletPoint('Pre‑Order Items: As specified on product page'),
+              _buildBulletPoint('Rental Equipment: Ships within 24 hours of rental start date confirmation'),
               const SizedBox(height: 12),
               Text(
                 'Order Processing Time',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
               ),
               const SizedBox(height: 8),
-              _buildBulletPoint('Orders placed before 200 PM IST are processed the same business day'),
-              _buildBulletPoint('Orders placed after 200 PM IST are processed the next business day'),
-              _buildBulletPoint('Processing does not occur on Saturdays Sundays and public holidays'),
+              _buildBulletPoint('Orders placed before 2:00 PM IST are processed the same business day'),
+              _buildBulletPoint('Orders placed after 2:00 PM IST are processed the next business day'),
+              _buildBulletPoint('Processing does not occur on Saturdays, Sundays and public holidays'),
               const SizedBox(height: 32),
 
               // 3. Shipping Method & Costs
               Text(
-                '3 Shipping Method & Costs',
+                '3. Shipping Method & Costs',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -136,21 +126,21 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               Text(
                 'Standard Shipping Only',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
               ),
               const SizedBox(height: 8),
-              _buildBulletPoint('Delivery Time 7 working days from dispatch'),
-              _buildBulletPoint('Shipping Cost ₹150'),
+              _buildBulletPoint('Delivery Time: 7 working days from dispatch'),
+              _buildBulletPoint('Shipping Cost: ₹150'),
               _buildBulletPoint('FREE SHIPPING on orders above ₹2000'),
               _buildBulletPoint('Tracking number provided for all orders'),
               const SizedBox(height: 12),
               Text(
-                'Note Currently only standard shipping is available We are working to add expedited shipping options in the future',
+                'Note: Currently only standard shipping is available. We are working to add expedited shipping options in the future.',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -159,9 +149,9 @@ class BuyerShippingPolicyPage extends StatelessWidget {
 
               // 4. Shipping Coverage
               Text(
-                '4 Shipping Coverage',
+                '4. Shipping Coverage',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -170,16 +160,16 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               Text(
                 'We Ship Within India Only',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'International shipping is not currently available',
+                'International shipping is not currently available.',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -188,22 +178,22 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               Text(
                 'Delivery Restrictions',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
               ),
               const SizedBox(height: 8),
-              _buildBulletPoint('PO Boxes Not available for signaturerequired shipments'),
-              _buildBulletPoint('Remoterural areas May experience extended delivery times'),
-              _buildBulletPoint('Certain restricted zones May not be serviceable verified at checkout'),
+              _buildBulletPoint('PO Boxes: Not available for signature‑required shipments'),
+              _buildBulletPoint('Remote / rural areas: May experience extended delivery times'),
+              _buildBulletPoint('Certain restricted zones: May not be serviceable (verified at checkout)'),
               const SizedBox(height: 32),
 
               // 5. Order Tracking
               Text(
-                '5 Order Tracking',
+                '5. Order Tracking',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -211,15 +201,15 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               const SizedBox(height: 12),
               _buildBulletPoint('Tracking number sent to your registered email within 24 hours of dispatch'),
               _buildBulletPoint('Track orders through the Flyhub app or courier partner website'),
-              _buildBulletPoint('SMSEmail notifications for order status updates'),
-              _buildBulletPoint('Realtime tracking available in your Flyhub account'),
+              _buildBulletPoint('SMS / Email notifications for order status updates'),
+              _buildBulletPoint('Real‑time tracking available in your Flyhub account'),
               const SizedBox(height: 32),
 
               // 6. Signature Requirements
               Text(
-                '6 Signature Requirements',
+                '6. Signature Requirements',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -228,7 +218,7 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               Text(
                 'Signature Required For',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -241,21 +231,21 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               Text(
                 'Standard Delivery',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
               ),
               const SizedBox(height: 8),
-              _buildBulletPoint('Accessories or parts under ₹5000 may be left at your delivery address at couriers discretion'),
+              _buildBulletPoint('Accessories or parts under ₹5000 may be left at your delivery address at courier’s discretion'),
               _buildBulletPoint('We recommend being available to receive valuable items'),
               const SizedBox(height: 32),
 
               // 7. Delivery Issues
               Text(
-                '7 Delivery Issues',
+                '7. Delivery Issues',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -264,30 +254,30 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               Text(
                 'Package Not Received',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'If tracking shows delivered but you havent received your package',
+                'If tracking shows delivered but you haven’t received your package:',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
               ),
               const SizedBox(height: 8),
-              _buildNumberedItem(1, 'Check with family members neighbors and building security'),
+              _buildNumberedItem(1, 'Check with family members, neighbors and building security'),
               _buildNumberedItem(2, 'Verify the delivery address in your Flyhub account'),
               _buildNumberedItem(3, 'Wait 24 hours as courier GPS can sometimes be inaccurate'),
               _buildNumberedItem(4, 'Contact Flyhub support within 48 hours of marked delivery'),
               const SizedBox(height: 8),
               Text(
-                'We will investigate with the courier and provide a replacement or full refund',
+                'We will investigate with the courier and provide a replacement or full refund.',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -296,16 +286,16 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               Text(
                 'Damaged Packages',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'Important Inspect your package immediately upon delivery',
+                'Important: Inspect your package immediately upon delivery.',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -317,9 +307,9 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               _buildBulletPoint('Keep all packaging materials for courier inspection if required'),
               const SizedBox(height: 8),
               Text(
-                'We will arrange return pickup at no cost and send a replacement or issue a full refund',
+                'We will arrange return pickup at no cost and send a replacement or issue a full refund.',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -328,31 +318,31 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               Text(
                 'Delayed Deliveries',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'If your package hasnt arrived within 7 working days',
+                'If your package hasn’t arrived within 7 working days:',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
               ),
               const SizedBox(height: 8),
               _buildBulletPoint('Check tracking status in the Flyhub app'),
-              _buildBulletPoint('Contact Flyhub support if tracking hasnt updated in 3 days'),
+              _buildBulletPoint('Contact Flyhub support if tracking hasn’t updated in 3 days'),
               _buildBulletPoint('We will escalate with our courier partner and provide immediate solutions'),
               const SizedBox(height: 32),
 
               // 8. Wrong or Refused Deliveries
               Text(
-                '8 Wrong or Refused Deliveries',
+                '8. Wrong or Refused Deliveries',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -361,33 +351,33 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               Text(
                 'Incorrect Address',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
               ),
               const SizedBox(height: 8),
-              _buildBulletPoint('Doublecheck your shipping address before placing order'),
+              _buildBulletPoint('Double‑check your shipping address before placing order'),
               _buildBulletPoint('Address corrections after dispatch may incur ₹100 rerouting fee'),
               _buildBulletPoint('Flyhub is not responsible for packages delivered to incorrect addresses provided by you'),
               const SizedBox(height: 12),
               Text(
                 'Refused Delivery',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
               ),
               const SizedBox(height: 8),
-              _buildBulletPoint('If you refuse delivery return shipping costs ₹150 will be deducted from refund'),
-              _buildBulletPoint('15 restocking fee applies to refused deliveries'),
-              _buildBulletPoint('Original shipping charges are nonrefundable'),
+              _buildBulletPoint('If you refuse delivery, return shipping costs ₹150 will be deducted from refund'),
+              _buildBulletPoint('15% restocking fee applies to refused deliveries'),
+              _buildBulletPoint('Original shipping charges are non‑refundable'),
               const SizedBox(height: 12),
               Text(
                 'Undeliverable Packages',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -398,9 +388,9 @@ class BuyerShippingPolicyPage extends StatelessWidget {
 
               // 9. Rental Equipment Shipping
               Text(
-                '9 Rental Equipment Shipping',
+                '9. Rental Equipment Shipping',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -409,13 +399,13 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               Text(
                 'Outbound Delivery',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
               ),
               const SizedBox(height: 8),
-              _buildBulletPoint('Rental equipment ships 12 days before your rental start date'),
+              _buildBulletPoint('Rental equipment ships 1–2 days before your rental start date'),
               _buildBulletPoint('Tracking information provided via email and SMS'),
               _buildBulletPoint('Signature required upon delivery'),
               _buildBulletPoint('Inspect equipment immediately and report any issues within 2 hours'),
@@ -423,7 +413,7 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               Text(
                 'Return Shipping',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -437,7 +427,7 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               Text(
                 'Transit Damage',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -445,14 +435,14 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               const SizedBox(height: 8),
               _buildBulletPoint('Report any damage to rental equipment within 2 hours of receiving'),
               _buildBulletPoint('Take photos and videos as evidence'),
-              _buildBulletPoint('Contact Flyhub rental support immediately at rentalflyhubcom'),
+              _buildBulletPoint('Contact Flyhub rental support immediately at rental@flyhub.com'),
               const SizedBox(height: 32),
 
               // 10. Order Cancellation & Modification
               Text(
-                '10 Order Cancellation & Modification',
+                '10. Order Cancellation & Modification',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -461,7 +451,7 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               Text(
                 'Before Shipment',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -474,22 +464,22 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               Text(
                 'After Shipment',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
               ),
               const SizedBox(height: 8),
               _buildBulletPoint('Orders cannot be cancelled once shipped'),
-              _buildBulletPoint('You may refuse delivery subject to return shipping and restocking fees'),
+              _buildBulletPoint('You may refuse delivery, subject to return shipping and restocking fees'),
               _buildBulletPoint('See our Returns & Refunds Policy for return procedures'),
               const SizedBox(height: 32),
 
               // 11. Lithium Battery Shipping
               Text(
-                '11 Lithium Battery Shipping',
+                '11. Lithium Battery Shipping',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -498,7 +488,7 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               Text(
                 'Due to safety regulations',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -511,9 +501,9 @@ class BuyerShippingPolicyPage extends StatelessWidget {
 
               // 12. Bulk Orders
               Text(
-                '12 Bulk Orders',
+                '12. Bulk Orders',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -522,7 +512,7 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               Text(
                 'For orders of 5+ drones or bulk accessories',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -531,14 +521,14 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               _buildBulletPoint('Special shipping arrangements available'),
               _buildBulletPoint('Possible delivery time variations'),
               _buildBulletPoint('Dedicated support for tracking and coordination'),
-              _buildBulletPoint('Contact supportflyhubcom for bulk order assistance'),
+              _buildBulletPoint('Contact support@flyhub.com for bulk order assistance'),
               const SizedBox(height: 32),
 
               // 13. Customer Support
               Text(
-                '13 Customer Support',
+                '13. Customer Support',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
@@ -547,57 +537,39 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               Text(
                 'For Shipping Queries',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'Email supportflyhubcom',
+                'Email: support@flyhub.com',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'Phone +919003992693',
+                'Phone: +91 9003992693',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'Support Hours Monday  Friday 900 AM  600 PM IST',
+                'Support Hours: Monday – Friday, 9:00 AM – 6:00 PM IST',
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: const Color(0xFF4B5563),
                   height: 1.6,
                 ),
               ),
               const SizedBox(height: 12),
-              Text(
-                'For Rental Equipment',
-                style: GoogleFonts.inter(
-                  fontSize: 15,
-                  color: const Color(0xFF4B5563),
-                  height: 1.6,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Email rentalflyhubcom 247 support',
-                style: GoogleFonts.inter(
-                  fontSize: 15,
-                  color: const Color(0xFF4B5563),
-                  height: 1.6,
-                ),
-              ),
-              const SizedBox(height: 32),
             ],
           ),
         ),
@@ -615,14 +587,14 @@ class BuyerShippingPolicyPage extends StatelessWidget {
             padding: EdgeInsets.only(top: 8, right: 8),
             child: Text(
               '•',
-              style: TextStyle(color: Color(0xFF4B5563), fontSize: 16),
+              style: TextStyle(color: Color(0xFF4B5563), fontSize: 13),
             ),
           ),
           Expanded(
             child: Text(
               text,
               style: GoogleFonts.inter(
-                fontSize: 15,
+                fontSize: 13,
                 color: const Color(0xFF4B5563),
                 height: 1.5,
               ),
@@ -640,9 +612,9 @@ class BuyerShippingPolicyPage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '$number',
+            '$number.',
             style: GoogleFonts.inter(
-              fontSize: 15,
+              fontSize: 13,
               color: const Color(0xFF4B5563),
               height: 1.6,
             ),
@@ -652,7 +624,7 @@ class BuyerShippingPolicyPage extends StatelessWidget {
             child: Text(
               text,
               style: GoogleFonts.inter(
-                fontSize: 15,
+                fontSize: 13,
                 color: const Color(0xFF4B5563),
                 height: 1.5,
               ),
