@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>127883848645-07o8qir1m73hm4l0rsnn0r3fneahqrl4.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.127883848645-07o8qir1m73hm4l0rsnn0r3fneahqrl4</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>127883848645-ksj8p1dvtb28cn4b2i3pt6kim63btbhs.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyDUbQTsP9cQFiC7N32BoadT4e62Pvd2HFo</string>
+	<key>GCM_SENDER_ID</key>
+	<string>127883848645</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.example.flyhub</string>
+	<key>PROJECT_ID</key>
+	<string>mythic-inn-475111-s0</string>
+	<key>STORAGE_BUCKET</key>
+	<string>mythic-inn-475111-s0.appspot.com</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:127883848645:ios:8915da8d68c2256d36f9ac</string>
+</dict>
+</plist>
