@@ -328,7 +328,6 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
       ),
     );
   }
-
   // -------------------------------------------------------------------
   // 📌 Product Info Section
   // -------------------------------------------------------------------
@@ -367,40 +366,6 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
 
           const SizedBox(height: 20),
 
-          // Quantity Selector
-          Row(
-            children: [
-              Text("Quantity:", style: GoogleFonts.lexend(fontSize: 16)),
-              const SizedBox(width: 12),
-              _qtySelector(),
-            ],
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _qtySelector() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.remove_circle_outline),
-            onPressed: () {
-              if (quantity > 1) {
-                setState(() => quantity--);
-              }
-            },
-          ),
-          Text("$quantity", style: GoogleFonts.lexend(fontSize: 16)),
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline),
-            onPressed: () => setState(() => quantity++),
-          ),
         ],
       ),
     );
