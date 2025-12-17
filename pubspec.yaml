@@ -84,7 +84,7 @@ flutter:
     - assets/categories/
     - assets/jsonFiles/Fly.json
     - assets/jsonFiles/spalshScreenJson.json
-    #    - assets/sounds/success.mp3
+    - assets/sounds/sucess.mp3
     - assets/google_logo.png
 flutter_icons:
   android: true

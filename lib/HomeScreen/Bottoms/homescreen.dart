@@ -113,7 +113,10 @@ class _HomeScreenState extends State<HomeScreen> {
     {"title": "Regulatory", "icon": "assets/categories/regulatory.svg"},
   ];
 
+
+
   List<Map<String, dynamic>> _promoBanners = [];
+
 
   // Cache for expensive operations
   List<dynamic>? _cachedSearchResults;
@@ -125,6 +128,35 @@ class _HomeScreenState extends State<HomeScreen> {
     _pageController = PageController(viewportFraction: 0.92);
     _initialize();
   }
+
+
+  Map<String, dynamic> normalizeHomeItem(dynamic raw, String category) {
+    final Map<String, dynamic> m = Map<String, dynamic>.from(raw);
+
+    final id = m['id'] ??
+        m['droneId'] ??
+        m['partId'] ??
+        m['accessoryId'] ??
+        m['productId'] ??
+        m['uin'];
+
+    double price = 0.0;
+    final rawPrice = m['price'] ?? m['cost'] ?? 0;
+    if (rawPrice is num) price = rawPrice.toDouble();
+    else price = double.tryParse(rawPrice.toString()) ?? 0.0;
+
+    return {
+      'id': id.toString(),
+      'category': category,
+      'name': m['name'] ?? m['title'] ?? 'Unnamed Product',
+      'price': price,
+      'image': m['image'] ?? m['imageUrl'] ?? m['imagePath'] ?? '',
+      'description': m['description'] ?? '',
+      'status': m['status'] ?? '',
+      'raw': m,
+    };
+  }
+
 
   Future<void> _initialize() async {
     _scrollController.addListener(_onScroll);
@@ -501,6 +533,7 @@ class _HomeScreenState extends State<HomeScreen> {
       actions: [
         _buildIconButton(
           icon: Icons.favorite_outline,
+          color: const Color(0xFF1A0A5B),
           onPressed: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const WishlistPage()),
@@ -509,6 +542,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         _buildIconButton(
           icon: Icons.shopping_bag_outlined,
+          color: const Color(0xFF1A0A5B),
           onPressed: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const MyCartPage()),
@@ -523,24 +557,28 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildIconButton({
     required IconData icon,
     required VoidCallback onPressed,
-    required EdgeInsets margin,
+    EdgeInsets? margin,
     Widget? badge,
+    Color color = Colors.black,
   }) {
     return Container(
       margin: margin,
-      decoration: BoxDecoration(
-        color: _kCardBackgroundColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _kBorderColor),
-      ),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           IconButton(
-            icon: Icon(icon, color: _kMediumTextColor, size: ResponsiveUtils.getIconSize(context)),
+            icon: Icon(
+              icon,
+              color: color, // MAKE SURE THIS IS HERE
+            ),
             onPressed: onPressed,
           ),
-          if (badge != null) Positioned(right: 6, top: 6, child: badge),
+          if (badge != null)
+            Positioned(
+              right: 0,
+              top: 0,
+              child: badge,
+            ),
         ],
       ),
     );
@@ -1281,6 +1319,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleProductTap(dynamic item, String sectionKey) {
+    final normalized = normalizeHomeItem(item, sectionKey);
     if (sectionKey == 'services') {
       Navigator.push(
         context,
@@ -1296,7 +1335,9 @@ class _HomeScreenState extends State<HomeScreen> {
         context,
         MaterialPageRoute(
           builder: (_) => DroneDetailPage(
-            drone: item, initialIsFavorite: item, Drone: item,
+            drone: normalized,
+            Drone: normalized,
+            initialIsFavorite: normalized,
           ),
         ),
       );
@@ -1448,7 +1489,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 SizedBox(height: cardMargin / 2),
                 Text(
-                 "",
+                  "",
                   style: GoogleFonts.inter(
                     color: Colors.black.withOpacity(0.9),
                     fontSize: titleFontSize - 4,
@@ -1548,7 +1589,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildFeatureCard("Free Shipping", "orders over ₹2000", Icons.local_shipping_rounded, _kPrimaryColor),
                 _buildFeatureCard("Secure Payment", "100% protected", Icons.verified_user_rounded, const Color(0xFF169652)),
                 _buildFeatureCard("Easy Returns", "30-day policy", Icons.assignment_return_rounded, const Color(0xFF733486)),
-                _buildFeatureCard("Refund Policy", "7-10 days", Icons.receipt_long_rounded, const Color(0xFF3F35DD)),
+                _buildFeatureCard("Refund Policy", "8-14 days", Icons.receipt_long_rounded, const Color(0xFF3F35DD)),
                 _buildFeatureCard("24/7 Support", "Always here to help", Icons.support_agent_rounded, const Color(0xFFB44A29)),
               ],
             ),
