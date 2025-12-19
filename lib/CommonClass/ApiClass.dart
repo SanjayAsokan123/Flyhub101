@@ -1471,8 +1471,8 @@ class ApiClass {
     String? otp,
   }) async {
     const String mutation = r'''
-    mutation ChangeSellerPassword($email: String!, $newPassword: String!, $otp: String) {
-      changeSellerPassword(email: $email, newPassword: $newPassword, otp: $otp) {
+mutation ChangeSellerPassword($email: String!, $newPassword: String!) {
+  changeSellerPassword(email: $email, newPassword: $newPassword) {
         success
         message
         seller {
@@ -1714,7 +1714,6 @@ class ApiClass {
           success
           message
           data {
-            id
             name
             email
             location
@@ -1842,16 +1841,16 @@ class ApiClass {
     final url = EnvConfig.baseUrl;
 
     const mutation = """
-    mutation BookPilot(\$input: BookPilotInput!) {
-      bookPilot(input: \$input) {
-        success
-        message
-        booking {
-          bookingId
-          status
-        }
+  mutation BookPilot(\$input: BookPilotInput!) {
+    bookPilot(input: \$input) {
+      success
+      message
+      booking {
+        bookingId
+        status
       }
     }
+  }
   """;
 
     final variables = {
@@ -1864,13 +1863,13 @@ class ApiClass {
         "location": location,
         "date": date,
         "startTime": startTime,
-        "endTime": endTime
+        "endTime": endTime,
       }
     };
 
     final body = jsonEncode({
       "query": mutation,
-      "variables": variables
+      "variables": variables,
     });
 
     try {
@@ -1882,16 +1881,34 @@ class ApiClass {
 
       final json = jsonDecode(res.body);
 
-      if (json["errors"] != null) {
+      // ❌ GraphQL-level error
+      if (json["errors"] != null && json["errors"].isNotEmpty) {
         return {
-          "status": "error",
-          "message": json["errors"][0]["message"]
+          "success": false,
+          "message": json["errors"][0]["message"],
         };
       }
 
-      return {"status": "success", "data": json["data"]["bookPilot"]};
+      // ✅ Always return bookPilot directly
+      final bookPilot = json["data"]?["bookPilot"];
+
+      if (bookPilot == null) {
+        return {
+          "success": false,
+          "message": "Invalid server response",
+        };
+      }
+
+      return {
+        "success": bookPilot["success"] ?? false,
+        "message": bookPilot["message"] ,
+        "booking": bookPilot["booking"],
+      };
     } catch (e) {
-      return {"status": "error", "message": e.toString()};
+      return {
+        "success": false,
+        "message": e.toString(),
+      };
     }
   }
 

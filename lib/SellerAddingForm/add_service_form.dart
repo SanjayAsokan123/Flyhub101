@@ -765,7 +765,12 @@ class _AddServiceFormState extends State<AddServiceForm> {
                         maxLines: 3,
                         hintText: "Describe your service, expertise, areas covered, etc...",
                         icon: Icons.description_rounded,
-                        validator: (v) => v!.isEmpty ? "Description is required" : null,
+                        // validator: (v) => v!.isEmpty ? "Description is required" : null,
+                        validator: (v) {
+                          if (v == null || v.isEmpty) return 'Description is required';
+                          if (v.length < 50) return 'Description must be at least 50 characters';
+                          return null;
+                        },
                       ),
                     ],
                   ),

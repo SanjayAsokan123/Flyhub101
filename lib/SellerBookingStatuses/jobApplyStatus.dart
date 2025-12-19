@@ -102,6 +102,7 @@ class _JobApplyStatusPageState extends State<JobApplyStatusPage>
       VoidCallback refresh,
       RunMutation updateStatus,
       RunMutation deleteFn,
+      String currentTab, // Add current tab parameter
       ) {
     final status = (app['status'] ?? '').toString().toLowerCase();
     Color color = Colors.orange;
@@ -120,7 +121,9 @@ class _JobApplyStatusPageState extends State<JobApplyStatusPage>
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0,2))],
+        boxShadow: [
+          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2))
+        ],
       ),
       child: Row(
         children: [
@@ -137,12 +140,14 @@ class _JobApplyStatusPageState extends State<JobApplyStatusPage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(applicantName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(applicantName,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
                 Text("Job: $jobTitle"),
                 Text("Company: $company"),
                 Text("Phone: ${app['phoneNumber'] ?? '-'}"),
-                Text("Applied: $appliedAt", style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                Text("Applied: $appliedAt",
+                    style: const TextStyle(fontSize: 12, color: Colors.black54)),
                 const SizedBox(height: 6),
                 InkWell(
                   onTap: () async {
@@ -150,20 +155,28 @@ class _JobApplyStatusPageState extends State<JobApplyStatusPage>
                     if (url.isNotEmpty) {
                       final uri = Uri.tryParse(url);
                       if (uri != null && await canLaunchUrl(uri)) {
-                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        await launchUrl(uri,
+                            mode: LaunchMode.externalApplication);
                       } else {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot open resume URL')));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('Cannot open resume URL')));
                       }
                     } else {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No resume URL provided')));
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('No resume URL provided')));
                     }
                   },
-                  child: const Text('View Resume', style: TextStyle(color: Colors.blue, decoration: TextDecoration.underline)),
+                  child: const Text('View Resume',
+                      style: TextStyle(
+                          color: Colors.blue,
+                          decoration: TextDecoration.underline)),
                 ),
               ],
             ),
           ),
 
+          // Conditionally show menu items based on current tab
           PopupMenuButton<String>(
             onSelected: (v) async {
               if (v == 'Delete') {
@@ -175,12 +188,31 @@ class _JobApplyStatusPageState extends State<JobApplyStatusPage>
               await Future.delayed(const Duration(milliseconds: 200));
               refresh();
             },
-            itemBuilder: (_) => [
-              const PopupMenuItem(value: 'hired', child: Text('Hire Applicant')),
-              const PopupMenuItem(value: 'rejected', child: Text('Reject Applicant')),
-              const PopupMenuItem(value: 'pending', child: Text('Move to Pending')),
-              const PopupMenuItem(value: 'Delete', child: Text('Delete Application')),
-            ],
+            itemBuilder: (_) {
+              // Create menu items based on current tab
+              if (currentTab == 'pending') {
+                // For pending tab, don't show "Move to Pending"
+                return [
+                  const PopupMenuItem(value: 'hired', child: Text('Hire Applicant')),
+                  const PopupMenuItem(value: 'rejected', child: Text('Reject Applicant')),
+                  const PopupMenuItem(value: 'Delete', child: Text('Delete Application')),
+                ];
+              } else if (currentTab == 'hired') {
+                // For hired tab, show all options
+                return [
+                  const PopupMenuItem(value: 'rejected', child: Text('Reject Applicant')),
+                  const PopupMenuItem(value: 'pending', child: Text('Move to Pending')),
+                  const PopupMenuItem(value: 'Delete', child: Text('Delete Application')),
+                ];
+              } else {
+                // For rejected tab, show all options except "rejected"
+                return [
+                  const PopupMenuItem(value: 'hired', child: Text('Hire Applicant')),
+                  const PopupMenuItem(value: 'pending', child: Text('Move to Pending')),
+                  const PopupMenuItem(value: 'Delete', child: Text('Delete Application')),
+                ];
+              }
+            },
           ),
         ],
       ),
@@ -215,7 +247,8 @@ class _JobApplyStatusPageState extends State<JobApplyStatusPage>
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (result.hasException) {
-                  return Center(child: Text('Error: ${result.exception.toString()}'));
+                  return Center(
+                      child: Text('Error: ${result.exception.toString()}'));
                 }
 
                 final data = result.data ?? {};
@@ -233,7 +266,9 @@ class _JobApplyStatusPageState extends State<JobApplyStatusPage>
                   itemCount: list.length,
                   itemBuilder: (context, i) {
                     final app = Map<String, dynamic>.from(list[i] ?? {});
-                    return buildCard(app, () => refetch!(), updateStatus, deleteFn);
+                    // Pass current tab to buildCard
+                    return buildCard(app, () => refetch!(), updateStatus,
+                        deleteFn, status);
                   },
                 );
               },
@@ -243,6 +278,7 @@ class _JobApplyStatusPageState extends State<JobApplyStatusPage>
       },
     );
   }
+
   @override
   Widget build(BuildContext context) {
     const themeColor = Color(0xFF1A0A5B);
@@ -256,7 +292,8 @@ class _JobApplyStatusPageState extends State<JobApplyStatusPage>
           controller: _tabController,
           indicatorColor: Colors.white,
           labelColor: Colors.white, // Explicit white for selected tab
-          unselectedLabelColor: Colors.white.withOpacity(0.8), // Slightly transparent white for unselected
+          unselectedLabelColor:
+          Colors.white.withOpacity(0.8), // Slightly transparent white for unselected
           tabs: const [
             Tab(text: 'Approved'),
             Tab(text: 'Pending'),

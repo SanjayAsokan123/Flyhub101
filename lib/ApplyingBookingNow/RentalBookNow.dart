@@ -123,17 +123,6 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
       }
 
       debugPrint("📥 GraphQL Response: ${result.data}");
-
-      // ✅ CRITICAL: Match this field name with your MongoDB/backend schema
-      // The backend should return a document with these fields:
-      // {
-      //   "getBuyerByFirebaseUid": {
-      //     "buyerId": "FLYHUBB0114",
-      //     "firebaseUid": "abc123...",
-      //     "name": "John Doe",
-      //     "email": "john@example.com"
-      //   }
-      // }
       final data = result.data?["getBuyerfirebaseUidInDroneRental"];
 
       if (data != null && data["buyerId"] != null) {
@@ -206,35 +195,28 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
   // Fixed mutation: declare $buyerId variable and pass buyerId: $buyerId
   // ✅ Now passes the MongoDB buyerId (e.g., "FLYHUBB0114") to the mutation
   static const String createBookingMutation = r'''
-    mutation CreateDroneRental(
-      $name: String!,
-      $phone: String!,
-      $location: String!,
-      $rentalDate: String!,
-      $rentalId: String!,
-      $buyerId: String!
+  mutation CreateDroneRental(
+    $name: String!,
+    $phone: String!,
+    $location: String!,
+    $rentalDate: String!,
+    $rentalId: String!,
+    $buyerId: String!
+  ) {
+    createDroneRental(
+      name: $name,
+      phone: $phone,
+      location: $location,
+      rentalDate: $rentalDate,
+      rentalId: $rentalId,
+      buyerId: $buyerId
     ) {
-      createDroneRental(
-        name: $name,
-        phone: $phone,
-        location: $location,
-        rentalDate: $rentalDate,
-        rentalId: $rentalId,
-        buyerId: $buyerId
-      ) {
-        drone_rental_id
-        name
-        phone
-        location
-        rentalDate
-        rentalId
-        buyerId
-        sellerEmail
-        sellerPhone
-        createdAt
-      }
+      success
+      message
     }
-  ''';
+  }
+''';
+
 
   Future<void> _pickBookingDate() async {
     final now = DateTime.now();
@@ -330,6 +312,31 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
       }
 
       final data = result.data?['createDroneRental'];
+      if (data == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("❌ Something went wrong"))
+        );
+        return;
+      }
+
+      final bool success = data['success'] ?? false;
+      final String message = data['message'] ?? "Unknown error";
+
+      if (!success) {
+        // ❌ DUPLICATE OR ERROR
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("⚠ $message"), backgroundColor: Colors.orange)
+        );
+        return;
+      }
+
+// ✔ SUCCESS
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("✅ $message"), backgroundColor: Colors.green)
+      );
+
+// Close page
+      Navigator.pop(context);
       final formatted = DateFormat('dd MMM yyyy').format(bookingDate!);
 
       // IMPORTANT: Backend returns sellerEmail & sellerPhone as snapshot.

@@ -5,7 +5,6 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-
 import '../config/env.dart';
 
 class AddDroneRentalForm extends StatefulWidget {
@@ -783,7 +782,12 @@ class _AddDroneRentalFormState extends State<AddDroneRentalForm> {
                         maxLines: 3,
                         hintText: "Describe rental terms, drone condition, features, etc...",
                         icon: Icons.description_rounded,
-                        validator: (v) => v!.isEmpty ? "Description is required" : null,
+                        // validator: (v) => v!.isEmpty ? "Description is required" : null,
+                        validator: (v) {
+                          if (v == null || v.isEmpty) return 'Description is required';
+                          if (v.length < 50) return 'Description must be at least 50 characters';
+                          return null;
+                        },
                       ),
                     ],
                   ),

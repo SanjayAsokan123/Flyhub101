@@ -6,6 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../config/env.dart';
 import '../../services/role_manager.dart';
 import '../AddressPage.dart';
+import '../Login/BuyerRegisterPage.dart';
+import '../Login/BuyerLoginPage.dart'; // Import BuyerLoginPage
 
 class MyCartPage extends StatefulWidget {
   const MyCartPage({super.key});
@@ -47,6 +49,23 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
     _animationController.dispose();
     super.dispose();
   }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Listen for when the page becomes visible again (e.g., when returning from registration)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ModalRoute<dynamic>? route = ModalRoute.of(context);
+      if (route != null && route.isCurrent) {
+        // If we're returning from registration page, try to load buyer ID again
+        if (_buyerIdError != null) {
+          _initializeCart();
+        }
+      }
+    });
+  }
+
   Map<String, dynamic> mapCartItemToOrderItem(Map<String, dynamic> cart) {
     return {
       "productId": cart["productId"],   // MUST exist
@@ -71,6 +90,7 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
   // ---------------------------------------------------------
   Future<void> _loadBuyerId() async {
     setState(() => _loadingBuyerId = true);
+    _buyerIdError = null; // Reset error
 
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -130,12 +150,13 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
         setState(() => _buyerIdError = "Buyer account not found");
       }
     } catch (e) {
-      // Generic error message instead of technical details
+      // Generic error message
       setState(() => _buyerIdError = "Network error. Please try again.");
     } finally {
       setState(() => _loadingBuyerId = false);
     }
   }
+
   // ---------------------------------------------------------
   // 🔵 GRAPHQL HELPER
   // ---------------------------------------------------------
@@ -152,7 +173,7 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
     final body = jsonDecode(response.body);
 
     if (body["errors"] != null) {
-      print("GRAPHQL ERROR: ${body["errors"]}");
+      // Removed console error message as requested
       return null;
     }
 
@@ -335,7 +356,19 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-
+                // Icon or image for empty cart state
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.person_outline,
+                    size: 60,
+                    color: themeColor,
+                  ),
+                ),
                 const SizedBox(height: 24),
                 Text(
                   "Account Required",
@@ -343,7 +376,6 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: themeColor,
-
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -356,19 +388,84 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
                   ),
                   textAlign: TextAlign.center,
                 ),
+                const SizedBox(height: 8),
+                Text(
+                  "Please login or register as a buyer to continue shopping",
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade500,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 32),
-                ElevatedButton.icon(
-                  onPressed: _loadBuyerId,
 
-                  label: const Text("Try again"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: themeColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                // Register Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      // Navigate to BuyerRegisterPage
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const BuyerRegisterPage(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.person_add),
+                    label: const Text("Register as Buyer"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: themeColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 2,
                     ),
-                    elevation: 2,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Login Button
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      // Navigate to BuyerLoginPage
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const BuyerLoginPage(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.login, color: Color(0xFF1A0A5B)),
+                    label: const Text(
+                      "Login to Existing Account",
+                      style: TextStyle(color: Color(0xFF1A0A5B)),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF1A0A5B)),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () {
+                    // Navigate back
+                    Navigator.pop(context);
+                  },
+                  child: Text(
+                    "Back to Home",
+                    style: TextStyle(
+                      color: themeColor,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ],
@@ -765,155 +862,155 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
 
   Widget _buildPriceDetails() {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Handle bar
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 20,
+              offset: const Offset(0, -4),
             ),
-          ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
 
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.receipt_long_outlined, color: themeColor, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      "Price Details",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: themeColor,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                _priceRow("Price (${cartItems.length} items)", "₹${subtotal.toStringAsFixed(2)}"),
-                const SizedBox(height: 8),
-                _priceRow(
-                  "Discount (10%)",
-                  "- ₹${discount.toStringAsFixed(2)}",
-                  color: Colors.green,
-                ),
-                const SizedBox(height: 8),
-                _priceRow(
-                  "Delivery Fee",
-                  deliveryFee == 0 ? "FREE" : "₹${deliveryFee.toStringAsFixed(2)}",
-                  color: deliveryFee == 0 ? Colors.green : null,
-                ),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Divider(color: Colors.grey.shade300, thickness: 1),
-                ),
-
-                _priceRow(
-                  "Total Amount",
-                  "₹${total.toStringAsFixed(2)}",
-                  isBold: true,
-                  fontSize: 18,
-                ),
-
-                const SizedBox(height: 20),
-
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: cartItems.isEmpty
-                        ? null
-                        : () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => AddressPage(
-                            total: total,
-                            orderData: {
-                              "type": "cart",
-                              "cartItems": cartItems.map((item) {
-                                final p = item["product"];
-                                return {
-                                  "productId": item["productId"],
-                                  "category": p["category"],
-                                  "quantity": item["quantity"],
-                                };
-                              }).toList(),
-                            },
-                          ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.receipt_long_outlined, color: themeColor, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Price Details",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: themeColor,
                         ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: themeColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
                       ),
-                      elevation: 2,
-                      disabledBackgroundColor: Colors.grey.shade300,
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  _priceRow("Price (${cartItems.length} items)", "₹${subtotal.toStringAsFixed(2)}"),
+                  const SizedBox(height: 8),
+                  _priceRow(
+                    "Discount (10%)",
+                    "- ₹${discount.toStringAsFixed(2)}",
+                    color: Colors.green,
+                  ),
+                  const SizedBox(height: 8),
+                  _priceRow(
+                    "Delivery Fee",
+                    deliveryFee == 0 ? "FREE" : "₹${deliveryFee.toStringAsFixed(2)}",
+                    color: deliveryFee == 0 ? Colors.green : null,
+                  ),
+
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Divider(color: Colors.grey.shade300, thickness: 1),
+                  ),
+
+                  _priceRow(
+                    "Total Amount",
+                    "₹${total.toStringAsFixed(2)}",
+                    isBold: true,
+                    fontSize: 18,
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: cartItems.isEmpty
+                          ? null
+                          : () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AddressPage(
+                              total: total,
+                              orderData: {
+                                "type": "cart",
+                                "cartItems": cartItems.map((item) {
+                                  final p = item["product"];
+                                  return {
+                                    "productId": item["productId"],
+                                    "category": p["category"],
+                                    "quantity": item["quantity"],
+                                  };
+                                }).toList(),
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: themeColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 2,
+                        disabledBackgroundColor: Colors.grey.shade300,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.lock_outline, size: 20),
+                          const SizedBox(width: 8),
+                          const Text(
+                            "Proceed to Checkout",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  Center(
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.lock_outline, size: 20),
-                        const SizedBox(width: 8),
-                        const Text(
-                          "Proceed to Checkout",
+                        Icon(Icons.verified_user, size: 16, color: Colors.grey.shade600),
+                        const SizedBox(width: 4),
+                        Text(
+                          "Safe and Secure Payments",
                           style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
-
-                const SizedBox(height: 12),
-
-                Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.verified_user, size: 16, color: Colors.grey.shade600),
-                      const SizedBox(width: 4),
-                      Text(
-                        "Safe and Secure Payments",
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        )
     );
   }
 

@@ -31,10 +31,13 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
 
   bool loading = false;
   bool showPassword = false;
+  String? inputError;
+  String? passwordError;
 
   static const Color themeColor = Color(0xFF1E0E5C);
   static const Color backgroundColor = Colors.white;
   static const Color textSecondary = Color(0xFF6B7280);
+  static const Color errorColor = Color(0xFFDC3545);
 
   // Social media URLs
   final Map<String, String> socialLinks = {
@@ -44,11 +47,22 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
     'whatsapp': 'https://wa.me/yourphonenumber',
   };
 
+  // Clear errors when user starts typing
+  void _clearErrors() {
+    if (inputError != null || passwordError != null) {
+      setState(() {
+        inputError = null;
+        passwordError = null;
+      });
+    }
+  }
+
   // ---------------- GRAPHQL SELLER FETCH ----------------
   Future<Map<String, dynamic>?> fetchSellerFromAPI(String value) async {
-    final String url = EnvConfig.baseUrl;
+    try {
+      final String url = EnvConfig.baseUrl;
 
-    final query = """
+      final query = """
       query SellerByEmail(\$email: String, \$username: String, \$phone: String, \$customId: String) {
         sellerByEmail(email: \$email, username: \$username, phone: \$phone, customId: \$customId) {
           customId
@@ -59,29 +73,43 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
       }
     """;
 
-    final variables = {
-      "email": value.contains("@") ? value : null,
-      "phone": value.length >= 8 ? value : null,
-      "username": null,
-      "customId": value,
-    };
+      final variables = {
+        "email": value.contains("@") ? value : null,
+        "phone": value.length >= 8 ? value : null,
+        "username": null,
+        "customId": value,
+      };
 
-    final response = await http.post(
-      Uri.parse(url),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({"query": query, "variables": variables}),
-    );
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"query": query, "variables": variables}),
+      );
 
-    final body = jsonDecode(response.body);
-    return body["data"]?["sellerByEmail"];
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        if (body["errors"] != null) {
+          debugPrint("GraphQL error: ${body["errors"]}");
+          return null;
+        }
+        return body["data"]?["sellerByEmail"];
+      } else {
+        debugPrint("HTTP error: ${response.statusCode}");
+        return null;
+      }
+    } catch (e) {
+      debugPrint("Error fetching seller: $e");
+      return null;
+    }
   }
 
   Future<void> saveFcmTokenToSellerBackend(String customId, String? fcmToken) async {
     if (fcmToken == null) return;
 
-    final String url = EnvConfig.baseUrl;
+    try {
+      final String url = EnvConfig.baseUrl;
 
-    final mutation = """
+      final mutation = """
       mutation updateSellerFcmToken(\$customId: String!, \$fcmToken: String!) {
         updateSellerFcmToken(customId: \$customId, fcmToken: \$fcmToken) {
           success
@@ -90,28 +118,35 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
       }
     """;
 
-    final response = await http.post(
-      Uri.parse(url),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "query": mutation,
-        "variables": {
-          "customId": customId,
-          "fcmToken": fcmToken,
-        },
-      }),
-    );
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "query": mutation,
+          "variables": {
+            "customId": customId,
+            "fcmToken": fcmToken,
+          },
+        }),
+      );
 
-    final body = jsonDecode(response.body);
-    debugPrint("FCM token update response: $body");
+      final body = jsonDecode(response.body);
+      debugPrint("FCM token update response: $body");
+    } catch (e) {
+      debugPrint("Error saving FCM token: $e");
+    }
   }
 
   Future<void> saveSellerLocal(String customId, String email) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString("role", "seller");
-    await prefs.setString("seller_customId", customId);
-    await prefs.setString("seller_email", email);
-    debugPrint("${prefs.getString("role")}, ${prefs.getString("seller_customId")}, ${prefs.getString("seller_email")}");
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString("role", "seller");
+      await prefs.setString("seller_customId", customId);
+      await prefs.setString("seller_email", email);
+      debugPrint("Saved: ${prefs.getString("role")}, ${prefs.getString("seller_customId")}, ${prefs.getString("seller_email")}");
+    } catch (e) {
+      debugPrint("Error saving local data: $e");
+    }
   }
 
   // ---------------- SELLER LOGIN ----------------
@@ -119,8 +154,21 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
     final enteredInput = input.text.trim();
     final enteredPass = password.text.trim();
 
-    if (enteredInput.isEmpty || enteredPass.isEmpty) {
-      showMessage("Please enter login details");
+    // Clear previous errors
+    _clearErrors();
+
+    // Validate input
+    if (enteredInput.isEmpty) {
+      setState(() {
+        inputError = "Email/Phone/Seller ID is required";
+      });
+      return;
+    }
+
+    if (enteredPass.isEmpty) {
+      setState(() {
+        passwordError = "Password is required";
+      });
       return;
     }
 
@@ -130,8 +178,10 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
       final seller = await fetchSellerFromAPI(enteredInput);
 
       if (seller == null) {
-        showMessage("No seller found");
-        setState(() => loading = false);
+        setState(() {
+          inputError = "No seller account found. Please check your email/phone/Seller ID";
+          loading = false;
+        });
         return;
       }
 
@@ -139,30 +189,29 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
       final String email = seller["email"] ?? "";
       final String status = seller["status"] ?? "pending";
 
-      debugPrint("------------------------------------------sellerid and email--------------------------");
       debugPrint("Seller ID: $customId, Email: $email, Status: $status");
 
       // Check seller status
       if (status == "pending") {
-        showMessage("Seller account is pending approval");
+        showMessage("Your seller account is pending approval. Please wait for admin approval.");
         setState(() => loading = false);
         return;
       }
 
       if (status == "rejected") {
-        showMessage("Seller account is rejected");
+        showMessage("Your seller account has been rejected. Please contact support.");
         setState(() => loading = false);
         return;
       }
 
       if (status != "approved") {
-        showMessage("Invalid status: $status");
+        showMessage("Your account status is invalid. Please contact support.");
         setState(() => loading = false);
         return;
       }
 
       if (email.isEmpty) {
-        showMessage("Account has no email. Contact support.");
+        showMessage("Account has no email associated. Please contact support.");
         setState(() => loading = false);
         return;
       }
@@ -174,33 +223,92 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
       }
 
       // Firebase Authentication
-      await _auth.signInWithEmailAndPassword(email: email, password: enteredPass);
+      try {
+        await _auth.signInWithEmailAndPassword(
+          email: email,
+          password: enteredPass,
+        );
+      } on FirebaseAuthException catch (e) {
+        String errorMessage;
+        bool isPasswordError = false;
+        bool isEmailError = false;
 
-      // Save role
-      await RoleManager.setLocalRole("seller");
-      await saveSellerLocal(customId, email);
-      await LocalStorageService.setLoggedIn(true);
+        switch (e.code) {
+          case 'wrong-password':
+            errorMessage = "Incorrect password. Please check your password and try again";
+            isPasswordError = true;
+            break;
+          case 'user-not-found':
+            errorMessage = "Account not found. Please check your email/phone/Seller ID";
+            isEmailError = true;
+            break;
+          case 'user-disabled':
+            errorMessage = "This account has been disabled. Please contact support";
+            isEmailError = true;
+            break;
+          case 'invalid-email':
+            errorMessage = "Invalid email format. Please enter a valid email address";
+            isEmailError = true;
+            break;
+          case 'too-many-requests':
+            errorMessage = "Too many failed attempts. Please try again later";
+            isPasswordError = true;
+            break;
+          case 'invalid-credential':
+            errorMessage = "Invalid credentials. Please check both email and password";
+            isEmailError = true;
+            isPasswordError = true;
+            break;
+          case 'network-request-failed':
+            errorMessage = "Network error. Please check your internet connection";
+            break;
+          default:
+            errorMessage = "Login failed. Please try again";
+        }
 
-      showMessage("Login Successful!");
+        // Set appropriate field errors with clear indication
+        setState(() {
+          if (isEmailError && !isPasswordError) {
+            inputError = errorMessage;
+          } else if (isPasswordError && !isEmailError) {
+            passwordError = errorMessage;
+          } else {
+            // If both have errors or unclear, show specific messages
+            inputError = "Please check your email/phone/Seller ID";
+            passwordError = "Please check your password";
+          }
+          loading = false;
+        });
+        return;
+      }
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
-      );
+      // Save role and local data
+      try {
+        await RoleManager.setLocalRole("seller");
+        await saveSellerLocal(customId, email);
+        await LocalStorageService.setLoggedIn(true);
+
+        showMessage("Login successful! Redirecting to dashboard...");
+
+        // Navigate to home after successful login
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
+          );
+        }
+      } catch (e) {
+        debugPrint("Error saving session data: $e");
+        showMessage("Login successful but failed to save session. Please restart the app.");
+        setState(() => loading = false);
+      }
     } catch (e) {
-      debugPrint("Login error: $e");
-      showMessage("Login failed: ${_friendlyError(e)}");
-    } finally {
-      setState(() => loading = false);
+      debugPrint("Unexpected login error: $e");
+      setState(() {
+        inputError = "Login failed. Please check your credentials and try again";
+        loading = false;
+      });
     }
-  }
-
-  String _friendlyError(Object e) {
-    final s = e.toString();
-    if (s.contains("wrong-password")) return "Incorrect password";
-    if (s.contains("user-not-found")) return "User not found";
-    if (s.contains("invalid-credential")) return "Invalid credentials";
-    return s;
   }
 
   // ---------------- SOCIAL MEDIA NAVIGATION ----------------
@@ -212,7 +320,7 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
       if (await canLaunch(url)) {
         await launch(url);
       } else {
-        showMessage("Cannot open $platform");
+        showMessage("Cannot open $platform. Please check if the app is installed.");
       }
     } catch (e) {
       debugPrint("Error launching $platform: $e");
@@ -229,10 +337,12 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
 
   // ---------------- BACK BUTTON HANDLER ----------------
   void _goBackToFlyHubSelection() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const FlyHubSelectionPage()),
-    );
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const FlyHubSelectionPage()),
+      );
+    }
   }
 
   // ---------------- UI ----------------
@@ -280,6 +390,19 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
                   widget.logoPath ?? "assets/images/login.jpg",
                   height: MediaQuery.of(context).size.width * 0.75,
                   fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: MediaQuery.of(context).size.width * 0.75,
+                      color: themeColor.withOpacity(0.1),
+                      child: Center(
+                        child: Icon(
+                          Icons.business,
+                          size: 60,
+                          color: themeColor,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
 
@@ -312,11 +435,16 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
                       controller: input,
                       hint: "Email / Phone / Seller ID",
                       icon: Icons.person_outline,
+                      errorText: inputError,
+                      onChanged: (value) => _clearErrors(),
                     ),
                     const SizedBox(height: 16),
 
                     // Password Field
-                    _passwordField(),
+                    _passwordField(
+                      errorText: passwordError,
+                      onChanged: (value) => _clearErrors(),
+                    ),
                     const SizedBox(height: 12),
 
                     // Forgot password
@@ -457,54 +585,130 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
     required TextEditingController controller,
     required String hint,
     required IconData icon,
+    String? errorText,
+    void Function(String)? onChanged,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5F6FA),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200, width: 1),
-      ),
-      child: TextField(
-        controller: controller,
-        style: GoogleFonts.inter(fontSize: 15),
-        decoration: InputDecoration(
-          prefixIcon: Icon(icon, color: themeColor, size: 22),
-          hintText: hint,
-          hintStyle: GoogleFonts.inter(color: Colors.grey.shade500, fontSize: 15),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF5F6FA),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: errorText != null ? errorColor : Colors.grey.shade200,
+              width: errorText != null ? 1.5 : 1,
+            ),
+          ),
+          child: TextField(
+            controller: controller,
+            style: GoogleFonts.inter(
+              fontSize: 15,
+              color: errorText != null ? errorColor : Colors.black,
+            ),
+            onChanged: onChanged,
+            decoration: InputDecoration(
+              prefixIcon: Icon(
+                icon,
+                color: errorText != null ? errorColor : themeColor,
+                size: 22,
+              ),
+              hintText: errorText != null ? "❌ $errorText" : hint,
+              hintStyle: GoogleFonts.inter(
+                color: errorText != null ? errorColor : Colors.grey.shade500,
+                fontSize: errorText != null ? 13 : 15,
+                fontWeight: errorText != null ? FontWeight.w500 : FontWeight.normal,
+              ),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+              // Add error indicator emoji to hint text
+            ),
+          ),
         ),
-      ),
+        // Add a small helper text below the field
+        if (errorText != null) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 8.0),
+            child: Text(
+              "Email/Phone issue: Please check your credentials",
+              style: GoogleFonts.inter(
+                color: errorColor,
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
-  Widget _passwordField() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5F6FA),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200, width: 1),
-      ),
-      child: TextField(
-        controller: password,
-        obscureText: !showPassword,
-        style: GoogleFonts.inter(fontSize: 15),
-        decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.lock_outline, color: themeColor, size: 22),
-          suffixIcon: IconButton(
-            icon: Icon(
-              showPassword ? Icons.visibility : Icons.visibility_off,
-              color: themeColor,
-              size: 22,
+  Widget _passwordField({
+    String? errorText,
+    void Function(String)? onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF5F6FA),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: errorText != null ? errorColor : Colors.grey.shade200,
+              width: errorText != null ? 1.5 : 1,
             ),
-            onPressed: () => setState(() => showPassword = !showPassword),
           ),
-          hintText: "Password",
-          hintStyle: GoogleFonts.inter(color: Colors.grey.shade500, fontSize: 15),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          child: TextField(
+            controller: password,
+            obscureText: !showPassword,
+            style: GoogleFonts.inter(
+              fontSize: 15,
+              color: errorText != null ? errorColor : Colors.black,
+            ),
+            onChanged: onChanged,
+            decoration: InputDecoration(
+              prefixIcon: Icon(
+                Icons.lock_outline,
+                color: errorText != null ? errorColor : themeColor,
+                size: 22,
+              ),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  showPassword ? Icons.visibility : Icons.visibility_off,
+                  color: errorText != null ? errorColor : themeColor,
+                  size: 22,
+                ),
+                onPressed: () => setState(() => showPassword = !showPassword),
+              ),
+              hintText: errorText != null ? "❌ $errorText" : "Password",
+              hintStyle: GoogleFonts.inter(
+                color: errorText != null ? errorColor : Colors.grey.shade500,
+                fontSize: errorText != null ? 13 : 15,
+                fontWeight: errorText != null ? FontWeight.w500 : FontWeight.normal,
+              ),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            ),
+          ),
         ),
-      ),
+        // Add a small helper text below the field
+        if (errorText != null) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 8.0),
+            child: Text(
+              "Password issue: Try again or use 'Forgot Password'",
+              style: GoogleFonts.inter(
+                color: errorColor,
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -568,16 +772,30 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
 
   void showMessage(String msg) {
     if (!mounted) return;
+
+    // Hide any existing snackbars first
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           msg,
-          style: GoogleFonts.inter(),
+          style: GoogleFonts.inter(fontSize: 14),
         ),
-        backgroundColor: msg.contains("Successful") ? Colors.green : themeColor,
+        backgroundColor: msg.contains("Successful") || msg.contains("successful")
+            ? Colors.green
+            : Colors.orange,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
+        ),
+        duration: const Duration(seconds: 3),
+        action: SnackBarAction(
+          label: 'OK',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
         ),
       ),
     );

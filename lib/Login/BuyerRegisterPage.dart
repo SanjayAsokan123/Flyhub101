@@ -1,3 +1,4 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -103,6 +104,58 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
     {"code": "+977", "flag": "🇳🇵", "name": "Nepal"},
     {"code": "+93", "flag": "🇦🇫", "name": "Afghanistan"},
   ];
+
+  Future<void> _initAndTriggerWelcomeNotification(String firebaseUid) async {
+    // 1️⃣ Ask permission
+    final settings = await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    if (settings.authorizationStatus != AuthorizationStatus.authorized) {
+      debugPrint("🔕 Notification permission denied");
+      return;
+    }
+
+    // 2️⃣ Ensure token generation
+    final token = await FirebaseMessaging.instance.getToken();
+    debugPrint("🔑 FCM Token: $token");
+
+    // 3️⃣ Subscribe to buyer topic
+    await FirebaseMessaging.instance.subscribeToTopic(
+      'buyer_$firebaseUid',
+    );
+
+    // 4️⃣ Trigger backend welcome notification
+    await _triggerWelcomeFromServer(firebaseUid);
+  }
+  Future<void> _triggerWelcomeFromServer(String firebaseUid) async {
+    const mutation = r'''
+  mutation SendBuyerWelcome($firebaseUid: String!) {
+    sendBuyerWelcomeNotification(firebaseUid: $firebaseUid)
+  }
+  ''';
+
+    final res = await http.post(
+      Uri.parse(EnvConfig.baseUrl),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        "query": mutation,
+        "variables": {
+          "firebaseUid": firebaseUid,
+        }
+      }),
+    );
+
+    final decoded = jsonDecode(res.body);
+    if (decoded.containsKey('errors')) {
+      debugPrint("❌ Welcome notification failed");
+    }
+  }
+
+
+
 
   @override
   void dispose() {
@@ -243,6 +296,8 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
 
       final buyerId = serverResult['buyerId'];
       final token = serverResult['token'];
+
+      await _initAndTriggerWelcomeNotification(uid);
 
       // 5️⃣ Save Firestore
       await _firestore.collection("buyers").doc(buyerId).set({

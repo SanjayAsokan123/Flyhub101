@@ -39,6 +39,7 @@ class _AddDronePageState extends State<AddDronePage> {
   String brand = '';
   String uin = '';
   String description = '';
+  String additionalInfo = ''; // Added this field
   double? price;
   File? imageFile;
   bool _isSubmitting = false;
@@ -176,6 +177,10 @@ class _AddDronePageState extends State<AddDronePage> {
         cache: GraphQLCache(store: InMemoryStore()),
       );
 
+      // Try without additionalInfo first to check if that's the issue
+      // Combine both description and additionalInfo into one field if needed
+      final combinedDescription = "$description\n\nAdditional Information:\n$additionalInfo";
+
       final mutation = gql("""
         mutation CreateDrone(\$input: DroneInput!) {
           createDrone(input: \$input) {
@@ -189,6 +194,22 @@ class _AddDronePageState extends State<AddDronePage> {
         }
       """);
 
+      // OPTION 1: If backend doesn't have additionalInfo field, combine them
+      final variables = {
+        "input": {
+          "name": name,
+          "brand": brand,
+          "uin": uin,
+          "price": price,
+          "description": combinedDescription, // Combine both fields
+          "image": imageUrl,
+          "status": "pending",
+          "sellerId": widget.sellerId,
+        }
+      };
+
+      // OPTION 2: If backend has additionalInfo field, uncomment below and comment above
+      /*
       final variables = {
         "input": {
           "name": name,
@@ -196,22 +217,29 @@ class _AddDronePageState extends State<AddDronePage> {
           "uin": uin,
           "price": price,
           "description": description,
+          "additionalInfo": additionalInfo, // Make sure this field exists in GraphQL schema
           "image": imageUrl,
           "status": "pending",
           "sellerId": widget.sellerId,
         }
       };
+      */
+
+      debugPrint("GraphQL Variables: $variables");
 
       final result = await client.mutate(
         MutationOptions(document: mutation, variables: variables),
       );
 
       if (result.hasException) {
+        debugPrint("GraphQL Error: ${result.exception}");
         final err = result.exception!.graphqlErrors.isNotEmpty
             ? result.exception!.graphqlErrors.first.message
             : result.exception!.linkException.toString();
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text("❌ Error: $err")));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("❌ GraphQL Error: $err"),
+          backgroundColor: _dangerColor,
+        ));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text("✅ Drone submitted successfully!"),
@@ -221,8 +249,10 @@ class _AddDronePageState extends State<AddDronePage> {
       }
     } catch (e) {
       debugPrint("⚠ Submit error: $e");
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Error: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text("Error: ${e.toString()}"),
+        backgroundColor: _dangerColor,
+      ));
     } finally {
       setState(() => _isSubmitting = false);
     }
@@ -492,13 +522,9 @@ class _AddDronePageState extends State<AddDronePage> {
                     const SizedBox(height: 16),
                     _buildPriceField(),
                     const SizedBox(height: 16),
-                    _buildTextField("Description", (v) => description = v!,
-                        maxLines: 3,
-                        hintText: "Describe your drone features, condition, etc..."),
+                    _buildDescriptionField(),
                     const SizedBox(height: 16),
-                    _buildTextField("Additional Information", (v) => description = v!,
-                        maxLines: 3,
-                        hintText: "Any additional details, specifications..."),
+                    _buildAdditionalInfoField(),
                   ],
                 ),
               ),
@@ -569,7 +595,7 @@ class _AddDronePageState extends State<AddDronePage> {
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        "Your drone will be reviewed before going live on the marketplace",
+                        "Your drone will be reviewed before going live on the marketplace. Both description and additional information must contain at least 50 words each.",
                         style: GoogleFonts.lexend(
                           fontSize: 13,
                           color: _textSecondary,
@@ -652,6 +678,142 @@ class _AddDronePageState extends State<AddDronePage> {
               ? "Please enter $label"
               : null,
           onSaved: onSaved,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDescriptionField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Description *",
+          style: GoogleFonts.lexend(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: _textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          decoration: InputDecoration(
+            hintText: "Describe your drone features, condition, specifications, flight time, camera quality, accessories included, etc...",
+            hintStyle: GoogleFonts.lexend(
+              color: _textSecondary.withOpacity(0.7),
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+            ),
+            filled: true,
+            fillColor: Color(0xFFF9FAFB),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: _borderColor, width: 1),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                color: _borderColor,
+                width: 1,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                color: _primaryColor,
+                width: 2,
+              ),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+          ),
+          style: GoogleFonts.lexend(
+            fontSize: 14,
+            color: _textPrimary,
+            fontWeight: FontWeight.w500,
+          ),
+          maxLines: 4,
+          onSaved: (v) => description = v ?? '',
+          validator: (v) {
+            if (v == null || v.isEmpty) {
+              return "Please enter description";
+            }
+            final words = v.trim().split(RegExp(r'\s+'));
+            if (words.length < 50) {
+              return "Description must contain at least 50 words (current: ${words.length})";
+            }
+            return null;
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAdditionalInfoField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Additional Information *",
+          style: GoogleFonts.lexend(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: _textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          decoration: InputDecoration(
+            hintText: "Battery health, flight history, maintenance records, warranty details, reason for selling, any known issues, special features, included accessories...",
+            hintStyle: GoogleFonts.lexend(
+              color: _textSecondary.withOpacity(0.7),
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+            ),
+            filled: true,
+            fillColor: Color(0xFFF9FAFB),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: _borderColor, width: 1),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                color: _borderColor,
+                width: 1,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                color: _primaryColor,
+                width: 2,
+              ),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+          ),
+          style: GoogleFonts.lexend(
+            fontSize: 14,
+            color: _textPrimary,
+            fontWeight: FontWeight.w500,
+          ),
+          maxLines: 4,
+          onSaved: (v) => additionalInfo = v ?? '',
+          validator: (v) {
+            if (v == null || v.isEmpty) {
+              return "Please enter additional information";
+            }
+            final words = v.trim().split(RegExp(r'\s+'));
+            if (words.length < 50) {
+              return "Additional information must contain at least 50 words (current: ${words.length})";
+            }
+            return null;
+          },
         ),
       ],
     );

@@ -8,8 +8,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../config/env.dart';
 import '../../services/role_manager.dart';
+
 // IMPORT YOUR PRODUCT DETAIL PAGE
-import '../../DroneDetailPage.dart'; // Update this with your actual import
+import '../../DroneDetailPage.dart';
+import '../Login/BuyerRegisterPage.dart'; // Update this with your actual import
+import '../Login/BuyerLoginPage.dart'; // Import BuyerLoginPage
 
 class WishlistPage extends StatefulWidget {
   const WishlistPage({super.key});
@@ -44,6 +47,22 @@ class _WishlistPageState extends State<WishlistPage> {
     _initializeWishlist();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Listen for when the page becomes visible again (e.g., when returning from registration)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ModalRoute<dynamic>? route = ModalRoute.of(context);
+      if (route != null && route.isCurrent) {
+        // If we're returning from registration page, try to load buyer ID again
+        if (_buyerIdError != null) {
+          _initializeWishlist();
+        }
+      }
+    });
+  }
+
   // ---------------------------------------------------------
   // 🔵 Initialize: Load buyerId → Load wishlist
   // ---------------------------------------------------------
@@ -58,7 +77,10 @@ class _WishlistPageState extends State<WishlistPage> {
   // 🔵 Fetch buyerId from MongoDB using Firebase UID
   // ---------------------------------------------------------
   Future<void> _loadBuyerId() async {
-    setState(() => _loadingBuyerId = true);
+    setState(() {
+      _loadingBuyerId = true;
+      _buyerIdError = null; // Reset error
+    });
 
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -581,9 +603,20 @@ class _WishlistPageState extends State<WishlistPage> {
         padding: EdgeInsets.all(_getResponsiveSize(context, 24, 32, 40)),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-
           children: [
-
+            // Icon or image for empty cart state
+            Container(
+              padding: EdgeInsets.all(_getResponsiveSize(context, 20, 24, 28)),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.person_outline,
+                size: _getResponsiveSize(context, 50, 60, 70),
+                color: primaryColor,
+              ),
+            ),
             SizedBox(height: _getResponsiveSize(context, 24, 32, 40)),
             Text(
               "Account Required",
@@ -603,26 +636,107 @@ class _WishlistPageState extends State<WishlistPage> {
                 height: 1.5,
               ),
             ),
-            SizedBox(height: _getResponsiveSize(context, 32, 40, 48)),
-            ElevatedButton(
-              onPressed: _loadBuyerId,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(
-                  horizontal: _getResponsiveSize(context, 28, 36, 44),
-                  vertical: _getResponsiveSize(context, 14, 16, 18),
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                elevation: 0,
+            SizedBox(height: _getResponsiveSize(context, 8, 10, 12)),
+            Text(
+              "Please login or register as a buyer to continue shopping",
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: _getResponsiveSize(context, 14, 16, 18),
+                color: textSecondary,
+                height: 1.5,
               ),
+            ),
+            SizedBox(height: _getResponsiveSize(context, 32, 40, 48)),
+
+            // Register Button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  // Navigate to BuyerRegisterPage
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const BuyerRegisterPage(),
+                    ),
+                  );
+                },
+                icon: Icon(
+                  Icons.person_add,
+                  size: _getResponsiveSize(context, 18, 20, 22),
+                ),
+                label: Text(
+                  "Register as Buyer",
+                  style: GoogleFonts.inter(
+                    fontSize: _getResponsiveSize(context, 14, 16, 18),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: _getResponsiveSize(context, 24, 28, 32),
+                    vertical: _getResponsiveSize(context, 14, 16, 18),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  elevation: 0,
+                ),
+              ),
+            ),
+            SizedBox(height: _getResponsiveSize(context, 12, 16, 20)),
+
+            // Login Button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  // Navigate to BuyerLoginPage
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const BuyerLoginPage(),
+                    ),
+                  );
+                },
+                icon: Icon(
+                  Icons.login,
+                  size: _getResponsiveSize(context, 18, 20, 22),
+                  color: primaryColor,
+                ),
+                label: Text(
+                  "Login to Existing Account",
+                  style: GoogleFonts.inter(
+                    fontSize: _getResponsiveSize(context, 14, 16, 18),
+                    fontWeight: FontWeight.w600,
+                    color: primaryColor,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: primaryColor),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: _getResponsiveSize(context, 24, 28, 32),
+                    vertical: _getResponsiveSize(context, 14, 16, 18),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: _getResponsiveSize(context, 16, 20, 24)),
+            TextButton(
+              onPressed: () {
+                // Navigate back
+                Navigator.pop(context);
+              },
               child: Text(
-                "Try Again",
+                "Back to Home",
                 style: GoogleFonts.inter(
                   fontSize: _getResponsiveSize(context, 14, 16, 18),
-                  fontWeight: FontWeight.w600,
+                  color: primaryColor,
                 ),
               ),
             ),
@@ -799,8 +913,9 @@ class _WishlistPageState extends State<WishlistPage> {
   Widget _buildWishlistCard(dynamic product, String addedAt, int index, BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     final crossAxisCount = _getGridCrossAxisCount(context);
-    final availableWidth = width - (_getGridPadding(context) * 2) - (spacing * (crossAxisCount - 1));
-    final cardWidth = availableWidth / crossAxisCount;
+    final spacing = _getGridSpacing(context);
+    final padding = _getGridPadding(context);
+    final availableWidth = width - (padding * 2) - (spacing * (crossAxisCount - 1));
     final isSmallScreen = width < 500;
 
     return GestureDetector(
@@ -1228,7 +1343,4 @@ class _WishlistPageState extends State<WishlistPage> {
       return dateString;
     }
   }
-
-  // Helper getter for spacing (used in _buildWishlistCard)
-  double get spacing => _getGridSpacing(context);
 }

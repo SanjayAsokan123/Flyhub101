@@ -168,8 +168,13 @@ class _ServiceBookNowState extends State<ServiceBookNow> {
       Utils.bottomToast(context, "Booking Successful!");
       Navigator.pop(context);
     } else {
-      Utils.bottomToast(context, "Error: ${response.message}");
+      if (response.message == "Service already booked") {
+        Utils.bottomToast(context, "❗ You already booked this service.");
+      } else {
+        Utils.bottomToast(context, "Error: ${response.message}");
+      }
     }
+
   }
 
   // Text Field Builder - EXACTLY LIKE JOB APPLY NOW

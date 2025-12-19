@@ -107,33 +107,6 @@ class _SellerSettingsPageState extends State<SellerSettingsPage> {
           ),
           onPressed: () => Navigator.pop(context),
         ),
-        actions: [
-          if (currentUser != null && !currentUser!.emailVerified)
-            Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: Center(
-                child: isCheckingEmailVerification
-                    ? const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      themeColor,
-                    ),
-                  ),
-                )
-                    : TextButton.icon(
-                  onPressed: _refreshEmailVerificationStatus,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Refresh'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: themeColor,
-                  ),
-                ),
-              ),
-            ),
-        ],
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -141,9 +114,6 @@ class _SellerSettingsPageState extends State<SellerSettingsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildProfileCard(),
-              const SizedBox(height: 24),
-              _buildEmailVerificationSection(),
               _buildAccountSettingsSection(context),
               const SizedBox(height: 32),
             ],
@@ -153,321 +123,6 @@ class _SellerSettingsPageState extends State<SellerSettingsPage> {
     );
   }
 
-  // ------------------ UI SECTIONS ------------------
-
-  Widget _buildProfileCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: themeColor.withOpacity(0.2),
-                width: 2,
-              ),
-            ),
-            child: ClipOval(
-              child: Image.asset(
-                'assets/images/profile.jpg',
-                fit: BoxFit.cover,
-                width: 60,
-                height: 60,
-                errorBuilder: (context, error, stackTrace) {
-                  final name = widget.sellerData?['companyName'] as String?;
-                  final initial = (name != null && name.isNotEmpty)
-                      ? name[0].toUpperCase()
-                      : 'S';
-                  return Container(
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [themeColor, primaryColor],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        initial,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.sellerData?['companyName'] ?? 'Seller',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: textPrimary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  currentUser?.email ?? 'No email',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (widget.sellerId != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      'ID: ${widget.sellerId}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: textSecondary,
-                      ),
-                    ),
-                  ),
-                if (currentUser != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: currentUser!.emailVerified
-                            ? successColor.withOpacity(0.2)
-                            : warningColor.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: currentUser!.emailVerified
-                              ? successColor.withOpacity(0.5)
-                              : warningColor.withOpacity(0.5),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            currentUser!.emailVerified
-                                ? Icons.verified
-                                : Icons.warning,
-                            size: 14,
-                            color: currentUser!.emailVerified
-                                ? successColor
-                                : warningColor,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            currentUser!.emailVerified
-                                ? 'Verified'
-                                : 'Not Verified',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: currentUser!.emailVerified
-                                  ? successColor
-                                  : warningColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmailVerificationSection() {
-    if (currentUser == null) {
-      return const SizedBox.shrink();
-    }
-
-    if (!currentUser!.emailVerified) {
-      return Container(
-          padding: const EdgeInsets.all(16),
-          margin: const EdgeInsets.only(bottom: 20, top: 8),
-          decoration: BoxDecoration(
-            color: errorColor.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: errorColor.withOpacity(0.6),
-              width: 1.5,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: const [
-                  Icon(
-                    Icons.error_outline,
-                    color: errorColor,
-                    size: 22,
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Email verification required',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: errorColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'You must verify your email before changing your password. '
-                    'A verification link has been sent to ${currentUser!.email}.',
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: textSecondary,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Steps:\n• Open your email inbox\n• Click the verification link\n• Return here and tap Refresh',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: textSecondary,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _sendVerificationEmail,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: errorColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      icon: const Icon(Icons.mark_email_unread, size: 18),
-                      label: const Text(
-                        'Resend email',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: isCheckingEmailVerification
-                          ? null
-                          : _refreshEmailVerificationStatus,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: errorColor,
-                        side: const BorderSide(color: errorColor),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      icon: isCheckingEmailVerification
-                          ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor:
-                          AlwaysStoppedAnimation<Color>(errorColor),
-                        ),
-                      )
-                          : const Icon(Icons.refresh, size: 18),
-                      label: const Text(
-                        'Refresh',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-
-          )
-      );
-    }
-
-    // If verified, show small success card
-    return Container(
-        padding: const EdgeInsets.all(12),
-        margin: const EdgeInsets.only(bottom: 20, top: 8),
-        decoration: BoxDecoration(
-          color: successColor.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: successColor.withOpacity(0.4),
-          ),
-        ),
-        child: Row(
-          children: const [
-            Icon(
-              Icons.verified,
-              color: successColor,
-              size: 20,
-            ),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Your email is verified. You can change your password.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: textSecondary,
-                ),
-              ),
-            ),
-          ],
-        )
-    );
-
-
-  }
-
   Widget _buildAccountSettingsSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -475,12 +130,19 @@ class _SellerSettingsPageState extends State<SellerSettingsPage> {
         const Text(
           'Account Settings',
           style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
             color: textPrimary,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
+        const Divider(
+          color: Color(0xFFE5E7EB),
+          thickness: 1,
+        ),
+        const SizedBox(height: 16),
+
+        // Edit Profile Card
         _buildSettingsCard(
           context: context,
           icon: Icons.edit,
@@ -504,6 +166,8 @@ class _SellerSettingsPageState extends State<SellerSettingsPage> {
           },
           isDisabled: false,
         ),
+
+        // Change Password Card
         _buildSettingsCard(
           context: context,
           icon: Icons.lock_reset,
@@ -518,20 +182,17 @@ class _SellerSettingsPageState extends State<SellerSettingsPage> {
               return;
             }
             if (!currentUser!.emailVerified) {
-              _showErrorSnackBar(
-                'Please verify your email first to change password.',
-              );
+              _showEmailVerificationDialog();
               return;
             }
 
-            // ✅ Fixed: Removed customId parameter since ChangePasswordPage doesn't need it
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => ChangeNotifierProvider(
                   create: (_) => SellerPasswordProvider(),
                   child: ChangePasswordPage(
-                    user: currentUser!, // ✅ Only passing user
+                    user: currentUser!,
                   ),
                 ),
               ),
@@ -539,6 +200,8 @@ class _SellerSettingsPageState extends State<SellerSettingsPage> {
           },
           isDisabled: currentUser == null || !currentUser!.emailVerified,
         ),
+
+        // Deactivate Account Card
         _buildSettingsCard(
           context: context,
           icon: Icons.person_remove,
@@ -648,6 +311,72 @@ class _SellerSettingsPageState extends State<SellerSettingsPage> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  void _showEmailVerificationDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.email, color: errorColor),
+            SizedBox(width: 10),
+            Text('Email Verification Required'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'You need to verify your email before changing your password.',
+              style: TextStyle(
+                fontSize: 14,
+                color: textSecondary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Email: ${currentUser?.email ?? 'Not available'}',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: textPrimary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: textSecondary,
+                      side: BorderSide(color: textSecondary.withOpacity(0.3)),
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _sendVerificationEmail();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: errorColor,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Send Email'),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

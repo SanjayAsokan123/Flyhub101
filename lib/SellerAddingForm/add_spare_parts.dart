@@ -40,6 +40,7 @@ class _AddSparePartFormState extends State<AddSparePartForm> {
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _additionalInfoController = TextEditingController(); // Added this field
 
   File? imageFile;
   bool _isSubmitting = false;
@@ -56,6 +57,7 @@ class _AddSparePartFormState extends State<AddSparePartForm> {
     _priceController.dispose();
     _quantityController.dispose();
     _descriptionController.dispose();
+    _additionalInfoController.dispose(); // Added this
     super.dispose();
   }
 
@@ -294,6 +296,23 @@ class _AddSparePartFormState extends State<AddSparePartForm> {
     );
   }
 
+  // Validator for word count (minimum 50 words)
+  String? _wordCountValidator(String? value, String fieldName) {
+    if (value == null || value.isEmpty) {
+      return "Please enter $fieldName";
+    }
+
+    // Count words by splitting on whitespace
+    final words = value.trim().split(RegExp(r'\s+'));
+    final wordCount = words.length;
+
+    if (wordCount < 50) {
+      return "$fieldName must contain at least 50 words (current: $wordCount)";
+    }
+
+    return null;
+  }
+
   // 🚀 Submit the form
   Future<void> _submitForm() async {
     // Validate image first
@@ -304,7 +323,6 @@ class _AddSparePartFormState extends State<AddSparePartForm> {
 
     // Then validate form fields
     if (!_formKey.currentState!.validate()) {
-      _showSnackBar('Please fill all required fields', isError: true);
       return;
     }
 
@@ -349,19 +367,23 @@ class _AddSparePartFormState extends State<AddSparePartForm> {
         }
       """);
 
-      // 🔹 Variables
+      // 🔹 Variables - Combine description and additionalInfo
+      final combinedDescription = "${_descriptionController.text.trim()}\n\nAdditional Information:\n${_additionalInfoController.text.trim()}";
+
       final variables = {
         'input': {
           'name': _nameController.text.trim(),
           'brand': _brandController.text.trim(),
           'price': price,
-          'description': _descriptionController.text.trim(),
+          'description': combinedDescription, // Combined both fields
           'image': imageUrl,
           'quantity': quantity,
           'sellerId': widget.sellerId,
           'status': "pending",
         },
       };
+
+      debugPrint("Submitting spare part with combined description length: ${combinedDescription.length}");
 
       final result = await client.mutate(
         MutationOptions(document: mutation, variables: variables),
@@ -499,7 +521,7 @@ class _AddSparePartFormState extends State<AddSparePartForm> {
     }
   }
 
-  // Validator for required fields
+  // Validator for required fields (without word count)
   String? _requiredValidator(String? value, String fieldName) {
     if (value == null || value.isEmpty) {
       return "Please enter $fieldName";
@@ -792,14 +814,9 @@ class _AddSparePartFormState extends State<AddSparePartForm> {
                       const SizedBox(height: 16),
                       _buildQuantityField(),
                       const SizedBox(height: 16),
-                      _buildTextField(
-                        "Description *",
-                        _descriptionController,
-                            (v) => _requiredValidator(v, "description"),
-                        maxLines: 3,
-                        hintText: "Describe the part, compatibility, condition, etc...",
-                        icon: Icons.description_rounded,
-                      ),
+                      _buildDescriptionField(),
+                      const SizedBox(height: 16),
+                      _buildAdditionalInfoField(), // Added this field
                     ],
                   ),
                 ),
@@ -900,7 +917,8 @@ class _AddSparePartFormState extends State<AddSparePartForm> {
                             "• Ensure all information is accurate\n"
                             "• Price should include all applicable taxes\n"
                             "• High-quality images increase visibility\n"
-                            "• Specify compatibility details for better matches",
+                            "• Specify compatibility details for better matches\n"
+                            "• Both Description and Additional Information must contain at least 50 words each",
                         style: GoogleFonts.lexend(
                           fontSize: 12.5,
                           color: _textSecondary,
@@ -992,6 +1010,142 @@ class _AddSparePartFormState extends State<AddSparePartForm> {
           maxLines: maxLines,
           minLines: maxLines,
           validator: validator,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDescriptionField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Description *",
+          style: GoogleFonts.lexend(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: _textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _descriptionController,
+          decoration: InputDecoration(
+            hintText: "Describe the part, compatibility, condition, specifications, usage, warranty, etc... (Minimum 50 words)",
+            hintStyle: GoogleFonts.lexend(
+              color: _textSecondary.withOpacity(0.6),
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+            ),
+            prefixIcon: Icon(Icons.description_rounded, color: _primaryColor),
+            filled: true,
+            fillColor: Color(0xFFF9FAFB),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: _borderColor, width: 1),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                color: _borderColor,
+                width: 1,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                color: _primaryColor,
+                width: 2,
+              ),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                color: _dangerColor,
+                width: 1,
+              ),
+            ),
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+          ),
+          style: GoogleFonts.lexend(
+            fontSize: 14,
+            color: _textPrimary,
+            fontWeight: FontWeight.w500,
+          ),
+          maxLines: 4,
+          minLines: 4,
+          validator: (v) => _wordCountValidator(v, "Description"),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAdditionalInfoField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Additional Information *",
+          style: GoogleFonts.lexend(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: _textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _additionalInfoController,
+          decoration: InputDecoration(
+            hintText: "Manufacturing date, storage conditions, packaging details, shipping information, return policy, etc... (Minimum 50 words)",
+            hintStyle: GoogleFonts.lexend(
+              color: _textSecondary.withOpacity(0.6),
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+            ),
+            prefixIcon: Icon(Icons.info_outline_rounded, color: _primaryColor),
+            filled: true,
+            fillColor: Color(0xFFF9FAFB),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: _borderColor, width: 1),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                color: _borderColor,
+                width: 1,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                color: _primaryColor,
+                width: 2,
+              ),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                color: _dangerColor,
+                width: 1,
+              ),
+            ),
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+          ),
+          style: GoogleFonts.lexend(
+            fontSize: 14,
+            color: _textPrimary,
+            fontWeight: FontWeight.w500,
+          ),
+          maxLines: 4,
+          minLines: 4,
+          validator: (v) => _wordCountValidator(v, "Additional information"),
         ),
       ],
     );
