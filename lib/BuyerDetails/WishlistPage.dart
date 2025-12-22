@@ -10,7 +10,7 @@ import '../../config/env.dart';
 import '../../services/role_manager.dart';
 
 // IMPORT YOUR PRODUCT DETAIL PAGE
-import '../../DroneDetailPage.dart';
+import 'DroneDetailPage.dart';
 import '../Login/BuyerRegisterPage.dart'; // Update this with your actual import
 import '../Login/BuyerLoginPage.dart'; // Import BuyerLoginPage
 

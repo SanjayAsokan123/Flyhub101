@@ -56,7 +56,7 @@ class HelpAndSupportPage extends StatelessWidget {
             _buildFAQItem(
               question: "Can I cancel an order after placing it?",
               answer:
-              "Yes, orders can be canceled before they are shipped. After shipment, please contact our support team for help.",
+              "Yes, Orders can be canceled before they are shipped. After shipment, please contact our support team for help.",
             ),
             _buildFAQItem(
               question: "I found a bug in the app, what do I do?",

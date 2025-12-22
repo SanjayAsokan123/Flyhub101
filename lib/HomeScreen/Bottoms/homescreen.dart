@@ -21,7 +21,7 @@ import '../../BuyerDetails/MyCartPage.dart';
 import '../../BuyerDetails/WishlistPage.dart';
 import '../Bottoms/MarketPage.dart';
 import '../Bottoms/Popup.dart';
-import '../../DroneDetailPage.dart';
+import '../../BuyerDetails/DroneDetailPage.dart';
 import '../../firebase_options.dart';
 import '../../services/cart_wishlist_provider.dart';
 import '../../utils/responsive_utils.dart';
@@ -1337,7 +1337,7 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (_) => DroneDetailPage(
             drone: normalized,
             Drone: normalized,
-            initialIsFavorite: normalized,
+            initialIsFavorite: item,
           ),
         ),
       );
@@ -1586,7 +1586,7 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
             child: Row(
               children: [
-                _buildFeatureCard("Free Shipping", "orders over ₹2000", Icons.local_shipping_rounded, _kPrimaryColor),
+                _buildFeatureCard("Free Shipping", "Orders over ₹2000", Icons.local_shipping_rounded, _kPrimaryColor),
                 _buildFeatureCard("Secure Payment", "100% protected", Icons.verified_user_rounded, const Color(0xFF169652)),
                 _buildFeatureCard("Easy Returns", "30-day policy", Icons.assignment_return_rounded, const Color(0xFF733486)),
                 _buildFeatureCard("Refund Policy", "8-14 days", Icons.receipt_long_rounded, const Color(0xFF3F35DD)),

@@ -48,7 +48,7 @@ Customer You User shall mean the natural person who has gained access to the Pla
 
 Intellectual Property Rights refers to all intellectual property rights and all analogous rights subsisting under the laws of each and every jurisdiction throughout the world and intellectual property for the full term of the rights concerned and including all extensions and renewals of such rights whether or not such rights are registered or capable of registration including without limitation copyrights trademarks trade names service marks service names patents designs and all other proprietary rights of whatsoever description whether or not protected and whether or not capable of protection
 
-Platform shall mean the online marketplace accessible at wwwflyhubinmarketplacehtml the Flyhub mobile application as well as the services made available by Flyhub
+Platform shall mean the online marketplace accessible at  the Flyhub mobile application as well as the services made available by Flyhub
 
 Registration Data shall mean the mandatory and optional data that is submitted by Users to browse the Platform andor avail the Services which includes data related to your drones
 
@@ -331,7 +331,8 @@ Flyhub shall not be required to notify you of any changes made to these User Ter
 Flyhub may give notice by means of a general notice on the Service or Application or by electronic mail to your email address or a message on your registered mobile number or by written communication sent by regular mail to your address on record in Flyhubs account information
           ''',
           style: const TextStyle(
-            fontSize: 16.0,
+            fontSize: 14.0,
+            color: Colors.grey,
             fontWeight: FontWeight.normal,
             height: 1.4,
           ),

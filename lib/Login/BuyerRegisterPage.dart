@@ -312,7 +312,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
         'shippingAddresses': [],
         'wishlist': [],
         'cart': [],
-        'orders': [],
+        'Orders': [],
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });

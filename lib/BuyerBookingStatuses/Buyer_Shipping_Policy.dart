@@ -134,8 +134,8 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               const SizedBox(height: 8),
               _buildBulletPoint('Delivery Time: 7 working days from dispatch'),
               _buildBulletPoint('Shipping Cost: ₹150'),
-              _buildBulletPoint('FREE SHIPPING on orders above ₹2000'),
-              _buildBulletPoint('Tracking number provided for all orders'),
+              _buildBulletPoint('FREE SHIPPING on Orders above ₹2000'),
+              _buildBulletPoint('Tracking number provided for all Orders'),
               const SizedBox(height: 12),
               Text(
                 'Note: Currently only standard shipping is available. We are working to add expedited shipping options in the future.',
@@ -200,7 +200,7 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               _buildBulletPoint('Tracking number sent to your registered email within 24 hours of dispatch'),
-              _buildBulletPoint('Track orders through the Flyhub app or courier partner website'),
+              _buildBulletPoint('Track Orders through the Flyhub app or courier partner website'),
               _buildBulletPoint('SMS / Email notifications for order status updates'),
               _buildBulletPoint('Real‑time tracking available in your Flyhub account'),
               const SizedBox(height: 32),
@@ -510,7 +510,7 @@ class BuyerShippingPolicyPage extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'For orders of 5+ drones or bulk accessories',
+                'For Orders of 5+ drones or bulk accessories',
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   color: const Color(0xFF4B5563),

@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart';
 import 'package:provider/provider.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
-import '../services/graphql_client.dart';
+import '../../services/graphql_client.dart';
 import 'OrderSuccessPage.dart';
 
 class CheckoutPage extends StatefulWidget {
@@ -29,6 +29,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   String selectedPayment = "UPI";
   String selectedUpiApp = "Google Pay";
   String? selectedBank;
+  String? flyhubOrderId;
 
   @override
   void initState() {
@@ -73,18 +74,20 @@ class _CheckoutPageState extends State<CheckoutPage> {
     required String signature,
   }) async {
     const String mutation = r'''
-      mutation VerifyRazorpayPayment(
-        $razorpay_order_id: String!
-        $razorpay_payment_id: String!
-        $razorpay_signature: String!
-      ) {
-        verifyRazorpayPayment(
-          razorpay_order_id: $razorpay_order_id
-          razorpay_payment_id: $razorpay_payment_id
-          razorpay_signature: $razorpay_signature
-        )
-      }
-    ''';
+    mutation VerifyRazorpayPayment(
+      $razorpay_order_id: String!
+      $razorpay_payment_id: String!
+      $razorpay_signature: String!
+      $buyerId: String!
+    ) {
+      verifyRazorpayPayment(
+        razorpay_order_id: $razorpay_order_id
+        razorpay_payment_id: $razorpay_payment_id
+        razorpay_signature: $razorpay_signature
+        buyerId: $buyerId
+      )
+    }
+  ''';
 
     final res = await GraphQLService.performMutation(
       mutation,
@@ -92,11 +95,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
         "razorpay_order_id": orderId,
         "razorpay_payment_id": paymentId,
         "razorpay_signature": signature,
+        "buyerId": widget.order["buyerData"]["buyerId"],
       },
     );
 
     return res?["verifyRazorpayPayment"] == true;
   }
+
 
   List<Map<String, dynamic>> items = [];
 
@@ -120,7 +125,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
   // 🔥 CREATE ORDER IN BACKEND — FINAL STEP
   // ========================================================
   Future<void> _createOrder({
-    required String method,
+    required String mode,
+    String? method,
     required bool isCOD,
     String? transactionId,
   }) async {
@@ -171,8 +177,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
           "buyerData": buyer,
           "items": items,
           "paymentData": {
+            "mode": mode,
             "method": method,
-            "status": isCOD ? "pending" : "received",
+            "status": isCOD ? "pending" : "paid",
             "transactionId": transactionId,
           }
         },
@@ -211,27 +218,86 @@ class _CheckoutPageState extends State<CheckoutPage> {
   // ========================================================
   void _startRazorpayPayment() async {
     try {
-      String razorpayOrderId =
+      // 1️⃣ Buyer & cart data
+      final buyer = widget.order["buyerData"];
+      final List rawItems = widget.order["items"];
+
+      final List<Map<String, dynamic>> items = rawItems.map((i) {
+        return {
+          "productId": i["productId"],
+          "type": normalizeType(i["category"]),
+          "quantity": i["quantity"] ?? 1,
+        };
+      }).toList();
+
+      // 2️⃣ CREATE FLYHUB ORDER FIRST (ONLINE, pending)
+      const String createOrderMutation = r'''
+      mutation CreateOrder(
+        $buyerData: BuyerInput!
+        $items: [ItemInput!]!
+        $paymentData: PaymentInput!
+      ) {
+        createOrder(
+          buyerData: $buyerData
+          items: $items
+          paymentData: $paymentData
+        ) {
+          orderId
+        }
+      }
+    ''';
+
+      final orderRes = await GraphQLService.performMutation(
+        createOrderMutation,
+        variables: {
+          "buyerData": buyer,
+          "items": items,
+          "paymentData": {
+            "mode": "ONLINE",
+            "method": "UPI",
+            "status": "pending",
+          }
+        },
+      );
+
+      if (orderRes == null || orderRes["createOrder"] == null) {
+        throw "Failed to create Flyhub order";
+      }
+
+      // ✅ SAVE FLYHUB ORDER ID
+      flyhubOrderId = orderRes["createOrder"]["orderId"];
+
+      // 3️⃣ CREATE RAZORPAY ORDER
+      final razorpayOrderId =
       await _createRazorpayOrder(widget.total);
 
-      var options = {
-        'key': 'rzp_test_RhThC0c8VixBN8', // your Razorpay key
+      // 4️⃣ OPEN RAZORPAY
+      final options = {
+        'key': 'rzp_test_RhThC0c8VixBN8',
         'amount': (widget.total * 100).toInt(),
         'name': 'Flyhub',
         'description': 'Order Payment',
         'currency': 'INR',
         'order_id': razorpayOrderId,
         'prefill': {
-          'contact': widget.order["buyerData"]["phone"],
-          'email': widget.order["buyerData"]["email"]
+          'contact': buyer["phone"],
+          'email': buyer["email"],
+        },
+        'notes': {
+          'flyhubOrderId': flyhubOrderId, // 🔥 critical
         }
       };
 
       _razorpay.open(options);
     } catch (e) {
-      debugPrint("Razorpay start error: $e");
+      debugPrint("❌ Razorpay start error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Payment start failed: $e")),
+      );
     }
   }
+
+
 
   // ========================================================
   // 🔥 Payment Success Callback
@@ -245,19 +311,24 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
     if (!verified) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Payment verification failed"),
-        ),
+        const SnackBar(content: Text("Payment verification failed")),
       );
       return;
     }
 
-    await _createOrder(
-      method: "UPI",
-      isCOD: false,
-      transactionId: res.paymentId,
+    context.read<CartWishlistProvider>().clearCart();
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OrderSuccessPage(
+          orderDetails: flyhubOrderId!,
+          drone: {"total": widget.total},
+        ),
+      ),
     );
   }
+
 
   // ========================================================
   // 🔥 Payment Error
@@ -281,8 +352,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
   // 🔥 COD Handler
   // ========================================================
   void _handleCOD() {
-    _createOrder(method: "COD", isCOD: true);
+    _createOrder(
+      mode: "COD",
+      method: null,
+      isCOD: true,
+    );
   }
+
 
   // ========================================================
   // UI ---------------------------------------------

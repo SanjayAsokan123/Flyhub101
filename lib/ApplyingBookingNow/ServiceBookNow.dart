@@ -1,8 +1,10 @@
+
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../CommonClass/ApiClass.dart';
 import '../CommonClass/utils.dart';
@@ -254,39 +256,143 @@ class _ServiceBookNowState extends State<ServiceBookNow> {
     );
   }
 
-  // Service Avatar Builder
-  Widget _buildServiceAvatar({double size = 80}) {
-    final serviceName = widget.service['name'] ?? 'Service';
-    final initials = serviceName.isNotEmpty
-        ? serviceName.split(' ').map((s) => s.isNotEmpty ? s[0] : '').take(2).join().toUpperCase()
-        : 'SV';
+  // Enhanced Service Card with all details
+  Widget _buildServiceCard() {
+    final service = widget.service;
+    final serviceName = (service['name'] ?? 'Drone Service').trim();
+    final price = service['price']?.toString() ?? '0';
+    final imageUrl = (service['image'] ?? '').toString();
+    final img = imageUrl.startsWith('http')
+        ? imageUrl
+        : 'https://flyhub-storage.s3.ap-south-1.amazonaws.com/uploads/$imageUrl';
 
     return Container(
-      width: size,
-      height: size,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: primaryColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Center(
-        child: Text(
-          initials,
-          style: GoogleFonts.poppins(
-            color: Colors.white,
-            fontSize: size / 3,
-            fontWeight: FontWeight.bold,
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 6,
+            offset: const Offset(0, 3),
           ),
-        ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Service Image
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: double.infinity,
+              height: 180,
+              child: CachedNetworkImage(
+                imageUrl: img,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  color: Colors.grey[200],
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: primaryColor.withOpacity(0.3),
+                    ),
+                  ),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  color: Colors.grey[200],
+                  child: Icon(
+                    Icons.photo_camera_back_rounded,
+                    color: Colors.grey,
+                    size: 40,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Service Name
+          Text(
+            serviceName,
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              color: primaryColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Brand (formerly Drone Type)
+          Row(
+            children: [
+              Text(
+                "Brand: ",
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  service['specificDrone'] ?? 'Not specified',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Location
+          Row(
+            children: [
+              Text(
+                "Location: ",
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  service['location'] ?? 'Location not specified',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Price
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text(
+                "₹$price",
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  color: primaryColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final service = widget.service;
-    final serviceName = (service['name'] ?? 'Drone Service').trim();
-    final price = service['price']?.toString() ?? '0';
-
     if (_isLoadingBuyerId) {
       return const Scaffold(
         backgroundColor: Color(0xFFF2F7FB),
@@ -345,59 +451,8 @@ class _ServiceBookNowState extends State<ServiceBookNow> {
               ),
               const SizedBox(height: 24),
 
-              // Service Card - EXACTLY LIKE JOB APPLY NOW
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    _buildServiceAvatar(size: 80),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(serviceName,
-                              style: GoogleFonts.poppins(
-                                fontSize: 18,
-                                color: primaryColor,
-                                fontWeight: FontWeight.w600,
-                              )),
-                          Text(
-                            "Professional Drone Service",
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              const SizedBox(width: 4),
-                              const Spacer(),
-                              Text("₹$price",
-                                  style: GoogleFonts.poppins(
-                                      fontSize: 15,
-                                      color: primaryColor,
-                                      fontWeight: FontWeight.w600)),
-                            ],
-                          )
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // Enhanced Service Card with all details
+              _buildServiceCard(),
               const SizedBox(height: 24),
 
               // Booking Form - EXACTLY LIKE JOB APPLY NOW
@@ -443,7 +498,7 @@ class _ServiceBookNowState extends State<ServiceBookNow> {
                     ),
                     _buildTextField(
                       label: "Additional Notes (Optional)",
-                      icon: Icons.description ,
+                      icon: Icons.description,
                       controller: noteCtrl,
                       maxLines: 3,
                     ),

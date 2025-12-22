@@ -5,10 +5,10 @@ import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
 import 'package:photo_view/photo_view.dart'; // Add this import for zoom
 
-import '../../config/env.dart';
-import '../../services/role_manager.dart';
-import 'BuyerDetails/MyCartPage.dart';
-import 'AddressPage.dart';
+import '../../../config/env.dart';
+import '../../../services/role_manager.dart';
+import 'MyCartPage.dart';
+import '../orders/AddressPage.dart';
 
 class DroneDetailPage extends StatefulWidget {
   final Map<String, dynamic> drone;

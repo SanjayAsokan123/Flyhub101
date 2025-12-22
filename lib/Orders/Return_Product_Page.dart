@@ -135,7 +135,7 @@ class _ReturnedProductsPageState extends State<ReturnedProductsPage>
             );
           }
 
-          List orders = result.data?["orders"] ?? [];
+          List orders = result.data?["Orders"] ?? [];
 
           // Filter: Returned + Items belonging to seller
           List returnedItems = [];
@@ -559,7 +559,7 @@ class _ReturnedProductsPageState extends State<ReturnedProductsPage>
 // GraphQL Query
 const String getReturnedOrdersQuery = """
 query GetReturnedOrders {
-  orders {
+  Orders {
     orderId
     status
     createdAt

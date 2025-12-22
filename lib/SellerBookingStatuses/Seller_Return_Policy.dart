@@ -1025,7 +1025,7 @@ class SRRPolicy extends StatelessWidget {
               _buildBulletPoint('Buyer can dispute if disagrees'),
               const SizedBox(height: 12),
               Text(
-                'Custom orders:',
+                'Custom Orders:',
                 style: GoogleFonts.inter(
                   fontSize: 15,
                   color: const Color(0xFF4B5563),
@@ -1047,7 +1047,7 @@ class SRRPolicy extends StatelessWidget {
               _buildBulletPoint('Exception: If defective or not as specified'),
               const SizedBox(height: 12),
               Text(
-                'Bulk orders 5+ units:',
+                'Bulk Orders 5+ units:',
                 style: GoogleFonts.inter(
                   fontSize: 15,
                   color: const Color(0xFF4B5563),

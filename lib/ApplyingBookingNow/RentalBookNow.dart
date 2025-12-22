@@ -7,8 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flyhub/config/env.dart';
 
 class RentalBookNowPage extends StatefulWidget {
-  final Map<String, dynamic>
-  rental; // the rental object from RentalsPage (must include rentalId)
+  final Map<String, dynamic> rental; // the rental object from RentalsPage (must include rentalId)
   final Map<String, dynamic>? drone; // optional
 
   const RentalBookNowPage({
@@ -30,7 +29,13 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
   final TextEditingController locationController = TextEditingController();
 
   final Color primaryColor = const Color(0xFF1A0A5B);
-  final Color accentColor = const Color(0xFF00C6FF);
+  final Color secondaryColor = const Color(0xFF4C1D95);
+  // final Color accentColor = const Color(0xFF00C6FF);
+  final Color backgroundColor = Colors.white;
+  final Color surfaceColor = Colors.white;
+  final Color textPrimary = const Color(0xFF1F2937);
+  final Color textSecondary = const Color(0xFF6B7280);
+  final Color borderColor = const Color(0xFFE5E7EB);
 
   // GraphQL client config
   final String graphqlUrl = EnvConfig.baseUrl;
@@ -338,18 +343,6 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
 // Close page
       Navigator.pop(context);
       final formatted = DateFormat('dd MMM yyyy').format(bookingDate!);
-
-      // IMPORTANT: Backend returns sellerEmail & sellerPhone as snapshot.
-      // Use these values as the single source of truth for seller contact after booking.
-      final String confirmedSellerEmail = data?['sellerEmail']?.toString() ??
-          listingSellerEmail ??
-          widget.rental['sellerEmail'] ??
-          'N/A';
-      final String confirmedSellerPhone = data?['sellerPhone']?.toString() ??
-          listingSellerPhone ??
-          widget.rental['sellerPhone'] ??
-          'N/A';
-
       // Show bottom sheet confirmation (nice modern UI)
       if (!mounted) return;
       showModalBottomSheet(
@@ -361,31 +354,13 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
         builder: (ctx) {
           return Container(
             padding: const EdgeInsets.all(20),
-            height: 260,
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(4)),
-                ),
-                const SizedBox(height: 16),
                 Text("Booking Confirmed ✅",
                     style: GoogleFonts.poppins(
                         fontSize: 18, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                Text(
-                  "ID: ${data?['drone_rental_id'] ?? 'N/A'}\n"
-                      "Date: $formatted\n\n"
-                      "Seller Email: $confirmedSellerEmail\n"
-                      "Seller Phone: $confirmedSellerPhone",
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                      fontSize: 14, color: Colors.grey[800]),
-                ),
-                const Spacer(),
+                const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -538,15 +513,15 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
                     if (progress == null) return child;
                     return const CircularProgressIndicator();
                   },
-                  errorBuilder: (_, __, ___) => Icon(Icons.broken_image,
+                  errorBuilder: (_, __, ___) => Icon(Icons.flight,
                       size: 80, color: Colors.white54),
                 ),
               )
                   : Column(
                 mainAxisSize: MainAxisSize.min,
-                children: const [
+                children: [
                   Icon(Icons.flight, size: 80, color: Colors.white54),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   Text("No image available",
                       style: TextStyle(color: Colors.white54)),
                 ],
@@ -569,28 +544,21 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
   @override
   Widget build(BuildContext context) {
     final rental = widget.rental;
-    final droneName = rental['name'] ?? widget.drone?['name'] ?? 'Drone';
-    final droneType =
-        rental['type'] ?? widget.drone?['type'] ?? 'Standard Drone';
-    final dronePurpose =
-        rental['purpose'] ?? widget.drone?['purpose'] ?? 'General Use';
-    final dronePrice = rental['price'] ?? widget.drone?['price'] ?? 1500;
 
-    // Decide which seller email/phone to show in details card:
-    // priority: listingSellerEmail (fetched) > widget.rental['sellerEmail'] > widget.drone?['sellerEmail']
-    final sellerEmailToShow = listingSellerEmail ??
-        (rental['sellerEmail'] as String?) ??
-        (widget.drone?['sellerEmail'] as String?) ??
-        'Not available';
-    final sellerPhoneToShow = listingSellerPhone ??
-        (rental['sellerPhone'] as String?) ??
-        (widget.drone?['sellerPhone'] as String?) ??
-        'Not available';
+    // Extract all the details shown in RentalsPage
+    final droneName = rental['name'] ?? widget.drone?['name'] ?? 'Professional Drone';
+    final droneBrand = rental['brand'] ?? widget.drone?['brand'] ?? 'Premium Brand';
+    final droneLocation = rental['location'] ?? widget.drone?['location'] ?? 'Multiple Locations';
+    final droneModel = rental['model'] ?? widget.drone?['model'] ?? '';
+    final pricePerHour = rental['pricePerHour'] ?? widget.drone?['pricePerHour'] ?? '0';
+    final pricePerDay = rental['pricePerDay'] ?? widget.drone?['pricePerDay'] ?? '0';
+    final isPremium = rental['premium'] ?? false;
+
 
     // ✅ FIXED: Show loading state while data is being prepared
     if (_isLoadingBuyerId) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF2F7FB),
+        backgroundColor: backgroundColor,
         body: SafeArea(
           child: Center(
             child: Column(
@@ -610,7 +578,7 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
     // ✅ FIXED: Show error state if buyerId loading failed
     if (_buyerIdError != null) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF2F7FB),
+        backgroundColor: backgroundColor,
         body: SafeArea(
           child: Center(
             child: Column(
@@ -645,7 +613,7 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F7FB),
+      backgroundColor: backgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -658,7 +626,7 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
                 const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [primaryColor, accentColor],
+                    colors: [primaryColor, primaryColor],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -689,59 +657,140 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
 
               const SizedBox(height: 20),
 
-              // Drone details card
+              // Drone details card - updated to match RentalsPage
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: surfaceColor,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 6,
-                        offset: Offset(0, 3))
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4)),
                   ],
+                  border: Border.all(color: borderColor.withOpacity(0.5), width: 1),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildDroneImage(size: 100),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(droneName,
-                              style: GoogleFonts.poppins(
-                                  fontSize: 18,
-                                  color: primaryColor,
-                                  fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 6),
-                          Text(droneType,
-                              style: GoogleFonts.poppins(color: Colors.grey[600])),
-                          const SizedBox(height: 6),
-                          Text("Purpose: $dronePurpose",
-                              style: GoogleFonts.poppins(color: Colors.grey[700])),
-                          const SizedBox(height: 8),
-                          Row(
+                    // Top part: image and details
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Image with premium badge
+                        Stack(
+                          children: [
+                            _buildDroneImage(size: 100),
+                            if (isPremium)
+                              Positioned(
+                                top: 8,
+                                left: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [secondaryColor, primaryColor],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    "PREMIUM",
+                                    style: GoogleFonts.poppins(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text("₹$dronePrice/day",
+                              Text(droneName,
                                   style: GoogleFonts.poppins(
-                                      fontSize: 15,
-                                      color: primaryColor,
-                                      fontWeight: FontWeight.w600)),
+                                      fontSize: 18,
+                                      color: textPrimary,
+                                      fontWeight: FontWeight.w800)),
+                              const SizedBox(height: 6),
+                              Text(droneBrand,
+                                  style: GoogleFonts.poppins(color: textSecondary)),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Icon(Icons.location_on_outlined, size: 14, color: textSecondary),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(droneLocation,
+                                        style: GoogleFonts.poppins(color: textSecondary)),
+                                  ),
+                                ],
+                              ),
+                              if (droneModel.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text("Model: $droneModel",
+                                    style: GoogleFonts.poppins(color: textSecondary)),
+                              ],
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          // Seller contact snapshot shown in details card (non-editable)
-                          Text("Seller: $sellerEmailToShow",
-                              style: GoogleFonts.poppins(
-                                  fontSize: 13, color: Colors.grey[800])),
-                          const SizedBox(height: 2),
-                          Text("Seller Phone: $sellerPhoneToShow",
-                              style: GoogleFonts.poppins(
-                                  fontSize: 13, color: Colors.grey[800])),
-                        ],
-                      ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Divider
+                    Divider(color: borderColor.withOpacity(0.6)),
+
+                    const SizedBox(height: 12),
+
+                    // Prices section
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text("₹$pricePerHour",
+                                      style: GoogleFonts.poppins(
+                                          fontSize: 18,
+                                          color: primaryColor,
+                                          fontWeight: FontWeight.w900)),
+                                  Text("/hr",
+                                      style: GoogleFonts.poppins(
+                                          color: primaryColor,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 18)),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Text("₹$pricePerDay",
+                                      style: GoogleFonts.poppins(
+                                          fontSize: 18,
+                                          color: primaryColor,
+                                          fontWeight: FontWeight.w900)),
+                                  Text("/day",
+                                      style: GoogleFonts.poppins(
+                                          color: primaryColor,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 17)),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -754,16 +803,18 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                    color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                    color: surfaceColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: borderColor.withOpacity(0.5), width: 1)),
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text("Booking details",
                           style: GoogleFonts.poppins(
-                              fontSize: 16, fontWeight: FontWeight.w600)),
+                              fontSize: 16, fontWeight: FontWeight.w700, color: textPrimary)),
                       const SizedBox(height: 6),
                       Text("Enter your details to reserve this drone.",
-                          style: GoogleFonts.poppins(color: Colors.grey[700])),
+                          style: GoogleFonts.poppins(color: textSecondary)),
                     ]),
               ),
 

@@ -27,7 +27,13 @@ class _JobApplyNowState extends State<JobApplyNow> {
   final String graphqlUrl = EnvConfig.baseUrl;
 
   final Color primaryColor = const Color(0xFF1A0A5B);
+  // final Color accentColor = const Color(0xFF00D9A3); // Updated to match JobsPage
   final Color accentColor = const Color(0xFF00C6FF);
+
+  final Color surfaceColor = Colors.white;
+  final Color textPrimary = const Color(0xFF1F2937);
+  final Color textSecondary = const Color(0xFF6B7280);
+  final Color borderColor = const Color(0xFFE5E7EB);
 
   /// Show snackbar exactly like PilotBookNowPage
   void showSnack(String msg, {bool error = false, bool isLoading = false}) {
@@ -153,7 +159,14 @@ mutation SubmitJobApplication($input: JobApplicationInput!) {
       );
 
       if (response.hasException) {
-        showSnack(response.exception.toString(), error: true);
+        // Check for network-related errors
+        if (response.exception.toString().contains('SocketException') ||
+            response.exception.toString().contains('HttpException') ||
+            response.exception.toString().contains('NetworkException')) {
+          showSnack("Network error. Please check your connection and try again.", error: true);
+        } else {
+          showSnack(response.exception.toString(), error: true);
+        }
         return;
       }
 
@@ -167,7 +180,14 @@ mutation SubmitJobApplication($input: JobApplicationInput!) {
       Navigator.pop(context);
 
     } catch (e) {
-      showSnack("Error: $e", error: true);
+      // Catch any other exceptions and check for network errors
+      if (e.toString().contains('SocketException') ||
+          e.toString().contains('HttpException') ||
+          e.toString().contains('NetworkException')) {
+        showSnack("Network error. Please check your connection and try again.", error: true);
+      } else {
+        showSnack("Error: $e", error: true);
+      }
     } finally {
       if (mounted) setState(() => submitting = false);
     }
@@ -265,17 +285,223 @@ mutation SubmitJobApplication($input: JobApplicationInput!) {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: primaryColor,
+        color: primaryColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Center(
         child: Text(
           initials,
           style: GoogleFonts.poppins(
-            color: Colors.white,
+            color: primaryColor,
             fontSize: size / 3,
             fontWeight: FontWeight.bold,
           ),
+        ),
+      ),
+    );
+  }
+
+  // Job Details Card - Similar to JobsPage card
+  Widget _buildJobDetailsCard() {
+    final job = widget.job;
+    final jobName = (job['jobName'] ?? job['title'] ?? 'Job').trim();
+    final companyName = (job['companyName'] ?? job['company'] ?? '').trim();
+    final jobType = (job['jobType'] ?? 'Full Time').trim();
+    final location = (job['location'] ?? 'Remote').trim();
+    final salary = job['salary']?.toString() ?? 'Negotiable';
+    final isRemote = location.toLowerCase().contains('remote');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(
+          color: borderColor.withOpacity(0.5),
+          width: 1,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Row: Logo and Main Content
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Company Logo
+                _buildJobAvatar(size: 60),
+                const SizedBox(width: 16),
+
+                // Content Section
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Job Title and Company
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            jobName,
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: textPrimary,
+                              height: 1.3,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          if (companyName.isNotEmpty)
+                            Text(
+                              companyName,
+                              style: GoogleFonts.poppins(
+                                color: textSecondary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Location and Job Type
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on_outlined,
+                            size: 16,
+                            color: textSecondary,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              location,
+                              style: GoogleFonts.poppins(
+                                color: textSecondary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isRemote
+                                  ? textPrimary.withOpacity(0.1)
+                                  : primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isRemote
+                                    ? textPrimary.withOpacity(0.3)
+                                    : primaryColor.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Text(
+                              jobType,
+                              style: GoogleFonts.poppins(
+                                color: isRemote ? textPrimary : primaryColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            // Divider
+            Container(
+              height: 1,
+              color: borderColor.withOpacity(0.6),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Salary and Status
+            Row(
+              children: [
+                // Salary
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "₹$salary",
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: primaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "Per month",
+                        style: GoogleFonts.poppins(
+                          color: textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Status
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: textPrimary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: textPrimary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        "Actively Hiring",
+                        style: GoogleFonts.poppins(
+                          color: primaryColor,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -303,7 +529,7 @@ mutation SubmitJobApplication($input: JobApplicationInput!) {
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [primaryColor, accentColor],
+                    colors: [primaryColor,accentColor],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -339,61 +565,9 @@ mutation SubmitJobApplication($input: JobApplicationInput!) {
               ),
               const SizedBox(height: 24),
 
-              // Job Card - EXACTLY LIKE PILOT CARD
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    _buildJobAvatar(size: 80),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(jobName,
-                              style: GoogleFonts.poppins(
-                                fontSize: 18,
-                                color: primaryColor,
-                                fontWeight: FontWeight.w600,
-                              )),
-                          Text(companyName,
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              )),
-                          const SizedBox(height: 4),
-                          Text("Type: $jobType",
-                              style: GoogleFonts.poppins(
-                                  fontSize: 13, color: Colors.grey[700])),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              const SizedBox(width: 4),
-                              const Spacer(),
-                              Text("₹$salary/month",
-                                  style: GoogleFonts.poppins(
-                                      fontSize: 15,
-                                      color: primaryColor,
-                                      fontWeight: FontWeight.w600)),
-                            ],
-                          )
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // Job Details Card - Updated to match JobsPage
+              _buildJobDetailsCard(),
+
               const SizedBox(height: 24),
 
               // Application Form - EXACTLY LIKE BOOKING FORM

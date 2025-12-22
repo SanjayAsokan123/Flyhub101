@@ -603,20 +603,20 @@ class _RentalsPageState extends State<RentalsPage> {
                                 Text(
                                   "/hr",
                                   style: GoogleFonts.inter(
-                                    color: textSecondary,
+                                    color: primaryColor,
                                     fontSize: ResponsiveUtils.getSmallFontSize(context),
-                                    fontWeight: FontWeight.w500,
+                                    fontWeight: FontWeight.w900,
                                   ),
                                 ),
                               ],
                             ),
                             SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.005)),
                             Text(
-                              "₹${rental['pricePerDay'] ?? '0'} / day",
+                              "₹${rental['pricePerDay'] ?? '0'}/day",
                               style: GoogleFonts.inter(
-                                color: textSecondary,
-                                fontSize: ResponsiveUtils.getSmallFontSize(context),
-                                fontWeight: FontWeight.w500,
+                                color: primaryColor,
+                                fontSize: ResponsiveUtils.getBodyFontSize(context),
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],

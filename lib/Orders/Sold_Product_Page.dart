@@ -135,7 +135,7 @@ class _SoldProductsPageState extends State<SoldProductsPage>
             );
           }
 
-          List orders = result.data?["orders"] ?? [];
+          List orders = result.data?["Orders"] ?? [];
 
           // Filter: Delivered + Items belonging to seller
           List deliveredItems = [];
@@ -525,7 +525,7 @@ class _SoldProductsPageState extends State<SoldProductsPage>
 // GraphQL Query
 const String getDeliveredOrdersQuery = r'''
   query {
-    orders {
+    Orders {
       orderId
       status
       createdAt

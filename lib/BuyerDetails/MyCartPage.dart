@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../config/env.dart';
 import '../../services/role_manager.dart';
-import '../AddressPage.dart';
+import '../orders/AddressPage.dart';
 import '../Login/BuyerRegisterPage.dart';
 import '../Login/BuyerLoginPage.dart'; // Import BuyerLoginPage
 

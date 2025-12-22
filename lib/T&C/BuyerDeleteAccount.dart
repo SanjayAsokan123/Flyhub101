@@ -354,7 +354,7 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
         'users',
         'buyers',
         'customers',
-        'orders',
+        'Orders',
         'addresses',
         'payments',
         'notifications',
@@ -446,7 +446,7 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
               deletedCounts {
                 buyers
                 notifications
-                orders
+                Orders
                 addresses
                 wishlist
               }

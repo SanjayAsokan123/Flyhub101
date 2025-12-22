@@ -252,7 +252,7 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
                     const SizedBox(height: 12),
                     _buildConsequenceItem(
                       icon: Icons.block,
-                      text: "You won't receive new orders",
+                      text: "You won't receive new Orders",
                       color: warningColor,
                     ),
                     const SizedBox(height: 12),
@@ -444,7 +444,7 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
                   TextSpan(text: "This action will:\n"),
                   TextSpan(text: "• Hide your account from buyers\n"),
                   TextSpan(text: "• Hide all your products\n"),
-                  TextSpan(text: "• Stop new orders\n"),
+                  TextSpan(text: "• Stop new Orders\n"),
                   TextSpan(text: "• Preserve your data for reactivation\n\n"),
                   TextSpan(
                     text: "You can reactivate anytime by logging in.",
@@ -566,7 +566,7 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
                   TextSpan(text: "What happens next:\n"),
                   TextSpan(text: "✓ Your account is now hidden\n"),
                   TextSpan(text: "✓ Your products are not visible\n"),
-                  TextSpan(text: "✓ No new orders will be received\n"),
+                  TextSpan(text: "✓ No new Orders will be received\n"),
                   TextSpan(text: "✓ You've been logged out\n\n"),
                   TextSpan(
                     text: "You can reactivate anytime by logging in.",

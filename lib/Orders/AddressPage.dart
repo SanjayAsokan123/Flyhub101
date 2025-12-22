@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../Checkout_page.dart';
-import 'config/env.dart';
+import 'Checkout_page.dart';
+import '../config/env.dart';
 
 class AddressPage extends StatefulWidget {
   final double total;

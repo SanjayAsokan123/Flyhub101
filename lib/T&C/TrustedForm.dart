@@ -32,7 +32,7 @@ class _TrustedFormState extends State<TrustedForm> {
         'Advanced analytics dashboard',
         'Early access to new products',
         '10% discount on all purchases',
-        'Free shipping on all orders'
+        'Free shipping on all Orders'
       ]
     },
     {

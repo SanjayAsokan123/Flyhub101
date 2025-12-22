@@ -17,7 +17,8 @@ import '../../Login/SellerLoginPage.dart';
 import '../../Login/splashscreen.dart';
 import '../../SellerBookingStatuses/Pending_Products_Page.dart';
 import '../../SellerBookingStatuses/Rejected_Products_Page.dart';
-import '../../Return_Product_Page.dart';
+import '../../Orders/Return_Product_Page.dart';
+import '../../Orders/Seller_Order_Page.dart';
 // Rental pages
 import '../../SellerBookingStatuses/Seller_Drone_Rental_Page.dart';
 import '../../SellerBookingStatuses/Seller_Pilot_Rental_Page.dart';
@@ -25,7 +26,7 @@ import '../../SellerBookingStatuses/Seller_Pilot_Rental_Page.dart';
 import '../../SellerBookingStatuses/Seller_Return_Policy.dart';
 import '../../SellerBookingStatuses/Seller_Shipping_Policy.dart';
 import '../../SellerBookingStatuses/ServiceBookingStatus.dart';
-import '../../Sold_Product_Page.dart';
+import '../../Orders/Sold_Product_Page.dart';
 import '../../SellerAddingForm/add_accessories_form.dart';
 import '../../SellerAddingForm/add_drone_rental_form.dart';
 import '../../SellerAddingForm/add_hire_pilots_form.dart';
@@ -1239,6 +1240,25 @@ class _SellerPageState extends State<SellerPage> {
           );
         },
       },
+      {
+        'svgAsset': _getStoreSvgAssetPath('Hire pilot'),
+        'label': 'Orders',
+        'color': Colors.brown,
+        'disabled': !_isApproved,
+        'onTap': () {
+          if (_sellerId == null) {
+            _showMissingSellerSnack();
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SellerOrdersPage(sellerCustomId: _sellerId!),
+            ),
+          );
+        },
+      },
+
     ];
 
     return Scaffold(

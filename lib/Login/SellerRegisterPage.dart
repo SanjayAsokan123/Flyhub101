@@ -1257,7 +1257,7 @@ class _SellerDetailsScreenState extends State<SellerDetailsScreen> {
                           _buildTextField(
                             controller: _pickupAddressController,
                             label: "Pickup Address",
-                            hint: 'Location where customers can pick up orders',
+                            hint: 'Location where customers can pick up Orders',
                             prefixIcon: Icons.store,
                           ),
 

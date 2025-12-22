@@ -83,7 +83,7 @@ class SellerShippingPolicyPage extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               _buildBulletPoint('Packaging products securely and appropriately'),
-              _buildBulletPoint('Dispatching orders within specified timeframes'),
+              _buildBulletPoint('Dispatching Orders within specified timeframes'),
               _buildBulletPoint('Providing accurate package dimensions and weight'),
               _buildBulletPoint('Using Flyhubapproved courier partners'),
               _buildBulletPoint('Uploading tracking information to the platform'),
@@ -776,7 +776,7 @@ class SellerShippingPolicyPage extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'For orders of 5+ units:',
+                'For Orders of 5+ units:',
                 style: GoogleFonts.inter(
                   fontSize: 15,
                   color: const Color(0xFF4B5563),
@@ -785,7 +785,7 @@ class SellerShippingPolicyPage extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               _buildBulletPoint('Contact Flyhub shipping team for freight options'),
-              _buildBulletPoint('Pallet shipping available for very large orders'),
+              _buildBulletPoint('Pallet shipping available for very large Orders'),
               _buildBulletPoint('Special pickup arrangements can be made'),
               _buildBulletPoint('Volume discounts on shipping available'),
               const SizedBox(height: 32),

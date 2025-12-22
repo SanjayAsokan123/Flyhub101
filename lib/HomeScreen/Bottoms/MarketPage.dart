@@ -7,7 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../../CommonClass/ApiClass.dart';
 import '../../CommonClass/utils.dart';
-import '../../DroneDetailPage.dart';
+import '../../BuyerDetails/DroneDetailPage.dart';
 import '../../BuyerDetails/MyCartPage.dart';
 import '../../BuyerDetails/WishlistPage.dart';
 import '../../config/env.dart';
