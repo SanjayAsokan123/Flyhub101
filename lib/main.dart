@@ -332,8 +332,6 @@ Future<void> _showLocalNotification(RemoteMessage message) async {
 }
 
 
-
-
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 

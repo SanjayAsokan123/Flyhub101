@@ -198,20 +198,31 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
   AppBar _buildAppBar(drone) {
     return AppBar(
       backgroundColor: Colors.white,
-      elevation: 1,
+      elevation: 0,
+      centerTitle: true,
+
+      // Ensures consistent icon size + color
+      iconTheme: const IconThemeData(
+        color: Colors.black,
+        size: 20,
+      ),
+
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.black),
+        icon: const Icon(Icons.arrow_back_ios_new_rounded),
         onPressed: () => Navigator.pop(context),
       ),
+
       title: Text(
         drone['name'] ?? 'Drone Details',
         style: GoogleFonts.lexend(
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w600,
+          fontSize: 20,
           color: Colors.black,
         ),
       ),
-      centerTitle: true,
+
       actions: [
+        /// Favorite icon
         IconButton(
           icon: Icon(
             _isFavorite ? Icons.favorite : Icons.favorite_border,
@@ -220,7 +231,7 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
           onPressed: _toggleWishlist,
         ),
 
-        // Cart Badge
+        /// Cart Icon with Badge
         Stack(
           children: [
             IconButton(
@@ -249,6 +260,7 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
           ],
         ),
 
+        /// Share Icon
         IconButton(
           icon: Icon(Icons.share, color: themeColor),
           onPressed: () {

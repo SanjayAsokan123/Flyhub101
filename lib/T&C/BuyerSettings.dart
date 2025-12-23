@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flyhub/T&C/BuyerChangePassword.dart';
 import 'package:flyhub/T&C/BuyerDeleteAccount.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -17,16 +18,19 @@ class _SettingsPageState extends State<SettingsPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Settings',
-          style: TextStyle(
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w600,
+            fontSize: 20, // consistent size
             color: Colors.white,
-            fontWeight: FontWeight.bold,
           ),
         ),
         backgroundColor: const Color(0xFF1A0A5B),
+        elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
       ),

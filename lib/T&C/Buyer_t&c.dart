@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class BuyerTermsAndConditions extends StatefulWidget {
   const BuyerTermsAndConditions({super.key});
@@ -14,10 +15,25 @@ class _BuyerTermsAndConditionsState extends State<BuyerTermsAndConditions> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Terms & Conditions'),
-        backgroundColor: const Color(0xFF1A0A5B),
-        foregroundColor: Colors.white,
+        title: Text(
+          'Terms and Conditions',
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w600,
+            fontSize: MediaQuery.of(context).size.width < 400 ? 18 : 20, // responsive font size
+            color: const Color(0xFF111827),
+          ),
+        ),
+        backgroundColor: Colors.white,
         elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: const Color(0xFF111827),
+            size: MediaQuery.of(context).size.width < 400 ? 20 : 24,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: Container(
         color: Colors.grey[50],

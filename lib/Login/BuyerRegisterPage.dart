@@ -1,3 +1,4 @@
+import 'package:firebase_dynamic_links/firebase_dynamic_links.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -6,8 +7,9 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
-
+import 'dart:async';
 import '../HomeScreen/Dynamichome.dart';
+import '../main.dart';
 import '../services/role_manager.dart';
 import '../config/env.dart';
 
@@ -24,7 +26,9 @@ class BuyerRegisterPage extends StatefulWidget {
   State<BuyerRegisterPage> createState() => _BuyerRegisterPageState();
 }
 
-class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
+class _BuyerRegisterPageState extends State<BuyerRegisterPage>
+    with WidgetsBindingObserver {
+
   // ---------------- CONTROLLERS ----------------
   final _formKey = GlobalKey<FormState>();
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -36,7 +40,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
   final TextEditingController _password = TextEditingController();
   final TextEditingController _phone = TextEditingController();
   final TextEditingController _otp = TextEditingController();
-
+  late final FirebaseDynamicLinks _dynamicLinks;
   // ---------------- STATE VARIABLES ----------------
   bool _sendingOtp = false;
   bool _otpSent = false;
@@ -45,6 +49,13 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
   bool _passwordVisible = false;
   bool _agreeToTerms = false;
   bool _showOtpField = false;
+  bool _registrationCompleted = false;
+  bool _emailDialogOpen = false;
+
+  DateTime? _lastVerificationSent;
+  int _otpSeconds = 120;
+  Timer? _otpTimer;
+  Timer? _emailVerifyTimer;
 
   String? _verificationId;
   PhoneAuthCredential? _phoneCredential;
@@ -105,8 +116,11 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
     {"code": "+93", "flag": "🇦🇫", "name": "Afghanistan"},
   ];
 
-  Future<void> _initAndTriggerWelcomeNotification(String firebaseUid) async {
-    // 1️⃣ Ask permission
+  Future<void> _initAndTriggerWelcomeNotification(
+      String firebaseUid,
+      String buyerId,
+      ) async {
+    // 1️⃣ Permission
     final settings = await FirebaseMessaging.instance.requestPermission(
       alert: true,
       badge: true,
@@ -118,18 +132,25 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
       return;
     }
 
-    // 2️⃣ Ensure token generation
+    // 2️⃣ Get token
     final token = await FirebaseMessaging.instance.getToken();
-    debugPrint("🔑 FCM Token: $token");
+    if (token == null) {
+      debugPrint("❌ FCM token is null");
+      return;
+    }
 
-    // 3️⃣ Subscribe to buyer topic
+    // 3️⃣ SAVE TOKEN TO BACKEND 🔥🔥
+    await saveBuyerFcmToken(buyerId);
+
+    // 4️⃣ Subscribe topic (optional)
     await FirebaseMessaging.instance.subscribeToTopic(
       'buyer_$firebaseUid',
     );
 
-    // 4️⃣ Trigger backend welcome notification
+    // 5️⃣ Trigger welcome
     await _triggerWelcomeFromServer(firebaseUid);
   }
+
   Future<void> _triggerWelcomeFromServer(String firebaseUid) async {
     const mutation = r'''
   mutation SendBuyerWelcome($firebaseUid: String!) {
@@ -154,18 +175,70 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
     }
   }
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _dynamicLinks = FirebaseDynamicLinks.instance;
 
+    _handleDynamicLinks();
+  }
+
+  void _handleDynamicLinks() async {
+    // App opened from terminated state
+    final PendingDynamicLinkData? initialLink =
+    await _dynamicLinks.getInitialLink();
+
+    if (initialLink != null) {
+      _onDynamicLinkOpened(initialLink);
+    }
+
+    // App opened from background
+    FirebaseDynamicLinks.instance.onLink.listen(
+          (PendingDynamicLinkData linkData) {
+        _onDynamicLinkOpened(linkData);
+      },
+    ).onError((error) {
+      debugPrint("Dynamic link error: $error");
+    });
+  }
+
+  Future<void> _onDynamicLinkOpened(PendingDynamicLinkData linkData) async {
+    final Uri deepLink = linkData.link;
+
+    if (deepLink.queryParameters.containsKey('oobCode')) {
+      final String oobCode = deepLink.queryParameters['oobCode']!;
+
+      try {
+        await FirebaseAuth.instance.applyActionCode(oobCode);
+        await FirebaseAuth.instance.currentUser?.reload();
+
+        await _completeRegistrationIfVerified();
+      } catch (e) {
+        showMessage("Email verification failed", error: true);
+      }
+    }
+  }
 
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _otpTimer?.cancel();
     _firstName.dispose();
+    _emailVerifyTimer?.cancel();
     _lastName.dispose();
     _email.dispose();
     _password.dispose();
     _phone.dispose();
     _otp.dispose();
     super.dispose();
+  }
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkEmailVerificationAndProceed();
+    }
   }
 
   // ---------------- FUNCTIONS ----------------------
@@ -198,7 +271,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
 
     await _auth.verifyPhoneNumber(
       phoneNumber: fullPhone,
-      timeout: const Duration(seconds: 60),
+      timeout: const Duration(seconds: 120), // ✅ increase
       verificationCompleted: (PhoneAuthCredential credential) async {
         _phoneCredential = credential;
         setState(() {
@@ -208,11 +281,19 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
         showMessage("Phone auto verified! ✅", success: true);
       },
       verificationFailed: (FirebaseAuthException e) {
-        showMessage(e.message ?? "Verification failed", error: true);
+        String msg = e.message ?? "OTP failed";
+
+        if (e.code == 'too-many-requests') {
+          msg = "Too many OTP attempts. Please try later.";
+        }
+
+        showMessage(msg, error: true);
         setState(() => _sendingOtp = false);
       },
+
       codeSent: (String verificationId, int? resendToken) {
         _verificationId = verificationId;
+        _startOtpTimer();
         setState(() {
           _otpSent = true;
           _sendingOtp = false;
@@ -222,6 +303,30 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
       },
       codeAutoRetrievalTimeout: (String verificationId) {
         _verificationId = verificationId;
+        showMessage(
+          "OTP expired. Please tap Resend OTP.",
+          error: true,
+        );
+      },
+    );
+  }
+
+  void _startOtpTimer() {
+    _otpTimer?.cancel();          // Cancel previous timer
+    _otpSeconds = 120;
+
+    _otpTimer = Timer.periodic(
+      const Duration(seconds: 1),
+          (timer) {
+        if (_otpSeconds == 0) {
+          timer.cancel();
+          setState(() {
+            _otpSent = false;
+            _showOtpField = false;
+          });
+        } else {
+          setState(() => _otpSeconds--);
+        }
       },
     );
   }
@@ -240,8 +345,146 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
 
       setState(() => _otpVerified = true);
       showMessage("OTP verified! ✅", success: true);
+
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'session-expired') {
+        showMessage(
+          "OTP expired. Please resend OTP.",
+          error: true,
+        );
+        setState(() {
+          _otpSent = false;
+          _showOtpField = false;
+          _otp.clear();
+        });
+      } else if (e.code == 'invalid-verification-code') {
+        showMessage("Invalid OTP. Please try again.", error: true);
+      } else {
+        showMessage(e.message ?? "OTP verification failed", error: true);
+      }
+    }
+  }
+
+  Future<User?> _ensureAuthenticated() async {
+    User? user = FirebaseAuth.instance.currentUser;
+
+    if (user != null) return user;
+
+    // 🔁 Try email/password login silently
+    try {
+      final email = _email.text.trim();
+      final password = _password.text.trim();
+
+      if (email.isNotEmpty && password.isNotEmpty) {
+        final cred = await FirebaseAuth.instance
+            .signInWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+        return cred.user;
+      }
     } catch (e) {
-      showMessage("Invalid OTP", error: true);
+      debugPrint("❌ Silent re-auth failed: $e");
+    }
+
+    return null;
+  }
+
+  Future<void> _checkEmailVerificationAndProceed() async {
+    final user = await _ensureAuthenticated();
+    if (user == null) return;
+
+    await user.reload();
+
+    if (user.emailVerified) {
+      if (Navigator.of(context, rootNavigator: true).canPop()) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      await _completeRegistrationIfVerified();
+    }
+  }
+
+
+  Future<void> _completeRegistrationIfVerified() async {
+    if (_loading || _registrationCompleted) return;
+
+    final user = await _ensureAuthenticated();
+    if (user == null) return;
+
+    await user.reload();
+
+    if (!user.emailVerified) return;
+
+    setState(() {
+      _loading = true;
+    });
+
+    try {
+      final uid = user.uid;
+
+      // 🚫 Prevent duplicate signup
+      final snap = await _firestore
+          .collection("buyers")
+          .where("firebaseUid", isEqualTo: uid)
+          .limit(1)
+          .get();
+
+      if (snap.docs.isNotEmpty) {
+        // Already registered → go home
+        await RoleManager.setLocalRole("buyer");
+        _registrationCompleted = true;
+
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
+        );
+        return;
+      }
+
+      // 🔥 BACKEND SIGNUP (THIS WAS MISSING)
+      final serverResult = await _signupOnServer(
+        name: "${_firstName.text.trim()} ${_lastName.text.trim()}",
+        email: _email.text.trim(),
+        phone: "$_selectedCountryCode${_phone.text.trim()}",
+        password: _password.text.trim(),
+        firebaseUid: uid,
+      );
+
+      final buyerId = serverResult['buyerId'];
+
+      // 🔔 Welcome notification
+      await _initAndTriggerWelcomeNotification(uid, buyerId);
+
+      // 🧾 Save Firestore buyer profile
+      await _firestore.collection("buyers").doc(buyerId).set({
+        'buyerId': buyerId,
+        'firebaseUid': uid,
+        'name': "${_firstName.text.trim()} ${_lastName.text.trim()}",
+        'email': _email.text.trim(),
+        'phoneNumber': "$_selectedCountryCode${_phone.text.trim()}",
+        'role': 'buyer',
+        'phoneVerified': true,
+        'emailVerified': true,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // ✅ Mark complete BEFORE navigation
+      _registrationCompleted = true;
+
+      await RoleManager.setLocalRole("buyer");
+
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
+      );
+
+    } catch (e) {
+      showMessage("Registration failed: $e", error: true);
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -259,81 +502,137 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
     }
 
     setState(() => _loading = true);
+
     try {
-      // 1️⃣ Sign-in using OTP
-      final phoneUserCred = await _auth.signInWithCredential(_phoneCredential!);
-      final phoneUser = phoneUserCred.user!;
-
-      // 2️⃣ Link email + password
+      // 1️⃣ Sign in using Phone OTP
+      final phoneUserCred =
+      await _auth.signInWithCredential(_phoneCredential!);
+      final user = phoneUserCred.user!;
       final email = _email.text.trim();
-      final pass = _password.text.trim();
+      final password = _password.text.trim();
 
-      if (phoneUser.email == null) {
+      // 2️⃣ Link Email + Password
+      if (user.email == null) {
         final emailCred = EmailAuthProvider.credential(
           email: email,
-          password: pass,
+          password: password,
         );
-        await phoneUser.linkWithCredential(emailCred);
+        await user.linkWithCredential(emailCred);
+      }
+      // 3️⃣ Email verification (SEND ONLY ONCE)
+      if (!user.emailVerified) {
+
+        if (_lastVerificationSent != null &&
+            DateTime.now().difference(_lastVerificationSent!).inSeconds < 60) {
+          showMessage("Please wait before resending verification email");
+          setState(() => _loading = false);
+          return;
+        }
+
+        await user.sendEmailVerification();
+        _lastVerificationSent = DateTime.now();
+
+        setState(() => _loading = false);
+        _emailDialogOpen = true;
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => AlertDialog(
+            title: const Text("Verify Your Email"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Text("Please verify your email to continue."),
+                SizedBox(height: 12),
+                CircularProgressIndicator(),
+              ],
+            ),
+          ),
+        );
+        _emailVerifyTimer?.cancel();
+        _emailVerifyTimer = Timer.periodic(
+          const Duration(seconds: 3),
+              (_) => _checkEmailVerificationAndProceed(),
+        );
+
+
+        return;
       }
 
-      final uid = phoneUser.uid;
 
-      // 3️⃣ Save phone → uid mapping
-      await _firestore.collection("BuyerOtp").doc("phone${_phone.text.trim()}").set({
-        'uid': uid,
-        'phone': "$_selectedCountryCode${_phone.text.trim()}",
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      await user.reload();
+      final refreshedUser = FirebaseAuth.instance.currentUser;
+      if (refreshedUser == null || !refreshedUser.emailVerified) {
+        setState(() => _loading = false);
+        return;
+      }
 
-      // 4️⃣ Call backend
+      final uid = refreshedUser.uid;
+
+      // 🔒 Prevent duplicate signup
+      final existing = await _firestore
+          .collection("buyers")
+          .where("firebaseUid", isEqualTo: uid)
+          .limit(1)
+          .get();
+
+      if (existing.docs.isNotEmpty) {
+        if (mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+        await RoleManager.setLocalRole("buyer");
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
+        );
+        return;
+      }
+
+      // 4️⃣ Backend signup
       final serverResult = await _signupOnServer(
         name: "${_firstName.text.trim()} ${_lastName.text.trim()}",
         email: email,
         phone: "$_selectedCountryCode${_phone.text.trim()}",
-        password: pass,
+        password: password,
         firebaseUid: uid,
       );
 
       final buyerId = serverResult['buyerId'];
-      final token = serverResult['token'];
 
-      await _initAndTriggerWelcomeNotification(uid);
+      await _initAndTriggerWelcomeNotification(uid, buyerId);
 
-      // 5️⃣ Save Firestore
+      // 5️⃣ Firestore profile
       await _firestore.collection("buyers").doc(buyerId).set({
         'buyerId': buyerId,
         'firebaseUid': uid,
         'name': "${_firstName.text.trim()} ${_lastName.text.trim()}",
         'email': email,
         'phoneNumber': "$_selectedCountryCode${_phone.text.trim()}",
-        'countryCode': _selectedCountryCode,
         'role': 'buyer',
         'phoneVerified': true,
-        'shippingAddresses': [],
-        'wishlist': [],
-        'cart': [],
-        'Orders': [],
+        'emailVerified': true,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // 6️⃣ Local storage
+      if (Navigator.canPop(context)) Navigator.pop(context); // 🔥 FIX 2
+
       await RoleManager.setLocalRole("buyer");
 
-      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
       );
 
       showMessage("Registration successful! 🎉", success: true);
-
     } catch (e) {
       showMessage(e.toString(), error: true);
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
+
+
 
   Future<Map<String, dynamic>> _signupOnServer({
     required String name,
@@ -975,7 +1274,19 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
                   contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                   suffixIcon: !_otpSent
                       ? _otpSendButton()
-                      : _otpVerifyButton(),
+                      : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _otpVerifyButton(),
+                      TextButton(
+                        onPressed: _sendingOtp ? null : _sendOtp,
+                        child: const Text(
+                          "Resend",
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 validator: (v) {
                   if (v == null || v.isEmpty) return "Enter phone number";
@@ -1055,6 +1366,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Title
           Text(
             "Enter OTP",
             style: TextStyle(
@@ -1064,6 +1376,8 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
             ),
           ),
           const SizedBox(height: 8),
+
+          // OTP Input
           TextFormField(
             controller: _otp,
             style: TextStyle(color: textColor, fontSize: 15),
@@ -1088,10 +1402,14 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
                 borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(color: themeColor, width: 1.5),
               ),
-              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+              contentPadding:
+              const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
             ),
           ),
+
           const SizedBox(height: 8),
+
+          // Sent message
           Text(
             "We've sent a 6-digit code to $_selectedCountryCode${_phone.text.isNotEmpty ? _phone.text : 'your phone'}",
             style: TextStyle(
@@ -1099,10 +1417,47 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
               fontSize: 12,
             ),
           ),
+
+          const SizedBox(height: 6),
+
+          // ⏱ Countdown + Resend
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Countdown text
+              Text(
+                _otpSeconds > 0
+                    ? "OTP expires in $_otpSeconds seconds"
+                    : "OTP expired",
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _otpSeconds > 0 ? Colors.grey : errorColor,
+                  fontWeight:
+                  _otpSeconds > 0 ? FontWeight.normal : FontWeight.w600,
+                ),
+              ),
+
+              // Resend button
+              TextButton(
+                onPressed: _otpSeconds == 0 && !_sendingOtp ? _sendOtp : null,
+                child: Text(
+                  "Resend OTP",
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _otpSeconds == 0
+                        ? themeColor
+                        : Colors.grey.shade400,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
+
 
   Widget _termsCheckbox() {
     return Row(

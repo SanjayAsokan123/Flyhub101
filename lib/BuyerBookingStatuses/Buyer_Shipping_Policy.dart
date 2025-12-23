@@ -13,17 +13,21 @@ class BuyerShippingPolicyPage extends StatelessWidget {
           'Shipping Policy',
           style: GoogleFonts.inter(
             fontWeight: FontWeight.w600,
+            fontSize: MediaQuery.of(context).size.width < 400 ? 18 : 20,
             color: const Color(0xFF111827),
-            fontSize: 13,
           ),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF111827)),
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: const Color(0xFF111827),
+            size: MediaQuery.of(context).size.width < 400 ? 20 : 24,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
-        centerTitle: true,
       ),
       body: SafeArea(
         child: SingleChildScrollView(

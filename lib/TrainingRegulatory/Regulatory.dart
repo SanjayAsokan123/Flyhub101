@@ -228,8 +228,8 @@ class _RegulatoryPageState extends State<RegulatoryPage> {
     }
   }
 
-  // Widget for the top section with two containers
-  Widget _buildTopSection(BuildContext context) {
+  // Widget for the static quick access section
+  Widget _buildStaticQuickAccessSection(BuildContext context) {
     final screenWidth = Responsive.screenWidth(context);
     final screenHeight = Responsive.screenHeight(context);
 
@@ -273,22 +273,6 @@ class _RegulatoryPageState extends State<RegulatoryPage> {
                     Expanded(child: _buildDroneRulesCard(context)),
                   ],
                 ),
-
-              SizedBox(height: screenHeight * 0.025),
-              Divider(
-                color: Colors.grey[300],
-                thickness: isSmall ? 1.0 : 1.5,
-              ),
-              SizedBox(height: screenHeight * 0.02),
-              Text(
-                "Regulatory Information",
-                style: GoogleFonts.lexend(
-                  fontSize: isSmall ? screenWidth * 0.045 : screenWidth * 0.035,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1A0A5B),
-                ),
-              ),
-              SizedBox(height: screenHeight * 0.02),
             ],
           ),
         );
@@ -379,17 +363,7 @@ class _RegulatoryPageState extends State<RegulatoryPage> {
 
     return GestureDetector(
       onTap: () {
-        // TODO: Add your PDF URL here
         _launchUrl('https://www.dgca.gov.in/digigov-portal/jsp/dgca/homePage/viewPDF.jsp?page=InventoryList/headerblock/drones/Drone%20Rules%202021.pdf');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '',
-              style: GoogleFonts.lexend(),
-            ),
-            duration: const Duration(seconds: 2),
-          ),
-        );
       },
       child: Container(
         height: _containerHeight(context),
@@ -466,16 +440,18 @@ class _RegulatoryPageState extends State<RegulatoryPage> {
   Widget build(BuildContext context) {
     final isSmall = Responsive.isSmallScreen(context);
     final isLarge = Responsive.isLargeScreen(context);
+    final screenWidth = Responsive.screenWidth(context);
+    final screenHeight = Responsive.screenHeight(context);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
           "Regulatory Info",
           style: GoogleFonts.lexend(
-            color: const Color(0xFF1A0A5B),
+            color: Colors.black,
             fontWeight: FontWeight.w600,
             fontSize: isSmall
-                ? Responsive.screenWidth(context) * 0.045
+                ? screenWidth * 0.045
                 : isLarge
                 ? 20
                 : 18,
@@ -483,35 +459,73 @@ class _RegulatoryPageState extends State<RegulatoryPage> {
         ),
         centerTitle: true,
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : regulatoryList.isEmpty
-          ? Center(
-        child: Padding(
-          padding: EdgeInsets.all(Responsive.screenWidth(context) * 0.05),
-          child: Text(
-            "No regulatory information available",
-            style: GoogleFonts.lexend(
-              fontSize: isSmall ? 16 : 18,
-              color: Colors.grey[600],
-            ),
-          ),
-        ),
-      )
-          : RefreshIndicator(
+      body: RefreshIndicator(
         onRefresh: fetchRegulatoryData,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: Column(
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            children: [
+              // STATIC: Quick Access Section (Always Visible)
+              _buildStaticQuickAccessSection(context),
+
+              // Divider after static section
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isSmall ? screenWidth * 0.04 : screenWidth * 0.05,
+                ),
+                child: Divider(
+                  color: Colors.grey[300],
+                  thickness: isSmall ? 1.0 : 1.5,
+                ),
+              ),
+
+              // DYNAMIC: Regulatory Information Section (From Backend)
+              isLoading
+                  ? SizedBox(
+                height: screenHeight * 0.5,
+                child: const Center(child: CircularProgressIndicator()),
+              )
+                  : regulatoryList.isEmpty
+                  ? SizedBox(
+                height: screenHeight * 0.5,
+                child: Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(screenWidth * 0.05),
+                    child: Text(
+                      "No regulatory information available",
+                      style: GoogleFonts.lexend(
+                        fontSize: isSmall ? 16 : 18,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ),
+                ),
+              )
+                  : Column(
                 children: [
-                  _buildTopSection(context),
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isSmall ? screenWidth * 0.04 : screenWidth * 0.05,
+                      vertical: isSmall ? screenHeight * 0.01 : screenHeight * 0.015,
+                    ),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "Regulatory Information",
+                        style: GoogleFonts.lexend(
+                          fontSize: isSmall ? screenWidth * 0.045 : screenWidth * 0.035,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF1A0A5B),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: screenHeight * 0.01),
                   _buildRegulatoryList(context),
                 ],
               ),
-            );
-          },
+            ],
+          ),
         ),
       ),
     );
@@ -520,14 +534,13 @@ class _RegulatoryPageState extends State<RegulatoryPage> {
   Widget _buildRegulatoryList(BuildContext context) {
     final isSmall = Responsive.isSmallScreen(context);
     final screenWidth = Responsive.screenWidth(context);
-    final screenHeight = Responsive.screenHeight(context);
 
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       padding: EdgeInsets.symmetric(
         horizontal: isSmall ? screenWidth * 0.04 : screenWidth * 0.05,
-
+        vertical: screenWidth * 0.02,
       ),
       itemCount: regulatoryList.length,
       itemBuilder: (context, index) {

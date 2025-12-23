@@ -177,9 +177,6 @@ class _AddDronePageState extends State<AddDronePage> {
         cache: GraphQLCache(store: InMemoryStore()),
       );
 
-      // Try without additionalInfo first to check if that's the issue
-      // Combine both description and additionalInfo into one field if needed
-      final combinedDescription = "$description\n\nAdditional Information:\n$additionalInfo";
 
       final mutation = gql("""
         mutation CreateDrone(\$input: DroneInput!) {
@@ -201,29 +198,13 @@ class _AddDronePageState extends State<AddDronePage> {
           "brand": brand,
           "uin": uin,
           "price": price,
-          "description": combinedDescription, // Combine both fields
+          "description":description , // Combine both fields
+          "additionalInformation": additionalInfo, // Combine both fields
           "image": imageUrl,
           "status": "pending",
           "sellerId": widget.sellerId,
         }
       };
-
-      // OPTION 2: If backend has additionalInfo field, uncomment below and comment above
-      /*
-      final variables = {
-        "input": {
-          "name": name,
-          "brand": brand,
-          "uin": uin,
-          "price": price,
-          "description": description,
-          "additionalInfo": additionalInfo, // Make sure this field exists in GraphQL schema
-          "image": imageUrl,
-          "status": "pending",
-          "sellerId": widget.sellerId,
-        }
-      };
-      */
 
       debugPrint("GraphQL Variables: $variables");
 

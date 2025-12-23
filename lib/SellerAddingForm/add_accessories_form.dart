@@ -36,6 +36,7 @@ class _AddAccessoryFormState extends State<AddAccessoryForm> {
   String name = '';
   String brand = '';
   String description = '';
+  String additionalInfo ='';
   double? price;
   int quantity = 1;
   File? imageFile;
@@ -343,6 +344,7 @@ class _AddAccessoryFormState extends State<AddAccessoryForm> {
               'brand': brand.trim(),
               'price': price,
               'description': description.trim(),
+              'additionalInformation':additionalInfo,
               'image': imageUrl,
               'quantity': quantity,
               'sellerId': widget.sellerId,
@@ -763,6 +765,15 @@ class _AddAccessoryFormState extends State<AddAccessoryForm> {
                         hintText: "Describe your accessory features, condition, etc...",
                         icon: Icons.description_rounded,
                         validator: (v) => v!.isEmpty ? "Description is required" : null,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildTextField(
+                        "AdditionalInformation *",
+                            (v) => additionalInfo = v!,
+                        maxLines: 3,
+                        hintText: "AdditionalInformation your accessory features, condition, etc...",
+                        icon: Icons.description_rounded,
+                        validator: (v) => v!.isEmpty ? "AdditionalInformation is required" : null,
                       ),
                     ],
                   ),

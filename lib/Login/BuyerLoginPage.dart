@@ -150,7 +150,7 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
     setState(() => _isLoading = true);
 
     try {
-      // Step 1 → Get buyer details from backend (email / phone / buyerId)
+      // 1️⃣ Fetch buyer from backend
       final buyerData = await fetchBuyerByEmail(enteredInput);
       if (buyerData == null) {
         showMessage("No buyer found");
@@ -160,21 +160,48 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
       final buyerId = buyerData["buyerId"];
       final email = buyerData["email"] ?? "";
 
-      // Step 3 → Firebase email/password login (only if email exists)
-      if (email.isNotEmpty) {
-        await _auth.signInWithEmailAndPassword(
-          email: email,
-          password: enteredPass,
+      // 2️⃣ Firebase login
+      final userCred = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: enteredPass,
+      );
+
+      final user = userCred.user;
+      if (user == null) throw Exception("Login failed");
+
+      // 🔐 EMAIL VERIFICATION CHECK
+      if (!user.emailVerified) {
+        await user.sendEmailVerification();
+        await _auth.signOut();
+
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => AlertDialog(
+            title: const Text("Verify Your Email"),
+            content: const Text(
+              "Please verify your email using the link we sent.\n\n"
+                  "After verification, login again.",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("OK"),
+              ),
+            ],
+          ),
         );
+        return;
       }
 
-      // Step 4 → Save FCM token
+      // 3️⃣ Save FCM token
       await saveBuyerFcmToken(buyerId);
 
-      // Step 5 → Save role locally
+      // 4️⃣ Save role
       await RoleManager.setLocalRole("buyer");
+      await RoleManager.saveBuyerId(buyerId);
 
-      // Step 6 → Navigate
+      // 5️⃣ Navigate
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -182,12 +209,13 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
         ),
       );
     } catch (e) {
-      print("❌ Error: $e");
+      debugPrint("❌ Login error: $e");
       showMessage("Incorrect credentials");
     } finally {
       setState(() => _isLoading = false);
     }
   }
+
 
   Future<Map<String, dynamic>?> findExistingBuyerInFirestore(String email) async {
     final snap = await FirebaseFirestore.instance

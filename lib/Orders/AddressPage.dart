@@ -39,7 +39,6 @@ Map<String, dynamic> normalizeOrderItem(Map<String, dynamic> raw) {
   };
 }
 
-
 class _AddressPageState extends State<AddressPage> {
   final _formKey = GlobalKey<FormState>();
   List<Map<String, dynamic>> savedAddresses = [];
@@ -55,11 +54,20 @@ class _AddressPageState extends State<AddressPage> {
   String zip = "";
   String phone = "";
   String country = "India";
-  String? editingAddressId; // NEW: track editing address
+  String? editingAddressId;
 
   late GraphQLClient client;
-  String? buyerId; // Will be fetched from Firebase UID
+  String? buyerId;
   final Color themeColor = const Color(0xFF1A0A5B);
+
+  final List<String> states = [
+    "Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa","Gujarat",
+    "Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala","Madhya Pradesh","Maharashtra",
+    "Manipur","Meghalaya","Mizoram","Nagaland","Odisha","Punjab","Rajasthan","Sikkim",
+    "Tamil Nadu","Telangana","Tripura","Uttar Pradesh","Uttarakhand","West Bengal"
+  ];
+
+  final List<String> countries = ["India"];
 
   @override
   void initState() {
@@ -67,22 +75,18 @@ class _AddressPageState extends State<AddressPage> {
     _setupGraphQLClient();
     _fetchBuyerIdFromFirebase();
   }
+
   void _setupGraphQLClient() {
     final HttpLink link = HttpLink(EnvConfig.baseUrl);
-
     client = GraphQLClient(
       link: link,
       cache: GraphQLCache(store: InMemoryStore()),
     );
   }
 
-
   Future<void> _fetchBuyerIdFromFirebase() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      debugPrint("❌ User not logged in");
-      return;
-    }
+    if (user == null) return;
 
     const query = r'''
       query GetBuyerByFirebaseUid($firebaseUid: String!) {
@@ -99,28 +103,18 @@ class _AddressPageState extends State<AddressPage> {
         variables: {"firebaseUid": user.uid},
         fetchPolicy: FetchPolicy.networkOnly,
       ));
-
-      if (res.hasException) {
-        debugPrint("❌ Error fetching buyerId: ${res.exception.toString()}");
-        return;
-      }
-
       final buyerData = res.data?["getBuyerByFirebaseUid"];
       setState(() {
         buyerId = buyerData?["buyerId"];
       });
-
-      if (buyerId != null) {
-        _fetchAddresses();
-      }
+      if (buyerId != null) _fetchAddresses();
     } catch (e) {
-      debugPrint("❌ Exception fetching buyerId: $e");
+      debugPrint("Exception fetching buyerId: $e");
     }
   }
 
   Future<void> _fetchAddresses() async {
     if (buyerId == null) return;
-
     const query = r'''
       query GetAddresses($buyerId: String!) {
         getAddressesByBuyer(buyerId: $buyerId) {
@@ -136,122 +130,83 @@ class _AddressPageState extends State<AddressPage> {
         }
       }
     ''';
-
     try {
       final res = await client.query(QueryOptions(
         document: gql(query),
         variables: {"buyerId": buyerId},
         fetchPolicy: FetchPolicy.networkOnly,
       ));
-
-      if (res.hasException) {
-        debugPrint("❌ Error fetching addresses: ${res.exception.toString()}");
-        return;
-      }
-
       final data = res.data?["getAddressesByBuyer"] ?? [];
       setState(() {
         savedAddresses = List<Map<String, dynamic>>.from(data);
       });
     } catch (e) {
-      debugPrint("❌ Exception fetching addresses: $e");
+      debugPrint("Exception fetching addresses: $e");
     }
   }
 
-  // -------------------------------
-  // Save or update address
-  // -------------------------------
   Future<void> _saveAddress() async {
     if (buyerId == null) return;
 
-    if (editingAddressId != null) {
-      // Update address
-      const mutation = r'''
-        mutation UpdateAddress($addressId: String!, $input: UpdateAddressInput!) {
-          updateAddress(addressId: $addressId, input: $input) {
-            _id
-            firstName
-            lastName
-            streetAddress
-            city
-            state
-            zipCode
-            phone
+    final input = {
+      "buyerId": buyerId,
+      "firstName": firstName,
+      "lastName": lastName,
+      "streetAddress": address,
+      "city": city,
+      "state": state,
+      "zipCode": zip,
+      "phone": phone,
+    };
+
+    try {
+      if (editingAddressId != null) {
+        const mutation = r'''
+          mutation UpdateAddress($addressId: String!, $input: UpdateAddressInput!) {
+            updateAddress(addressId: $addressId, input: $input) {
+              _id
+              firstName
+              lastName
+              streetAddress
+              city
+              state
+              zipCode
+              phone
+            }
           }
-        }
-      ''';
-
-      final input = {
-        "firstName": firstName,
-        "lastName": lastName,
-        "streetAddress": address,
-        "city": city,
-        "state": state,
-        "zipCode": zip,
-        "phone": phone,
-      };
-
-      try {
-        final res = await client.mutate(MutationOptions(
+        ''';
+        await client.mutate(MutationOptions(
           document: gql(mutation),
           variables: {"addressId": editingAddressId, "input": input},
         ));
-
-        if (res.hasException) {
-          debugPrint("❌ Error updating address: ${res.exception.toString()}");
-          return;
-        }
-      } catch (e) {
-        debugPrint("❌ Exception updating address: $e");
-      }
-    } else {
-      // Create new address
-      const mutation = r'''
-        mutation CreateAddress($input: CreateAddressInput!) {
-          createAddress(input: $input) {
-            _id
-            firstName
-            lastName
-            streetAddress
-            city
-            state
-            zipCode
-            phone
+      } else {
+        const mutation = r'''
+          mutation CreateAddress($input: CreateAddressInput!) {
+            createAddress(input: $input) {
+              _id
+              firstName
+              lastName
+              streetAddress
+              city
+              state
+              zipCode
+              phone
+            }
           }
-        }
-      ''';
-
-      final input = {
-        "buyerId": buyerId,
-        "firstName": firstName,
-        "lastName": lastName,
-        "streetAddress": address,
-        "city": city,
-        "state": state,
-        "zipCode": zip,
-        "phone": phone,
-      };
-
-      try {
-        final res = await client.mutate(MutationOptions(
+        ''';
+        await client.mutate(MutationOptions(
           document: gql(mutation),
           variables: {"input": input},
         ));
-
-        if (res.hasException) {
-          debugPrint("❌ Error saving address: ${res.exception.toString()}");
-          return;
-        }
-      } catch (e) {
-        debugPrint("❌ Exception saving address: $e");
       }
+      _fetchAddresses();
+      setState(() {
+        showForm = false;
+        editingAddressId = null;
+      });
+    } catch (e) {
+      debugPrint("Exception saving/updating address: $e");
     }
-
-    _fetchAddresses();
-    setState(() {
-      showForm = false;
-      editingAddressId = null;
-    });
   }
 
   Future<void> _deleteAddress(String addressId) async {
@@ -260,49 +215,32 @@ class _AddressPageState extends State<AddressPage> {
         deleteAddress(addressId: $addressId)
       }
     ''';
-
     try {
-      final res = await client.mutate(MutationOptions(
+      await client.mutate(MutationOptions(
         document: gql(mutation),
         variables: {"addressId": addressId},
       ));
-
-      if (res.hasException) {
-        debugPrint("❌ Error deleting address: ${res.exception.toString()}");
-        return;
-      }
-
       _fetchAddresses();
       if (selectedIndex != null &&
           selectedIndex! < savedAddresses.length &&
           savedAddresses[selectedIndex!]["_id"] == addressId) {
-        selectedIndex = null; // deselect if deleted
+        selectedIndex = null;
       }
     } catch (e) {
-      debugPrint("❌ Exception deleting address: $e");
+      debugPrint("Exception deleting address: $e");
     }
   }
 
-  // -------------------------------
-  // UI
-  // -------------------------------
   @override
   Widget build(BuildContext context) {
     final canProceed = selectedIndex != null && !showForm;
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFFF6F7FB),
         elevation: 0.8,
         centerTitle: true,
-        title: Text(
-          "Delivery Address",
-          style: GoogleFonts.lexend(
-            color: themeColor,
-            fontWeight: FontWeight.w600,
-            fontSize: 18,
-          ),
-        ),
+        title: Text("Delivery Address",
+            style: GoogleFonts.lexend(color: themeColor, fontWeight: FontWeight.w600, fontSize: 18)),
         iconTheme: IconThemeData(color: themeColor),
       ),
       body: Padding(
@@ -330,13 +268,9 @@ class _AddressPageState extends State<AddressPage> {
   Widget _navigationBar() {
     const steps = ["Cart", "Address", "Checkout"];
     const current = 2;
-
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: List.generate(3, (index) {
@@ -346,20 +280,11 @@ class _AddressPageState extends State<AddressPage> {
               CircleAvatar(
                 radius: 14,
                 backgroundColor: isActive ? themeColor : Colors.grey.shade300,
-                child: Text(
-                  "${index + 1}",
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                ),
+                child: Text("${index + 1}", style: const TextStyle(color: Colors.white, fontSize: 12)),
               ),
               const SizedBox(height: 6),
-              Text(
-                steps[index],
-                style: GoogleFonts.lexend(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: isActive ? themeColor : Colors.black54,
-                ),
-              ),
+              Text(steps[index],
+                  style: GoogleFonts.lexend(fontSize: 12, fontWeight: FontWeight.w500, color: isActive ? themeColor : Colors.black54)),
             ],
           );
         }),
@@ -367,15 +292,12 @@ class _AddressPageState extends State<AddressPage> {
     );
   }
 
-
   Widget _buildAddressList() {
     if (savedAddresses.isEmpty) {
       return const Center(
-        child: Text("No saved addresses.\nTap + Add Address.",
-            textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+        child: Text("No saved addresses.\nTap + Add Address.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
       );
     }
-
     return ListView.builder(
       itemCount: savedAddresses.length,
       itemBuilder: (ctx, i) {
@@ -399,37 +321,20 @@ class _AddressPageState extends State<AddressPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        "${a['firstName']} ${a['lastName']}",
-                        style: GoogleFonts.lexend(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                          color: themeColor,
-                        ),
-                      ),
+                      Text("${a['firstName']} ${a['lastName']}",
+                          style: GoogleFonts.lexend(fontWeight: FontWeight.w600, fontSize: 15, color: themeColor)),
                       const SizedBox(height: 6),
-                      Text(
-                        "${a['streetAddress']}, ${a['city']}, ${a['state']} - ${a['zipCode']}",
-                        style: GoogleFonts.lexend(fontSize: 13),
-                      ),
+                      Text("${a['streetAddress']}, ${a['city']}, ${a['state']} - ${a['zipCode']}",
+                          style: GoogleFonts.lexend(fontSize: 13)),
                       const SizedBox(height: 4),
-                      Text(
-                        "Phone: ${a['phone']}",
-                        style: GoogleFonts.lexend(fontSize: 12, color: Colors.grey),
-                      ),
+                      Text("Phone: ${a['phone']}", style: GoogleFonts.lexend(fontSize: 12, color: Colors.grey)),
                     ],
                   ),
                 ),
                 Column(
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.orange),
-                      onPressed: () => _editAddress(a),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => _confirmDelete(a["addressId"]),
-                    ),
+                    IconButton(icon: const Icon(Icons.edit, color: Colors.orange), onPressed: () => _editAddress(a)),
+                    IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _confirmDelete(a["addressId"])),
                   ],
                 )
               ],
@@ -460,29 +365,20 @@ class _AddressPageState extends State<AddressPage> {
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: const Text("Remove Address"),
-        content: const Text(
-          "This address will be permanently removed from your account.",
-        ),
+        content: const Text("This address will be permanently removed from your account."),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteAddress(addressId);
-            },
-            child: const Text("Remove"),
-          ),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () {
+                Navigator.pop(context);
+                _deleteAddress(addressId);
+              },
+              child: const Text("Remove")),
         ],
       ),
     );
   }
-
 
   Widget _buildContinueButton() {
     return Padding(
@@ -490,27 +386,13 @@ class _AddressPageState extends State<AddressPage> {
       child: SizedBox(
         width: double.infinity,
         child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: themeColor,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
+          style: ElevatedButton.styleFrom(backgroundColor: themeColor, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
           onPressed: _proceedToCheckout,
-          child: Text(
-            "Continue to Checkout",
-            style: GoogleFonts.lexend(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          child: Text("Continue to Checkout", style: GoogleFonts.lexend(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
         ),
       ),
     );
   }
-
 
   Future<void> _proceedToCheckout() async {
     final a = savedAddresses[selectedIndex!];
@@ -526,45 +408,24 @@ class _AddressPageState extends State<AddressPage> {
 
     List<Map<String, dynamic>> normalizedItems = [];
 
-    if (widget.orderData["type"] == "single") {
-      normalizedItems.add(
-        normalizeOrderItem(widget.orderData["product"]),
-      );
-    }
+    if (widget.orderData["type"] == "single") normalizedItems.add(normalizeOrderItem(widget.orderData["product"]));
 
     if (widget.orderData["type"] == "cart") {
-      normalizedItems = (widget.orderData["cartItems"] as List)
-          .where((e) => e != null)
-          .map((e) => normalizeOrderItem(e))
-          .toList();
+      normalizedItems = (widget.orderData["cartItems"] as List).where((e) => e != null).map((e) => normalizeOrderItem(e)).toList();
     }
 
     final orderPayload = {
       "type": widget.orderData["type"],
       "buyerData": buyerData,
-      "items": normalizedItems, // ✅ ONE KEY
+      "items": normalizedItems,
     };
 
     if (normalizedItems.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("No valid items found for checkout"),
-          backgroundColor: Colors.red,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("No valid items found for checkout"), backgroundColor: Colors.red));
       return;
     }
 
-    debugPrint("✅ FINAL ORDER PAYLOAD =>");
-    debugPrint(jsonEncode(orderPayload));
-
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => CheckoutPage(order: orderPayload, total: widget.total),
-      ),
-    );
+    Navigator.push(context, MaterialPageRoute(builder: (_) => CheckoutPage(order: orderPayload, total: widget.total)));
   }
 
   void _openNewAddressForm() {
@@ -583,13 +444,38 @@ class _AddressPageState extends State<AddressPage> {
         key: _formKey,
         child: Column(
           children: [
-            _field("First Name", firstName, (v) => firstName = v!),
-            _field("Last Name", lastName, (v) => lastName = v!),
-            _field("Street Address", address, (v) => address = v!),
-            _field("City", city, (v) => city = v!),
-            _field("State", state, (v) => state = v!),
-            _field("ZIP Code", zip, (v) => zip = v!),
-            _field("Phone", phone, (v) => phone = v!),
+            _field("First Name", firstName, (v) => firstName = v!, "Please enter first name"),
+            _field("Last Name", lastName, (v) => lastName = v!, "Please enter last name"),
+            _field("Street Address", address, (v) => address = v!, "Please enter street address"),
+            _field("City", city, (v) => city = v!, "Please enter city"),
+            DropdownButtonFormField<String>(
+              value: state.isNotEmpty ? state : null,
+              decoration: InputDecoration(
+                labelText: "State",
+                labelStyle: GoogleFonts.lexend(fontSize: 13),
+                filled: true,
+                fillColor: Colors.grey.shade100,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+              items: states.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+              onChanged: (v) => setState(() => state = v ?? ""),
+              validator: (v) => v == null || v.isEmpty ? "Please select a state" : null,
+            ),
+            _field("ZIP Code", zip, (v) => zip = v!, "Please enter ZIP code"),
+            _field("Phone", phone, (v) => phone = v!, "Please enter phone number"),
+            DropdownButtonFormField<String>(
+              value: country,
+              decoration: InputDecoration(
+                labelText: "Country",
+                labelStyle: GoogleFonts.lexend(fontSize: 13),
+                filled: true,
+                fillColor: Colors.grey.shade100,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+              items: countries.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+              onChanged: (v) => setState(() => country = v ?? "India"),
+              validator: (v) => v == null || v.isEmpty ? "Please select a country" : null,
+            ),
             const SizedBox(height: 20),
             _saveFormButtons(),
           ],
@@ -598,7 +484,7 @@ class _AddressPageState extends State<AddressPage> {
     );
   }
 
-  Widget _field(String label, String initial, Function(String?) onSaved) {
+  Widget _field(String label, String initial, Function(String?) onSaved, String validatorMsg) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: TextFormField(
@@ -608,18 +494,19 @@ class _AddressPageState extends State<AddressPage> {
           labelStyle: GoogleFonts.lexend(fontSize: 13),
           filled: true,
           fillColor: Colors.grey.shade100,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         ),
-        validator: (v) => v == null || v.trim().isEmpty ? "Required" : null,
+        validator: (v) {
+          if (v == null || v.trim().isEmpty) return validatorMsg;
+          if (label == "ZIP Code" && !RegExp(r'^\d{6}$').hasMatch(v.trim())) return "ZIP code must be 6 digits";
+          if (label == "Phone" && !RegExp(r'^[6-9]\d{9}$').hasMatch(v.trim())) return "Enter valid 10-digit Indian number";
+          return null;
+        },
         onSaved: onSaved,
+        keyboardType: (label == "ZIP Code" || label == "Phone") ? TextInputType.number : TextInputType.text,
       ),
     );
   }
-
-
 
   Widget _saveFormButtons() {
     return Row(

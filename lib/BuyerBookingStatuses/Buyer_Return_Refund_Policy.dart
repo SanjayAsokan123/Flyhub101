@@ -13,18 +13,18 @@ class RRPolicy extends StatelessWidget {
           'Returns & Refund Policy',
           style: GoogleFonts.inter(
             fontWeight: FontWeight.w600,
+            fontSize: 20,
             color: const Color(0xFF111827),
-            fontSize: 13,
           ),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(  Icons.arrow_back),
-          color: Color(0xFF111827),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          color: const Color(0xFF111827),
           onPressed: () => Navigator.pop(context),
         ),
-        centerTitle: true,
       ),
       body: SafeArea(
         child: SingleChildScrollView(

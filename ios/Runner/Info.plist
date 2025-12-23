@@ -30,6 +30,11 @@
 	<true></true>
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
+	<key>FirebaseDynamicLinksCustomDomains</key>
+    <array>
+        <string>https://flyhub.page.link</string>
+    </array>
+
 	<key>GOOGLE_APP_ID</key>
 	<string>1:127883848645:ios:8915da8d68c2256d36f9ac</string>
 </dict>

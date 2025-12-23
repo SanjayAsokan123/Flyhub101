@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:graphql_flutter/graphql_flutter.dart' as gql;
 import './order_details_page.dart';
 
@@ -84,13 +85,30 @@ class _MyOrderPageState extends State<MyOrderPage>
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text(
-          "My Orders",
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: const BackButton(color: Colors.black),
+        centerTitle: true,
+
+        // FORCE icon styling so it always appears
+        iconTheme: const IconThemeData(
+          color: Colors.black, // back button color
+          size: 20,            // consistent size
+        ),
+
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+
+        title: Text(
+          "My Orders",
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w600,
+            fontSize: 20,
+            color: Colors.black,
+          ),
+        ),
+
         bottom: TabBar(
           controller: _tabController,
           labelColor: primaryColor,

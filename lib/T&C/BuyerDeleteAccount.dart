@@ -446,7 +446,7 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
               deletedCounts {
                 buyers
                 notifications
-                Orders
+                orders
                 addresses
                 wishlist
               }

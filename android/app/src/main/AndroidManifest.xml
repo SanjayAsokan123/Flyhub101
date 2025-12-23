@@ -47,6 +47,9 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="recaptcha" android:host="firebase_auth"/>
+                <data
+                    android:scheme="https"
+                    android:host="flyhub.page.link"/>
             </intent-filter>
         </activity>
 

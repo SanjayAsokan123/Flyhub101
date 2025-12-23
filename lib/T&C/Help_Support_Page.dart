@@ -17,12 +17,20 @@ class HelpAndSupportPage extends StatelessWidget {
             fontWeight: FontWeight.w700,
             fontSize: 20,
             letterSpacing: -0.5,
-            fontFamily: 'Roboto', // Changed font family
+            fontFamily: 'Roboto',
           ),
         ),
-        iconTheme: IconThemeData(color: mainColor),
-        elevation: 1,
         centerTitle: true,
+        elevation: 1,
+        iconTheme: IconThemeData(color: mainColor),
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: mainColor,
+            size: 20,
+          ),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
       ),
       backgroundColor: Colors.white,
       body: SingleChildScrollView(

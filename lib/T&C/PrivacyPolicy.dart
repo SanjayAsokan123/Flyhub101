@@ -13,16 +13,21 @@ class PrivacyPolicyPage extends StatelessWidget {
           'Privacy Policy',
           style: GoogleFonts.inter(
             fontWeight: FontWeight.w600,
+            fontSize: MediaQuery.of(context).size.width < 400 ? 18 : 20, // responsive font size
             color: const Color(0xFF111827),
           ),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF111827)),
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded, // consistent back arrow
+            color: const Color(0xFF111827),
+            size: MediaQuery.of(context).size.width < 400 ? 20 : 24, // responsive size
+          ),
           onPressed: () => Navigator.pop(context),
         ),
-        centerTitle: true,
       ),
       body: SafeArea(
         child: SingleChildScrollView(

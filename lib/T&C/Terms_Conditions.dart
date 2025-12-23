@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class TermsAndConditionsPage extends StatelessWidget {
   const TermsAndConditionsPage({super.key});
@@ -6,9 +7,29 @@ class TermsAndConditionsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Terms and Conditions'),
+        title: Text(
+          'Terms and Conditions',
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w600,
+            fontSize: MediaQuery.of(context).size.width < 400 ? 18 : 20, // responsive font size
+            color: const Color(0xFF111827),
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: const Color(0xFF111827),
+            size: MediaQuery.of(context).size.width < 400 ? 20 : 24,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
+
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Text(
@@ -331,10 +352,10 @@ Flyhub shall not be required to notify you of any changes made to these User Ter
 Flyhub may give notice by means of a general notice on the Service or Application or by electronic mail to your email address or a message on your registered mobile number or by written communication sent by regular mail to your address on record in Flyhubs account information
           ''',
           style: const TextStyle(
-            fontSize: 14.0,
+            fontSize: 12.0,
             color: Colors.grey,
             fontWeight: FontWeight.normal,
-            height: 1.4,
+            height: 1.5,
           ),
         ),
       ),

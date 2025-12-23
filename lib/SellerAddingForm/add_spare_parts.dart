@@ -367,15 +367,15 @@ class _AddSparePartFormState extends State<AddSparePartForm> {
         }
       """);
 
-      // 🔹 Variables - Combine description and additionalInfo
-      final combinedDescription = "${_descriptionController.text.trim()}\n\nAdditional Information:\n${_additionalInfoController.text.trim()}";
+
 
       final variables = {
         'input': {
           'name': _nameController.text.trim(),
           'brand': _brandController.text.trim(),
           'price': price,
-          'description': combinedDescription, // Combined both fields
+          'description': _descriptionController.text.trim(), // Combined both fields
+          'additionalInformation':_additionalInfoController.text.trim(),
           'image': imageUrl,
           'quantity': quantity,
           'sellerId': widget.sellerId,
@@ -383,7 +383,7 @@ class _AddSparePartFormState extends State<AddSparePartForm> {
         },
       };
 
-      debugPrint("Submitting spare part with combined description length: ${combinedDescription.length}");
+      debugPrint("Submitting spare part with combined description length: ${_descriptionController}");
 
       final result = await client.mutate(
         MutationOptions(document: mutation, variables: variables),
