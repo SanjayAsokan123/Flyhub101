@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -7,9 +5,9 @@ import '../../CommonClass/utils.dart';
 import '../../CommonClass/ApiClass.dart';
 import '../../ApplyingBookingNow/ServiceBookNow.dart' hide ApiClass;
 import '../../utils/responsive_utils.dart';
-import '../../services/role_manager.dart';
-import '../../Login/BuyerLoginPage.dart';
-import '../../Login/BuyerRegisterPage.dart';
+import '../../services/role_manager.dart'; // ADD THIS IMPORT
+import '../../Login/BuyerLoginPage.dart'; // ADD THIS IMPORT
+import '../../Login/BuyerRegisterPage.dart'; // ADD THIS IMPORT
 
 // --- Professional Theme/Style Constants ---
 const Color kPrimaryColor = Color(0xFF1A0A5B);
@@ -21,8 +19,8 @@ const Color kSurfaceColor = Colors.white;
 const Color kBorderColor = Color(0xFFE5E7EB);
 const Color kShimmerColor = Color(0xFFF9FAFB);
 const Color kLightBackground = Color(0xFFF8FAFC);
-const Color kWarningColor = Color(0xFFF59E0B);
-const Color kErrorColor = Color(0xFFEF4444);
+const Color kWarningColor = Color(0xFFF59E0B); // ADD THIS
+const Color kErrorColor = Color(0xFFEF4444); // ADD THIS
 
 class ServicesPage extends StatefulWidget {
   const ServicesPage({super.key});
@@ -34,184 +32,80 @@ class ServicesPage extends StatefulWidget {
 class _ServicesPageState extends State<ServicesPage> {
   final ApiClass _apiClass = ApiClass();
   final TextEditingController _searchController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
-  final FocusNode _searchFocusNode = FocusNode();
 
-  // Pagination variables
-  int currentPage = 1;
-  int limit = 10;
-  int totalCount = 0;
-  int pageCount = 1;
-  bool hasMore = true;
-  bool isLoadingMore = false;
-  bool isInitialLoading = true;
-  bool isSearching = false;
-
+  bool isLoading = true;
   List<dynamic> serviceList = [];
   List<dynamic> filteredList = [];
+  String searchQuery = '';
 
-  // Filter variables
   List<String> locations = [];
   List<String> priceRanges = ["0-5000", "5000-10000", "10000-20000", "20000+"];
+
   String selectedLocation = "";
   String selectedPriceRange = "";
-
-  // Debounce for search
-  Timer? _searchDebounce;
 
   @override
   void initState() {
     super.initState();
     fetchServices();
-
-    _searchController.addListener(_onSearchChanged);
-
-    _scrollController.addListener(() {
-      if (_scrollController.position.pixels ==
-          _scrollController.position.maxScrollExtent) {
-        if (hasMore && !isLoadingMore) {
-          loadMoreServices();
-        }
-      }
+    _searchController.addListener(() {
+      setState(() {
+        searchQuery = _searchController.text;
+      });
+      applyFilters();
     });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
-    _scrollController.dispose();
-    _searchFocusNode.dispose();
-    _searchDebounce?.cancel();
     super.dispose();
   }
 
-  void _onSearchChanged() {
-    if (_searchDebounce?.isActive ?? false) _searchDebounce?.cancel();
-
-    _searchDebounce = Timer(const Duration(milliseconds: 500), () {
-      if (!mounted) return;
-
-      resetAndFetchServices();
-    });
-  }
-
-  void resetPagination() {
-    setState(() {
-      currentPage = 1;
-      serviceList.clear();
-      filteredList.clear();
-      hasMore = true;
-    });
-  }
-
   Future<void> fetchServices() async {
-    if (currentPage == 1) {
-      setState(() => isInitialLoading = true);
+    setState(() => isLoading = true);
+    final res = await _apiClass.getServices();
+
+    if (!mounted) return;
+
+    if (res.status == "success") {
+      final List<dynamic> allServices = res.data ?? [];
+      final approved = allServices.where((s) => s["status"] == "approved").toList();
+
+      locations = approved.map((s) => (s["location"] ?? "").toString())
+          .where((e) => e.isNotEmpty).toSet().toList();
+
+      setState(() {
+        serviceList = approved;
+        filteredList = List.from(serviceList);
+        isLoading = false;
+      });
     } else {
-      setState(() => isLoadingMore = true);
+      Utils.bottomToast(context, "Error: ${res.message}");
+      setState(() => isLoading = false);
     }
-
-    try {
-      final Map<String, dynamic> searchParams = {};
-
-
-
-      if (selectedLocation.isNotEmpty) {
-        searchParams['location'] = selectedLocation;
-      }
-
-      if (selectedPriceRange.isNotEmpty) {
-        final parts = selectedPriceRange.split("-");
-        if (parts[1] == "+") {
-          searchParams['minPrice'] = 20000.0;
-        } else {
-          searchParams['minPrice'] = double.parse(parts[0]);
-          searchParams['maxPrice'] = double.parse(parts[1]);
-        }
-      }
-
-      final result = await _apiClass.getServicesPaginated(
-        page: currentPage,
-        limit: limit,
-        query: _searchController.text.isNotEmpty ? _searchController.text : null,
-        search: searchParams.isNotEmpty ? searchParams : null,
-      );
-
-      if (!mounted) return;
-
-      final List<dynamic> newItems = result['items'] ?? [];
-      final int newTotalCount = result['totalCount'] ?? 0;
-      final int newPageCount = result['pageCount'] ?? 1;
-
-      // Extract unique locations for filter
-      final Set<String> uniqueLocations = {};
-      newItems.forEach((item) {
-        final location = (item['location'] ?? '').toString();
-        if (location.isNotEmpty) {
-          uniqueLocations.add(location);
-        }
-      });
-
-      setState(() {
-        if (currentPage == 1) {
-          serviceList = newItems;
-          locations = uniqueLocations.toList();
-          filteredList = newItems;
-        } else {
-          serviceList.addAll(newItems);
-          locations.addAll(uniqueLocations);
-          locations = locations.toSet().toList();
-          filteredList = serviceList;
-        }
-
-        totalCount = newTotalCount;
-        pageCount = newPageCount;
-        hasMore = currentPage < pageCount;
-        isInitialLoading = false;
-        isLoadingMore = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-
-      Utils.bottomToast(context, "Error: ${e.toString()}");
-      setState(() {
-        isInitialLoading = false;
-        isLoadingMore = false;
-      });
-    }
-  }
-
-  Future<void> resetAndFetchServices() async {
-    resetPagination();
-    await fetchServices();
-  }
-
-  Future<void> loadMoreServices() async {
-    if (!hasMore || isLoadingMore) return;
-
-    setState(() => isLoadingMore = true);
-    currentPage++;
-    await fetchServices();
-  }
-
-  Future<void> refreshServices() async {
-    resetPagination();
-    await fetchServices();
   }
 
   void applyFilters() {
-    setState(() {
-      isSearching = true;
-    });
+    filteredList = serviceList.where((s) {
+      final name = (s['name'] ?? '').toString().toLowerCase();
+      final loc = (s['location'] ?? '').toString().toLowerCase();
+      final price = int.tryParse(s['price'].toString()) ?? 0;
 
-    resetPagination();
-    fetchServices().then((_) {
-      if (mounted) {
-        setState(() {
-          isSearching = false;
-        });
+      if (!(name.contains(searchQuery) || loc.contains(searchQuery))) return false;
+      if (selectedLocation.isNotEmpty && s['location'] != selectedLocation) return false;
+
+      if (selectedPriceRange.isNotEmpty) {
+        final parts = selectedPriceRange.split("-");
+        final min = int.parse(parts[0]);
+        final max = parts[1] == "+" ? 999999 : int.parse(parts[1]);
+        if (!(price >= min && price <= max)) return false;
       }
-    });
+
+      return true;
+    }).toList();
+
+    setState(() {});
   }
 
   void _resetFilters() {
@@ -220,20 +114,23 @@ class _ServicesPageState extends State<ServicesPage> {
       selectedPriceRange = "";
       _searchController.clear();
     });
-    resetAndFetchServices();
+    applyFilters();
   }
 
+  // ✅ ADD THIS: Check if user is authenticated as buyer
   Future<bool> _checkBuyerAuth() async {
     final role = await RoleManager.getLocalRole();
 
     if (role == "buyer") {
-      return true;
+      return true; // User is already a buyer
     }
 
+    // User is not a buyer - show auth dialog
     await _showAuthRequiredDialog(role);
     return false;
   }
 
+  // ✅ ADD THIS: Show authentication required dialog
   Future<void> _showAuthRequiredDialog(String? currentRole) async {
     String title = "Login Required";
     String message = "You need to be logged in as a buyer to book drone services.";
@@ -319,6 +216,7 @@ class _ServicesPageState extends State<ServicesPage> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
+              // Navigate to buyer registration
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (_) => const BuyerRegisterPage()),
@@ -335,6 +233,7 @@ class _ServicesPageState extends State<ServicesPage> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
+              // Navigate to buyer login
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (_) => const BuyerLoginPage()),
@@ -359,10 +258,16 @@ class _ServicesPageState extends State<ServicesPage> {
     );
   }
 
+  // ✅ ADD THIS: Handle service booking with auth check
   Future<void> _handleServiceBooking(Map<String, dynamic> service) async {
+    // Check if user is authenticated as buyer
     final isAuthenticated = await _checkBuyerAuth();
-    if (!isAuthenticated) return;
 
+    if (!isAuthenticated) {
+      return; // Auth dialog shown, stop here
+    }
+
+    // User is authenticated as buyer - proceed to booking
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -394,6 +299,7 @@ class _ServicesPageState extends State<ServicesPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Header
                   Center(
                     child: Container(
                       width: ResponsiveUtils.getDynamicWidth(context, 0.12),
@@ -454,30 +360,18 @@ class _ServicesPageState extends State<ServicesPage> {
                           ),
                         ),
                         value: selectedLocation.isEmpty ? null : selectedLocation,
-                        items: [
-                          DropdownMenuItem<String>(
-                            value: "",
-                            child: Text(
-                              "All locations",
-                              style: GoogleFonts.inter(
-                                color: kTextSecondary,
-                                fontSize: ResponsiveUtils.getBodyFontSize(context),
-                              ),
-                            ),
-                          ),
-                          ...locations.map((loc) =>
-                              DropdownMenuItem(
-                                value: loc,
-                                child: Text(
-                                  loc,
-                                  style: GoogleFonts.inter(
-                                    color: kTextPrimary,
-                                    fontSize: ResponsiveUtils.getBodyFontSize(context),
-                                  ),
+                        items: locations.map((loc) =>
+                            DropdownMenuItem(
+                              value: loc,
+                              child: Text(
+                                loc,
+                                style: GoogleFonts.inter(
+                                  color: kTextPrimary,
+                                  fontSize: ResponsiveUtils.getBodyFontSize(context),
                                 ),
-                              )
-                          ).toList(),
-                        ],
+                              ),
+                            )
+                        ).toList(),
                         onChanged: (value) => setModalState(() => selectedLocation = value ?? ""),
                         icon: Icon(
                           Icons.keyboard_arrow_down_rounded,
@@ -518,30 +412,18 @@ class _ServicesPageState extends State<ServicesPage> {
                           ),
                         ),
                         value: selectedPriceRange.isEmpty ? null : selectedPriceRange,
-                        items: [
-                          DropdownMenuItem<String>(
-                            value: "",
-                            child: Text(
-                              "All prices",
-                              style: GoogleFonts.inter(
-                                color: kTextSecondary,
-                                fontSize: ResponsiveUtils.getBodyFontSize(context),
-                              ),
-                            ),
-                          ),
-                          ...priceRanges.map((range) =>
-                              DropdownMenuItem(
-                                value: range,
-                                child: Text(
-                                  "₹$range",
-                                  style: GoogleFonts.inter(
-                                    color: kTextPrimary,
-                                    fontSize: ResponsiveUtils.getBodyFontSize(context),
-                                  ),
+                        items: priceRanges.map((range) =>
+                            DropdownMenuItem(
+                              value: range,
+                              child: Text(
+                                "₹$range",
+                                style: GoogleFonts.inter(
+                                  color: kTextPrimary,
+                                  fontSize: ResponsiveUtils.getBodyFontSize(context),
                                 ),
-                              )
-                          ).toList(),
-                        ],
+                              ),
+                            )
+                        ).toList(),
                         onChanged: (value) => setModalState(() => selectedPriceRange = value ?? ""),
                         icon: Icon(
                           Icons.keyboard_arrow_down_rounded,
@@ -588,8 +470,8 @@ class _ServicesPageState extends State<ServicesPage> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () {
-                            Navigator.pop(context);
                             applyFilters();
+                            Navigator.pop(context);
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: kPrimaryColor,
@@ -641,6 +523,7 @@ class _ServicesPageState extends State<ServicesPage> {
     );
   }
 
+  // Dynamic service card that adapts to all screen sizes
   Widget _buildServiceCard(Map<String, dynamic> service) {
     final imageUrl = (service['image'] ?? '').toString();
     final img = imageUrl.startsWith('http')
@@ -672,9 +555,10 @@ class _ServicesPageState extends State<ServicesPage> {
             color: Colors.transparent,
             child: InkWell(
               borderRadius: BorderRadius.circular(ResponsiveUtils.getOptimalCardRadius(context)),
-              onTap: () => _handleServiceBooking(service),
+              onTap: () => _handleServiceBooking(service), // ✅ CHANGED: Use auth-checked handler
               child: Row(
                 children: [
+                  // Dynamic Service Image - Adapts to screen size
                   ClipRRect(
                     borderRadius: BorderRadius.horizontal(
                       left: Radius.circular(ResponsiveUtils.getOptimalCardRadius(context)),
@@ -717,6 +601,7 @@ class _ServicesPageState extends State<ServicesPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
+                          // Service Info - Dynamic text sizing
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -789,9 +674,11 @@ class _ServicesPageState extends State<ServicesPage> {
 
                           SizedBox(height: ResponsiveUtils.getVerticalPadding(context) * 0.4),
 
+                          // Price and Action - REMOVED price container
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
+                              // Clean price text without container
                               Text(
                                 "₹${service['price'] ?? 'Contact'}",
                                 style: GoogleFonts.inter(
@@ -807,7 +694,7 @@ class _ServicesPageState extends State<ServicesPage> {
                               ),
 
                               ElevatedButton(
-                                onPressed: () => _handleServiceBooking(service),
+                                onPressed: () => _handleServiceBooking(service), // ✅ CHANGED: Use auth-checked handler
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: kPrimaryColor,
                                   padding: EdgeInsets.symmetric(
@@ -842,100 +729,77 @@ class _ServicesPageState extends State<ServicesPage> {
     );
   }
 
+  // Dynamic search bar that adapts to screen size
   Widget _buildSearchBar() {
     return Container(
-      height: ResponsiveUtils.getSearchBarHeight(context),
-      margin: EdgeInsets.symmetric(
-        horizontal: ResponsiveUtils.getHorizontalPadding(context),
-        vertical: ResponsiveUtils.getVerticalPadding(context) * 0.6,
-      ),
-      decoration: BoxDecoration(
-        color: kSurfaceColor,
-        borderRadius: BorderRadius.circular(ResponsiveUtils.getOptimalCardRadius(context)),
-        border: Border.all(color: kBorderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          SizedBox(width: ResponsiveUtils.getHorizontalPadding(context) * 0.8),
-          Icon(
-            Icons.search_rounded,
-            color: kTextSecondary,
-            size: ResponsiveUtils.getIconSize(context) * 0.8,
-          ),
-          SizedBox(width: ResponsiveUtils.getHorizontalPadding(context) * 0.5),
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              focusNode: _searchFocusNode,
-              style: GoogleFonts.inter(
-                fontSize: ResponsiveUtils.getBodyFontSize(context),
-                color: kTextPrimary,
-                fontWeight: FontWeight.w500,
-              ),
-              decoration: InputDecoration(
-                hintText: "Search drone services...",
-                hintStyle: GoogleFonts.inter(
-                  color: kTextSecondary,
-                  fontSize: ResponsiveUtils.getBodyFontSize(context),
-                ),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ),
-          Container(
-            width: ResponsiveUtils.getSearchBarHeight(context) * 0.7,
-            height: ResponsiveUtils.getSearchBarHeight(context) * 0.7,
-            margin: EdgeInsets.only(right: ResponsiveUtils.getHorizontalPadding(context) * 0.5),
-            decoration: BoxDecoration(
-              color: kPrimaryColor,
-              borderRadius: BorderRadius.circular(ResponsiveUtils.getOptimalCardRadius(context) * 0.8),
-            ),
-            child: IconButton(
-              icon: Icon(
-                Icons.tune_rounded,
-                color: Colors.white,
-                size: ResponsiveUtils.getIconSize(context) * 0.7,
-              ),
-              onPressed: _openFilterSheet,
-              padding: EdgeInsets.zero,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLoadingIndicator() {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 20),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(
-              color: kPrimaryColor,
-              strokeWidth: 2,
-            ),
-            SizedBox(height: 10),
-            Text(
-              "Loading more services...",
-              style: GoogleFonts.inter(
-                color: kTextSecondary,
-                fontSize: 14,
-              ),
+        height: ResponsiveUtils.getSearchBarHeight(context),
+        margin: EdgeInsets.symmetric(
+          horizontal: ResponsiveUtils.getHorizontalPadding(context),
+          vertical: ResponsiveUtils.getVerticalPadding(context) * 0.6,
+        ),
+        decoration: BoxDecoration(
+          color: kSurfaceColor,
+          borderRadius: BorderRadius.circular(ResponsiveUtils.getOptimalCardRadius(context)),
+          border: Border.all(color: kBorderColor),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
-      ),
+        child: Row(
+          children: [
+            SizedBox(width: ResponsiveUtils.getHorizontalPadding(context) * 0.8),
+            Icon(
+              Icons.search_rounded,
+              color: kTextSecondary,
+              size: ResponsiveUtils.getIconSize(context) * 0.8,
+            ),
+            SizedBox(width: ResponsiveUtils.getHorizontalPadding(context) * 0.5),
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                style: GoogleFonts.inter(
+                  fontSize: ResponsiveUtils.getBodyFontSize(context),
+                  color: kTextPrimary,
+                  fontWeight: FontWeight.w500,
+                ),
+                decoration: InputDecoration(
+                  hintText: "Search drone services...",
+                  hintStyle: GoogleFonts.inter(
+                    color: kTextSecondary,
+                    fontSize: ResponsiveUtils.getBodyFontSize(context),
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ),
+            Container(
+              width: ResponsiveUtils.getSearchBarHeight(context) * 0.7,
+              height: ResponsiveUtils.getSearchBarHeight(context) * 0.7,
+              margin: EdgeInsets.only(right: ResponsiveUtils.getHorizontalPadding(context) * 0.5),
+              decoration: BoxDecoration(
+                color: kPrimaryColor,
+                borderRadius: BorderRadius.circular(ResponsiveUtils.getOptimalCardRadius(context) * 0.8),
+              ),
+              child: IconButton(
+                icon: Icon(
+                  Icons.tune_rounded,
+                  color: Colors.white,
+                  size: ResponsiveUtils.getIconSize(context) * 0.7,
+                ),
+                onPressed: _openFilterSheet,
+                padding: EdgeInsets.zero,
+              ),
+            ),
+          ],
+        )
     );
+
+
   }
 
   Widget _buildEmptyState() {
@@ -949,9 +813,7 @@ class _ServicesPageState extends State<ServicesPage> {
             children: [
               SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
               Text(
-                _searchController.text.isEmpty && selectedLocation.isEmpty && selectedPriceRange.isEmpty
-                    ? "No Services Available"
-                    : "No Matching Services Found",
+                "No Services Found",
                 style: GoogleFonts.inter(
                   fontSize: ResponsiveUtils.getTitleFontSize(context),
                   fontWeight: FontWeight.w600,
@@ -959,16 +821,7 @@ class _ServicesPageState extends State<ServicesPage> {
                 ),
               ),
               SizedBox(height: ResponsiveUtils.getCardMargin(context)),
-              Text(
-                _searchController.text.isEmpty && selectedLocation.isEmpty && selectedPriceRange.isEmpty
-                    ? "Check back later for new drone services"
-                    : "Try adjusting your search or filters",
-                style: GoogleFonts.inter(
-                  fontSize: ResponsiveUtils.getBodyFontSize(context),
-                  color: kTextSecondary,
-                ),
-                textAlign: TextAlign.center,
-              ),
+
               SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
             ],
           ),
@@ -988,7 +841,7 @@ class _ServicesPageState extends State<ServicesPage> {
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: kPrimaryColor,
+            color: kPrimaryColor ,
             size: ResponsiveUtils.getIconSize(context) * 0.9,
           ),
           onPressed: () => Navigator.pop(context),
@@ -998,72 +851,60 @@ class _ServicesPageState extends State<ServicesPage> {
           style: GoogleFonts.inter(
             fontSize: ResponsiveUtils.getTitleFontSize(context),
             fontWeight: FontWeight.w600,
-            color: kPrimaryColor,
+            color: kPrimaryColor ,
           ),
         ),
         centerTitle: false,
       ),
-      body: Column(
+      body: isLoading
+          ? Center(
+        child: CircularProgressIndicator(
+          color: kPrimaryColor,
+          strokeWidth: 2,
+        ),
+      )
+          : Column(
         children: [
+          // Search Bar
           _buildSearchBar(),
 
-          if (filteredList.isNotEmpty && !isInitialLoading)
+          // Results Count
+          if (filteredList.isNotEmpty)
             Padding(
               padding: EdgeInsets.symmetric(
                 horizontal: ResponsiveUtils.getHorizontalPadding(context),
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    "$totalCount services available",
+                    "${filteredList.length} services available",
                     style: GoogleFonts.inter(
                       fontSize: ResponsiveUtils.getSmallFontSize(context),
                       color: kTextSecondary,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  if (isSearching)
-                    SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: kPrimaryColor,
-                      ),
-                    ),
                 ],
               ),
             ),
 
           SizedBox(height: ResponsiveUtils.getVerticalPadding(context) * 0.3),
 
+          // Services List
           Expanded(
             child: RefreshIndicator(
-              onRefresh: refreshServices,
+              onRefresh: fetchServices,
               color: kPrimaryColor,
               backgroundColor: kSurfaceColor,
-              child: isInitialLoading
-                  ? Center(
-                child: CircularProgressIndicator(
-                  color: kPrimaryColor,
-                  strokeWidth: 2,
-                ),
-              )
-                  : filteredList.isEmpty
+              child: filteredList.isEmpty
                   ? _buildEmptyState()
                   : ListView.builder(
-                controller: _scrollController,
                 padding: EdgeInsets.only(
                   bottom: ResponsiveUtils.getVerticalPadding(context),
                 ),
-                itemCount: filteredList.length + (hasMore ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == filteredList.length) {
-                    return isLoadingMore ? _buildLoadingIndicator() : SizedBox();
-                  }
-                  return _buildServiceCard(filteredList[index]);
-                },
+                itemCount: filteredList.length,
+                itemBuilder: (context, index) =>
+                    _buildServiceCard(filteredList[index]),
               ),
             ),
           ),

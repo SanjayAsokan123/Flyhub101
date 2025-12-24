@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 import '../../CommonClass/utils.dart';
 import '../../CommonClass/ApiClass.dart';
 import '../../ApplyingBookingNow/JobApplyNow.dart';
@@ -18,6 +18,9 @@ class JobsPage extends StatefulWidget {
 
 class _JobsPageState extends State<JobsPage> {
   final ApiClass _apiClass = ApiClass();
+  final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final FocusNode _searchFocusNode = FocusNode();
 
   // Professional Color Scheme
   final Color primaryColor = const Color(0xFF1A0A5B);
@@ -30,137 +33,504 @@ class _JobsPageState extends State<JobsPage> {
   final Color borderColor = const Color(0xFFE5E7EB);
   final Color successColor = const Color(0xFF10B981);
 
-  bool isLoading = true;
-  bool isError = false;
+  // Pagination variables
+  int currentPage = 1;
+  int limit = 10;
+  int totalCount = 0;
+  int pageCount = 1;
+  bool hasMore = true;
+  bool isLoadingMore = false;
+  bool isInitialLoading = true;
+  bool isSearching = false;
+
   List<dynamic> jobList = [];
   List<dynamic> filteredList = [];
-  String searchQuery = '';
 
-  final TextEditingController _searchController = TextEditingController();
+  // Filter variables
+  List<String> locations = [];
+  List<String> jobTypes = ["Full-time", "Part-time", "Contract", "Freelance", "Remote"];
+  String selectedLocation = "";
+  String selectedJobType = "";
+
+  // Debounce for search
+  Timer? _searchDebounce;
 
   @override
   void initState() {
     super.initState();
+
+    // Initialize lists
+    jobList = [];
+    filteredList = [];
+    locations = [];
+
     fetchJobs();
+
+    _searchController.addListener(_onSearchChanged);
+
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 100) {
+        if (hasMore && !isLoadingMore && !isInitialLoading) {
+          loadMoreJobs();
+        }
+      }
+    });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
+    _searchFocusNode.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
-  Future<void> fetchJobs() async {
-    setState(() {
-      isLoading = true;
-      isError = false;
-    });
+  void _onSearchChanged() {
+    if (_searchDebounce?.isActive ?? false) _searchDebounce?.cancel();
 
-    try {
-      final res = await _apiClass.getJobs();
+    _searchDebounce = Timer(const Duration(milliseconds: 500), () {
       if (!mounted) return;
+      resetAndFetchJobs();
+    });
+  }
 
-      final dynamic responseData = res.data;
-      List<dynamic> dataList = [];
+  void resetPagination() {
+    if (!mounted) return;
 
-      if (responseData is Map<String, dynamic>) {
-        dataList = responseData['getJobs'] ?? responseData['jobs'] ?? [];
-      } else if (responseData is List) {
-        dataList = responseData;
+    setState(() {
+      currentPage = 1;
+      jobList.clear();
+      filteredList.clear();
+      hasMore = true;
+      isLoadingMore = false;
+    });
+  }
+
+  Future<void> fetchJobs() async {
+    try {
+      if (currentPage == 1) {
+        setState(() => isInitialLoading = true);
+      } else {
+        setState(() => isLoadingMore = true);
       }
 
-      final approvedJobs = dataList.where((job) => job["status"] == "approved").toList();
+      // Build search parameters
+      final Map<String, dynamic> searchParams = {};
+
+      if (selectedLocation.isNotEmpty) {
+        searchParams['location'] = selectedLocation;
+      }
+
+      if (selectedJobType.isNotEmpty) {
+        searchParams['jobType'] = selectedJobType;
+      }
+
+      // Add text search to query if exists
+      final String? queryText = _searchController.text.isNotEmpty ? _searchController.text : null;
+
+      final result = await _apiClass.getJobsPaginated(
+        page: currentPage,
+        limit: limit,
+        query: queryText,
+        search: searchParams.isNotEmpty ? searchParams : null,
+      );
+
+      if (!mounted) return;
+
+      final List<dynamic> newItems = result['items'] ?? [];
+      final int newTotalCount = result['totalCount'] ?? 0;
+      final int newPageCount = result['pageCount'] ?? 1;
+
+      // Extract unique locations for filter
+      final Set<String> uniqueLocations = {};
+      final Set<String> uniqueJobTypes = {};
+      for (var item in newItems) {
+        final location = (item['location'] ?? '').toString();
+        final jobType = (item['jobType'] ?? '').toString();
+
+        if (location.isNotEmpty) {
+          uniqueLocations.add(location);
+        }
+        if (jobType.isNotEmpty && !jobTypes.contains(jobType)) {
+          uniqueJobTypes.add(jobType);
+        }
+      }
 
       setState(() {
-        jobList = approvedJobs;
-        filteredList = List.from(jobList);
-        isLoading = false;
+        if (currentPage == 1) {
+          jobList = List.from(newItems);
+          filteredList = List.from(newItems);
+          locations = uniqueLocations.toList();
+          if (uniqueJobTypes.isNotEmpty) {
+            jobTypes = [...uniqueJobTypes, ...jobTypes].toSet().toList();
+          }
+        } else {
+          jobList.addAll(newItems);
+          filteredList.addAll(newItems);
+          locations.addAll(uniqueLocations);
+          locations = locations.toSet().toList();
+          if (uniqueJobTypes.isNotEmpty) {
+            jobTypes.addAll(uniqueJobTypes);
+            jobTypes = jobTypes.toSet().toList();
+          }
+        }
+
+        totalCount = newTotalCount;
+        pageCount = newPageCount;
+        hasMore = currentPage < pageCount;
+        isInitialLoading = false;
+        isLoadingMore = false;
       });
     } catch (e) {
       if (!mounted) return;
+
+      debugPrint("Error fetching jobs: $e");
+      Utils.bottomToast(context, "Failed to load jobs. Please try again.");
+
       setState(() {
-        isLoading = false;
-        isError = true;
+        isInitialLoading = false;
+        isLoadingMore = false;
+        // Ensure filteredList is not null even on error
+        if (currentPage == 1) {
+          jobList = [];
+          filteredList = [];
+        }
       });
-      Utils.bottomToast(context, "Error fetching jobs: $e");
     }
   }
 
-  void _searchJobs(String query) {
+  Future<void> resetAndFetchJobs() async {
+    resetPagination();
+    await fetchJobs();
+  }
+
+  Future<void> loadMoreJobs() async {
+    if (!hasMore || isLoadingMore || isInitialLoading) return;
+
+    setState(() => isLoadingMore = true);
+    currentPage++;
+    await fetchJobs();
+  }
+
+  Future<void> refreshJobs() async {
+    resetPagination();
+    await fetchJobs();
+  }
+
+  void applyFilters() {
     setState(() {
-      searchQuery = query.toLowerCase();
-      _applySearch();
+      isSearching = true;
+    });
+
+    resetPagination();
+    fetchJobs().then((_) {
+      if (mounted) {
+        setState(() {
+          isSearching = false;
+        });
+      }
     });
   }
 
-  void _applySearch() {
-    if (searchQuery.isEmpty) {
-      setState(() {
-        filteredList = List.from(jobList);
-      });
-      return;
-    }
-
-    final results = jobList.where((job) {
-      final name = (job['jobName'] ?? job['title'] ?? '').toString().toLowerCase();
-      final company = (job['companyName'] ?? job['company'] ?? '').toString().toLowerCase();
-      final location = (job['location'] ?? '').toString().toLowerCase();
-      final jobType = (job['jobType'] ?? '').toString().toLowerCase();
-
-      return name.contains(searchQuery) ||
-          company.contains(searchQuery) ||
-          location.contains(searchQuery) ||
-          jobType.contains(searchQuery);
-    }).toList();
-
+  void _resetFilters() {
     setState(() {
-      filteredList = results;
+      selectedLocation = "";
+      selectedJobType = "";
+      _searchController.clear();
     });
+    resetAndFetchJobs();
   }
 
-  void _clearSearch() {
-    _searchController.clear();
-    _searchJobs('');
-  }
-
-  void _showSnackBar(String message, {Color color = const Color(0xFF1A0A5B)}) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: color,
-        content: Text(
-          message,
-          style: GoogleFonts.inter(
-            color: Colors.white,
-            fontSize: ResponsiveUtils.getBodyFontSize(context),
-          ),
-        ),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(
-            ResponsiveUtils.getDynamicPadding(context, 0.02),
-          ),
+  void _openFilterSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: surfaceColor,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(ResponsiveUtils.getPilotCardRadius(context)),
         ),
       ),
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              padding: EdgeInsets.all(
+                ResponsiveUtils.getHorizontalPadding(context),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: ResponsiveUtils.getDynamicWidth(context, 0.12),
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: borderColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(height: ResponsiveUtils.getVerticalPadding(context)),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Filter Jobs",
+                        style: GoogleFonts.inter(
+                          fontSize: ResponsiveUtils.getTitleFontSize(context),
+                          fontWeight: FontWeight.w700,
+                          color: primaryColor,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: textSecondary,
+                          size: ResponsiveUtils.getIconSize(context) * 0.9,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
+
+                  // Location Filter
+                  _buildFilterSection(
+                    title: "Location",
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: backgroundColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(
+                          ResponsiveUtils.getDynamicPadding(context, 0.02),
+                        ),
+                        border: Border.all(color: borderColor),
+                      ),
+                      child: DropdownButtonFormField<String>(
+                        decoration: InputDecoration(
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal:
+                            ResponsiveUtils.getHorizontalPadding(context) * 0.8,
+                            vertical:
+                            ResponsiveUtils.getVerticalPadding(context) * 0.8,
+                          ),
+                          border: InputBorder.none,
+                          hintText: "All locations",
+                          hintStyle: GoogleFonts.inter(
+                            color: textSecondary,
+                            fontSize: ResponsiveUtils.getBodyFontSize(context),
+                          ),
+                        ),
+                        value: selectedLocation.isEmpty ? null : selectedLocation,
+                        items: locations
+                            .toSet() // 🔒 prevents duplicate values
+                            .map(
+                              (loc) => DropdownMenuItem<String>(
+                            value: loc,
+                            child: Text(
+                              loc,
+                              style: GoogleFonts.inter(
+                                color: textPrimary,
+                                fontSize:
+                                ResponsiveUtils.getBodyFontSize(context),
+                              ),
+                            ),
+                          ),
+                        )
+                            .toList(),
+                        onChanged: (value) {
+                          setModalState(() {
+                            selectedLocation = value ?? "";
+                          });
+                        },
+                        icon: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: textSecondary,
+                          size: ResponsiveUtils.getIconSize(context) * 0.8,
+                        ),
+                        dropdownColor: surfaceColor,
+                        style: GoogleFonts.inter(
+                          color: textPrimary,
+                          fontSize: ResponsiveUtils.getBodyFontSize(context),
+                        ),
+                      ),
+                    ),
+                  ),
+
+
+                  SizedBox(height: ResponsiveUtils.getVerticalPadding(context)),
+
+                  // Job Type Filter
+                  _buildFilterSection(
+                    title: "Job Type",
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: backgroundColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(
+                          ResponsiveUtils.getDynamicPadding(context, 0.02),
+                        ),
+                        border: Border.all(color: borderColor),
+                      ),
+                      child: DropdownButtonFormField<String>(
+                        decoration: InputDecoration(
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: ResponsiveUtils.getHorizontalPadding(context) * 0.8,
+                            vertical: ResponsiveUtils.getVerticalPadding(context) * 0.8,
+                          ),
+                          border: InputBorder.none,
+                          hintText: "All job types",
+                          hintStyle: GoogleFonts.inter(
+                            color: textSecondary,
+                            fontSize: ResponsiveUtils.getBodyFontSize(context),
+                          ),
+                        ),
+                        value: selectedJobType.isEmpty ? null : selectedJobType,
+                        items: [
+                          DropdownMenuItem<String>(
+                            value: "",
+                            child: Text(
+                              "All job types",
+                              style: GoogleFonts.inter(
+                                color: textSecondary,
+                                fontSize: ResponsiveUtils.getBodyFontSize(context),
+                              ),
+                            ),
+                          ),
+                          ...jobTypes.map((type) =>
+                              DropdownMenuItem(
+                                value: type,
+                                child: Text(
+                                  type,
+                                  style: GoogleFonts.inter(
+                                    color: textPrimary,
+                                    fontSize: ResponsiveUtils.getBodyFontSize(context),
+                                  ),
+                                ),
+                              )
+                          ).toList(),
+                        ],
+                        onChanged: (value) => setModalState(() => selectedJobType = value ?? ""),
+                        icon: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: textSecondary,
+                          size: ResponsiveUtils.getIconSize(context) * 0.8,
+                        ),
+                        dropdownColor: surfaceColor,
+                        style: GoogleFonts.inter(
+                          color: textPrimary,
+                          fontSize: ResponsiveUtils.getBodyFontSize(context),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
+
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _resetFilters,
+                          style: OutlinedButton.styleFrom(
+                            padding: EdgeInsets.symmetric(
+                              vertical: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.04),
+                            ),
+                            side: BorderSide(color: borderColor),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                ResponsiveUtils.getDynamicPadding(context, 0.02),
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            "Reset",
+                            style: GoogleFonts.inter(
+                              color: textSecondary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: ResponsiveUtils.getBodyFontSize(context),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: ResponsiveUtils.getHorizontalPadding(context) * 0.5),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            applyFilters();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            padding: EdgeInsets.symmetric(
+                              vertical: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.04),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                ResponsiveUtils.getDynamicPadding(context, 0.02),
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            "Apply Filters",
+                            style: GoogleFonts.inter(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: ResponsiveUtils.getBodyFontSize(context),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  SizedBox(height: MediaQuery.of(context).viewInsets.bottom +
+                      ResponsiveUtils.getVerticalPadding(context)),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
-  // ✅ CHECK IF USER IS AUTHENTICATED FOR JOB APPLICATIONS
+  Widget _buildFilterSection({required String title, required Widget child}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.inter(
+            fontSize: ResponsiveUtils.getBodyFontSize(context) * 1.1,
+            fontWeight: FontWeight.w600,
+            color: primaryColor,
+          ),
+        ),
+        SizedBox(height: ResponsiveUtils.getVerticalPadding(context) * 0.4),
+        child,
+      ],
+    );
+  }
+
   Future<bool> _checkJobAuth() async {
     final role = await RoleManager.getLocalRole();
-
-    // Define which roles can apply for jobs
     final allowedRoles = ["jobseeker", "buyer", "user", "applicant"];
+
     if (allowedRoles.contains(role)) {
       return true;
     }
 
-    // User is not authenticated for jobs - show auth dialog
     await _showJobAuthRequiredDialog(role);
     return false;
   }
 
-  // ✅ SHOW JOB AUTHENTICATION REQUIRED DIALOG
   Future<void> _showJobAuthRequiredDialog(String? currentRole) async {
     String title = "Account Required";
     String message = "You need to create an account or login to apply for jobs.";
@@ -249,7 +619,6 @@ class _JobsPageState extends State<JobsPage> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              // Navigate to registration page
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (_) => const BuyerRegisterPage()),
@@ -267,7 +636,6 @@ class _JobsPageState extends State<JobsPage> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              // Navigate to login page
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (_) => const BuyerLoginPage()),
@@ -293,16 +661,10 @@ class _JobsPageState extends State<JobsPage> {
     );
   }
 
-  // ✅ HANDLE JOB APPLICATION WITH AUTH CHECK
   Future<void> _handleJobApplication(Map<String, dynamic> job) async {
-    // Check if user is authenticated
     final isAuthenticated = await _checkJobAuth();
+    if (!isAuthenticated) return;
 
-    if (!isAuthenticated) {
-      return; // Auth dialog shown, stop here
-    }
-
-    // User is authenticated - proceed to job application
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -537,65 +899,95 @@ class _JobsPageState extends State<JobsPage> {
     );
   }
 
+  Widget _buildLoadingIndicator() {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 20),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(
+              color: primaryColor,
+              strokeWidth: 2,
+            ),
+            SizedBox(height: 10),
+            Text(
+              "Loading more jobs...",
+              style: GoogleFonts.inter(
+                color: textSecondary,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildEmptyState() {
+    final bool hasSearch = _searchController.text.isNotEmpty;
+    final bool hasFilters = selectedLocation.isNotEmpty || selectedJobType.isNotEmpty;
+
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.work_outline_rounded,
-            size: ResponsiveUtils.getPilotEmptyStateIconSize(context),
-            color: textSecondary.withOpacity(0.3),
-          ),
-          SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-          Text(
-            "No Jobs Found",
-            style: GoogleFonts.inter(
-              color: textPrimary,
-              fontWeight: FontWeight.w700,
-              fontSize: ResponsiveUtils.getTitleFontSize(context),
-            ),
-          ),
-          SizedBox(height: ResponsiveUtils.getCardMargin(context)),
-          Text(
-            searchQuery.isNotEmpty
-                ? "No jobs match your search"
-                : "Check back later for new opportunities",
-            style: GoogleFonts.inter(
-              color: textSecondary,
-              fontSize: ResponsiveUtils.getBodyFontSize(context),
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-          SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-          if (searchQuery.isNotEmpty)
-            ElevatedButton(
-              onPressed: () {
-                _clearSearch();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(
-                  horizontal: ResponsiveUtils.getHorizontalPadding(context) * 1.5,
-                  vertical: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.04),
+      child: SingleChildScrollView(
+        child: Container(
+          width: ResponsiveUtils.getSafeContainerWidth(context, percentage: 0.8),
+          padding: EdgeInsets.all(ResponsiveUtils.getHorizontalPadding(context)),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.work_outline_rounded,
+                size: 60,
+                color: textSecondary.withOpacity(0.3),
+              ),
+              SizedBox(height: 20),
+              Text(
+                hasSearch || hasFilters
+                    ? "No Matching Jobs Found"
+                    : "No Jobs Available",
+                style: GoogleFonts.inter(
+                  fontSize: ResponsiveUtils.getTitleFontSize(context),
+                  fontWeight: FontWeight.w600,
+                  color: textPrimary,
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(
-                    ResponsiveUtils.getDynamicPadding(context, 0.03),
+              ),
+              SizedBox(height: 10),
+              Text(
+                hasSearch || hasFilters
+                    ? "Try adjusting your search or filters"
+                    : "Check back later for new opportunities",
+                style: GoogleFonts.inter(
+                  fontSize: ResponsiveUtils.getBodyFontSize(context),
+                  color: textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 20),
+              if (hasSearch || hasFilters)
+                ElevatedButton(
+                  onPressed: _resetFilters,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 30,
+                      vertical: 15,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Text(
+                    "Clear All Filters",
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-                elevation: ResponsiveUtils.getElevation(context),
-              ),
-              child: Text(
-                "Clear Search",
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w600,
-                  fontSize: ResponsiveUtils.getBodyFontSize(context),
-                ),
-              ),
-            ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -607,55 +999,46 @@ class _JobsPageState extends State<JobsPage> {
         children: [
           Icon(
             Icons.error_outline_rounded,
-            size: ResponsiveUtils.getPilotEmptyStateIconSize(context),
+            size: 60,
             color: Colors.red.shade300,
           ),
-          SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
+          SizedBox(height: 20),
           Text(
             "Error Loading Jobs",
             style: GoogleFonts.inter(
               fontSize: ResponsiveUtils.getTitleFontSize(context),
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: textPrimary,
             ),
           ),
-          SizedBox(height: ResponsiveUtils.getCardMargin(context)),
+          SizedBox(height: 10),
           Text(
             "Please check your connection and try again",
             style: GoogleFonts.inter(
               color: textSecondary,
               fontSize: ResponsiveUtils.getBodyFontSize(context),
-              fontWeight: FontWeight.w400,
             ),
+            textAlign: TextAlign.center,
           ),
-          SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-          ElevatedButton.icon(
-            onPressed: fetchJobs,
-            icon: Icon(
-              Icons.refresh_rounded,
-              color: Colors.white,
-              size: ResponsiveUtils.getIconSize(context),
+          SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: refreshJobs,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              padding: EdgeInsets.symmetric(
+                horizontal: 30,
+                vertical: 15,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-            label: Text(
+            child: Text(
               "Try Again",
               style: GoogleFonts.inter(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
-                fontSize: ResponsiveUtils.getBodyFontSize(context),
               ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              padding: EdgeInsets.symmetric(
-                horizontal: ResponsiveUtils.getHorizontalPadding(context) * 1.2,
-                vertical: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.04),
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(
-                  ResponsiveUtils.getDynamicPadding(context, 0.03),
-                ),
-              ),
-              elevation: ResponsiveUtils.getElevation(context),
             ),
           ),
         ],
@@ -669,16 +1052,105 @@ class _JobsPageState extends State<JobsPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+            color: primaryColor,
             strokeWidth: 2.5,
           ),
-          SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
+          SizedBox(height: 20),
           Text(
             "Loading Jobs...",
             style: GoogleFonts.inter(
               fontSize: ResponsiveUtils.getBodyFontSize(context),
               color: textSecondary,
               fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      height: ResponsiveUtils.getSearchBarHeight(context),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(
+          ResponsiveUtils.getDynamicPadding(context, 0.025),
+        ),
+        border: Border.all(
+          color: borderColor,
+          width: ResponsiveUtils.getBorderWidth(context) * 6,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Search Icon
+          Padding(
+            padding: EdgeInsets.only(
+              left: ResponsiveUtils.getDynamicPadding(context, 0.03),
+            ),
+            child: Icon(
+              Icons.search_rounded,
+              color: textSecondary,
+              size: ResponsiveUtils.getIconSize(context) * 0.8,
+            ),
+          ),
+
+          // Search Field
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: ResponsiveUtils.getDynamicPadding(context, 0.02),
+              ),
+              child: TextField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                style: GoogleFonts.inter(
+                  fontSize: ResponsiveUtils.getBodyFontSize(context),
+                  color: textPrimary,
+                  fontWeight: FontWeight.w500,
+                ),
+                decoration: InputDecoration(
+                  hintText: "Search by job title, company, or location...",
+                  hintStyle: GoogleFonts.inter(
+                    color: textSecondary,
+                    fontSize: ResponsiveUtils.getBodyFontSize(context),
+                    fontWeight: FontWeight.w400,
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                  isDense: true,
+                ),
+              ),
+            ),
+          ),
+
+          // Filter Button
+          Container(
+            width: ResponsiveUtils.getSearchBarHeight(context) * 0.8,
+            height: ResponsiveUtils.getSearchBarHeight(context) * 0.8,
+            margin: EdgeInsets.only(right: ResponsiveUtils.getDynamicPadding(context, 0.02)),
+            decoration: BoxDecoration(
+              color: primaryColor,
+              borderRadius: BorderRadius.circular(
+                ResponsiveUtils.getDynamicPadding(context, 0.02),
+              ),
+            ),
+            child: IconButton(
+              onPressed: _openFilterSheet,
+              icon: Icon(
+                Icons.tune_rounded,
+                color: Colors.white,
+                size: ResponsiveUtils.getIconSize(context) * 0.6,
+              ),
+              padding: EdgeInsets.zero,
             ),
           ),
         ],
@@ -695,26 +1167,62 @@ class _JobsPageState extends State<JobsPage> {
           children: [
             // Header Section
             _buildHeaderSection(),
-            // Jobs List
+
+            // Results Count (only show when we have results)
+            if (!isInitialLoading && filteredList.isNotEmpty)
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: ResponsiveUtils.getHorizontalPadding(context),
+                  vertical: ResponsiveUtils.getVerticalPadding(context) * 0.5,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "$totalCount jobs found",
+                      style: GoogleFonts.inter(
+                        fontSize: ResponsiveUtils.getSmallFontSize(context),
+                        color: textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    if (isSearching)
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: primaryColor,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+            // Jobs List or Empty State
             Expanded(
-              child: isLoading
+              child: isInitialLoading
                   ? _buildLoadingState()
-                  : isError
-                  ? _buildErrorState()
-                  : filteredList.isEmpty
-                  ? _buildEmptyState()
                   : RefreshIndicator(
-                onRefresh: fetchJobs,
+                onRefresh: refreshJobs,
                 backgroundColor: surfaceColor,
                 color: primaryColor,
-                child: ListView.builder(
+                child: filteredList.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.builder(
+                  controller: _scrollController,
                   physics: const BouncingScrollPhysics(),
                   padding: EdgeInsets.only(
-                    top: ResponsiveUtils.getVerticalPadding(context),
+                    top: ResponsiveUtils.getVerticalPadding(context) * 0.5,
                     bottom: ResponsiveUtils.getVerticalPadding(context) * 2,
                   ),
-                  itemCount: filteredList.length,
-                  itemBuilder: (context, index) => _buildJobCard(filteredList[index]),
+                  itemCount: filteredList.length + (hasMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == filteredList.length) {
+                      return isLoadingMore ? _buildLoadingIndicator() : const SizedBox();
+                    }
+                    return _buildJobCard(filteredList[index]);
+                  },
                 ),
               ),
             ),
@@ -771,16 +1279,6 @@ class _JobsPageState extends State<JobsPage> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.003)),
-                        Text(
-                          "${filteredList.length} jobs available",
-                          style: GoogleFonts.inter(
-                            color: textSecondary,
-                            fontSize: ResponsiveUtils.getSmallFontSize(context),
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
                       ],
                     ),
                   ),
@@ -793,85 +1291,6 @@ class _JobsPageState extends State<JobsPage> {
 
           // Search Bar
           _buildSearchBar(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSearchBar() {
-    return Container(
-      height: ResponsiveUtils.getSearchBarHeight(context),
-      decoration: BoxDecoration(
-        color: surfaceColor,
-        borderRadius: BorderRadius.circular(
-          ResponsiveUtils.getDynamicPadding(context, 0.025),
-        ),
-        border: Border.all(
-          color: borderColor,
-          width: ResponsiveUtils.getBorderWidth(context) * 6,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Search Icon
-          Padding(
-            padding: EdgeInsets.only(
-              left: ResponsiveUtils.getDynamicPadding(context, 0.03),
-            ),
-            child: Icon(
-              Icons.search_rounded,
-              color: textSecondary,
-              size: ResponsiveUtils.getIconSize(context) * 0.8,
-            ),
-          ),
-
-          // Search Field
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: ResponsiveUtils.getDynamicPadding(context, 0.02),
-              ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: _searchJobs,
-                style: GoogleFonts.inter(
-                  fontSize: ResponsiveUtils.getBodyFontSize(context),
-                  color: textPrimary,
-                  fontWeight: FontWeight.w500,
-                ),
-                decoration: InputDecoration(
-                  hintText: "Search by job title, company, or location...",
-                  hintStyle: GoogleFonts.inter(
-                    color: textSecondary,
-                    fontSize: ResponsiveUtils.getBodyFontSize(context),
-                    fontWeight: FontWeight.w400,
-                  ),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                  isDense: true,
-                ),
-              ),
-            ),
-          ),
-
-          // Clear Search Button
-          if (_searchController.text.isNotEmpty)
-            IconButton(
-              onPressed: _clearSearch,
-              icon: Icon(
-                Icons.clear_rounded,
-                color: textSecondary,
-                size: ResponsiveUtils.getIconSize(context) * 0.7,
-              ),
-              padding: EdgeInsets.zero,
-            ),
         ],
       ),
     );

@@ -1,24 +1,19 @@
 class EnvConfig {
-  static String baseUrl = 'http://192.168.1.178:5001/graphql';
-
+  static const String baseUrl =
+      // 'https://flyhub-webadmin-4.onrender.com/graphql';
+      'http://192.168.0.103:5001/graphql';
 }
-
-
+// 192.168.1.178
 class EnvConfig1 {
-
-static String hostUrl = 'http://192.168.1.178:5001';
+  static const String hostUrl =
+      // 'https://flyhub-webadmin-4.onrender.com';
+      'http://192.168.0.103:5001';
 }
 
 class Mail_User {
-  static String EMAIL_USER = 'preethis19102004@gmail.com';
+  static String EMAIL_USER = 'flyhubapp@gmail.com';
 }
 
 class Mail_Pass {
-  static String EMAIL_PASS = 'jcqm eubr vcdx nlvl';
+  static String EMAIL_PASS = 'uogp dzgm wlct sxvg';
 }
-
-// const String username = 'preethis19102004@gmail.com'; // your email
-// const String appPassword = 'jcqm eubr vcdx nlvl'; // 🔒 app password
-
-// EMAIL_USER=flyhubapp@gmail.com
-// EMAIL_PASS=coxtzywtjsezwsln

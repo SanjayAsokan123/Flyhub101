@@ -225,27 +225,42 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
 
 
   Map<String, dynamic> _normalizeItem(dynamic raw, String category) {
-    final Map m = (raw is Map) ? Map<String, dynamic>.from(raw) : {'raw': raw};
-    dynamic id = m['droneId'] ?? m['partId'] ?? m['accessoryId'] ?? m['id'] ?? m['uin'] ?? m['name'];
+    final Map<String, dynamic> m =
+    (raw is Map) ? Map<String, dynamic>.from(raw) : {'raw': raw};
 
+    final dynamic id =
+        m['droneId'] ?? m['partId'] ?? m['accessoryId'] ?? m['id'] ?? m['uin'];
+
+    // ---------- PRICE ----------
     double price = 0.0;
     final rawPrice = m['price'] ?? m['cost'] ?? 0;
-    if (rawPrice is int) price = rawPrice.toDouble();
-    else if (rawPrice is double) price = rawPrice;
-    else try { price = double.parse(rawPrice?.toString() ?? '0'); } catch (_) {}
+    if (rawPrice is int) {
+      price = rawPrice.toDouble();
+    } else if (rawPrice is double) {
+      price = rawPrice;
+    } else {
+      price = double.tryParse(rawPrice.toString()) ?? 0.0;
+    }
+
+    // ---------- QUANTITY (IMPORTANT) ----------
+    final int quantity =
+        int.tryParse(m['quantity']?.toString() ?? '0') ?? 0;
 
     return {
-      'id': id?.toString() ?? '${category}${DateTime.now().millisecondsSinceEpoch}',
+      'id': id?.toString(),
       'raw': m,
       'category': category,
       'name': m['name'] ?? 'Unknown Product',
       'brand': m['brand'] ?? '',
       'price': price,
       'image': m['image'] ?? m['imageUrl'] ?? '',
-      'description': m['description'] ?? m['desc'] ?? '',
+      'description': m['description'] ?? '',
       'status': m['status'] ?? '',
+      'quantity': quantity,
+      'isAvailable': quantity > 0,
     };
   }
+
 
   void _applyFilters() {
     filteredDrones = _filterList(drones);
@@ -719,16 +734,21 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
   Widget _buildProductItem(dynamic item) {
     final provider = context.watch<CartWishlistProvider>();
     final isFav = provider.wishlistIds.contains(item['id']?.toString());
+
     final crossCount = ResponsiveUtils.getMarketGridCrossAxisCount(context);
     final gridPadding = ResponsiveUtils.getMarketGridPadding(context);
     final gridSpacing = ResponsiveUtils.getMarketGridSpacing(context);
     final screenWidth = MediaQuery.of(context).size.width;
-    final availableWidth = screenWidth - (2 * gridPadding) - ((crossCount - 1) * gridSpacing);
+    final availableWidth =
+        screenWidth - (2 * gridPadding) - ((crossCount - 1) * gridSpacing);
     final itemWidth = availableWidth / crossCount;
     final imageHeight = itemWidth * 0.7;
 
+    final bool isAvailable = item['isAvailable'] == true;
+
     return GestureDetector(
-      onTap: () => Navigator.push(
+      onTap: isAvailable
+          ? () => Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => DroneDetailPage(
@@ -737,7 +757,8 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
             Drone: item,
           ),
         ),
-      ),
+      )
+          : null,
       child: Container(
         decoration: BoxDecoration(
           color: kSurfaceColor,
@@ -752,15 +773,16 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
         ),
         child: Stack(
           children: [
+            /// ---------------- PRODUCT CONTENT ----------------
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
                   width: double.infinity,
                   height: imageHeight,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: kLightBackground,
-                    borderRadius: const BorderRadius.only(
+                    borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(12),
                       topRight: Radius.circular(12),
                     ),
@@ -773,7 +795,7 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
                     child: CachedNetworkImage(
                       imageUrl: (item['image'] ?? '').toString(),
                       fit: BoxFit.cover,
-                      placeholder: (ctx, url) => Container(
+                      placeholder: (_, __) => Container(
                         color: kShimmerColor,
                         child: Center(
                           child: CircularProgressIndicator(
@@ -782,7 +804,7 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
                           ),
                         ),
                       ),
-                      errorWidget: (ctx, url, err) => Container(
+                      errorWidget: (_, __, ___) => Container(
                         color: kShimmerColor,
                         child: Icon(
                           Icons.photo_camera_back,
@@ -795,7 +817,8 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
                 ),
                 Expanded(
                   child: Padding(
-                    padding: EdgeInsets.all(ResponsiveUtils.getCardMargin(context)),
+                    padding:
+                    EdgeInsets.all(ResponsiveUtils.getCardMargin(context)),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -803,35 +826,40 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
                           item['brand'] ?? '',
                           style: GoogleFonts.inter(
                             color: kSecondaryColor,
-                            fontSize: ResponsiveUtils.getSmallFontSize(context),
+                            fontSize:
+                            ResponsiveUtils.getSmallFontSize(context),
                             fontWeight: FontWeight.w600,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        SizedBox(height: ResponsiveUtils.getCardMargin(context) / 4),
+                        SizedBox(
+                            height:
+                            ResponsiveUtils.getCardMargin(context) / 4),
                         Expanded(
                           child: Text(
                             item['name'] ?? '',
                             style: GoogleFonts.inter(
                               fontWeight: FontWeight.w600,
-                              fontSize: ResponsiveUtils.getBodyFontSize(context),
+                              fontSize:
+                              ResponsiveUtils.getBodyFontSize(context),
                               color: kTextPrimary,
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        SizedBox(height: ResponsiveUtils.getCardMargin(context) / 2),
+                        SizedBox(
+                            height:
+                            ResponsiveUtils.getCardMargin(context) / 2),
                         Text(
                           "₹${(item['price'] ?? 0.0).toStringAsFixed(2).replaceAll(RegExp(r'([.]0)(?!.\d)'), '')}",
                           style: GoogleFonts.inter(
                             fontWeight: FontWeight.w800,
-                            fontSize: ResponsiveUtils.getBodyFontSize(context) + 2,
+                            fontSize:
+                            ResponsiveUtils.getBodyFontSize(context) + 2,
                             color: kPrimaryColor,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
@@ -839,11 +867,18 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
                 ),
               ],
             ),
+
+            /// ---------------- WISHLIST ICON ----------------
             Positioned(
               top: ResponsiveUtils.getCardMargin(context),
               right: ResponsiveUtils.getCardMargin(context),
               child: GestureDetector(
-                onTap: () async => await _toggleWishlist(item),
+                onTap: isAvailable
+                    ? () async => await _toggleWishlist(item)
+                    : () {
+                  Utils.bottomToast(
+                      context, "Item is out of stock");
+                },
                 child: Container(
                   width: ResponsiveUtils.getButtonHeight(context) - 24,
                   height: ResponsiveUtils.getButtonHeight(context) - 24,
@@ -860,12 +895,44 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
                   ),
                   child: Icon(
                     isFav ? Icons.favorite : Icons.favorite_border,
-                    color: isFav ? Colors.red.shade500 : kTextSecondary,
-                    size: ResponsiveUtils.getIconSize(context) - 2,
+                    color:
+                    isFav ? Colors.red.shade500 : kTextSecondary,
+                    size:
+                    ResponsiveUtils.getIconSize(context) - 2,
                   ),
                 ),
               ),
             ),
+
+            /// ---------------- OUT OF STOCK OVERLAY ----------------
+            if (!isAvailable)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.55),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.block,
+                            color: Colors.white, size: 32),
+                        const SizedBox(height: 8),
+                        Text(
+                          "OUT OF STOCK",
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

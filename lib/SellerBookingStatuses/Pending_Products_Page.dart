@@ -27,13 +27,15 @@ class _PendingProductsPageState extends State<PendingProductsPage>
   List<dynamic> pendingAccessories = [];
   List<dynamic> pendingServices = [];
   List<dynamic> pendingJobs = [];
+  List<dynamic> pendingPilots = [];
+
 
   late GraphQLClient client;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
 
     final HttpLink link = HttpLink(backendUrl);
     client = GraphQLClient(
@@ -55,6 +57,18 @@ class _PendingProductsPageState extends State<PendingProductsPage>
         pendingAccessories(sellerId: $sellerId) { accessoryId name price status }
         pendingServices(sellerId: $sellerId) { serviceId name price status }
         pendingJobs(sellerId: $sellerId) { jobId jobName salary status }
+       hirePilotsPending(sellerId: $sellerId) {
+  pilotId
+  pilotName
+  location
+  price {
+    perHour
+    perDay
+  }
+  adminStatus
+  sellerId
+}
+
       }
     ''';
 
@@ -82,6 +96,8 @@ class _PendingProductsPageState extends State<PendingProductsPage>
           pendingAccessories = result.data?['pendingAccessories'] ?? [];
           pendingServices = result.data?['pendingServices'] ?? [];
           pendingJobs = result.data?['pendingJobs'] ?? [];
+          pendingPilots = result.data?['hirePilotsPending'] ?? [];
+
         });
       }
     } catch (e) {
@@ -113,15 +129,23 @@ class _PendingProductsPageState extends State<PendingProductsPage>
       itemBuilder: (context, index) {
         final item = items[index];
 
-        String title =
-        type == "jobs" ? (item['jobName'] ?? "") : (item['name'] ?? "");
+        String title;
+        String subtitle;
 
-        String subtitle = type == "jobs"
-            ? "Salary: ₹${item['salary']} · Status: ${item['status']}"
-            : type == "rentals"
-            ? "Price/hr: ₹${item['pricePerHour']} · Status: ${item['status']}"
-            : "Price: ₹${item['price']} · Status: ${item['status']}";
-
+        if (type == "jobs") {
+          title = item['jobName'] ?? "";
+          subtitle = "Salary: ₹${item['salary']} · Status: ${item['status']}";
+        } else if (type == "rentals") {
+          title = item['name'] ?? "";
+          subtitle = "Price/hr: ₹${item['pricePerHour']} · Status: ${item['status']}";
+        } else if (type == "pilots") {
+          title = item['pilotName'] ?? "";
+          subtitle =
+          "₹${item['price']?['perHour']}/hr · ${item['location']} · Status: ${item['adminStatus']}";
+        } else {
+          title = item['name'] ?? "";
+          subtitle = "Price: ₹${item['price']} · Status: ${item['status']}";
+        }
         return Card(
           color: Colors.white,
           elevation: 0,
@@ -185,6 +209,7 @@ class _PendingProductsPageState extends State<PendingProductsPage>
             Tab(text: "Accessories"),
             Tab(text: "Services"),
             Tab(text: "Jobs"),
+            Tab(text: "Pilots"),
           ],
         ),
       ),
@@ -197,6 +222,7 @@ class _PendingProductsPageState extends State<PendingProductsPage>
           buildList(pendingAccessories, "accessories"),
           buildList(pendingServices, "services"),
           buildList(pendingJobs, "jobs"),
+          buildList(pendingPilots, "pilots"),
         ],
       ),
     );

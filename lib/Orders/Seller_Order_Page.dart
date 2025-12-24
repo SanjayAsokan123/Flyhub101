@@ -122,7 +122,9 @@ class _SellerOrdersPageState extends State<SellerOrdersPage>
 
   List<SellerOrder> _cancelledTab() => orders.where((o) =>
   o.itemStatus == "rejected" ||
+      o.itemStatus == "cancelled" ||
       o.orderStatus == "cancelled").toList();
+
 
   /// ================= ACTIONS =================
 
@@ -205,6 +207,9 @@ class _SellerOrdersPageState extends State<SellerOrdersPage>
   /// ================= ORDER CARD =================
 
   Widget _orderCard(SellerOrder order) {
+    if (order.items.isEmpty) {
+      return const SizedBox();
+    }
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: ListTile(
@@ -313,6 +318,9 @@ class _SellerOrdersPageState extends State<SellerOrdersPage>
   /// ================= HELPERS =================
 
   Widget _groupedItems(List<SellerItem> items) {
+    if (items.isEmpty) {
+      return const Text("No items for this seller");
+    }
     final Map<String, List<SellerItem>> grouped = {};
     for (final item in items) {
       grouped.putIfAbsent(item.type, () => []).add(item);
@@ -353,14 +361,18 @@ class _SellerOrdersPageState extends State<SellerOrdersPage>
       "shipped": Colors.indigo,
       "delivered": Colors.green,
       "rejected": Colors.red,
+      "cancelled": Colors.redAccent,
     };
+
+    final color = colors[status] ?? Colors.grey;
 
     return Chip(
       label: Text(status.toUpperCase()),
-      backgroundColor: colors[status]!.withOpacity(0.15),
-      labelStyle: TextStyle(color: colors[status]),
+      backgroundColor: color.withOpacity(0.15),
+      labelStyle: TextStyle(color: color),
     );
   }
+
 
   void _askTracking(SellerOrder order) {
     final ctrl = TextEditingController();
@@ -433,23 +445,34 @@ class SellerOrder {
   factory SellerOrder.fromJson(
       Map<String, dynamic> json, String sellerId) {
 
-    final sellerItems = (json["items"] as List)
+    final allItems = (json["items"] as List? ?? []);
+
+    final sellerItems = allItems
         .where((i) => i["sellerId"] == sellerId)
         .map((i) => SellerItem.fromJson(i))
         .toList();
 
+    // ✅ SAFE FALLBACK STATUS
+    final derivedStatus = sellerItems.isNotEmpty
+        ? sellerItems.first.status
+        : (json["status"] ?? "cancelled");
+
+    final buyer = json["buyer"] ?? {};
+
     return SellerOrder(
-      orderId: json["orderId"],
-      buyerName: json["buyer"]["name"],
-      phone: json["buyer"]["phone"],
-      buyerEmail: json["buyer"]["email"] ?? "",
-      buyerAddress: json["buyer"]["address"] ?? "",
+      orderId: json["orderId"] ?? "",
+      buyerName: buyer["name"] ?? "Customer",
+      phone: buyer["phone"] ?? "",
+      buyerEmail: buyer["email"] ?? "",
+      buyerAddress: buyer["address"] ?? "",
       items: sellerItems,
-      orderStatus: json["status"],
-      itemStatus: sellerItems.first.status,
-      sellerPackingSlips: json["sellerPackingSlips"], // 👈 ADD
+      orderStatus: json["status"] ?? "",
+      itemStatus: derivedStatus,
+      sellerPackingSlips:
+      (json["sellerPackingSlips"] as Map?)?.cast<String, dynamic>(),
     );
   }
+
 }
 
 class SellerItem {

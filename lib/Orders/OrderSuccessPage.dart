@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:audioplayers/audioplayers.dart';
 
+import '../HomeScreen/Dynamichome.dart';
+
 class OrderSuccessPage extends StatefulWidget {
   const OrderSuccessPage({
     super.key,
@@ -68,11 +70,18 @@ class _OrderSuccessPageState extends State<OrderSuccessPage> {
       }
     });
 
-    // Auto-close after 5 seconds
     _timer = Timer(const Duration(seconds: 5), () {
       if (!mounted) return;
-      Navigator.pop(context);
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const Dynamichome(selectedIndex: 0),
+        ),
+            (route) => false,
+      );
     });
+
   }
 
   Future<void> _playSuccessSound() async {

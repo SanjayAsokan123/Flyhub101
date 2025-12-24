@@ -24,13 +24,14 @@ class _RejectedProductsPageState extends State<RejectedProductsPage>
   List<dynamic> rejectedAccessories = [];
   List<dynamic> rejectedServices = [];
   List<dynamic> rejectedJobs = [];
+  List<dynamic> rejectedPilots = [];
 
   late GraphQLClient client;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
 
     final HttpLink link = HttpLink(backendUrl);
     client = GraphQLClient(
@@ -52,21 +53,33 @@ class _RejectedProductsPageState extends State<RejectedProductsPage>
         rejectedAccessories(sellerId: $sellerId) { accessoryId name price status }
         rejectedServices(sellerId: $sellerId) { serviceId name price status }
         rejectedJobs(sellerId: $sellerId) { jobId jobName salary status }
+        hirePilotsRejected(sellerId: $sellerId) {
+          pilotId
+          pilotName
+          location
+          price { perHour perDay }
+          adminStatus
+          sellerId
+        }
       }
     ''';
 
     try {
-      final result = await client.query(QueryOptions(
-        document: gql(query),
-        variables: {"sellerId": widget.sellerCustomId},
-        fetchPolicy: FetchPolicy.networkOnly,
-      ));
+      final result = await client.query(
+        QueryOptions(
+          document: gql(query),
+          variables: {"sellerId": widget.sellerCustomId},
+          fetchPolicy: FetchPolicy.networkOnly,
+        ),
+      );
 
       if (result.hasException) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text("❌ ${result.exception.toString()}"),
-          backgroundColor: Colors.redAccent,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("❌ ${result.exception.toString()}"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
       } else {
         setState(() {
           rejectedDrones = result.data?['rejectedDrones'] ?? [];
@@ -75,59 +88,23 @@ class _RejectedProductsPageState extends State<RejectedProductsPage>
           rejectedAccessories = result.data?['rejectedAccessories'] ?? [];
           rejectedServices = result.data?['rejectedServices'] ?? [];
           rejectedJobs = result.data?['rejectedJobs'] ?? [];
+          rejectedPilots = result.data?['hirePilotsRejected'] ?? [];
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text("❌ Error fetching products: $e"),
-        backgroundColor: Colors.redAccent,
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("❌ Error fetching products: $e"),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
     }
 
     setState(() => loading = false);
   }
 
-  // -------------------------
-  //   CARD DESIGN SAME AS SoldProductsPage WITHOUT ARROW
-  // -------------------------
-  Widget buildCardUI({
-    required String title,
-    required String subtitle,
-  }) {
-    return Card(
-      color: Colors.white,
-      elevation: 0,
-      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFFE5E7EB), width: 1),
-      ),
-      child: ListTile(
-        leading: Icon(Icons.cancel, color: themeColor, size: 28),
-        title: Text(
-          title,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(fontSize: 14),
-        ),
-        // Removed trailing arrow
-      ),
-    );
-  }
-
-  // -------------------------
-  //   LIST BUILDER
-  // -------------------------
   Widget buildList(List<dynamic> items, String type) {
-    if (loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
+    if (loading) return const Center(child: CircularProgressIndicator());
     if (items.isEmpty) {
       return Center(
         child: Text(
@@ -143,19 +120,47 @@ class _RejectedProductsPageState extends State<RejectedProductsPage>
       itemBuilder: (context, index) {
         final item = items[index];
 
-        String title = type == "jobs"
-            ? (item["jobName"] ?? "")
-            : (item["name"] ?? "");
+        String title;
+        String subtitle;
 
-        String subtitle = type == "jobs"
-            ? "Salary: ₹${item['salary']}  •  Status: ${item['status']}"
-            : type == "rentals"
-            ? "Price/hr: ₹${item['pricePerHour']}  •  Status: ${item['status']}"
-            : "Price: ₹${item['price']}  •  Status: ${item['status']}";
+        if (type == "jobs") {
+          title = item["jobName"] ?? "";
+          subtitle = "Salary: ₹${item['salary']}  •  Status: ${item['status']}";
+        } else if (type == "rentals") {
+          title = item["name"] ?? "";
+          subtitle =
+          "Price/hr: ₹${item['pricePerHour']}  •  Status: ${item['status']}";
+        } else if (type == "pilots") {
+          title = item["pilotName"] ?? "";
+          subtitle =
+          "₹${item['price']?['perHour']}/hr  •  ${item['location']}  •  Status: ${item['adminStatus']}";
+        } else {
+          title = item["name"] ?? "";
+          subtitle = "Price: ₹${item['price']}  •  Status: ${item['status']}";
+        }
 
-        return buildCardUI(
-          title: title,
-          subtitle: subtitle,
+        return Card(
+          color: Colors.white,
+          elevation: 0,
+          margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Color(0xFFE5E7EB), width: 1),
+          ),
+          child: ListTile(
+            leading: Icon(Icons.cancel, color: themeColor, size: 28),
+            title: Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
+            ),
+            subtitle: Text(
+              subtitle,
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
         );
       },
     );
@@ -194,6 +199,7 @@ class _RejectedProductsPageState extends State<RejectedProductsPage>
             Tab(text: "Accessories"),
             Tab(text: "Services"),
             Tab(text: "Jobs"),
+            Tab(text: "Pilots"),
           ],
         ),
       ),
@@ -206,6 +212,7 @@ class _RejectedProductsPageState extends State<RejectedProductsPage>
           buildList(rejectedAccessories, "accessories"),
           buildList(rejectedServices, "services"),
           buildList(rejectedJobs, "jobs"),
+          buildList(rejectedPilots, "pilots"),
         ],
       ),
     );

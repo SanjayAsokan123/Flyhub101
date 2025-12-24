@@ -31,9 +31,6 @@ import '../../ApplyingBookingNow/ServiceBookNow.dart';
 import '../../ApplyingBookingNow/JobApplyNow.dart';
 import 'PilotPage.dart';
 import 'RentalsPage.dart';
-import '../../Search/GlobalSearchPage.dart';
-import '../../Search/Search_models.dart';
-import '../../Search/Search_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -57,14 +54,15 @@ class _HomeScreenState extends State<HomeScreen> {
   // Controllers
   final ApiClass _apiClass = ApiClass();
   final ScrollController _scrollController = ScrollController();
-  // REMOVE: final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   late PageController _pageController;
 
   // State variables
   int _currentBanner = 0;
   Timer? _autoScrollTimer;
-  Timer? _popupTimer;
+  Timer? _popupTimer; // Timer for the welcome popup
   bool _showElevation = false;
+  String _searchQuery = '';
   bool _isCategoryExpanded = false;
   bool _showWelcomePopup = false;
 
@@ -115,7 +113,14 @@ class _HomeScreenState extends State<HomeScreen> {
     {"title": "Regulatory", "icon": "assets/categories/regulatory.svg"},
   ];
 
+
+
   List<Map<String, dynamic>> _promoBanners = [];
+
+
+  // Cache for expensive operations
+  List<dynamic>? _cachedSearchResults;
+  String _lastSearchQuery = '';
 
   @override
   void initState() {
@@ -123,6 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _pageController = PageController(viewportFraction: 0.92);
     _initialize();
   }
+
 
   Map<String, dynamic> normalizeHomeItem(dynamic raw, String category) {
     final Map<String, dynamic> m = Map<String, dynamic>.from(raw);
@@ -151,27 +157,32 @@ class _HomeScreenState extends State<HomeScreen> {
     };
   }
 
+
   Future<void> _initialize() async {
     _scrollController.addListener(_onScroll);
-    // REMOVE: _searchController.addListener(_onSearchChanged);
+    _searchController.addListener(_onSearchChanged);
 
     await _initializeUser();
     await _loadInitialData();
     _startAutoScroll();
 
+    // Schedule the welcome popup after 10 seconds
     _scheduleWelcomePopup();
   }
 
   void _scheduleWelcomePopup() async {
+    // Check if popup has been shown before
     final prefs = await SharedPreferences.getInstance();
     final hasShownWelcome = prefs.getBool('hasShownWelcomePopup') ?? false;
 
+    // Only schedule if not shown before
     if (!hasShownWelcome) {
       _popupTimer = Timer(const Duration(seconds: 5), () {
         if (mounted) {
           setState(() {
             _showWelcomePopup = true;
           });
+          // Mark as shown
           prefs.setBool('hasShownWelcomePopup', true);
         }
       });
@@ -195,6 +206,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final show = _scrollController.offset > 10;
     if (show != _showElevation) {
       setState(() => _showElevation = show);
+    }
+  }
+
+  void _onSearchChanged() {
+    final query = _searchController.text;
+    if (query != _searchQuery) {
+      setState(() => _searchQuery = query);
+      _cachedSearchResults = null;
     }
   }
 
@@ -314,7 +333,8 @@ class _HomeScreenState extends State<HomeScreen> {
     await _loadSection(
       'accessories',
           () async {
-        final res = await _apiClass.getAccessoriesPaginated(page: 1, limit: 10);
+        final res =
+        await _apiClass.getAccessoriesPaginated(page: 1, limit: 10);
 
         final List items =
         res.data?["items"] is List ? res.data["items"] : [];
@@ -327,6 +347,7 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
+
 
   Future<void> _loadJobs() async {
     await _loadSection(
@@ -398,6 +419,37 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  List<dynamic> get _searchResults {
+    if (_searchQuery.isEmpty) return [];
+    if (_cachedSearchResults != null && _lastSearchQuery == _searchQuery) {
+      return _cachedSearchResults!;
+    }
+
+    _lastSearchQuery = _searchQuery;
+    final query = _searchQuery.toLowerCase().trim();
+    final results = <dynamic>[];
+
+    // Combine all searchable items
+    final allItems = [
+      ..._marketplaceData["Drones"]!,
+      ..._marketplaceData["Parts"]!,
+      ..._marketplaceData["Accessories"]!,
+      ..._marketplaceData["Services"]!,
+    ];
+
+    for (final item in allItems) {
+      final name = _getProductName(item).toLowerCase();
+      final description = (item["description"]?.toString().toLowerCase() ?? "");
+
+      if (name.contains(query) || description.contains(query)) {
+        results.add(item);
+      }
+    }
+
+    _cachedSearchResults = results;
+    return results;
+  }
+
   String _getProductName(dynamic item) {
     return item["name"]?.toString() ??
         item["title"]?.toString() ??
@@ -408,10 +460,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _scrollController.removeListener(_onScroll);
+    _searchController.removeListener(_onSearchChanged);
     _scrollController.dispose();
-    // REMOVE: _searchController.dispose();
+    _searchController.dispose();
     _autoScrollTimer?.cancel();
-    _popupTimer?.cancel();
+    _popupTimer?.cancel(); // Cancel the popup timer
     _pageController.dispose();
     super.dispose();
   }
@@ -514,7 +567,10 @@ class _HomeScreenState extends State<HomeScreen> {
         clipBehavior: Clip.none,
         children: [
           IconButton(
-            icon: Icon(icon, color: color),
+            icon: Icon(
+              icon,
+              color: color, // MAKE SURE THIS IS HERE
+            ),
             onPressed: onPressed,
           ),
           if (badge != null)
@@ -528,8 +584,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // UPDATED: Search Bar - Now opens GlobalSearchPage
-  // In HomeScreen.dart, replace _buildSearchBar() with:
   Widget _buildSearchBar() {
     final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
     final verticalPadding = ResponsiveUtils.getVerticalPadding(context);
@@ -537,69 +591,60 @@ class _HomeScreenState extends State<HomeScreen> {
     final iconSize = ResponsiveUtils.getIconSize(context);
     final bodyFontSize = ResponsiveUtils.getBodyFontSize(context);
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => GlobalSearchPage(
-              apiClass: _apiClass,
-              cartProvider: context.read<CartWishlistProvider>(),
-              marketplaceData: _marketplaceData,
-            ),
-          ),
-        );
-      },
+    return Container(
+      padding: EdgeInsets.fromLTRB(horizontalPadding, verticalPadding, horizontalPadding, verticalPadding),
+      decoration: BoxDecoration(
+        color: _kWhiteColor,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade100, width: 1)),
+      ),
       child: Container(
-        padding: EdgeInsets.fromLTRB(
-          horizontalPadding,
-          verticalPadding,
-          horizontalPadding,
-          verticalPadding,
-        ),
+        height: searchHeight,
         decoration: BoxDecoration(
-          color: _kWhiteColor,
-          border: Border(bottom: BorderSide(color: Colors.grey.shade100, width: 1)),
+          color: _kCardBackgroundColor,
+          borderRadius: BorderRadius.circular(ResponsiveUtils.getDynamicPadding(context, 0.025)),
+          border: Border.all(color: _kBorderColor, width: 1),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
         ),
-        child: Container(
-          height: searchHeight,
-          decoration: BoxDecoration(
-            color: _kCardBackgroundColor,
-            borderRadius: BorderRadius.circular(ResponsiveUtils.getDynamicPadding(context, 0.025)),
-            border: Border.all(color: _kBorderColor, width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Padding(
-                padding: EdgeInsets.only(left: ResponsiveUtils.getDynamicPadding(context, 0.03)),
-                child: Icon(
-                  Icons.search_rounded,
-                  color: _kLightTextColor,
-                  size: iconSize * 0.8,
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: ResponsiveUtils.getDynamicPadding(context, 0.02)),
-                  child: Text(
-                    "Search drones, parts, accessories, services...",
-                    style: GoogleFonts.inter(
+        child: Row(
+          children: [
+            Padding(
+              padding: EdgeInsets.only(left: ResponsiveUtils.getDynamicPadding(context, 0.03)),
+              child: Icon(Icons.search_rounded, color: _kLightTextColor, size: iconSize * 0.8),
+            ),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: ResponsiveUtils.getDynamicPadding(context, 0.02)),
+                child: TextField(
+                  controller: _searchController,
+                  style: GoogleFonts.inter(
+                    fontSize: bodyFontSize,
+                    color: _kDarkTextColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: "Search drones, parts, accessories, services...",
+                    hintStyle: GoogleFonts.inter(
                       color: _kLightTextColor,
                       fontSize: bodyFontSize,
                       fontWeight: FontWeight.w400,
                     ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    isDense: true,
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                      icon: Icon(Icons.clear, color: _kLightTextColor, size: iconSize * 0.8),
+                      onPressed: () {
+                        _searchController.clear();
+                        FocusScope.of(context).unfocus();
+                      },
+                    )
+                        : null,
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -977,7 +1022,166 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Original Product Card for horizontal scrolling
+  // FIXED: Search Product Card - Added proper constraints
+  Widget _buildSearchProductCard(dynamic item, String sectionKey) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
+    final cardMargin = ResponsiveUtils.getCardMargin(context);
+
+    // Calculate dynamic card width for grid
+    final gridCount = ResponsiveUtils.getProductGridCount(context);
+    final totalPadding = horizontalPadding * 2 + cardMargin * (gridCount - 1);
+    final cardWidth = (screenWidth - totalPadding) / gridCount;
+
+    final imageUrl = _getImageUrl(item);
+    final productName = _getProductName(item);
+    final imageHeight = cardWidth * ResponsiveUtils.getMarketGridAspectRatio(context);
+
+    return Container(
+      margin: EdgeInsets.all(cardMargin / 2),
+      decoration: BoxDecoration(
+        color: _kWhiteColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF1F5F9), width: 1),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 4))],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _handleProductTap(item, sectionKey),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSearchProductImage(imageUrl, imageHeight, item),
+              _buildSearchProductInfo(item, productName, cardMargin),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchProductImage(String imageUrl, double height, dynamic item) {
+    final cardMargin = ResponsiveUtils.getCardMargin(context);
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      child: Container(
+        height: height,
+        width: double.infinity,
+        color: const Color(0xFFF5F5F5),
+        child: Stack(
+          children: [
+            CachedNetworkImage(
+              imageUrl: imageUrl,
+              height: height,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              placeholder: (_, __) => Container(
+                height: height,
+                width: double.infinity,
+                color: const Color(0xFFF5F5F5),
+              ),
+              errorWidget: (_, __, ___) => Container(
+                height: height,
+                width: double.infinity,
+                color: const Color(0xFFF5F5F5),
+                child: Icon(Icons.photo,
+                    size: ResponsiveUtils.getIconSize(context) + 18,
+                    color: Colors.grey
+                ),
+              ),
+            ),
+            if (item["discount"] != null && item["discount"] > 0)
+              Positioned(
+                top: 8,
+                left: 8,
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: cardMargin / 2,
+                      vertical: cardMargin / 4
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                        colors: [_kErrorColor, Color(0xFFDC2626)]
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    "${item["discount"]}% OFF",
+                    style: GoogleFonts.inter(
+                      color: _kWhiteColor,
+                      fontSize: ResponsiveUtils.getSmallFontSize(context) - 1,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchProductInfo(dynamic item, String productName, double cardMargin) {
+    final bodyFontSize = ResponsiveUtils.getBodyFontSize(context);
+    final smallFontSize = ResponsiveUtils.getSmallFontSize(context);
+
+    return Padding(
+      padding: EdgeInsets.all(cardMargin),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            constraints: BoxConstraints(
+              minHeight: bodyFontSize * 1.3 * 2,
+              maxHeight: bodyFontSize * 1.3 * 2,
+            ),
+            child: Text(
+              productName,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                fontSize: bodyFontSize,
+                color: _kDarkTextColor,
+                height: 1.3,
+              ),
+            ),
+          ),
+          SizedBox(height: cardMargin / 2),
+          Row(
+            children: [
+              Text(
+                "₹${item["price"] ?? 0}",
+                style: GoogleFonts.inter(
+                  color: _kDarkTextColor,
+                  fontWeight: FontWeight.w800,
+                  fontSize: bodyFontSize + 2,
+                ),
+              ),
+              if (item["originalPrice"] != null && item["originalPrice"] > item["price"])
+                Padding(
+                  padding: EdgeInsets.only(left: cardMargin / 2),
+                  child: Text(
+                    "₹${item["originalPrice"]}",
+                    style: GoogleFonts.inter(
+                      color: _kLightTextColor,
+                      fontWeight: FontWeight.w500,
+                      fontSize: smallFontSize,
+                      decoration: TextDecoration.lineThrough,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Original Product Card for horizontal scrolling (unchanged)
   Widget _buildProductCard(dynamic item, String sectionKey) {
     final imageUrl = _getImageUrl(item);
     final productName = _getProductName(item);
@@ -1133,7 +1337,7 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (_) => DroneDetailPage(
             drone: normalized,
             Drone: normalized,
-            initialIsFavorite: false,
+            initialIsFavorite: item,
           ),
         ),
       );
@@ -1285,7 +1489,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 SizedBox(height: cardMargin / 2),
                 Text(
-                  jobTitle,
+                  "",
                   style: GoogleFonts.inter(
                     color: Colors.black.withOpacity(0.9),
                     fontSize: titleFontSize - 4,
@@ -1441,6 +1645,92 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // FIXED: Search Results with proper responsive grid
+  Widget _buildSearchResults() {
+    final results = _searchResults;
+    final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
+    final sectionSpacing = ResponsiveUtils.getSectionSpacing(context);
+    final titleFontSize = ResponsiveUtils.getTitleFontSize(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    if (results.isEmpty) {
+      return Container(
+        height: screenWidth * 0.6,
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.search_off,
+              size: ResponsiveUtils.getIconSize(context) * 2,
+              color: _kLightTextColor,
+            ),
+            SizedBox(height: sectionSpacing),
+            Text(
+              "No products found",
+              style: GoogleFonts.inter(
+                fontSize: titleFontSize - 2,
+                color: _kMediumTextColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: sectionSpacing / 2),
+            Text(
+              "Try different keywords",
+              style: GoogleFonts.inter(
+                fontSize: ResponsiveUtils.getBodyFontSize(context),
+                color: _kLightTextColor,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              sectionSpacing,
+              horizontalPadding,
+              sectionSpacing / 2
+          ),
+          child: Text(
+              "Search Results (${results.length})",
+              style: GoogleFonts.inter(
+                  fontSize: titleFontSize,
+                  fontWeight: FontWeight.w800,
+                  color: _kDarkTextColor
+              )
+          ),
+        ),
+        // FIX: Use calculated grid with proper spacing
+        GridView.builder(
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: ResponsiveUtils.getProductGridCount(context),
+            mainAxisSpacing: ResponsiveUtils.getCardMargin(context),
+            crossAxisSpacing: ResponsiveUtils.getCardMargin(context),
+            childAspectRatio: ResponsiveUtils.getMarketGridAspectRatio(context) * 0.7,
+          ),
+          itemCount: results.length,
+          itemBuilder: (context, index) {
+            final item = results[index];
+            final isService = _marketplaceData["Services"]!.any((service) =>
+            service["id"] == item["id"] || service["name"] == item["name"]);
+            final sectionKey = isService ? 'services' : 'search';
+            return _buildSearchProductCard(item, sectionKey);
+          },
+        ),
+        SizedBox(height: sectionSpacing * 2),
+      ],
     );
   }
 
@@ -1646,7 +1936,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 _loadServices(),
               ]);
             },
-            child: ListView(
+            child: _searchQuery.isNotEmpty
+                ? ListView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                _buildSearchBar(),
+                _buildSearchResults(),
+              ],
+            )
+                : ListView(
               controller: _scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
@@ -1703,7 +2002,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
 
-        // Welcome Popup Overlay
+        // Welcome Popup Overlay - Will show after 10 seconds
         if (_showWelcomePopup)
           Positioned.fill(
             child: Container(

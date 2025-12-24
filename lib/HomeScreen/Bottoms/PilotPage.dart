@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -15,38 +16,6 @@ import '../../services/role_manager.dart';
 import '../../Login/BuyerLoginPage.dart';
 import '../../Login/BuyerRegisterPage.dart';
 
-final String getPaginatedPilotsQuery = r'''
-  query ApprovedHirePilotsPaginated($page: Int!, $limit: Int!) {
-    approvedHirePilotsPaginated(page: $page, limit: $limit) {
-      items {
-        pilotId
-        pilotName
-        pilotCompany
-        location
-        specification
-        availability
-        price { perHour perDay }
-        certifications { url filename }
-        resume { url filename }
-        description
-        newemail
-        newphoneNumber
-        adminStatus
-        buyerStatus
-        seller {
-          name
-          email
-          phoneNumber
-        }
-      }
-      totalCount
-      page
-      limit
-      pageCount
-    }
-  }
-''';
-
 class PilotPage extends StatefulWidget {
   const PilotPage({super.key});
 
@@ -56,6 +25,9 @@ class PilotPage extends StatefulWidget {
 
 class _PilotPageState extends State<PilotPage> {
   final ApiClass _apiClass = ApiClass();
+  final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final FocusNode _searchFocusNode = FocusNode();
 
   // Professional Color Scheme
   static const Color primaryColor = Color(0xFF1A0A5B);
@@ -68,39 +40,63 @@ class _PilotPageState extends State<PilotPage> {
   static const Color borderColor = Color(0xFFE5E7EB);
   static const Color successColor = Color(0xFF10B981);
 
-  bool _isLoading = true;
-  bool _isError = false;
-  String _searchQuery = '';
-  RangeValues _priceRange = const RangeValues(500, 5000);
-  String _selectedSort = "Default";
-  int _currentPage = 1;
-  int _limit = 10;
-  int _totalPages = 1;
-  bool _isPaginating = false;
-  final ScrollController _scrollController = ScrollController();
+  // Pagination variables
+  int currentPage = 1;
+  int limit = 10;
+  int totalCount = 0;
+  int pageCount = 1;
+  bool hasMore = true;
+  bool isLoadingMore = false;
+  bool isInitialLoading = true;
+  bool isSearching = false;
 
-  int _cartCount = 0;
-  List<dynamic> _pilots = [];
-  List<dynamic> _cartItems = [];
-  RangeValues _tempPriceRange = const RangeValues(500, 5000); // Temporary filter state
+  // Filter variables
+  RangeValues priceRange = const RangeValues(500, 5000);
+  String selectedSort = "Default";
+  List<String> locations = [];
+  String selectedLocation = "";
 
+  List<dynamic> pilotList = [];
+  List<dynamic> filteredList = [];
+  int cartCount = 0;
+  List<dynamic> cartItems = [];
+
+  // Debounce for search
+  Timer? searchDebounceTimer;
   Stream<Map<String, dynamic>?>? _bookingSubscription;
 
   @override
   void initState() {
     super.initState();
+
+    // Initialize lists
+    pilotList = [];
+    filteredList = [];
+    locations = [];
+
     _loadCartCount();
-    _fetchPilots();
-    _subscribeToNewBookings();
+    fetchPilots();
+    _searchController.addListener(_onSearchChanged);
+
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
-          _scrollController.position.maxScrollExtent - 200) {
-        if (!_isPaginating && _currentPage < _totalPages) {
-          _currentPage++;
-          _fetchPilots();
+          _scrollController.position.maxScrollExtent - 100) {
+        if (hasMore && !isLoadingMore && !isInitialLoading) {
+          loadMorePilots();
         }
       }
     });
+
+    _subscribeToNewBookings();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _scrollController.dispose();
+    _searchFocusNode.dispose();
+    searchDebounceTimer?.cancel();
+    super.dispose();
   }
 
   void _subscribeToNewBookings() {
@@ -131,97 +127,168 @@ class _PilotPageState extends State<PilotPage> {
           color: Colors.green,
         );
 
-        _fetchPilots();
+        fetchPilots();
       }
     }, onError: (err) {
       debugPrint("Subscription error: $err");
     });
   }
 
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
+  void _onSearchChanged() {
+    if (searchDebounceTimer?.isActive ?? false) searchDebounceTimer?.cancel();
+
+    searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+      resetAndFetchPilots();
+    });
   }
 
-  Future<void> _fetchPilots() async {
+  void resetPagination() {
     if (!mounted) return;
 
     setState(() {
-      _isLoading = _currentPage == 1;
-      _isPaginating = _currentPage > 1;
-      _isError = false;
+      currentPage = 1;
+      pilotList.clear();
+      filteredList.clear();
+      hasMore = true;
+      isLoadingMore = false;
     });
+  }
 
+  Future<void> fetchPilots() async {
     try {
-      final client = await GraphQLService.getClient();
+      if (currentPage == 1) {
+        setState(() => isInitialLoading = true);
+      } else {
+        setState(() => isLoadingMore = true);
+      }
 
-      final response = await client.query(
-        QueryOptions(
-          document: gql(getPaginatedPilotsQuery),
-          variables: {
-            "page": _currentPage,
-            "limit": _limit,
-          },
-          fetchPolicy: FetchPolicy.networkOnly,
-        ),
+      // Build search parameters
+      final Map<String, dynamic> searchParams = {};
+
+      if (selectedLocation.isNotEmpty) {
+        searchParams['location'] = selectedLocation;
+      }
+
+      if (priceRange.start != 500 || priceRange.end != 5000) {
+        searchParams['minPricePerHour'] = priceRange.start;
+        searchParams['maxPricePerHour'] = priceRange.end;
+      }
+
+      // Add text search to query if exists
+      final String? queryText = _searchController.text.isNotEmpty ? _searchController.text : null;
+
+      final result = await _apiClass.getPilotsPaginated(
+        page: currentPage,
+        limit: limit,
+        query: queryText,
+        search: searchParams.isNotEmpty ? searchParams : null,
       );
 
-      if (response.hasException) {
-        debugPrint("GraphQL Error: ${response.exception}");
-        setState(() {
-          _isLoading = false;
-          _isPaginating = false;
-          _isError = true;
-        });
-        return;
+      if (!mounted) return;
+
+      final List<dynamic> newItems = result['items'] ?? [];
+      final int newTotalCount = result['totalCount'] ?? 0;
+      final int newPageCount = result['pageCount'] ?? 1;
+
+      // Extract unique locations for filter
+      final Set<String> uniqueLocations = {};
+      for (var item in newItems) {
+        final location = (item['location'] ?? '').toString();
+        if (location.isNotEmpty) {
+          uniqueLocations.add(location);
+        }
       }
-
-      final pageData = response.data?["approvedHirePilotsPaginated"];
-
-      if (pageData == null) {
-        debugPrint("No pagination data returned");
-        setState(() {
-          _isLoading = false;
-          _isPaginating = false;
-          _isError = true;
-        });
-        return;
-      }
-
-      final newItems = List<Map<String, dynamic>>.from(pageData["items"] ?? []);
 
       setState(() {
-        if (_currentPage == 1) {
-          _pilots = newItems;
+        if (currentPage == 1) {
+          pilotList = List.from(newItems);
+          filteredList = List.from(newItems);
+          locations = uniqueLocations.toList();
         } else {
-          _pilots.addAll(newItems);
+          pilotList.addAll(newItems);
+          filteredList.addAll(newItems);
+          locations.addAll(uniqueLocations);
+          locations = locations.toSet().toList();
         }
 
-        _totalPages = pageData["pageCount"] ?? 1;
-        _isLoading = false;
-        _isPaginating = false;
+        totalCount = newTotalCount;
+        pageCount = newPageCount;
+        hasMore = currentPage < pageCount;
+        isInitialLoading = false;
+        isLoadingMore = false;
       });
     } catch (e) {
-      debugPrint("Pagination fetch error: $e");
+      if (!mounted) return;
+
+      debugPrint("Error fetching pilots: $e");
+      _showSnackBar("Failed to load pilots. Please try again.", color: Colors.red);
+
       setState(() {
-        _isLoading = false;
-        _isPaginating = false;
-        _isError = true;
+        isInitialLoading = false;
+        isLoadingMore = false;
+        // Ensure filteredList is not null even on error
+        if (currentPage == 1) {
+          pilotList = [];
+          filteredList = [];
+        }
       });
     }
+  }
+
+  Future<void> resetAndFetchPilots() async {
+    resetPagination();
+    await fetchPilots();
+  }
+
+  Future<void> loadMorePilots() async {
+    if (!hasMore || isLoadingMore || isInitialLoading) return;
+
+    setState(() => isLoadingMore = true);
+    currentPage++;
+    await fetchPilots();
+  }
+
+  Future<void> refreshPilots() async {
+    resetPagination();
+    await fetchPilots();
+  }
+
+  void applyFilters() {
+    setState(() {
+      isSearching = true;
+    });
+
+    resetPagination();
+    fetchPilots().then((_) {
+      if (mounted) {
+        setState(() {
+          isSearching = false;
+        });
+      }
+    });
+  }
+
+  void _resetFilters() {
+    setState(() {
+      selectedLocation = "";
+      priceRange = const RangeValues(500, 5000);
+      selectedSort = "Default";
+      _searchController.clear();
+    });
+    resetAndFetchPilots();
   }
 
   Future<void> _loadCartCount() async {
     final prefs = await SharedPreferences.getInstance();
     try {
       final saved = prefs.getString('cart') ?? '[]';
-      _cartItems = jsonDecode(saved) as List;
+      cartItems = jsonDecode(saved) as List;
       if (!mounted) return;
-      setState(() => _cartCount = _cartItems.length);
+      setState(() => cartCount = cartItems.length);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _cartCount = 0);
+      setState(() => cartCount = 0);
     }
   }
 
@@ -382,7 +449,6 @@ class _PilotPageState extends State<PilotPage> {
 
   Future<void> _handleBookNow(Map<String, dynamic> pilot) async {
     final isAuthenticated = await _checkBuyerAuth();
-
     if (!isAuthenticated) return;
 
     Navigator.push(
@@ -393,443 +459,45 @@ class _PilotPageState extends State<PilotPage> {
     ).then((_) => _loadCartCount());
   }
 
-  // FIXED: Enhanced search function - Only filter when there are active filters
-  List<dynamic> get _filteredPilots {
-    if (_pilots.isEmpty) {
-      debugPrint("No pilots available in data list");
-      return [];
-    }
-
-    // Check if any filters are active
-    final bool hasActiveFilters = _searchQuery.isNotEmpty ||
-        _priceRange.start != 500 ||
-        _priceRange.end != 5000 ||
-        _selectedSort != "Default";
-
-    // If no filters are active, return all pilots without any filtering
-    if (!hasActiveFilters) {
-      debugPrint("No active filters - showing all ${_pilots.length} pilots");
-      return _pilots;
-    }
-
-    List<dynamic> filtered = _pilots;
-
-    // Apply search filter only if search query is not empty
-    if (_searchQuery.isNotEmpty) {
-      filtered = filtered.where((pilot) {
-        final pilotName = (pilot["pilotName"] ?? "").toString().toLowerCase();
-        final location = (pilot["location"] ?? "").toString().toLowerCase();
-        final spec = (pilot["specification"] ?? "").toString().toLowerCase();
-        final company = (pilot["pilotCompany"] ?? "").toString().toLowerCase();
-
-        return pilotName.contains(_searchQuery.toLowerCase()) ||
-            location.contains(_searchQuery.toLowerCase()) ||
-            spec.contains(_searchQuery.toLowerCase()) ||
-            company.contains(_searchQuery.toLowerCase());
-      }).toList();
-    }
-
-    // Apply price range filter only if price range is not default
-    if (_priceRange.start != 500 || _priceRange.end != 5000) {
-      filtered = filtered.where((pilot) {
-        final priceData = pilot["price"];
-        final perHour = (priceData is Map && priceData["perHour"] != null)
-            ? (priceData["perHour"] as num).toDouble()
-            : 2500;
-
-        return perHour >= _priceRange.start && perHour <= _priceRange.end;
-      }).toList();
-    }
-
-    // Apply sorting only if not default
-    if (_selectedSort != "Default") {
-      filtered = _sortPilots(filtered);
-    }
-
-    debugPrint("Filtered result count: ${filtered.length}");
-    if (filtered.isEmpty && _pilots.isNotEmpty) {
-      debugPrint("Filters removed all pilots");
-    }
-
-    return filtered;
+  bool get _hasActiveFilters {
+    return _searchController.text.isNotEmpty ||
+        selectedLocation.isNotEmpty ||
+        priceRange.start != 500 ||
+        priceRange.end != 5000 ||
+        selectedSort != "Default";
   }
 
-  List<dynamic> _sortPilots(List<dynamic> pilotList) {
-    final List<dynamic> sorted = List.from(pilotList);
+  List<dynamic> get _sortedPilots {
+    List<dynamic> pilots = List.from(pilotList);
 
-    switch (_selectedSort) {
-      case "Price: Low → High":
-        sorted.sort((a, b) {
-          final priceA = (a['price']?['perHour'] ?? 0).toDouble();
-          final priceB = (b['price']?['perHour'] ?? 0).toDouble();
-          return priceA.compareTo(priceB);
-        });
-        break;
-      case "Price: High → Low":
-        sorted.sort((a, b) {
-          final priceA = (a['price']?['perHour'] ?? 0).toDouble();
-          final priceB = (b['price']?['perHour'] ?? 0).toDouble();
-          return priceB.compareTo(priceA);
-        });
-        break;
-      case "Name: A → Z":
-        sorted.sort((a, b) =>
-            (a['pilotName'] ?? '').toLowerCase().compareTo((b['pilotName'] ?? '').toLowerCase()));
-        break;
+    // Apply sorting if not default
+    if (selectedSort != "Default") {
+      switch (selectedSort) {
+        case "Price: Low → High":
+          pilots.sort((a, b) {
+            final priceA = (a['price']?['perHour'] ?? 0).toDouble();
+            final priceB = (b['price']?['perHour'] ?? 0).toDouble();
+            return priceA.compareTo(priceB);
+          });
+          break;
+        case "Price: High → Low":
+          pilots.sort((a, b) {
+            final priceA = (a['price']?['perHour'] ?? 0).toDouble();
+            final priceB = (b['price']?['perHour'] ?? 0).toDouble();
+            return priceB.compareTo(priceA);
+          });
+          break;
+        case "Name: A → Z":
+          pilots.sort((a, b) =>
+              (a['pilotName'] ?? '').toLowerCase().compareTo((b['pilotName'] ?? '').toLowerCase()));
+          break;
+      }
     }
 
-    return sorted;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeaderSection(),
-            Expanded(
-              child: _isLoading
-                  ? _buildGridShimmerLoader()
-                  : _isError
-                  ? _buildErrorState()
-                  : _buildPilotGrid(_filteredPilots),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeaderSection() {
-    return Container(
-      color: surfaceColor,
-      padding: EdgeInsets.symmetric(
-        horizontal: ResponsiveUtils.getHorizontalPadding(context),
-        vertical: ResponsiveUtils.getVerticalPadding(context),
-      ),
-      child: Column(
-        children: [
-          SizedBox(
-            height: ResponsiveUtils.getAppBarHeight(context),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: primaryColor,
-                    size: ResponsiveUtils.getIconSize(context),
-                  ),
-                  onPressed: () => Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const Dynamichome(selectedIndex: 0),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Container(
-                    padding: EdgeInsets.only(
-                      left: ResponsiveUtils.getDynamicPadding(context, 0.02),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Certified Pilots",
-                          style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w800,
-                            fontSize: ResponsiveUtils.getTitleFontSize(context),
-                            color: primaryColor,
-                            letterSpacing: -0.5,
-                            height: 1.1,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        SizedBox(
-                            height: ResponsiveUtils.getDynamicHeight(context, 0.003)),
-                        Text(
-                          "${_filteredPilots.length} pilots available",
-                          style: GoogleFonts.inter(
-                            color: textSecondary,
-                            fontSize: ResponsiveUtils.getSmallFontSize(context),
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-          _buildSearchBar(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSearchBar() {
-    return Container(
-      height: ResponsiveUtils.getSearchBarHeight(context),
-      decoration: BoxDecoration(
-        color: surfaceColor,
-        borderRadius: BorderRadius.circular(
-          ResponsiveUtils.getDynamicPadding(context, 0.025),
-        ),
-        border: Border.all(
-          color: borderColor,
-          width: ResponsiveUtils.getBorderWidth(context) * 6,
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color.fromRGBO(0, 0, 0, 0.05),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Padding(
-            padding: EdgeInsets.only(
-              left: ResponsiveUtils.getDynamicPadding(context, 0.03),
-            ),
-            child: Icon(
-              Icons.search_rounded,
-              color: textSecondary,
-              size: ResponsiveUtils.getIconSize(context) * 0.8,
-            ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: ResponsiveUtils.getDynamicPadding(context, 0.02),
-              ),
-              child: TextField(
-                onChanged: (value) {
-                  setState(() {
-                    _searchQuery = value;
-                  });
-                },
-                style: GoogleFonts.inter(
-                  fontSize: ResponsiveUtils.getBodyFontSize(context),
-                  color: textPrimary,
-                  fontWeight: FontWeight.w500,
-                ),
-                decoration: InputDecoration(
-                  hintText: "Search by name, location, or skill...",
-                  hintStyle: GoogleFonts.inter(
-                    color: textSecondary,
-                    fontSize: ResponsiveUtils.getBodyFontSize(context),
-                    fontWeight: FontWeight.w400,
-                  ),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                  isDense: true,
-                ),
-              ),
-            ),
-          ),
-          Container(
-            width: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
-            height: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
-            margin: EdgeInsets.only(
-              right: ResponsiveUtils.getDynamicPadding(context, 0.012),
-            ),
-            decoration: BoxDecoration(
-              color: primaryColor,
-              borderRadius: BorderRadius.circular(
-                ResponsiveUtils.getDynamicPadding(context, 0.018),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: primaryColor.withOpacity(0.3),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: IconButton(
-              icon: Icon(
-                Icons.tune_rounded,
-                color: Colors.white,
-                size: ResponsiveUtils.getIconSize(context) * 0.7,
-              ),
-              onPressed: _showFilterSheet,
-              padding: EdgeInsets.zero,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPilotGrid(List<dynamic> pilots) {
-    if (pilots.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-            Text(
-              "No Pilots Found",
-              style: GoogleFonts.inter(
-                fontSize: ResponsiveUtils.getTitleFontSize(context) - 2,
-                color: textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            if (_searchQuery.isNotEmpty || _priceRange.start != 500 || _priceRange.end != 5000)
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0),
-                child: Text(
-                  "Try adjusting your search or filters",
-                  style: GoogleFonts.inter(
-                    color: textSecondary,
-                    fontSize: ResponsiveUtils.getBodyFontSize(context),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: _fetchPilots,
-      backgroundColor: surfaceColor,
-      color: primaryColor,
-      child: GridView.builder(
-        controller: _scrollController,
-        physics: const BouncingScrollPhysics(),
-        padding: EdgeInsets.all(
-          ResponsiveUtils.getPilotGridPadding(context),
-        ),
-        gridDelegate: ResponsiveUtils.getPilotGridDelegate(context),
-        itemCount: pilots.length,
-        itemBuilder: (context, index) => _buildPilotCard(pilots[index]),
-      ),
-    );
-  }
-
-  Widget _buildGridShimmerLoader() {
-    return GridView.builder(
-      padding: EdgeInsets.all(
-        ResponsiveUtils.getPilotGridPadding(context),
-      ),
-      gridDelegate: ResponsiveUtils.getPilotGridDelegate(context),
-      itemCount: ResponsiveUtils.getPilotShimmerItemCount(context),
-      itemBuilder: (context, index) {
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(
-              ResponsiveUtils.getPilotCardRadius(context),
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color.fromRGBO(0, 0, 0, 0.04),
-                blurRadius: 8,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: ResponsiveUtils.getPilotCardPadding(context),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: ResponsiveUtils.getPilotImageSize(context),
-                  height: ResponsiveUtils.getPilotImageSize(context),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(
-                      ResponsiveUtils.getDynamicPadding(context, 0.02),
-                    ),
-                  ),
-                ),
-                SizedBox(width: ResponsiveUtils.getPilotActionSpacing(context)),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        height: ResponsiveUtils.getShimmerTextHeight(context),
-                        width: ResponsiveUtils.getShimmerTextWidth(context, percentage: 0.7),
-                        color: Colors.grey[300],
-                      ),
-                      SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.005)),
-                      Container(
-                        height: ResponsiveUtils.getShimmerTextHeight(context, isSmall: true),
-                        width: ResponsiveUtils.getShimmerTextWidth(context, percentage: 0.5),
-                        color: Colors.grey[300],
-                      ),
-                      SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.01)),
-                      Container(
-                        height: ResponsiveUtils.getShimmerTextHeight(context, isSmall: true),
-                        width: ResponsiveUtils.getShimmerTextWidth(context, percentage: 0.8),
-                        color: Colors.grey[300],
-                      ),
-                      SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.005)),
-                      Container(
-                        height: ResponsiveUtils.getShimmerTextHeight(context, isSmall: true),
-                        width: ResponsiveUtils.getShimmerTextWidth(context, percentage: 0.7),
-                        color: Colors.grey[300],
-                      ),
-                      SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.01)),
-                      Container(
-                        height: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
-                        width: ResponsiveUtils.getPilotButtonWidth(context, percentage: 0.3),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(
-                            ResponsiveUtils.getDynamicPadding(context, 0.02),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildErrorState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
-          Text(
-            "No Pilot found",
-            style: GoogleFonts.inter(
-              fontSize: ResponsiveUtils.getTitleFontSize(context),
-              fontWeight: FontWeight.w700,
-              color: textPrimary,
-            ),
-          ),
-          SizedBox(height: ResponsiveUtils.getCardMargin(context)),
-
-
-        ],
-      ),
-    );
+    return pilots;
   }
 
   Widget _buildPilotCard(Map<String, dynamic> pilot) {
-    final available = pilot["availability"] == true;
     final certs = pilot['certifications'] ?? [];
     final imageUrl = (certs.isNotEmpty && certs[0]['url'] != null)
         ? certs[0]['url'] as String
@@ -923,32 +591,32 @@ class _PilotPageState extends State<PilotPage> {
                                   ),
                                 ),
                               ),
-                              if (available)
-                                Positioned(
-                                  top: ResponsiveUtils.getDynamicPadding(context, 0.01),
-                                  right: ResponsiveUtils.getDynamicPadding(context, 0.01),
-                                  child: Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: ResponsiveUtils.getDynamicPadding(context, 0.008),
-                                      vertical: ResponsiveUtils.getDynamicPadding(context, 0.004),
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: successColor,
-                                      borderRadius: BorderRadius.circular(
-                                        ResponsiveUtils.getDynamicPadding(context, 0.006),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      "AVAILABLE",
-                                      style: GoogleFonts.inter(
-                                        color: Colors.white,
-                                        fontSize: ResponsiveUtils.getSmallFontSize(context) - 2,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: 0.3,
-                                      ),
-                                    ),
-                                  ),
-                                ),
+                              // if (available)
+                              //   Positioned(
+                              //     top: ResponsiveUtils.getDynamicPadding(context, 0.01),
+                              //     right: ResponsiveUtils.getDynamicPadding(context, 0.01),
+                              //     child: Container(
+                              //       padding: EdgeInsets.symmetric(
+                              //         horizontal: ResponsiveUtils.getDynamicPadding(context, 0.008),
+                              //         vertical: ResponsiveUtils.getDynamicPadding(context, 0.004),
+                              //       ),
+                              //       decoration: BoxDecoration(
+                              //         color: successColor,
+                              //         borderRadius: BorderRadius.circular(
+                              //           ResponsiveUtils.getDynamicPadding(context, 0.006),
+                              //         ),
+                              //       ),
+                              //       child: Text(
+                              //         "AVAILABLE",
+                              //         style: GoogleFonts.inter(
+                              //           color: Colors.white,
+                              //           fontSize: ResponsiveUtils.getSmallFontSize(context) - 2,
+                              //           fontWeight: FontWeight.w800,
+                              //           letterSpacing: 0.3,
+                              //         ),
+                              //       ),
+                              //     ),
+                              //   ),
                             ],
                           ),
                           if (hasCertification)
@@ -1155,10 +823,798 @@ class _PilotPageState extends State<PilotPage> {
     );
   }
 
+  Widget _buildLoadingIndicator() {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 20),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(
+              color: primaryColor,
+              strokeWidth: 2,
+            ),
+            SizedBox(height: 10),
+            Text(
+              "Loading more pilots...",
+              style: GoogleFonts.inter(
+                color: textSecondary,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    final bool hasSearch = _searchController.text.isNotEmpty;
+    final bool hasFilters = selectedLocation.isNotEmpty ||
+        priceRange.start != 500 ||
+        priceRange.end != 5000 ||
+        selectedSort != "Default";
+
+    return Center(
+      child: SingleChildScrollView(
+        child: Container(
+          width: ResponsiveUtils.getSafeContainerWidth(context, percentage: 0.8),
+          padding: EdgeInsets.all(ResponsiveUtils.getHorizontalPadding(context)),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.people_outline,
+                size: 60,
+                color: textSecondary.withOpacity(0.3),
+              ),
+              SizedBox(height: 20),
+              Text(
+                hasSearch || hasFilters
+                    ? "No Matching Pilots Found"
+                    : "No Pilots Available",
+                style: GoogleFonts.inter(
+                  fontSize: ResponsiveUtils.getTitleFontSize(context),
+                  fontWeight: FontWeight.w600,
+                  color: textPrimary,
+                ),
+              ),
+              SizedBox(height: 10),
+              Text(
+                hasSearch || hasFilters
+                    ? "Try adjusting your search or filters"
+                    : "Check back later for available pilots",
+                style: GoogleFonts.inter(
+                  fontSize: ResponsiveUtils.getBodyFontSize(context),
+                  color: textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 20),
+              if (hasSearch || hasFilters)
+                ElevatedButton(
+                  onPressed: _resetFilters,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 30,
+                      vertical: 15,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Text(
+                    "Clear All Filters",
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline_rounded,
+            size: 60,
+            color: Colors.red.shade300,
+          ),
+          SizedBox(height: 20),
+          Text(
+            "Error Loading Pilots",
+            style: GoogleFonts.inter(
+              fontSize: ResponsiveUtils.getTitleFontSize(context),
+              fontWeight: FontWeight.w600,
+              color: textPrimary,
+            ),
+          ),
+          SizedBox(height: 10),
+          Text(
+            "Please check your connection and try again",
+            style: GoogleFonts.inter(
+              color: textSecondary,
+              fontSize: ResponsiveUtils.getBodyFontSize(context),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: refreshPilots,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              padding: EdgeInsets.symmetric(
+                horizontal: 30,
+                vertical: 15,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: Text(
+              "Try Again",
+              style: GoogleFonts.inter(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            color: primaryColor,
+            strokeWidth: 2.5,
+          ),
+          SizedBox(height: 20),
+          Text(
+            "Loading Pilots...",
+            style: GoogleFonts.inter(
+              fontSize: ResponsiveUtils.getBodyFontSize(context),
+              color: textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGridShimmerLoader() {
+    return GridView.builder(
+      padding: EdgeInsets.all(
+        ResponsiveUtils.getPilotGridPadding(context),
+      ),
+      gridDelegate: ResponsiveUtils.getPilotGridDelegate(context),
+      itemCount: ResponsiveUtils.getPilotShimmerItemCount(context),
+      itemBuilder: (context, index) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(
+              ResponsiveUtils.getPilotCardRadius(context),
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color.fromRGBO(0, 0, 0, 0.04),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: ResponsiveUtils.getPilotCardPadding(context),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: ResponsiveUtils.getPilotImageSize(context),
+                  height: ResponsiveUtils.getPilotImageSize(context),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(
+                      ResponsiveUtils.getDynamicPadding(context, 0.02),
+                    ),
+                  ),
+                ),
+                SizedBox(width: ResponsiveUtils.getPilotActionSpacing(context)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: ResponsiveUtils.getShimmerTextHeight(context),
+                        width: ResponsiveUtils.getShimmerTextWidth(context, percentage: 0.7),
+                        color: Colors.grey[300],
+                      ),
+                      SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.005)),
+                      Container(
+                        height: ResponsiveUtils.getShimmerTextHeight(context, isSmall: true),
+                        width: ResponsiveUtils.getShimmerTextWidth(context, percentage: 0.5),
+                        color: Colors.grey[300],
+                      ),
+                      SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.01)),
+                      Container(
+                        height: ResponsiveUtils.getShimmerTextHeight(context, isSmall: true),
+                        width: ResponsiveUtils.getShimmerTextWidth(context, percentage: 0.8),
+                        color: Colors.grey[300],
+                      ),
+                      SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.005)),
+                      Container(
+                        height: ResponsiveUtils.getShimmerTextHeight(context, isSmall: true),
+                        width: ResponsiveUtils.getShimmerTextWidth(context, percentage: 0.7),
+                        color: Colors.grey[300],
+                      ),
+                      SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.01)),
+                      Container(
+                        height: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
+                        width: ResponsiveUtils.getPilotButtonWidth(context, percentage: 0.3),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(
+                            ResponsiveUtils.getDynamicPadding(context, 0.02),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSearchBar() {
+    final bool isSearchActive = _searchController.text.isNotEmpty;
+    final int activeFilterCount = [
+      if (_searchController.text.isNotEmpty) 1,
+      if (selectedLocation.isNotEmpty) 1,
+      if (priceRange.start != 500 || priceRange.end != 5000) 1,
+      if (selectedSort != "Default") 1,
+    ].length;
+
+    return Column(
+      children: [
+        Container(
+          height: ResponsiveUtils.getSearchBarHeight(context),
+          decoration: BoxDecoration(
+            color: surfaceColor,
+            borderRadius: BorderRadius.circular(
+              ResponsiveUtils.getDynamicPadding(context, 0.025),
+            ),
+            border: Border.all(
+              color: borderColor,
+              width: ResponsiveUtils.getBorderWidth(context) * 6,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color.fromRGBO(0, 0, 0, 0.05),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Padding(
+                padding: EdgeInsets.only(
+                  left: ResponsiveUtils.getDynamicPadding(context, 0.03),
+                ),
+                child: Icon(
+                  Icons.search_rounded,
+                  color: isSearchActive ? primaryColor : textSecondary,
+                  size: ResponsiveUtils.getIconSize(context) * 0.8,
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: ResponsiveUtils.getDynamicPadding(context, 0.02),
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    focusNode: _searchFocusNode,
+                    onChanged: (value) => _onSearchChanged(),
+                    style: GoogleFonts.inter(
+                      fontSize: ResponsiveUtils.getBodyFontSize(context),
+                      color: textPrimary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: "Search by name, location, skill, or company...",
+                      hintStyle: GoogleFonts.inter(
+                        color: textSecondary,
+                        fontSize: ResponsiveUtils.getBodyFontSize(context),
+                        fontWeight: FontWeight.w400,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                      isDense: true,
+                      suffixIcon: isSearchActive
+                          ? IconButton(
+                        icon: Icon(
+                          Icons.clear,
+                          size: ResponsiveUtils.getIconSize(context) * 0.7,
+                          color: textSecondary,
+                        ),
+                        onPressed: () {
+                          _searchController.clear();
+                          resetAndFetchPilots();
+                          FocusScope.of(context).unfocus();
+                        },
+                      )
+                          : null,
+                    ),
+                  ),
+                ),
+              ),
+              Container(
+                width: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
+                height: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.05),
+                margin: EdgeInsets.only(
+                  right: ResponsiveUtils.getDynamicPadding(context, 0.012),
+                ),
+                decoration: BoxDecoration(
+                  color: activeFilterCount > 0 ? accentColor : primaryColor,
+                  borderRadius: BorderRadius.circular(
+                    ResponsiveUtils.getDynamicPadding(context, 0.018),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (activeFilterCount > 0 ? accentColor : primaryColor).withOpacity(0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        activeFilterCount > 0 ? Icons.filter_alt : Icons.tune_rounded,
+                        color: Colors.white,
+                        size: ResponsiveUtils.getIconSize(context) * 0.7,
+                      ),
+                      onPressed: _showFilterSheet,
+                      padding: EdgeInsets.zero,
+                    ),
+                    if (activeFilterCount > 0)
+                      Positioned(
+                        top: 5,
+                        right: 5,
+                        child: Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: accentColor, width: 1),
+                          ),
+                          child: Center(
+                            child: Text(
+                              activeFilterCount.toString(),
+                              style: GoogleFonts.inter(
+                                color: accentColor,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Search results summary
+        if (isSearchActive || activeFilterCount > 0)
+          Padding(
+            padding: EdgeInsets.only(
+              top: ResponsiveUtils.getCardMargin(context),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "$totalCount pilots found",
+                  style: GoogleFonts.inter(
+                    fontSize: ResponsiveUtils.getSmallFontSize(context),
+                    color: textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (isSearching)
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: primaryColor,
+                    ),
+                  )
+                else if (_hasActiveFilters)
+                  TextButton.icon(
+                    onPressed: _resetFilters,
+                    icon: Icon(
+                      Icons.clear_all,
+                      size: ResponsiveUtils.getIconSize(context) * 0.8,
+                      color: textSecondary,
+                    ),
+                    label: Text(
+                      "Clear all",
+                      style: GoogleFonts.inter(
+                        color: textSecondary,
+                        fontSize: ResponsiveUtils.getSmallFontSize(context),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _openFilterSheet() {
+    RangeValues tempPriceRange = priceRange;
+    String tempSelectedSort = selectedSort;
+    String tempSelectedLocation = selectedLocation;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final List<Widget> children = [];
+
+          children.addAll([
+            Center(
+              child: Container(
+                width: ResponsiveUtils.getDynamicWidth(context, 0.1),
+                height: ResponsiveUtils.getDynamicHeight(context, 0.003),
+                decoration: BoxDecoration(
+                  color: borderColor,
+                  borderRadius: BorderRadius.circular(
+                    ResponsiveUtils.getDynamicPadding(context, 0.004),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
+            Text(
+              "Advanced Filters",
+              style: GoogleFonts.inter(
+                fontSize: ResponsiveUtils.getTitleFontSize(context),
+                fontWeight: FontWeight.w700,
+                color: textPrimary,
+              ),
+            ),
+          ]);
+
+          // Location Filter
+          children.addAll([
+            SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
+            Text(
+              "Location",
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                color: textPrimary,
+                fontSize: ResponsiveUtils.getBodyFontSize(context) + 2,
+              ),
+            ),
+            SizedBox(height: ResponsiveUtils.getCardMargin(context)),
+            Container(
+              decoration: BoxDecoration(
+                color: backgroundColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(
+                  ResponsiveUtils.getDynamicPadding(context, 0.02),
+                ),
+                border: Border.all(color: borderColor),
+              ),
+              child: DropdownButtonFormField<String>(
+                decoration: InputDecoration(
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: ResponsiveUtils.getHorizontalPadding(context) * 0.8,
+                    vertical: ResponsiveUtils.getVerticalPadding(context) * 0.8,
+                  ),
+                  border: InputBorder.none,
+                  hintText: "All locations",
+                  hintStyle: GoogleFonts.inter(
+                    color: textSecondary,
+                    fontSize: ResponsiveUtils.getBodyFontSize(context),
+                  ),
+                ),
+                value: tempSelectedLocation.isEmpty ? null : tempSelectedLocation,
+                items: [
+                  DropdownMenuItem<String>(
+                    value: "",
+                    child: Text(
+                      "All locations",
+                      style: GoogleFonts.inter(
+                        color: textSecondary,
+                        fontSize: ResponsiveUtils.getBodyFontSize(context),
+                      ),
+                    ),
+                  ),
+                  ...locations.map((loc) =>
+                      DropdownMenuItem(
+                        value: loc,
+                        child: Text(
+                          loc,
+                          style: GoogleFonts.inter(
+                            color: textPrimary,
+                            fontSize: ResponsiveUtils.getBodyFontSize(context),
+                          ),
+                        ),
+                      )
+                  ).toList(),
+                ],
+                onChanged: (value) => setModalState(() => tempSelectedLocation = value ?? ""),
+                icon: Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: textSecondary,
+                  size: ResponsiveUtils.getIconSize(context) * 0.8,
+                ),
+                dropdownColor: surfaceColor,
+                style: GoogleFonts.inter(
+                  color: textPrimary,
+                  fontSize: ResponsiveUtils.getBodyFontSize(context),
+                ),
+              ),
+            ),
+          ]);
+
+          // Price Range Filter
+          children.addAll([
+            SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
+            Text(
+              "Price Range (per hour)",
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                color: textPrimary,
+                fontSize: ResponsiveUtils.getBodyFontSize(context) + 2,
+              ),
+            ),
+            SizedBox(height: ResponsiveUtils.getCardMargin(context)),
+            Container(
+              padding: EdgeInsets.all(
+                ResponsiveUtils.getPilotSectionPadding(context),
+              ),
+              decoration: BoxDecoration(
+                color: primaryColor.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(
+                  ResponsiveUtils.getDynamicPadding(context, 0.03),
+                ),
+                border: Border.all(color: borderColor),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '₹${tempPriceRange.start.round()}',
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w700,
+                          color: primaryColor,
+                          fontSize: ResponsiveUtils.getBodyFontSize(context) + 2,
+                        ),
+                      ),
+                      Text(
+                        '₹${tempPriceRange.end.round()}',
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w700,
+                          color: primaryColor,
+                          fontSize: ResponsiveUtils.getBodyFontSize(context) + 2,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: ResponsiveUtils.getCardMargin(context)),
+                  RangeSlider(
+                    values: tempPriceRange,
+                    min: 500,
+                    max: 5000,
+                    divisions: 45,
+                    activeColor: primaryColor,
+                    inactiveColor: borderColor,
+                    labels: RangeLabels(
+                      '₹${tempPriceRange.start.round()}',
+                      '₹${tempPriceRange.end.round()}',
+                    ),
+                    onChanged: (values) {
+                      setModalState(() {
+                        tempPriceRange = values;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ]);
+
+          // Sorting Options
+          children.addAll([
+            SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
+            Text(
+              "Sort By",
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                color: textPrimary,
+                fontSize: ResponsiveUtils.getBodyFontSize(context) + 2,
+              ),
+            ),
+            SizedBox(height: ResponsiveUtils.getCardMargin(context)),
+            Wrap(
+              spacing: ResponsiveUtils.getPilotActionSpacing(context),
+              runSpacing: ResponsiveUtils.getCardMargin(context),
+              children: [
+                "Default",
+                "Price: Low → High",
+                "Price: High → Low",
+                "Name: A → Z",
+              ].map((option) {
+                final isSelected = tempSelectedSort == option;
+                return FilterChip(
+                  label: Text(option),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    setModalState(() {
+                      tempSelectedSort = option;
+                    });
+                  },
+                  selectedColor: primaryColor,
+                  backgroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(
+                      ResponsiveUtils.getDynamicPadding(context, 0.02),
+                    ),
+                    side: BorderSide(
+                      color: isSelected ? primaryColor : borderColor,
+                      width: ResponsiveUtils.getBorderWidth(context) * 8,
+                    ),
+                  ),
+                  labelStyle: GoogleFonts.inter(
+                    color: isSelected ? Colors.white : textPrimary,
+                    fontWeight: FontWeight.w500,
+                    fontSize: ResponsiveUtils.getBodyFontSize(context),
+                  ),
+                  showCheckmark: false,
+                );
+              }).toList(),
+            ),
+          ]);
+
+          children.addAll([
+            SizedBox(height: ResponsiveUtils.getSectionSpacing(context) * 1.5),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      setModalState(() {
+                        tempPriceRange = const RangeValues(500, 5000);
+                        tempSelectedSort = "Default";
+                        tempSelectedLocation = "";
+                      });
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: textPrimary,
+                      side: BorderSide(
+                        color: borderColor,
+                        width: ResponsiveUtils.getBorderWidth(context) * 8,
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        vertical: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.04),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          ResponsiveUtils.getDynamicPadding(context, 0.03),
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      'Reset All',
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w600,
+                        fontSize: ResponsiveUtils.getBodyFontSize(context),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: ResponsiveUtils.getPilotCardSpacing(context)),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: EdgeInsets.symmetric(
+                        vertical: ResponsiveUtils.getPilotButtonHeight(context, percentage: 0.04),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          ResponsiveUtils.getDynamicPadding(context, 0.03),
+                        ),
+                      ),
+                    ),
+                    onPressed: () {
+                      // Apply filters and close the sheet
+                      setState(() {
+                        priceRange = tempPriceRange;
+                        selectedSort = tempSelectedSort;
+                        selectedLocation = tempSelectedLocation;
+                      });
+                      Navigator.pop(context);
+                      applyFilters();
+                    },
+                    child: Text(
+                      'Apply Filters',
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w700,
+                        fontSize: ResponsiveUtils.getBodyFontSize(context),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: ResponsiveUtils.getSafeAreaBottom(context)),
+          ]);
+
+          return Container(
+            height: ResponsiveUtils.getPilotModalHeight(context),
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(
+                  ResponsiveUtils.getPilotCardRadius(context) * 2,
+                ),
+              ),
+            ),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(
+                ResponsiveUtils.getPilotSectionPadding(context),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: children,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   void _showFilterSheet() {
-    // Store temporary values for the filter sheet
-    RangeValues tempPriceRange = _priceRange;
-    String tempSelectedSort = _selectedSort;
+    RangeValues tempPriceRange = priceRange;
+    String tempSelectedSort = selectedSort;
 
     showModalBottomSheet(
       context: context,
@@ -1374,10 +1830,11 @@ class _PilotPageState extends State<PilotPage> {
                           onPressed: () {
                             // Apply filters and close the sheet
                             setState(() {
-                              _priceRange = tempPriceRange;
-                              _selectedSort = tempSelectedSort;
+                              priceRange = tempPriceRange;
+                              selectedSort = tempSelectedSort;
                             });
                             Navigator.pop(context);
+                            applyFilters();
                           },
                           child: Text(
                             'Apply Filters',
@@ -1396,6 +1853,191 @@ class _PilotPageState extends State<PilotPage> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeaderSection(),
+
+            if (!isInitialLoading && pilotList.isNotEmpty)
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: ResponsiveUtils.getHorizontalPadding(context),
+                  vertical: ResponsiveUtils.getVerticalPadding(context) * 0.5,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "$totalCount pilots found",
+                      style: GoogleFonts.inter(
+                        fontSize: ResponsiveUtils.getSmallFontSize(context),
+                        color: textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    if (isSearching)
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: primaryColor,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+            Expanded(
+              child: isInitialLoading
+                  ? _buildGridShimmerLoader()
+                  : pilotList.isEmpty
+                  ? _buildEmptyState()
+                  : RefreshIndicator(
+                onRefresh: refreshPilots,
+                backgroundColor: surfaceColor,
+                color: primaryColor,
+                child: GridView.builder(
+                  controller: _scrollController,
+                  physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.all(
+                    ResponsiveUtils.getPilotGridPadding(context),
+                  ),
+                  gridDelegate: ResponsiveUtils.getPilotGridDelegate(context),
+                  itemCount: _sortedPilots.length + (hasMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == _sortedPilots.length) {
+                      return isLoadingMore ? _buildLoadingIndicator() : SizedBox();
+                    }
+                    return _buildPilotCard(_sortedPilots[index]);
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderSection() {
+    final int activeFilterCount = [
+      if (_searchController.text.isNotEmpty) 1,
+      if (selectedLocation.isNotEmpty) 1,
+      if (priceRange.start != 500 || priceRange.end != 5000) 1,
+      if (selectedSort != "Default") 1,
+    ].length;
+
+    return Container(
+      color: surfaceColor,
+      padding: EdgeInsets.symmetric(
+        horizontal: ResponsiveUtils.getHorizontalPadding(context),
+        vertical: ResponsiveUtils.getVerticalPadding(context),
+      ),
+      child: Column(
+        children: [
+          SizedBox(
+            height: ResponsiveUtils.getAppBarHeight(context),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: primaryColor,
+                    size: ResponsiveUtils.getIconSize(context),
+                  ),
+                  onPressed: () => Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const Dynamichome(selectedIndex: 0),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Container(
+                    padding: EdgeInsets.only(
+                      left: ResponsiveUtils.getDynamicPadding(context, 0.02),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          "Certified Pilots",
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w800,
+                            fontSize: ResponsiveUtils.getTitleFontSize(context),
+                            color: primaryColor,
+                            letterSpacing: -0.5,
+                            height: 1.1,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        SizedBox(
+                            height: ResponsiveUtils.getDynamicHeight(context, 0.003)),
+                        Row(
+                          children: [
+                            Text(
+                              "${pilotList.length} pilots available",
+                              style: GoogleFonts.inter(
+                                color: textSecondary,
+                                fontSize: ResponsiveUtils.getSmallFontSize(context),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            if (activeFilterCount > 0)
+                              Container(
+                                margin: EdgeInsets.only(left: 8),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: accentColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: accentColor.withOpacity(0.3)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.filter_alt,
+                                      size: 12,
+                                      color: accentColor,
+                                    ),
+                                    SizedBox(width: 2),
+                                    Text(
+                                      "$activeFilterCount",
+                                      style: GoogleFonts.inter(
+                                        color: accentColor,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
+          _buildSearchBar(),
+        ],
       ),
     );
   }

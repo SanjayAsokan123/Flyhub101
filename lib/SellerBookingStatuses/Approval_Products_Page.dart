@@ -24,13 +24,15 @@ class _ApprovalProductsPageState extends State<ApprovalProductsPage>
   List<dynamic> approvedAccessories = [];
   List<dynamic> approvedServices = [];
   List<dynamic> approvedJobs = [];
+  List<dynamic> approvedPilots = [];
+
 
   late GraphQLClient client;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
 
     final HttpLink link = HttpLink(backendUrl);
     client = GraphQLClient(
@@ -82,6 +84,14 @@ class _ApprovalProductsPageState extends State<ApprovalProductsPage>
           salary
           status
         }
+        hirePilotsApproved(sellerId: $sellerId) {
+      pilotId
+      pilotName
+      location
+      price { perHour perDay }
+      adminStatus
+      sellerId
+    }
       }
     ''';
 
@@ -109,6 +119,8 @@ class _ApprovalProductsPageState extends State<ApprovalProductsPage>
           approvedAccessories = result.data?['approvedAccessories'] ?? [];
           approvedServices = result.data?['approvedServices'] ?? [];
           approvedJobs = result.data?['approvedJobs'] ?? [];
+          approvedPilots = result.data?['hirePilotsApproved'] ?? [];
+
         });
       }
     } catch (e) {
@@ -145,15 +157,19 @@ class _ApprovalProductsPageState extends State<ApprovalProductsPage>
 
         if (type == "jobs") {
           title = item['jobName'] ?? "";
-          subtitle = "Salary: ₹${item['salary']}  ·  Status: ${item['status']}";
+          subtitle = "Salary: ₹${item['salary']} · Status: ${item['status']}";
         } else if (type == "rentals") {
           title = item['name'] ?? "";
+          subtitle = "Price/hr: ₹${item['pricePerHour']} · Status: ${item['status']}";
+        } else if (type == "pilots") {
+          title = item['pilotName'] ?? "";
           subtitle =
-          "Price/hr: ₹${item['pricePerHour']}  ·  Status: ${item['status']}";
+          "₹${item['price']?['perHour']}/hr · ${item['location']} · Status: ${item['adminStatus']}";
         } else {
           title = item['name'] ?? "";
-          subtitle = "Price: ₹${item['price']}  ·  Status: ${item['status']}";
+          subtitle = "Price: ₹${item['price']} · Status: ${item['status']}";
         }
+
 
         return Card(
           color: Colors.white,
@@ -224,6 +240,7 @@ class _ApprovalProductsPageState extends State<ApprovalProductsPage>
             Tab(text: "Accessories"),
             Tab(text: "Services"),
             Tab(text: "Jobs"),
+            Tab(text: "Pilots"),
           ],
         ),
       ),
@@ -236,6 +253,7 @@ class _ApprovalProductsPageState extends State<ApprovalProductsPage>
           buildList(approvedAccessories, "accessories"),
           buildList(approvedServices, "services"),
           buildList(approvedJobs, "jobs"),
+          buildList(approvedPilots, "pilots"),
         ],
       ),
     );
