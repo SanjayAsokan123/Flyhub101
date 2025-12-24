@@ -1,13 +1,11 @@
 class EnvConfig {
   static const String baseUrl =
-      // 'https://flyhub-webadmin-4.onrender.com/graphql';
-      'http://192.168.0.103:5001/graphql';
+      'https://flyhub-webadmin-4.onrender.com/graphql';
 }
 // 192.168.1.178
 class EnvConfig1 {
   static const String hostUrl =
-      // 'https://flyhub-webadmin-4.onrender.com';
-      'http://192.168.0.103:5001';
+      'https://flyhub-webadmin-4.onrender.com';
 }
 
 class Mail_User {
