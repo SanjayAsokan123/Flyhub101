@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flyhub/Login/splashscreen.dart';
+import 'package:flyhub/services/remote_config_service.dart';
 import 'package:flyhub/services/role_manager.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:http/http.dart' as http;
@@ -120,6 +121,7 @@ Future<void> main() async {
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   await _initializeLocalNotifications();
   await _requestNotificationPermission();
+  await RemoteConfigService().init();
   FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
     print("📩 [Foreground FCM] ${message.notification?.title}");
     _showLocalNotification(message);

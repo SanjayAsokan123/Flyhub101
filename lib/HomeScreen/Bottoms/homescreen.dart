@@ -67,11 +67,17 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showElevation = false;
   bool _isCategoryExpanded = false;
   bool _showWelcomePopup = false;
+  bool _isRefreshing = false;
 
   // User state
   User? _user;
   String? _role;
   bool _isUserLoading = true;
+  bool _isStockManagedCategory(String sectionKey) {
+    return sectionKey == 'drones' ||
+        sectionKey == 'parts' ||
+        sectionKey == 'accessories';
+  }
 
   // Section management
   final Map<String, bool> _sectionLoadingStates = {
@@ -127,29 +133,51 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic> normalizeHomeItem(dynamic raw, String category) {
     final Map<String, dynamic> m = Map<String, dynamic>.from(raw);
 
-    final id = m['id'] ??
+    final id =
         m['droneId'] ??
-        m['partId'] ??
-        m['accessoryId'] ??
-        m['productId'] ??
-        m['uin'];
+            m['partId'] ??
+            m['accessoryId'] ??
+            m['productId'] ??
+            m['id'] ??
+            m['uin'];
 
+    // PRICE
     double price = 0.0;
     final rawPrice = m['price'] ?? m['cost'] ?? 0;
-    if (rawPrice is num) price = rawPrice.toDouble();
-    else price = double.tryParse(rawPrice.toString()) ?? 0.0;
+    if (rawPrice is num) {
+      price = rawPrice.toDouble();
+    } else {
+      price = double.tryParse(rawPrice.toString()) ?? 0.0;
+    }
+
+    // QUANTITY
+    final int quantity = int.tryParse(
+      (m['quantity'] ??
+          m['stock'] ??
+          m['availableQuantity'] ??
+          m['available'] ??
+          m['qty'] ??
+          0)
+          .toString(),
+    ) ??
+        0;
 
     return {
-      'id': id.toString(),
+      'id': id?.toString(),
+      'raw': m,
       'category': category,
       'name': m['name'] ?? m['title'] ?? 'Unnamed Product',
+      'brand': m['brand'] ?? '',
       'price': price,
+      'quantity': quantity,
+      'isAvailable': quantity > 0, // ✅ CRITICAL
       'image': m['image'] ?? m['imageUrl'] ?? m['imagePath'] ?? '',
       'description': m['description'] ?? '',
       'status': m['status'] ?? '',
-      'raw': m,
     };
   }
+
+
 
   Future<void> _initialize() async {
     _scrollController.addListener(_onScroll);
@@ -181,6 +209,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _startAutoScroll() {
     _autoScrollTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
       if (!_pageController.hasClients || _promoBanners.isEmpty) return;
+      final current = _pageController.page?.round() ?? 0;
       final nextPage = (_currentBanner + 1) % _promoBanners.length;
       if (_pageController.page == nextPage.toDouble()) return;
       _pageController.animateToPage(
@@ -200,11 +229,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _initializeUser() async {
     try {
-      if (Firebase.apps.isEmpty) {
+      if (!Firebase.apps.any((app) => app.name == Firebase.app().name)) {
         await Firebase.initializeApp(
           options: DefaultFirebaseOptions.currentPlatform,
         );
       }
+
 
       _user = FirebaseAuth.instance.currentUser;
       if (_user != null) {
@@ -284,11 +314,11 @@ class _HomeScreenState extends State<HomeScreen> {
         res.data?["items"] is List ? res.data["items"] : [];
 
         if (mounted) {
-          _marketplaceData["Drones"] = items
-              .where((p) => p["status"] == "approved")
-              .toList();
+          final filtered = items.where((p) => p["status"] == "approved").toList();
+          _marketplaceData["Drones"] = _sortByAvailability(filtered);
         }
-      },
+
+          },
     );
   }
 
@@ -302,11 +332,11 @@ class _HomeScreenState extends State<HomeScreen> {
         res.data?["items"] is List ? res.data["items"] : [];
 
         if (mounted) {
-          _marketplaceData["Parts"] = items
-              .where((p) => p["status"] == "approved")
-              .toList();
+          final filtered = items.where((p) => p["status"] == "approved").toList();
+          _marketplaceData["Parts"] = _sortByAvailability(filtered);
         }
-      },
+
+          },
     );
   }
 
@@ -318,12 +348,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final List items =
         res.data?["items"] is List ? res.data["items"] : [];
-
-        if (mounted) {
-          _marketplaceData["Accessories"] = items
-              .where((p) => p["status"] == "approved")
-              .toList();
-        }
+         if (mounted) {
+            final filtered = items.where((p) => p["status"] == "approved").toList();
+            _marketplaceData["Accessories"] = _sortByAvailability(filtered);
+            }
       },
     );
   }
@@ -606,6 +634,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPromoBanner() {
+    if (_promoBanners.isEmpty) {
+      return const SizedBox(); // ✅ prevents crash
+    }
+
     if (_sectionLoadingStates['promoBanners'] == true) {
       return _buildSectionShimmer(
         height: ResponsiveUtils.getBannerHeight(context),
@@ -668,6 +700,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: [
                             CachedNetworkImage(
                               imageUrl: imageUrl,
+                              memCacheWidth: 600,
                               fit: BoxFit.cover,
                               errorWidget: (_, __, ___) => Container(
                                 color: Colors.grey[200],
@@ -982,42 +1015,92 @@ class _HomeScreenState extends State<HomeScreen> {
     final imageUrl = _getImageUrl(item);
     final productName = _getProductName(item);
     final cardWidth = ResponsiveUtils.getProductCardWidth(context);
-    final imageHeight = cardWidth * ResponsiveUtils.getMarketGridAspectRatio(context);
+    final imageHeight =
+        cardWidth * ResponsiveUtils.getMarketGridAspectRatio(context);
     final cardMargin = ResponsiveUtils.getCardMargin(context);
 
+    final bool isStockCategory = _isStockManagedCategory(sectionKey);
+    final int quantity = isStockCategory ? (item['quantity'] ?? 0) : 1;
+    final bool isAvailable = !isStockCategory || quantity > 0;
+
     return GestureDetector(
-      onTap: () => _handleProductTap(item, sectionKey),
+      onTap: isAvailable
+          ? () => _handleProductTap(item, sectionKey)
+          : () => Utils.bottomToast(context, "Item is out of stock"),
       child: Container(
         width: cardWidth,
         margin: EdgeInsets.only(right: cardMargin),
         decoration: BoxDecoration(
           color: _kWhiteColor,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFF1F5F9), width: 1),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 4))],
+          border: Border.all(color: const Color(0xFFF1F5F9)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 15,
+              offset: const Offset(0, 4),
+            )
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildProductImage(imageUrl, imageHeight, item),
+            _buildProductImage(
+              imageUrl,
+              imageHeight,
+              item,
+              sectionKey, // 👈 PASS SECTION
+            ),
             _buildProductInfo(item, productName, cardMargin),
           ],
         ),
       ),
     );
   }
+  List<dynamic> _sortByAvailability(List<dynamic> items) {
+    return items
+      ..sort((a, b) {
+        final int qa = (a['quantity'] ?? 0);
+        final int qb = (b['quantity'] ?? 0);
 
-  String _getImageUrl(dynamic item) {
-    final url = item["image"] ?? item["imageUrl"] ?? item["product_image"];
-    final urlString = url?.toString().trim() ?? "";
+        // ❌ Out of stock always last
+        if (qa == 0 && qb > 0) return 1;
+        if (qa > 0 && qb == 0) return -1;
 
-    return urlString.isEmpty
-        ? "https://via.placeholder.com/300x200.png?text=No+Image"
-        : urlString.startsWith("http") ? urlString : getFullImageUrl(urlString);
+        // ✅ Both available → lowest quantity first
+        if (qa > 0 && qb > 0) {
+          return qa.compareTo(qb);
+        }
+
+        // Both zero
+        return 0;
+      });
   }
 
-  Widget _buildProductImage(String imageUrl, double height, dynamic item) {
+  String _getImageUrl(dynamic item) {
+    final raw = item["image"] ?? item["imageUrl"] ?? item["product_image"];
+
+    if (raw == null) {
+      return "https://via.placeholder.com/300x200.png?text=No+Image";
+    }
+
+    final url = raw.toString().trim();
+    if (url.isEmpty) return "https://via.placeholder.com/300x200.png?text=No+Image";
+
+    return url.startsWith("http") ? url : getFullImageUrl(url);
+  }
+
+  Widget _buildProductImage(
+      String imageUrl,
+      double height,
+      dynamic item,
+      String sectionKey,
+      ) {
     final cardMargin = ResponsiveUtils.getCardMargin(context);
+
+    final bool isStockCategory = _isStockManagedCategory(sectionKey);
+    final int quantity = isStockCategory ? (item['quantity'] ?? 0) : 1;
+    final bool isAvailable = !isStockCategory || quantity > 0;
 
     return Stack(
       children: [
@@ -1026,36 +1109,105 @@ class _HomeScreenState extends State<HomeScreen> {
           child: CachedNetworkImage(
             imageUrl: imageUrl,
             height: height,
+            memCacheWidth: 600,
             width: double.infinity,
             fit: BoxFit.cover,
-            placeholder: (_, __) => Container(height: height, color: const Color(0xFFF5F5F5)),
+            placeholder: (_, __) =>
+                Container(height: height, color: const Color(0xFFF5F5F5)),
             errorWidget: (_, __, ___) => Container(
               height: height,
               color: const Color(0xFFF5F5F5),
-              child: Icon(Icons.photo, size: ResponsiveUtils.getIconSize(context) + 18, color: Colors.grey),
+              child: Icon(
+                Icons.photo,
+                size: ResponsiveUtils.getIconSize(context) + 18,
+                color: Colors.grey,
+              ),
             ),
           ),
         ),
+
+        /// DISCOUNT
         if (item["discount"] != null && item["discount"] > 0)
           Positioned(
             top: 8,
             left: 8,
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: cardMargin / 2, vertical: cardMargin / 4),
+              padding: EdgeInsets.symmetric(
+                horizontal: cardMargin / 2,
+                vertical: cardMargin / 4,
+              ),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [_kErrorColor, Color(0xFFDC2626)]),
+                gradient: const LinearGradient(
+                  colors: [_kErrorColor, Color(0xFFDC2626)],
+                ),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 "${item["discount"]}% OFF",
                 style: GoogleFonts.inter(
                   color: _kWhiteColor,
-                  fontSize: ResponsiveUtils.getSmallFontSize(context) - 1,
+                  fontSize:
+                  ResponsiveUtils.getSmallFontSize(context) - 1,
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ),
           ),
+
+        /// LOW STOCK (only for products)
+        if (isStockCategory && quantity > 0 && quantity <= 5)
+          Positioned(
+            bottom: 8,
+            left: 8,
+            child: Container(
+              padding:
+              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade600,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                "Only $quantity left",
+                style: GoogleFonts.inter(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+
+        /// OUT OF STOCK (only for products)
+    /// 🟥 OUT OF STOCK BADGE (HOME = MARKET STYLE)
+    if (isStockCategory && !isAvailable)
+    Positioned(
+    top: 5, // ⬅ below wishlist icon
+    right: 8,
+    child: Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+    color: Colors.red.shade600,
+    borderRadius: BorderRadius.circular(8),
+    boxShadow: [
+    BoxShadow(
+    color: Colors.black.withOpacity(0.15),
+    blurRadius: 4,
+    offset: const Offset(0, 2),
+    ),
+    ],
+    ),
+    child: Text(
+    "OUT OF STOCK",
+    style: GoogleFonts.inter(
+    fontSize: 10,
+    fontWeight: FontWeight.w800,
+    color: Colors.white,
+    letterSpacing: 0.4,
+    ),
+    ),
+    ),
+    ),
+
       ],
     );
   }
@@ -1115,7 +1267,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleProductTap(dynamic item, String sectionKey) {
-    final normalized = normalizeHomeItem(item, sectionKey);
+    final normalized = normalizeHomeItem(
+  item,
+  sectionKey[0].toUpperCase() + sectionKey.substring(1),
+);
     if (sectionKey == 'services') {
       Navigator.push(
         context,
@@ -1155,7 +1310,10 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    if (products.isEmpty) return const SizedBox();
+    if (products.isEmpty) {
+      return const SizedBox(height: 8); // smoother UX
+    }
+
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1637,6 +1795,9 @@ class _HomeScreenState extends State<HomeScreen> {
           body: RefreshIndicator(
             color: _kPrimaryColor,
             onRefresh: () async {
+              if (_isRefreshing) return;
+              _isRefreshing = true;
+
               await Future.wait([
                 _loadPromoBanners(),
                 _loadDrones(),
@@ -1645,6 +1806,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 _loadJobs(),
                 _loadServices(),
               ]);
+
+              _isRefreshing = false;
             },
             child: ListView(
               controller: _scrollController,

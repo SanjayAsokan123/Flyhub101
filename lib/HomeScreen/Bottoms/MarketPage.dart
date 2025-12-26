@@ -101,6 +101,26 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
     super.dispose();
   }
 
+  List<dynamic> sortByStock(List<dynamic> items) {
+    items.sort((a, b) {
+      final int qa = a['quantity'] ?? 0;
+      final int qb = b['quantity'] ?? 0;
+
+      // ❌ Out of stock always last
+      if (qa == 0 && qb > 0) return 1;
+      if (qa > 0 && qb == 0) return -1;
+
+      // ✅ Both available → lowest quantity first
+      if (qa > 0 && qb > 0) {
+        return qa.compareTo(qb);
+      }
+
+      return 0;
+    });
+    return items;
+  }
+
+
   Future<void> _fetchInitialData() async {
     setState(() => isLoading = true);
     try {
@@ -263,11 +283,13 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
 
 
   void _applyFilters() {
-    filteredDrones = _filterList(drones);
-    filteredParts = _filterList(parts);
-    filteredAccessories = _filterList(accessories);
+    filteredDrones = sortByStock(_filterList(drones));
+    filteredParts = sortByStock(_filterList(parts));
+    filteredAccessories = sortByStock(_filterList(accessories));
+
     setState(() {});
   }
+
 
   List<dynamic> _filterList(List<dynamic> list) {
     var result = list.where((item) {
@@ -551,12 +573,93 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
     );
   }
 
-  Widget _badge(int count) => Container(
-    padding: EdgeInsets.all(ResponsiveUtils.getCardMargin(context) / 3),
-    decoration: BoxDecoration(color: Colors.red.shade600, borderRadius: BorderRadius.circular(8)),
-    constraints: BoxConstraints(minWidth: ResponsiveUtils.getMarketBadgeSize(context), minHeight: ResponsiveUtils.getMarketBadgeSize(context)),
-    child: Text(count > 99 ? '99+' : '$count', style: GoogleFonts.inter(color: Colors.white, fontSize: ResponsiveUtils.getSmallFontSize(context) - 1, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-  );
+  Widget _buildStockBadge(int quantity) {
+    // ❌ Out of stock
+    if (quantity <= 0) {
+      return _badge(
+        text: "OUT OF STOCK",
+        bg: Colors.red.shade600,
+        fg: Colors.white,
+      );
+    }
+
+    // 🔥 LAST ONE (HOME SCREEN STYLE)
+    if (quantity == 1) {
+      return _badge(
+        text: "🔥 LAST ONE",
+        bg: Colors.orange.shade500,
+        fg: Colors.black,
+      );
+    }
+
+    // ⚠️ LOW STOCK
+    if (quantity == 2) {
+      return _badge(
+        text: "ONLY 2 LEFT",
+        bg: Colors.orange.shade500,
+        fg: Colors.black,
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+
+  Widget _badge({
+    required String text,
+    required Color bg,
+    required Color fg,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        text,
+        style: GoogleFonts.inter(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: fg,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildCountBadge(int count) {
+    return Container(
+      padding: EdgeInsets.all(
+        ResponsiveUtils.getCardMargin(context) / 3,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.red.shade600,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      constraints: BoxConstraints(
+        minWidth: ResponsiveUtils.getMarketBadgeSize(context),
+        minHeight: ResponsiveUtils.getMarketBadgeSize(context),
+      ),
+      child: Text(
+        count > 99 ? '99+' : '$count',
+        style: GoogleFonts.inter(
+          color: Colors.white,
+          fontSize: ResponsiveUtils.getSmallFontSize(context) - 1,
+          fontWeight: FontWeight.bold,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
 
   Widget _buildSearchBar() {
     return Container(
@@ -629,7 +732,12 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
                 icon: Icon(Icons.shopping_bag_outlined, color: kTextSecondary, size: ResponsiveUtils.getIconSize(context)),
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyCartPage())).then((_) { if (mounted) setState(() {}); }),
               ),
-              if (cartCount > 0) Positioned(right: 6, top: 6, child: _badge(cartCount)),
+              if (cartCount > 0)
+                Positioned(
+                  right: 6,
+                  top: 6,
+                  child: _buildCountBadge(cartCount),
+                ),
             ],
           ),
         ],
@@ -730,6 +838,32 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
       ),
     );
   }
+  Widget _buildOutOfStockBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.red.shade600,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        "OUT OF STOCK",
+        style: GoogleFonts.inter(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: Colors.white,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
+
 
   Widget _buildProductItem(dynamic item) {
     final provider = context.watch<CartWishlistProvider>();
@@ -773,6 +907,12 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
         ),
         child: Stack(
           children: [
+            if (item['quantity'] != null && item['quantity'] > 0 && item['quantity'] <= 2)
+              Positioned(
+                top: ResponsiveUtils.getCardMargin(context),
+                left: ResponsiveUtils.getCardMargin(context),
+                child: _buildStockBadge(item['quantity']),
+              ),
             /// ---------------- PRODUCT CONTENT ----------------
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -876,62 +1016,42 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
                 onTap: isAvailable
                     ? () async => await _toggleWishlist(item)
                     : () {
-                  Utils.bottomToast(
-                      context, "Item is out of stock");
+                  Utils.bottomToast(context, "Item is out of stock");
                 },
                 child: Container(
                   width: ResponsiveUtils.getButtonHeight(context) - 24,
                   height: ResponsiveUtils.getButtonHeight(context) - 24,
                   decoration: BoxDecoration(
-                    color: kSurfaceColor.withOpacity(0.9),
+                    color: isAvailable
+                        ? kSurfaceColor.withOpacity(0.9)
+                        : Colors.grey.shade300, // 🖤 disabled bg
                     shape: BoxShape.circle,
-                    boxShadow: [
+                    boxShadow: isAvailable
+                        ? [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.1),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
-                    ],
+                    ]
+                        : [],
                   ),
                   child: Icon(
                     isFav ? Icons.favorite : Icons.favorite_border,
-                    color:
-                    isFav ? Colors.red.shade500 : kTextSecondary,
-                    size:
-                    ResponsiveUtils.getIconSize(context) - 2,
+                    color: isAvailable
+                        ? (isFav ? Colors.red.shade500 : kTextSecondary)
+                        : Colors.grey.shade600, // 🖤 disabled icon
+                    size: ResponsiveUtils.getIconSize(context) - 2,
                   ),
                 ),
               ),
             ),
-
-            /// ---------------- OUT OF STOCK OVERLAY ----------------
             if (!isAvailable)
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.55),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.block,
-                            color: Colors.white, size: 32),
-                        const SizedBox(height: 8),
-                        Text(
-                          "OUT OF STOCK",
-                          style: GoogleFonts.inter(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              Positioned(
+                top: ResponsiveUtils.getCardMargin(context) +
+                    (ResponsiveUtils.getButtonHeight(context) + 30),
+                right: ResponsiveUtils.getCardMargin(context),
+                child: _buildOutOfStockBadge(),
               ),
           ],
         ),

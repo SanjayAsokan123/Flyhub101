@@ -665,6 +665,7 @@ mutation ChangeSellerPassword($email: String!, $newPassword: String!) {
           description
           image
           status
+          quantity
            }
         totalCount
         page
@@ -695,6 +696,7 @@ mutation ChangeSellerPassword($email: String!, $newPassword: String!) {
           description
           image
           status
+          quantity
            }
         totalCount
         page

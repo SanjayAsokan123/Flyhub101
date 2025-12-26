@@ -153,6 +153,7 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
       // 1️⃣ Fetch buyer from backend
       final buyerData = await fetchBuyerByEmail(enteredInput);
       if (buyerData == null) {
+        setState(() => _isLoading = false);
         showMessage("No buyer found");
         return;
       }
@@ -210,7 +211,7 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
       );
     } catch (e) {
       debugPrint("❌ Login error: $e");
-      showMessage("Incorrect credentials");
+      showMessage("Login failed. Please check credentials.");
     } finally {
       setState(() => _isLoading = false);
     }
@@ -227,61 +228,73 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
     return snap.docs.isNotEmpty ? snap.docs.first.data() : null;
   }
 
+//future add signinwithgoogle
   // =============================================================
   // 🔐 GOOGLE LOGIN
   // =============================================================
-  Future<void> _signInWithGoogle() async {
-    try {
-      setState(() => _isLoading = true);
-
-      final googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) return;
-
-      final googleAuth = await googleUser.authentication;
-
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      final userCred = await _auth.signInWithCredential(credential);
-      final user = userCred.user;
-      if (user == null) throw Exception("Google login failed.");
-
-      final email = user.email ?? "";
-
-      // STEP 1 — Check Backend Buyer Exists
-      final existing = await fetchBuyerByEmail(email);
-
-      if (existing != null) {
-        final buyerId = existing["buyerId"];
-
-        await saveBuyerFcmToken(buyerId);
-        await RoleManager.setLocalRole("buyer");
-        await RoleManager.saveBuyerId(buyerId);
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const Dynamichome(selectedIndex: 0)),
-        );
-        return;
-      }
-
-      // STEP 2 — Buyer does NOT exist → Logout cleanly
-      await FirebaseAuth.instance.signOut();
-      await GoogleSignIn().signOut();
-      showMessage("No buyer account found. Please register first.");
-
-    } catch (e) {
-      showMessage("Google login failed: $e");
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
+  // Future<void> _signInWithGoogle() async {
+  //   try {
+  //     setState(() => _isLoading = true);
+  //
+  //     // 1️⃣ Google sign-in (ONLY to get verified email)
+  //     final googleUser = await GoogleSignIn().signIn();
+  //     if (googleUser == null) return;
+  //
+  //     final email = googleUser.email;
+  //
+  //     // 2️⃣ Fetch buyer from backend (MongoDB)
+  //     final buyerData = await fetchBuyerByEmail(email);
+  //
+  //     if (buyerData == null) {
+  //       await GoogleSignIn().signOut();
+  //       showMessage("No buyer account found. Please register first.");
+  //       return;
+  //     }
+  //
+  //     final buyerId = buyerData["buyerId"];
+  //     final firebasePassword = buyerData["firebasePassword"];
+  //
+  //     if (firebasePassword == null || firebasePassword.isEmpty) {
+  //       throw Exception("Firebase password missing for this account");
+  //     }
+  //
+  //     // 3️⃣ Firebase EMAIL + PASSWORD login
+  //     final userCred = await _auth.signInWithEmailAndPassword(
+  //       email: email,
+  //       password: firebasePassword,
+  //     );
+  //
+  //     final user = userCred.user;
+  //     if (user == null) throw Exception("Firebase login failed");
+  //
+  //     // 4️⃣ Save FCM Token
+  //     await saveBuyerFcmToken(buyerId);
+  //
+  //     // 5️⃣ Save Role
+  //     await RoleManager.setLocalRole("buyer");
+  //     await RoleManager.saveBuyerId(buyerId);
+  //
+  //     // 6️⃣ Navigate
+  //     Navigator.pushReplacement(
+  //       context,
+  //       MaterialPageRoute(
+  //         builder: (_) => const Dynamichome(selectedIndex: 0),
+  //       ),
+  //     );
+  //
+  //   } catch (e) {
+  //     debugPrint("❌ Google login error: $e");
+  //     showMessage("Google login failed. Please try again.");
+  //   } finally {
+  //     setState(() => _isLoading = false);
+  //   }
+  // }
 
   // =============================================================
   // SIMPLE & PROFESSIONAL UI
   // =============================================================
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -450,40 +463,42 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
                     ),
                     const SizedBox(height: 16),
 
+
+// future add signinwithgoogle
                     // Google login
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: OutlinedButton(
-                        onPressed: _signInWithGoogle,
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: themeColor, width: 1.5),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(40),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Image.asset(
-                              'assets/google_logo.png',
-                              height: 20,
-                              width: 20,
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              "Continue with Google",
-                              style: GoogleFonts.inter(
-                                fontSize: 15,
-                                color: themeColor,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 25),
+                    // SizedBox(
+                    //   width: double.infinity,
+                    //   height: 52,
+                    //   child: OutlinedButton(
+                    //     onPressed: _signInWithGoogle,
+                    //     style: OutlinedButton.styleFrom(
+                    //       side: const BorderSide(color: themeColor, width: 1.5),
+                    //       shape: RoundedRectangleBorder(
+                    //         borderRadius: BorderRadius.circular(40),
+                    //       ),
+                    //     ),
+                    //     child: Row(
+                    //       mainAxisAlignment: MainAxisAlignment.center,
+                    //       children: [
+                    //         Image.asset(
+                    //           'assets/google_logo.png',
+                    //           height: 20,
+                    //           width: 20,
+                    //         ),
+                    //         const SizedBox(width: 10),
+                    //         Text(
+                    //           "Continue with Google",
+                    //           style: GoogleFonts.inter(
+                    //             fontSize: 15,
+                    //             color: themeColor,
+                    //             fontWeight: FontWeight.w600,
+                    //           ),
+                    //         ),
+                    //       ],
+                    //     ),
+                    //   ),
+                    // ),
+                    // const SizedBox(height: 25),
 
                     // Signup Link
                     GestureDetector(
