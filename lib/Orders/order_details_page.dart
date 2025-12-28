@@ -31,7 +31,6 @@ mutation ConfirmDelivery($orderId: String!, $buyerId: String!) {
 }
 ''';
 
-
 class OrderDetailsPage extends StatelessWidget {
   final OrderModel order;
   final String buyerId;
@@ -43,44 +42,273 @@ class OrderDetailsPage extends StatelessWidget {
   });
 
   static const Color primaryColor = Color(0xFF1A0A5B);
+  static const Color backgroundColor = Color(0xFFF5F7FA);
+  static const Color textPrimary = Color(0xFF1A1A1A);
+  static const Color textSecondary = Color(0xFF666666);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: backgroundColor,
       appBar: AppBar(
         title: const Text(
           "Order Details",
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 18,
+            color: textPrimary,
+          ),
         ),
         backgroundColor: Colors.white,
         elevation: 1,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildOrderStatusCard(),
-            const SizedBox(height: 16),
-            _buildCustomerInfoCard(),
-            const SizedBox(height: 16),
-            _buildOrderImagesSection(),
-            const SizedBox(height: 16),
-            _buildOrderSummaryCard(),
-            const SizedBox(height: 16),
-            _buildItemsListCard(),
-            const SizedBox(height: 16),
-            _buildOrderTimelineCard(),
+            /// ORDER STATUS CARD
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "ORDER #${order.orderId}",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(order.status).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: _getStatusColor(order.status).withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      _getStatusText(order.status),
+                      style: TextStyle(
+                        color: _getStatusColor(order.status),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
             const SizedBox(height: 16),
 
-            /// ✅ TRACKING + INVOICE
+            /// CUSTOMER INFO
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Customer Information",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      color: textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildInfoRow(Icons.person_outline, "Name", order.buyerName),
+                  const SizedBox(height: 12),
+                  _buildInfoRow(Icons.phone_outlined, "Phone", order.buyerPhone),
+                  const SizedBox(height: 12),
+                  _buildInfoRow(Icons.email_outlined, "Email", order.buyerEmail),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            /// ORDER ITEMS
+            if (order.items.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Order Items",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        color: textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ...order.items.map((item) {
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 60,
+                              height: 60,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                color: Colors.grey.shade100,
+                                image: item.image.isNotEmpty
+                                    ? DecorationImage(
+                                  image: NetworkImage(item.image),
+                                  fit: BoxFit.cover,
+                                )
+                                    : null,
+                              ),
+                              child: item.image.isEmpty
+                                  ? Icon(
+                                Icons.image_not_supported_rounded,
+                                color: Colors.grey.shade400,
+                                size: 24,
+                              )
+                                  : null,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 14,
+                                      color: textPrimary,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "Qty: ${item.quantity}",
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              "₹${item.total.toStringAsFixed(2)}",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                                color: primaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 16),
+
+            /// ORDER SUMMARY - SIMPLIFIED
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "Total Amount",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      color: textPrimary,
+                    ),
+                  ),
+                  Text(
+                    "₹${order.totalAmount.toStringAsFixed(2)}",
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 18,
+                      color: primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            /// TRACKING & INVOICE
             _buildInvoiceAndTracking(),
 
             const SizedBox(height: 24),
+
+            /// ACTION BUTTONS
             _buildActionButtons(context),
           ],
         ),
@@ -88,7 +316,252 @@ class OrderDetailsPage extends StatelessWidget {
     );
   }
 
-  /// ================= CANCEL ORDER =================
+  /// ================= UI COMPONENTS =================
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: textSecondary),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: textSecondary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInvoiceAndTracking() {
+    final status = order.status.toLowerCase();
+
+    if (order.invoiceUrl == null && order.trackingNumber == null) {
+      return const SizedBox();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          /// TRACKING
+          if (["shipped", "delivered"].contains(status) &&
+              order.trackingNumber != null &&
+              order.trackingNumber!.isNotEmpty) ...[
+            const Text(
+              "Tracking Details",
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                color: textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: backgroundColor,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          order.trackingNumber!,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: textPrimary,
+                          ),
+                        ),
+                        if (order.trackingProvider != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              "via ${order.trackingProvider!}",
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: textSecondary,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _trackShipment,
+                    icon: Icon(
+                      Icons.open_in_new_rounded,
+                      color: primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          /// INVOICE
+          if (order.invoiceUrl != null && order.invoiceUrl!.isNotEmpty) ...[
+            const Text(
+              "Invoice",
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                color: textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.download_rounded, size: 18),
+                label: const Text("Download Invoice"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () async {
+                  await launchUrl(
+                    Uri.parse(order.invoiceUrl!),
+                    mode: LaunchMode.externalApplication,
+                  );
+                },
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// ================= ACTION BUTTONS =================
+  Widget _buildActionButtons(BuildContext context) {
+    final status = order.status.toLowerCase();
+
+    return Column(
+      children: [
+        /// TRACK SHIPMENT
+        if (order.trackingNumber != null &&
+            order.trackingNumber!.isNotEmpty &&
+            ["shipped", "delivered"].contains(status))
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.local_shipping_rounded),
+              label: const Text("Track Shipment"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: _trackShipment,
+            ),
+          ),
+
+        const SizedBox(height: 12),
+
+        /// CONFIRM DELIVERY
+        if (status == "shipped")
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => _confirmDelivery(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_circle_outline_rounded, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    "Confirm Delivery",
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+        const SizedBox(height: 12),
+
+        /// CANCEL ORDER
+        if (!["delivered", "cancelled", "rejected"].contains(status))
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () => _askCancelOrder(context),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red,
+                side: BorderSide(color: Colors.red.withOpacity(0.3)),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.cancel_outlined, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    "Cancel Order",
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// ================= FUNCTIONALITY =================
 
   void _askCancelOrder(BuildContext context) {
     final ctrl = TextEditingController();
@@ -96,25 +569,55 @@ class OrderDetailsPage extends StatelessWidget {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Cancel Order"),
-        content: TextField(
-          controller: ctrl,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            hintText: "Reason for cancelling order",
-          ),
+        title: const Text(
+          "Cancel Order",
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Please provide a reason for cancelling order #${order.orderId}",
+              style: const TextStyle(color: textSecondary),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: ctrl,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: "Enter reason...",
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFFE5E5E5)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: primaryColor),
+                ),
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Back"),
+            child: const Text(
+              "Back",
+              style: TextStyle(color: textSecondary),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
               if (ctrl.text.trim().length < 3) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Please enter a valid reason"),
+                  SnackBar(
+                    content: const Text("Please enter a valid reason"),
+                    backgroundColor: Colors.red,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 );
                 return;
@@ -131,15 +634,27 @@ class OrderDetailsPage extends StatelessWidget {
 
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Order cancelled")),
+                SnackBar(
+                  content: const Text("Order cancelled successfully"),
+                  backgroundColor: Colors.green,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
               );
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             child: const Text("Cancel Order"),
           ),
         ],
       ),
     );
   }
+
   Future<void> _confirmDelivery(BuildContext context) async {
     await GraphQLService.performMutation(
       confirmDeliveryMutation,
@@ -150,7 +665,14 @@ class OrderDetailsPage extends StatelessWidget {
     );
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Delivery confirmed")),
+      SnackBar(
+        content: const Text("Delivery confirmed successfully"),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
     );
 
     Navigator.pop(context);
@@ -163,13 +685,10 @@ class OrderDetailsPage extends StatelessWidget {
 
     switch (order.trackingProvider) {
       case "DELHIVERY":
-        url =
-        "https://www.delhivery.com/track/package/${order.trackingNumber}";
+        url = "https://www.delhivery.com/track/package/${order.trackingNumber}";
         break;
-
       default: // SHIPROCKET
-        url =
-        "https://shiprocket.co/tracking/${order.trackingNumber}";
+        url = "https://shiprocket.co/tracking/${order.trackingNumber}";
     }
 
     await launchUrl(
@@ -178,262 +697,27 @@ class OrderDetailsPage extends StatelessWidget {
     );
   }
 
+  /// ================= HELPER METHODS =================
 
-  /// ================= INVOICE + TRACKING =================
-
-  Widget _buildInvoiceAndTracking() {
-    final status = order.status.toLowerCase();
-
-    if (order.invoiceUrl == null &&
-        order.trackingNumber == null) {
-      return const SizedBox();
-    }
-
-    return _card(
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          /// 🚚 TRACKING
-          if (["shipped", "delivered"].contains(status) &&
-              order.trackingNumber != null &&
-              order.trackingNumber!.isNotEmpty) ...[
-            const Text(
-              "Tracking Details",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 6),
-            Text("Tracking Number: ${order.trackingNumber}"),
-            const SizedBox(height: 16),
-          ],
-
-          /// 🧾 INVOICE
-          if (order.invoiceUrl != null &&
-              order.invoiceUrl!.isNotEmpty) ...[
-            const Text(
-              "Invoice",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 6),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.picture_as_pdf),
-                label: const Text("Download Invoice"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
-                ),
-                onPressed: () async {
-                  await launchUrl(
-                    Uri.parse(order.invoiceUrl!),
-                    mode: LaunchMode.externalApplication,
-                  );
-                },
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
+  String _formatDate(DateTime date) {
+    final month = _getMonthAbbreviation(date.month);
+    return '${date.day} $month ${date.year}, ${_formatTime(date)}';
   }
 
-  /// ================= UI SECTIONS =================
-
-  Widget _buildOrderStatusCard() {
-    return _card(
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text("ORDER #${order.orderId}",
-              style: const TextStyle(fontWeight: FontWeight.bold)),
-          Chip(
-            label: Text(_getStatusText(order.status)),
-            backgroundColor:
-            _getStatusColor(order.status).withOpacity(0.15),
-            labelStyle:
-            TextStyle(color: _getStatusColor(order.status)),
-          ),
-        ],
-      ),
-    );
+  String _formatTime(DateTime date) {
+    final hour = date.hour % 12;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final ampm = date.hour < 12 ? 'AM' : 'PM';
+    final displayHour = hour == 0 ? 12 : hour;
+    return '$displayHour:$minute $ampm';
   }
 
-  Widget _buildCustomerInfoCard() {
-    return _card(
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _info("Customer", order.buyerName),
-          _info("Phone", order.buyerPhone),
-          _info("Email", order.buyerEmail),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOrderImagesSection() {
-    if (order.items.isEmpty) return const SizedBox();
-
-    if (order.items.length == 1) {
-      return _singleImage(order.items.first.image);
-    }
-
-    return Row(
-      children: order.items.take(4).map((item) {
-        return Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: _smallImage(item.image),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildOrderSummaryCard() {
-    return _card(
-      _priceRow("Total Amount", order.totalAmount, true),
-    );
-  }
-
-  Widget _buildItemsListCard() {
-    return _card(
-      Column(
-        children: order.items.map((item) {
-          return ListTile(
-            title: Text(item.name),
-            subtitle: Text("Qty: ${item.quantity}"),
-            trailing:
-            Text("₹${item.total.toStringAsFixed(2)}"),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildOrderTimelineCard() {
-    return _card(
-      Text(
-        "Status: ${_getStatusText(order.status)}",
-        style: const TextStyle(fontWeight: FontWeight.w500),
-      ),
-    );
-  }
-
-  /// ================= ACTION BUTTONS =================
-  Widget _buildActionButtons(BuildContext context) {
-    final status = order.status.toLowerCase();
-
-    return Column(
-      children: [
-        /// 🚚 Track Shipment
-        if (order.trackingNumber != null &&
-            order.trackingNumber!.isNotEmpty)
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.local_shipping),
-              label: const Text("Track Shipment"),
-              onPressed: _trackShipment,
-            ),
-          ),
-
-        const SizedBox(height: 12),
-
-        /// ⭐ Confirm Delivery
-        if (status == "shipped")
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => _confirmDelivery(context),
-              child: const Text("Confirm Delivery"),
-            ),
-          ),
-
-        const SizedBox(height: 12),
-
-        /// ❌ Cancel Order
-        if (!["delivered", "cancelled", "rejected"].contains(status))
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () => _askCancelOrder(context),
-              child: const Text("Cancel Order"),
-            ),
-          ),
-      ],
-    );
-  }
-
-
-
-  /// ================= HELPERS =================
-
-  Widget _card(Widget child) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
-
-  Widget _info(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text("$label: $value"),
-    );
-  }
-
-  Widget _singleImage(String url) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: AspectRatio(
-        aspectRatio: 1.2,
-        child: url.isNotEmpty
-            ? Image.network(url, fit: BoxFit.cover)
-            : _placeholder(),
-      ),
-    );
-  }
-
-  Widget _smallImage(String url) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: SizedBox(
-        width: 64,
-        height: 64,
-        child: url.isNotEmpty
-            ? Image.network(url, fit: BoxFit.cover)
-            : _placeholder(),
-      ),
-    );
-  }
-
-  Widget _placeholder() {
-    return Container(
-      color: Colors.grey.shade200,
-      child: const Icon(Icons.image_not_supported),
-    );
-  }
-
-  Widget _priceRow(String label, double amount, bool bold) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label),
-        Text(
-          "₹${amount.toStringAsFixed(2)}",
-          style:
-          TextStyle(fontWeight: bold ? FontWeight.bold : null),
-        ),
-      ],
-    );
+  String _getMonthAbbreviation(int month) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return months[month - 1];
   }
 
   Color _getStatusColor(String status) {
