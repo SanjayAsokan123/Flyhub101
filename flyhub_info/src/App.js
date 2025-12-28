@@ -7,6 +7,9 @@ import Navbar from './components/Navbar'; // Import Navbar
 import Footer from './components/Footer'; // Import Footer
 import Franchise from './components/Franchise';
 import './styles.css';
+import Role from './components/Role';
+import BuyerRegisterPage from './components/BuyerRegisterPage';
+import SellerRegisterPage from './components/SellerRegisterPage';
 
 function App() {
   return (
@@ -18,6 +21,10 @@ function App() {
           <Route path="/features" element={<Features />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="/franchise" element={<Franchise />} />
+                  <Route path="/" element={<Role />} />
+        <Route path="/register/buyer" element={<BuyerRegisterPage />} />
+        <Route path="/register/seller" element={<SellerRegisterPage />} />
+
         </Routes>
         <Footer /> {/* Add Footer here */}
       </div>

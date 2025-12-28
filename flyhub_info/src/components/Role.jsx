@@ -1,103 +1,186 @@
 import React from 'react';
-import { FaShoppingCart, FaStore, FaCheckCircle, FaUsers, FaShieldAlt, FaChartLine, FaSearch, FaTag, FaHandshake } from 'react-icons/fa';
+import { FaShoppingCart, FaStore, FaCheckCircle, FaUsers, FaShieldAlt, FaArrowRight, FaClock, FaUserGraduate, FaStar } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
 import '../styles/role.css';
 
+// Training courses data with specific images for your courses
+const trainingCourses = [
+  { 
+    id: 1, 
+    title: 'Small RPC Training', 
+    duration: '5 days', 
+    students: 850, 
+    rating: 4.7, 
+    image: 'https://images.unsplash.com/photo-1671043120956-f35166f77f87?q=80&w=1169&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' 
+  },
+  { 
+    id: 2, 
+    title: 'Medium RPC Training', 
+    duration: '5 days', 
+    students: 620, 
+    rating: 4.8, 
+    image: 'https://images.unsplash.com/photo-1657282284426-b9a05867f49b?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' 
+  },
+  { 
+    id: 3, 
+    title: 'Small & Medium RPC', 
+    duration: '8 days', 
+    students: 1120, 
+    rating: 4.9, 
+    image: 'https://images.unsplash.com/photo-1514144385048-7d9b93766a5b?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' 
+  },
+  { 
+    id: 4, 
+    title: 'RPC Upgradation', 
+    duration: '3 days', 
+    students: 450, 
+    rating: 4.6, 
+    image: 'https://images.unsplash.com/photo-1660141259396-858ed837477a?q=80&w=764&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' 
+  },
+  { 
+    id: 5, 
+    title: 'FPV Training', 
+    duration: '14 days', 
+    students: 780, 
+    rating: 4.8, 
+    image: 'https://images.unsplash.com/photo-1721249710785-3a0cb565707b?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' 
+  },
+  { 
+    id: 6, 
+    title: 'Crop Monitoring', 
+    duration: '5 days', 
+    students: 920, 
+    rating: 4.7, 
+    image: 'https://plus.unsplash.com/premium_photo-1664478063149-295e8449a105?q=80&w=1169&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' 
+  },
+  { 
+    id: 7, 
+    title: 'Agri Drone', 
+    duration: '5 days', 
+    students: 1340, 
+    rating: 4.9, 
+    image: 'https://images.unsplash.com/photo-1720071702672-d18c69cb475c?q=80&w=1332&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' 
+  },
+  { 
+    id: 8, 
+    title: 'Aerial Mapping & Surveying', 
+    duration: '5 days', 
+    students: 1050, 
+    rating: 4.8, 
+    image: 'https://images.unsplash.com/photo-1674331718483-24725d1080a8?q=80&w=1074&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' 
+  },
+];
+
 const Role = () => {
+  const navigate = useNavigate();
+
+  const handleBuyerRegister = () => {
+    navigate('/register/buyer');
+  };
+
+  const handleSellerRegister = () => {
+    navigate('/register/seller');
+  };
+
   return (
     <div className="platform-roles">
+      {/* Section Header */}
       <div className="section-header">
         <h2>Choose Your Role</h2>
         <p className="section-subtitle">Professional platform for every drone industry participant</p>
       </div>
       
-      <div className="roles-grid">
-        <div className="role-card buyer-role">
-          <div className="role-header">
-            <div className="role-icon buyer-icon">
-              <FaShoppingCart />
+      {/* Role Selection Cards with Images */}
+      <div className="roles-compact-container">
+        {/* Buyer Card */}
+        <div className="compact-role-card buyer-card">
+          <div 
+            className="role-image"
+            style={{ 
+              backgroundImage: 'url(https://images.unsplash.com/photo-1642543348781-ed9c6d67ed20?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)'
+            }}
+          >
+            <div className="image-overlay">
+              <div className="compact-card-content">
+                <div className="compact-icon">
+                  <FaShoppingCart />
+                </div>
+                <div className="compact-info">
+                  <h3>Become a Buyer</h3>
+                  <p>Access verified inventory & secure transactions</p>
+                </div>
+                <button className="compact-cta" onClick={handleBuyerRegister}>
+                  <FaArrowRight />
+                </button>
+              </div>
             </div>
-            <div className="role-title">
-              <h3>Professional Buyer</h3>
-              <span className="role-badge">For Individuals & Businesses</span>
-            </div>
-          </div>
-          
-          <div className="role-features">
-            <div className="feature-item">
-              <FaCheckCircle className="feature-check" />
-              <span>Access verified drone inventory</span>
-            </div>
-            <div className="feature-item">
-              <FaSearch className="feature-check" />
-              <span>Advanced filtering & comparison tools</span>
-            </div>
-            <div className="feature-item">
-              <FaShieldAlt className="feature-check" />
-              <span>Secure enterprise transactions</span>
-            </div>
-            <div className="feature-item">
-              <FaHandshake className="feature-check" />
-              <span>Direct negotiation with sellers</span>
-            </div>
-          </div>
-          
-          <div className="role-description">
-            Source commercial drones, parts, and professional services with 
-            complete transparency and enterprise-grade security.
-          </div>
-          
-          <div className="role-cta">
-            <button className="cta-button primary">
-              <FaShoppingCart /> Start Buying
-            </button>
-        
           </div>
         </div>
         
-        <div className="role-card seller-role">
-          <div className="role-header">
-            <div className="role-icon seller-icon">
-              <FaStore />
+        {/* Seller Card */}
+        <div className="compact-role-card seller-card">
+          <div 
+            className="role-image"
+            style={{ 
+              backgroundImage: 'url(https://images.unsplash.com/photo-1642543348791-b1cc1b07e756?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)'
+            }}
+          >
+            <div className="image-overlay">
+              <div className="compact-card-content">
+                <div className="compact-icon">
+                  <FaStore />
+                </div>
+                <div className="compact-info">
+                  <h3>Become a Seller</h3>
+                  <p>Reach professional buyers & manage inventory</p>
+                </div>
+                <button className="compact-cta" onClick={handleSellerRegister}>
+                  <FaArrowRight />
+                </button>
+              </div>
             </div>
-            <div className="role-title">
-              <h3>Professional Seller</h3>
-              <span className="role-badge">For Suppliers & Service Providers</span>
-            </div>
-          </div>
-          
-          <div className="role-features">
-            <div className="feature-item">
-              <FaChartLine className="feature-check" />
-              <span>Reach qualified professional buyers</span>
-            </div>
-            <div className="feature-item">
-              <FaTag className="feature-check" />
-              <span>Advanced inventory management</span>
-            </div>
-            <div className="feature-item">
-              <FaShieldAlt className="feature-check" />
-              <span>Verified seller certification</span>
-            </div>
-            <div className="feature-item">
-              <FaUsers className="feature-check" />
-              <span>Direct client communication</span>
-            </div>
-          </div>
-          
-          <div className="role-description">
-            Showcase your products and services to serious buyers with 
-            professional tools for inventory, pricing, and customer management.
-          </div>
-          
-          <div className="role-cta">
-            <button className="cta-button secondary">
-              <FaStore /> Start Selling
-            </button>
-            
           </div>
         </div>
       </div>
       
+      {/* Training Section */}
+      <div className="training-section">
+        <div className="training-header">
+          <h2>Professional Training Programs</h2>
+          <p className="section-subtitle">Master drone technology with industry-certified courses</p>
+        </div>
+        
+        {/* Scrolling Courses Container */}
+        <div className="courses-scroll-container">
+          <div className="courses-grid">
+            {trainingCourses.map((course) => (
+              <div key={course.id} className="course-card">
+                <div 
+                  className="course-image"
+                  style={{ backgroundImage: `url(${course.image})` }}
+                >
+                  <div className="course-info-overlay">
+                    <h4>{course.title}</h4>
+                    <div className="course-meta">
+                      <span className="meta-item">
+                        <FaClock /> {course.duration}
+                      </span>
+                      <span className="meta-item">
+                        <FaUserGraduate /> {course.students.toLocaleString()}
+                      </span>
+                      <span className="meta-item">
+                        <FaStar /> {course.rating}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      
+      {/* Platform Benefits */}
       <div className="platform-benefits">
         <div className="benefit-item">
           <div className="benefit-icon">

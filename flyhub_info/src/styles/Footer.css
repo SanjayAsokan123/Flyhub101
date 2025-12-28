@@ -12,7 +12,15 @@
   margin-bottom: 3rem;
 }
 
-.footer-section h3, .footer-section h4 {
+/* Logo Styles */
+.footer-logo {
+  max-width: 150px;
+  max-height: 80px;
+  margin-bottom: 1.5rem;
+  display: block;
+}
+
+.footer-section h4 {
   margin-bottom: 1.5rem;
   color: white;
 }
@@ -50,4 +58,110 @@
 
 .footer-bottom p {
   margin-bottom: 0.5rem;
+}
+
+/* Google Play Badge Styles */
+.google-play-link {
+  display: inline-block;
+  text-decoration: none;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.google-play-link:hover {
+  transform: translateY(-3px);
+  opacity: 0.9;
+}
+
+.google-play-badge {
+  display: flex;
+  align-items: center;
+  background: #000;
+  color: white;
+  border-radius: 8px;
+  padding: 10px 15px;
+  min-width: 180px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+  transition: box-shadow 0.3s ease;
+}
+
+.google-play-badge:hover {
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+}
+
+.google-play-icon {
+  font-size: 2.5rem;
+  margin-right: 10px;
+  color: white;
+}
+
+.google-play-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.google-play-small {
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 1px;
+  margin-bottom: 2px;
+}
+
+.google-play-large {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+  .footer-content {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 2rem;
+  }
+  
+  .footer {
+    padding: 3rem 1.5rem 1.5rem;
+  }
+  
+  .footer-logo {
+    max-width: 120px;
+    max-height: 40px;
+  }
+  
+  .google-play-badge {
+    min-width: 160px;
+    padding: 8px 12px;
+  }
+  
+  .google-play-icon {
+    font-size: 2.2rem;
+  }
+  
+  .google-play-small {
+    font-size: 0.65rem;
+  }
+  
+  .google-play-large {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .footer-content {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .footer {
+    padding: 2.5rem 1rem 1rem;
+  }
+  
+  .footer-logo {
+    max-width: 100px;
+    max-height: 35px;
+  }
+  
+  .google-play-badge {
+    min-width: 150px;
+  }
 }

@@ -8,9 +8,9 @@ const Hero = () => {
       <div className="hero-container">
         <div className="hero-content">
           <div className="header-badge">
-            <span className="badge">DRONE MARKETPLACE</span>
+           
           </div>
-          <h1>FlyHub Professional Drone Platform</h1>
+          <h1>Flyhub Professional Drone Platform</h1>
           <p className="subtitle">
             Streamlined marketplace connecting drone buyers, sellers, and service providers
           </p>
