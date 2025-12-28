@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Flyhub – Download App</title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Flyhub – Complete Drone Ecosystem App" />
+
+  <link rel="icon" href="flyhubicon.png" />
+
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(circle at top, #1a1f3c, #050713);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+      border-radius: 20px;
+      padding: 36px 28px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      backdrop-filter: blur(12px);
+    }
+
+    .logo {
+      width: 110px;
+      height: auto;
+      margin-bottom: 20px;
+      filter: drop-shadow(0 0 20px rgba(0, 153, 255, 0.4));
+    }
+
+    h1 {
+      font-size: 30px;
+      font-weight: 700;
+      margin: 10px 0 6px;
+      letter-spacing: 0.5px;
+    }
+
+    .tagline {
+      font-size: 15px;
+      color: #cfd3ff;
+      margin-bottom: 26px;
+    }
+
+    .button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 15px;
+      margin: 14px 0;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      text-decoration: none;
+      color: #ffffff;
+      transition: all 0.25s ease;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    }
+
+    .button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 28px rgba(0,0,0,0.6);
+    }
+
+    .android {
+      background: linear-gradient(135deg, #34a853, #2e7d32);
+    }
+
+    .ios {
+      background: linear-gradient(135deg, #007aff, #0051c7);
+    }
+
+    .apk {
+      background: linear-gradient(135deg, #ff9800, #e65100);
+    }
+
+    footer {
+      margin-top: 26px;
+      font-size: 12px;
+      color: #aab0ff;
+    }
+
+    footer a {
+      color: #aab0ff;
+      text-decoration: none;
+      margin: 0 6px;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    .copyright {
+      margin-top: 8px;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <img src="flyHub_logo.svg" alt="Flyhub Logo" class="logo" />
+
+    <h1>Flyhub</h1>
+    <div class="tagline">Complete Drone Ecosystem</div>
+
+    <!-- APK -->
+    <a class="button apk" href="/download/flyhub.apk" download>
+      ⬇ Download Android APK
+    </a>
+
+    <!-- Uncomment when Play Store is live -->
+    <!--
+    <a class="button android" href="https://play.google.com/store/apps/details?id=com.flyhub.app">
+      ▶ Get it on Google Play
+    </a>
+    -->
+
+    <!-- Uncomment when iOS is live -->
+    <!--
+    <a class="button ios" href="https://apps.apple.com/app/idXXXXXXXXX">
+       Download on App Store
+    </a>
+    -->
+
+    <footer>
+      <div>
+        <a href="/privacy-policy.html">Privacy Policy</a> |
+        <a href="/terms.html">Terms</a>
+      </div>
+      <div class="copyright">
+        © 2025 Flyhub
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
