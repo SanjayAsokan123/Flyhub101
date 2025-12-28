@@ -1,5 +1,5 @@
-// File: lib/Search/GlobalSearchPage.dart
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -38,14 +38,14 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
   SearchFilters _filters = SearchFilters();
   SortOption _sortBy = SortOption.RELEVANCE;
 
-  // Colors
-  static const _kPrimaryColor = Color(0xFF1E0E5C);
+  // Colors - Navy blue theme
+  static const _kPrimaryColor = Color(0xFF1A0A5B);
   static const _kWhiteColor = Color(0xFFFFFFFF);
-  static const _kDarkTextColor = Color(0xFF0F172A);
-  static const _kMediumTextColor = Color(0xFF64748B);
-  static const _kLightTextColor = Color(0xFF94A3B8);
-  static const _kBorderColor = Color(0xFFE2E8F0);
-  static const _kCardBackgroundColor = Color(0xFFF8FAFC);
+  static const _kDarkTextColor = Color(0xFF1A1A1A);
+  static const _kMediumTextColor = Color(0xFF666666);
+  static const _kLightTextColor = Color(0xFF999999);
+  static const _kBorderColor = Color(0xFFE5E5E5);
+  static const _kCardBackgroundColor = Color(0xFFF5F5F5);
 
   @override
   void initState() {
@@ -73,59 +73,72 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
       _searchQuery = query;
     });
 
+    debugPrint('\n\n=== PERFORMING SEARCH ===');
+    debugPrint('Search Query: "$query"');
+    debugPrint('Active Filters: ${_filters.toJson()}');
+    debugPrint('Sort By: $_sortBy');
+    debugPrint('Has active filters: ${_hasActiveFilters()}');
+
     try {
-      // Try GraphQL search first
       final response = await _searchService.globalSearch(
         query: query,
         filters: _filters,
         sortBy: _sortBy,
       );
 
+      debugPrint('GraphQL returned: ${response.results.length} results');
+
       if (response.results.isNotEmpty) {
         setState(() => _searchResults = response.results);
+        debugPrint('Displaying ${response.results.length} results from GraphQL');
       } else {
-        // Fallback to local marketplace search
+        debugPrint('No results from GraphQL, trying marketplace fallback...');
         final localResults = await _searchService.searchInMarketplace(
           query: query,
           marketplaceData: widget.marketplaceData,
           filters: _filters,
+          sortBy: _sortBy,
         );
+        debugPrint('Marketplace returned: ${localResults.length} results');
         setState(() => _searchResults = localResults);
       }
     } catch (e) {
       debugPrint('Search error: $e');
-      // Fallback to local search
+      debugPrint('Trying marketplace search as fallback...');
       final localResults = await _searchService.searchInMarketplace(
         query: query,
         marketplaceData: widget.marketplaceData,
         filters: _filters,
+        sortBy: _sortBy,
       );
+      debugPrint('Marketplace fallback: ${localResults.length} results');
       setState(() => _searchResults = localResults);
     } finally {
       if (mounted) {
         setState(() => _isSearching = false);
       }
+      debugPrint('=== SEARCH COMPLETE ===\n');
     }
   }
 
   Widget _buildShimmerLoader() {
-    final cardHeight = ResponsiveUtils.getProductCardHeight(context) / 2;
-    final cardMargin = ResponsiveUtils.getCardMargin(context);
-    final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
-
-    return ListView.builder(
-      padding: EdgeInsets.all(horizontalPadding),
-      itemCount: 5,
+    return GridView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 0.62,
+      ),
+      itemCount: 4,
       itemBuilder: (context, index) {
         return Shimmer.fromColors(
-          baseColor: const Color(0xFFE2E8F0),
-          highlightColor: const Color(0xFFF8FAFC),
+          baseColor: const Color(0xFFE5E5E5),
+          highlightColor: const Color(0xFFF5F5F5),
           child: Container(
-            height: cardHeight,
-            margin: EdgeInsets.only(bottom: cardMargin),
             decoration: BoxDecoration(
               color: _kWhiteColor,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(8),
             ),
           ),
         );
@@ -134,177 +147,301 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
   }
 
   Widget _buildNoResults() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.search_off,
-            size: 80,
-            color: _kLightTextColor,
-          ),
-          SizedBox(height: 16),
-          Text(
-            'No results found for "$_searchQuery"',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: _kDarkTextColor,
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.7,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.search_off,
+                  size: 80,
+                  color: _kLightTextColor,
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'No results found for "$_searchQuery"',
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: _kDarkTextColor,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Try different keywords or adjust your filters',
+                  style: GoogleFonts.inter(
+                    color: _kMediumTextColor,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                if (_hasActiveFilters()) ...[
+                  const SizedBox(height: 15),
+                  Text(
+                    'Active filters: ${_getActiveFiltersText()}',
+                    style: GoogleFonts.inter(
+                      color: _kPrimaryColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+                const SizedBox(height: 30),
+                ElevatedButton(
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() {
+                      _searchResults.clear();
+                      _searchQuery = '';
+                      _filters = SearchFilters();
+                      _sortBy = SortOption.RELEVANCE;
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _kPrimaryColor,
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    'Clear Search & Filters',
+                    style: GoogleFonts.inter(
+                      color: _kWhiteColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          SizedBox(height: 8),
-          Text(
-            'Try different keywords or check spelling',
-            style: GoogleFonts.inter(
-              color: _kMediumTextColor,
-            ),
-          ),
-          SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () {
-              _searchController.clear();
-              setState(() {
-                _searchResults.clear();
-                _searchQuery = '';
-              });
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _kPrimaryColor,
-              padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: Text(
-              'Clear Search',
-              style: GoogleFonts.inter(
-                color: _kWhiteColor,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
+  String _getActiveFiltersText() {
+    final filters = [];
+
+    if (_filters.types.isNotEmpty) {
+      final typeNames = _filters.types.map((t) {
+        switch (t) {
+          case SearchableType.DRONE:
+            return 'Drones';
+          case SearchableType.PART:
+            return 'Parts';
+          case SearchableType.ACCESSORY:
+            return 'Accessories';
+        }
+      }).join(', ');
+      filters.add(typeNames);
+    }
+
+    if (_filters.minPrice != null || _filters.maxPrice != null) {
+      final priceRange = [];
+      if (_filters.minPrice != null) priceRange.add('Min: ₹${_filters.minPrice}');
+      if (_filters.maxPrice != null) priceRange.add('Max: ₹${_filters.maxPrice}');
+      filters.add(priceRange.join(' '));
+    }
+
+    if (_filters.brands.isNotEmpty) {
+      filters.add('Brands: ${_filters.brands.take(2).join(', ')}${_filters.brands.length > 2 ? '...' : ''}');
+    }
+
+    if (_filters.categories.isNotEmpty) {
+      filters.add('Categories: ${_filters.categories.take(2).join(', ')}${_filters.categories.length > 2 ? '...' : ''}');
+    }
+
+    if (_sortBy != SortOption.RELEVANCE) {
+      filters.add('Sorted by: ${_getSortName(_sortBy)}');
+    }
+
+    return filters.join(' • ');
+  }
+
+  String _getSortName(SortOption sort) {
+    switch (sort) {
+      case SortOption.RELEVANCE:
+        return 'Most Relevant';
+      case SortOption.PRICE_ASC:
+        return 'Price: Low to High';
+      case SortOption.PRICE_DESC:
+        return 'Price: High to Low';
+      case SortOption.NEWEST:
+        return 'Newest First';
+    }
+  }
+
   Widget _buildSearchResultItem(SearchResult result) {
-    final cardMargin = ResponsiveUtils.getCardMargin(context);
-    final bodyFontSize = ResponsiveUtils.getBodyFontSize(context);
-    final smallFontSize = ResponsiveUtils.getSmallFontSize(context);
-
-    String getCategoryText() {
-      if (result is DroneSearchResult) {
-        return result.category ?? 'Drone';
-      } else if (result is PartSearchResult) {
-        return 'Part';
-      } else if (result is AccessorySearchResult) {
-        return result.category ?? 'Accessory';
-      }
-      return 'Product';
-    }
-
-    String getSubtitle() {
-      if (result is DroneSearchResult) {
-        return '${result.brand ?? ''} ${result.model ?? ''}'.trim();
-      } else if (result is PartSearchResult) {
-        return result.brand ?? 'Drone Part';
-      } else if (result is AccessorySearchResult) {
-        return result.brand ?? 'Accessory';
-      }
-      return '';
-    }
-
-    return Card(
-      elevation: 1,
-      margin: EdgeInsets.symmetric(vertical: cardMargin / 2, horizontal: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+    return Container(
+      decoration: BoxDecoration(
+        color: _kWhiteColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _kBorderColor, width: 1),
       ),
-      child: ListTile(
-        contentPadding: EdgeInsets.all(cardMargin),
-        leading: Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            color: _kCardBackgroundColor,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: CachedNetworkImage(
-              imageUrl: result.image ?? 'https://via.placeholder.com/150',
-              width: 60,
-              height: 60,
-              fit: BoxFit.cover,
-              errorWidget: (_, __, ___) => Icon(
-                Icons.photo,
-                color: _kLightTextColor,
-              ),
-            ),
-          ),
-        ),
-        title: Column(
+      child: InkWell(
+        onTap: () => _handleResultTap(result),
+        borderRadius: BorderRadius.circular(8),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              result.name ?? 'Unnamed Product',
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.w600,
-                fontSize: bodyFontSize,
-                color: _kDarkTextColor,
+            // Product Image
+            Container(
+              height: 140,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: _kCardBackgroundColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(8),
+                  topRight: Radius.circular(8),
+                ),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(8),
+                  topRight: Radius.circular(8),
+                ),
+                child: CachedNetworkImage(
+                  imageUrl: result.image ?? 'https://via.placeholder.com/150',
+                  fit: BoxFit.contain,
+                  placeholder: (context, url) => Center(
+                    child: CircularProgressIndicator(
+                      color: _kPrimaryColor,
+                      strokeWidth: 1.5,
+                    ),
+                  ),
+                  errorWidget: (_, __, ___) => Container(
+                    color: _kCardBackgroundColor,
+                    child: Center(
+                      child: Icon(
+                        Icons.photo,
+                        color: _kLightTextColor,
+                        size: 28,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
-            SizedBox(height: 4),
-            Text(
-              getSubtitle(),
-              style: GoogleFonts.inter(
-                color: _kMediumTextColor,
-                fontSize: smallFontSize,
+
+            // Product Details
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Product Name
+                  Text(
+                    result.name ?? 'Unnamed Product',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 13,
+                      color: _kDarkTextColor,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Brand/Model
+                  if (_getSubtitle(result).isNotEmpty)
+                    Text(
+                      _getSubtitle(result),
+                      style: GoogleFonts.inter(
+                        color: _kMediumTextColor,
+                        fontSize: 11,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                  // Price Section
+                  const SizedBox(height: 6),
+                  Text(
+                    '₹${result.price?.toStringAsFixed(0) ?? "0"}',
+                    style: GoogleFonts.inter(
+                      color: _kPrimaryColor,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                    ),
+                  ),
+
+                  // Category Tag
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _kPrimaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      _getCategoryText(result),
+                      style: GoogleFonts.inter(
+                        color: _kPrimaryColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+
+                  // Delivery Info
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.local_shipping_outlined,
+                        size: 12,
+                        color: _kMediumTextColor,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          'Free Delivery',
+                          style: GoogleFonts.inter(
+                            color: _kMediumTextColor,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
         ),
-        subtitle: Padding(
-          padding: EdgeInsets.only(top: 8),
-          child: Row(
-            children: [
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: _kPrimaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  getCategoryText(),
-                  style: GoogleFonts.inter(
-                    color: _kPrimaryColor,
-                    fontSize: smallFontSize - 1,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              Spacer(),
-              Text(
-                '₹${result.price ?? 0}',
-                style: GoogleFonts.inter(
-                  color: _kDarkTextColor,
-                  fontWeight: FontWeight.w800,
-                  fontSize: bodyFontSize,
-                ),
-              ),
-            ],
-          ),
-        ),
-        trailing: Icon(
-          Icons.chevron_right_rounded,
-          color: _kMediumTextColor,
-        ),
-        onTap: () => _handleResultTap(result),
       ),
     );
+  }
+
+  String _getSubtitle(SearchResult result) {
+    if (result is DroneSearchResult) {
+      return '${result.brand ?? ''} ${result.model ?? ''}'.trim();
+    } else if (result is PartSearchResult) {
+      return result.brand ?? 'Drone Part';
+    } else if (result is AccessorySearchResult) {
+      return result.brand ?? 'Accessory';
+    }
+    return '';
+  }
+
+  String _getCategoryText(SearchResult result) {
+    if (result is DroneSearchResult) {
+      return result.category ?? 'Drone';
+    } else if (result is PartSearchResult) {
+      return 'Part';
+    } else if (result is AccessorySearchResult) {
+      return result.category ?? 'Accessory';
+    }
+    return 'Product';
   }
 
   void _handleResultTap(SearchResult result) {
@@ -317,7 +454,6 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
       'status': 'approved',
     };
 
-    // Add type-specific fields
     if (result is DroneSearchResult) {
       normalized['model'] = result.model;
       normalized['category'] = result.category;
@@ -343,10 +479,10 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
   Future<void> _showFilterDialog() async {
     final brandsAndCategories = await _searchService.getFilterOptions();
 
-    showModalBottomSheet(
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(20),
         ),
@@ -357,53 +493,73 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
         brands: brandsAndCategories['brands'] ?? [],
         categories: brandsAndCategories['categories'] ?? [],
         onApply: (filters, sortBy) {
-          setState(() {
-            _filters = filters;
-            _sortBy = sortBy;
-          });
-
-          if (_searchQuery.isNotEmpty) {
-            _performSearch(_searchQuery);
-          }
-          Navigator.pop(context);
+          Navigator.pop(context, {'filters': filters, 'sortBy': sortBy});
         },
       ),
     );
+
+    if (result != null && mounted) {
+      debugPrint('Applying new filters: ${result['filters'].toJson()}');
+      debugPrint('Applying new sort: ${result['sortBy']}');
+
+      setState(() {
+        _filters = result['filters'];
+        _sortBy = result['sortBy'];
+      });
+
+      if (_searchQuery.isNotEmpty) {
+        _performSearch(_searchQuery);
+      }
+    }
+  }
+
+  void _clearFilters() {
+    debugPrint('Clearing all filters');
+    setState(() {
+      _filters = SearchFilters();
+      _sortBy = SortOption.RELEVANCE;
+    });
+
+    if (_searchQuery.isNotEmpty) {
+      _performSearch(_searchQuery);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
-    final verticalPadding = ResponsiveUtils.getVerticalPadding(context);
-
     return Scaffold(
-      backgroundColor: _kWhiteColor,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: _kWhiteColor,
-        elevation: 1,
+        backgroundColor: _kPrimaryColor,
+        elevation: 0,
+        toolbarHeight: 56,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: _kDarkTextColor),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: _kWhiteColor),
           onPressed: () => Navigator.pop(context),
+          padding: const EdgeInsets.only(left: 8),
         ),
         title: Container(
-          height: 40,
+          height: 36,
+          margin: const EdgeInsets.only(right: 8),
           decoration: BoxDecoration(
-            color: _kCardBackgroundColor,
-            borderRadius: BorderRadius.circular(12),
+            color: _kWhiteColor,
+            borderRadius: BorderRadius.circular(8),
           ),
           child: TextField(
             controller: _searchController,
             autofocus: true,
             decoration: InputDecoration(
-              hintText: 'Search drones, parts, accessories...',
+              hintText: 'Search drone names, brands, models...',
               hintStyle: GoogleFonts.inter(
                 color: _kLightTextColor,
+                fontSize: 13,
               ),
               border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(horizontal: 16),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+              prefixIcon: Icon(Icons.search, color: _kPrimaryColor, size: 20),
               suffixIcon: _searchQuery.isNotEmpty
                   ? IconButton(
-                icon: Icon(Icons.clear_rounded, size: 20),
+                icon: const Icon(Icons.clear_rounded, size: 16, color: _kMediumTextColor),
                 onPressed: () {
                   _searchController.clear();
                   setState(() {
@@ -411,110 +567,135 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
                     _searchQuery = '';
                   });
                 },
+                padding: const EdgeInsets.all(4),
               )
                   : null,
             ),
             style: GoogleFonts.inter(
               color: _kDarkTextColor,
+              fontSize: 13,
             ),
           ),
         ),
         actions: [
+          // Clear Filters Button (if filters are active)
+          if (_hasActiveFilters())
+            IconButton(
+              icon: const Icon(Icons.filter_alt_off_rounded, color: _kWhiteColor, size: 20),
+              onPressed: _clearFilters,
+              tooltip: 'Clear Filters',
+            ),
           IconButton(
-            icon: Icon(Icons.filter_list_rounded, color: _kDarkTextColor),
+            icon: const Icon(Icons.filter_list_rounded, color: _kWhiteColor, size: 22),
             onPressed: _showFilterDialog,
+            padding: const EdgeInsets.only(right: 8),
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Recent searches section (when no query)
-          if (_searchQuery.isEmpty && _searchResults.isEmpty)
-            _buildRecentSearches(),
-
-          // Search results
-          Expanded(
-            child: _isSearching
-                ? _buildShimmerLoader()
-                : _searchResults.isEmpty && _searchQuery.isNotEmpty
-                ? _buildNoResults()
-                : ListView.builder(
-              padding: EdgeInsets.only(top: verticalPadding),
-              itemCount: _searchResults.length,
-              itemBuilder: (context, index) {
-                return _buildSearchResultItem(_searchResults[index]);
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRecentSearches() {
-    // You'll need to implement getRecentSearches from SharedPreferences
-    return FutureBuilder<List<String>>(
-      future: _getRecentSearches(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.isEmpty) return SizedBox();
-
-        final recentSearches = snapshot.data!;
-        final cardMargin = ResponsiveUtils.getCardMargin(context);
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Text(
-                'Recent Searches',
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 18,
-                  color: _kDarkTextColor,
-                ),
-              ),
-            ),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.zero,
-              itemCount: recentSearches.length,
-              itemBuilder: (context, index) {
-                final search = recentSearches[index];
-                return ListTile(
-                  leading: Icon(Icons.history_rounded, color: _kMediumTextColor),
-                  title: Text(
-                    search,
-                    style: GoogleFonts.inter(
-                      color: _kDarkTextColor,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Column(
+              children: [
+                // Results header
+                if (_searchQuery.isNotEmpty && _searchResults.isNotEmpty)
+                  Container(
+                    color: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${_searchResults.length} results${_hasActiveFilters() ? ' (Filtered)' : ''}',
+                          style: GoogleFonts.inter(
+                            color: _kDarkTextColor,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        InkWell(
+                          onTap: _showFilterDialog,
+                          child: Row(
+                            children: [
+                              Icon(Icons.sort, size: 14, color: _kPrimaryColor),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Sort/Filter',
+                                style: GoogleFonts.inter(
+                                  color: _kPrimaryColor,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  trailing: IconButton(
-                    icon: Icon(Icons.close_rounded, size: 18),
-                    onPressed: () => _removeRecentSearch(search),
+
+                // Search results
+                Expanded(
+                  child: _isSearching
+                      ? _buildShimmerLoader()
+                      : _searchResults.isEmpty && _searchQuery.isNotEmpty
+                      ? _buildNoResults()
+                      : GridView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: constraints.maxWidth > 400 ? 0.62 : 0.58,
+                    ),
+                    itemCount: _searchResults.length,
+                    itemBuilder: (context, index) {
+                      return _buildSearchResultItem(_searchResults[index]);
+                    },
                   ),
-                  onTap: () {
-                    _searchController.text = search;
-                    _performSearch(search);
-                  },
-                );
-              },
-            ),
-            Divider(height: 1),
-          ],
-        );
-      },
+                ),
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 
-  Future<List<String>> _getRecentSearches() async {
-    // Implement using SharedPreferences
-    return []; // Placeholder
-  }
+  bool _hasActiveFilters() {
+    bool hasActive = false;
 
-  Future<void> _removeRecentSearch(String search) async {
-    // Implement using SharedPreferences
+    if (_filters.types.isNotEmpty) {
+      debugPrint('Active: Type filters: ${_filters.types}');
+      hasActive = true;
+    }
+
+    if (_filters.minPrice != null) {
+      debugPrint('Active: Min price: ${_filters.minPrice}');
+      hasActive = true;
+    }
+
+    if (_filters.maxPrice != null) {
+      debugPrint('Active: Max price: ${_filters.maxPrice}');
+      hasActive = true;
+    }
+
+    if (_filters.brands.isNotEmpty) {
+      debugPrint('Active: Brands: ${_filters.brands}');
+      hasActive = true;
+    }
+
+    if (_filters.categories.isNotEmpty) {
+      debugPrint('Active: Categories: ${_filters.categories}');
+      hasActive = true;
+    }
+
+    if (_sortBy != SortOption.RELEVANCE) {
+      debugPrint('Active: Sort by: $_sortBy');
+      hasActive = true;
+    }
+
+    return hasActive;
   }
 
   @override
@@ -525,7 +706,6 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
   }
 }
 
-// FilterBottomSheet Widget
 class FilterBottomSheet extends StatefulWidget {
   final SearchFilters currentFilters;
   final SortOption currentSort;
@@ -549,147 +729,286 @@ class FilterBottomSheet extends StatefulWidget {
 class _FilterBottomSheetState extends State<FilterBottomSheet> {
   late SearchFilters _tempFilters;
   late SortOption _tempSort;
+  late TextEditingController _minPriceController;
+  late TextEditingController _maxPriceController;
+  List<String> _selectedBrands = [];
+  List<String> _selectedCategories = [];
 
   @override
   void initState() {
     super.initState();
     _tempFilters = widget.currentFilters;
     _tempSort = widget.currentSort;
+    _selectedBrands = List.from(_tempFilters.brands);
+    _selectedCategories = List.from(_tempFilters.categories);
+    _minPriceController = TextEditingController(
+      text: _tempFilters.minPrice != null ? _tempFilters.minPrice!.toStringAsFixed(0) : '',
+    );
+    _maxPriceController = TextEditingController(
+      text: _tempFilters.maxPrice != null ? _tempFilters.maxPrice!.toStringAsFixed(0) : '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _minPriceController.dispose();
+    _maxPriceController.dispose();
+    super.dispose();
+  }
+
+  void _updatePriceFilters() {
+    double? minPrice;
+    double? maxPrice;
+
+    // Parse min price
+    if (_minPriceController.text.isNotEmpty) {
+      final parsedMin = double.tryParse(_minPriceController.text);
+      if (parsedMin != null && parsedMin > 0) {
+        minPrice = parsedMin;
+      } else {
+        // Clear if invalid
+        _minPriceController.clear();
+      }
+    }
+
+    // Parse max price
+    if (_maxPriceController.text.isNotEmpty) {
+      final parsedMax = double.tryParse(_maxPriceController.text);
+      if (parsedMax != null && parsedMax > 0) {
+        maxPrice = parsedMax;
+      } else {
+        // Clear if invalid
+        _maxPriceController.clear();
+      }
+    }
+
+    // Validate that min is not greater than max
+    if (minPrice != null && maxPrice != null && minPrice > maxPrice) {
+      // Swap if min > max
+      final temp = minPrice;
+      minPrice = maxPrice;
+      maxPrice = temp;
+
+      // Update controllers
+      _minPriceController.text = minPrice.toStringAsFixed(0);
+      _maxPriceController.text = maxPrice.toStringAsFixed(0);
+    }
+
+    _tempFilters = _tempFilters.copyWith(
+      minPrice: minPrice,
+      maxPrice: maxPrice,
+    );
+
+    debugPrint('Updated price filters: min=$minPrice, max=$maxPrice');
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Filter & Sort',
-                style: GoogleFonts.inter(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      ),
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 8),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Filter & Sort',
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-              IconButton(
-                icon: Icon(Icons.close_rounded),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, size: 20),
+                  onPressed: () => Navigator.pop(context),
+                  padding: EdgeInsets.zero,
+                ),
+              ],
+            ),
 
-          Divider(),
+            const Divider(height: 20),
 
-          // Product Types
-          _buildFilterSection(
-            title: 'Product Types',
-            children: [
-              _buildFilterChip(
-                label: 'Drones',
-                selected: _tempFilters.types.contains(SearchableType.DRONE),
-                onTap: () => _toggleType(SearchableType.DRONE),
-              ),
-              _buildFilterChip(
-                label: 'Parts',
-                selected: _tempFilters.types.contains(SearchableType.PART),
-                onTap: () => _toggleType(SearchableType.PART),
-              ),
-              _buildFilterChip(
-                label: 'Accessories',
-                selected: _tempFilters.types.contains(SearchableType.ACCESSORY),
-                onTap: () => _toggleType(SearchableType.ACCESSORY),
-              ),
-            ],
-          ),
+            // Product Types
+            _buildFilterSection(
+              title: 'Product Types',
+              children: [
+                _buildTypeChip(
+                  label: 'Drones',
+                  selected: _tempFilters.types.contains(SearchableType.DRONE),
+                  onTap: () => _toggleType(SearchableType.DRONE),
+                ),
+                _buildTypeChip(
+                  label: 'Parts',
+                  selected: _tempFilters.types.contains(SearchableType.PART),
+                  onTap: () => _toggleType(SearchableType.PART),
+                ),
+                _buildTypeChip(
+                  label: 'Accessories',
+                  selected: _tempFilters.types.contains(SearchableType.ACCESSORY),
+                  onTap: () => _toggleType(SearchableType.ACCESSORY),
+                ),
+              ],
+            ),
 
-          // Price Range
-          _buildFilterSection(
-            title: 'Price Range',
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        labelText: 'Min Price',
-                        prefixText: '₹',
+            // Price Range
+            _buildFilterSection(
+              title: 'Price Range',
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _minPriceController,
+                        decoration: const InputDecoration(
+                          labelText: 'Min Price',
+                          prefixText: '₹',
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                        keyboardType: TextInputType.number,
+                        onChanged: (value) {
+                          _updatePriceFilters();
+                        },
                       ),
-                      keyboardType: TextInputType.number,
-                      onChanged: (value) {
-                        _tempFilters = _tempFilters.copyWith(
-                          minPrice: value.isEmpty ? null : double.tryParse(value),
-                        );
-                      },
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _maxPriceController,
+                        decoration: const InputDecoration(
+                          labelText: 'Max Price',
+                          prefixText: '₹',
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                        keyboardType: TextInputType.number,
+                        onChanged: (value) {
+                          _updatePriceFilters();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+
+            // Brands (if available)
+            if (widget.brands.isNotEmpty)
+              _buildFilterSection(
+                title: 'Brands',
+                children: widget.brands.map((brand) {
+                  return _buildFilterChip(
+                    label: brand,
+                    selected: _selectedBrands.contains(brand),
+                    onTap: () => _toggleBrand(brand),
+                  );
+                }).toList(),
+              ),
+
+            // Categories (if available)
+            if (widget.categories.isNotEmpty)
+              _buildFilterSection(
+                title: 'Categories',
+                children: widget.categories.map((category) {
+                  return _buildFilterChip(
+                    label: category,
+                    selected: _selectedCategories.contains(category),
+                    onTap: () => _toggleCategory(category),
+                  );
+                }).toList(),
+              ),
+
+            // Sort Options
+            _buildFilterSection(
+              title: 'Sort By',
+              children: [
+                _buildSortOption(
+                  label: 'Most Relevant',
+                  value: SortOption.RELEVANCE,
+                ),
+                _buildSortOption(
+                  label: 'Price: Low to High',
+                  value: SortOption.PRICE_ASC,
+                ),
+                _buildSortOption(
+                  label: 'Price: High to Low',
+                  value: SortOption.PRICE_DESC,
+                ),
+                _buildSortOption(
+                  label: 'Newest First',
+                  value: SortOption.NEWEST,
+                ),
+              ],
+            ),
+
+            // Apply Button
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      // Clear all filters
+                      setState(() {
+                        _tempFilters = SearchFilters();
+                        _tempSort = SortOption.RELEVANCE;
+                        _selectedBrands.clear();
+                        _selectedCategories.clear();
+                        _minPriceController.clear();
+                        _maxPriceController.clear();
+                      });
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF1A0A5B),
+                      side: const BorderSide(color: Color(0xFF1A0A5B)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text(
+                      'Clear All',
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF1A0A5B),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
                     ),
                   ),
-                  SizedBox(width: 16),
-                  Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        labelText: 'Max Price',
-                        prefixText: '₹',
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      // Apply the filters
+                      widget.onApply(_tempFilters, _tempSort);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1A0A5B),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      keyboardType: TextInputType.number,
-                      onChanged: (value) {
-                        _tempFilters = _tempFilters.copyWith(
-                          maxPrice: value.isEmpty ? null : double.tryParse(value),
-                        );
-                      },
+                    ),
+                    child: Text(
+                      'Apply',
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
                     ),
                   ),
-                ],
-              ),
-            ],
-          ),
-
-          // Sort Options
-          _buildFilterSection(
-            title: 'Sort By',
-            children: [
-              _buildSortOption(
-                label: 'Most Relevant',
-                value: SortOption.RELEVANCE,
-              ),
-              _buildSortOption(
-                label: 'Price: Low to High',
-                value: SortOption.PRICE_ASC,
-              ),
-              _buildSortOption(
-                label: 'Price: High to Low',
-                value: SortOption.PRICE_DESC,
-              ),
-              _buildSortOption(
-                label: 'Newest First',
-                value: SortOption.NEWEST,
-              ),
-            ],
-          ),
-
-          // Apply Button
-          SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () => widget.onApply(_tempFilters, _tempSort),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFF1E0E5C),
-              minimumSize: Size(double.infinity, 50),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+                ),
+              ],
             ),
-            child: Text(
-              'Apply Filters',
-              style: GoogleFonts.inter(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
-              ),
-            ),
-          ),
-        ],
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
     );
   }
@@ -702,17 +1021,45 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
           title,
           style: GoogleFonts.inter(
             fontWeight: FontWeight.w600,
-            fontSize: 16,
+            fontSize: 15,
           ),
         ),
-        SizedBox(height: 12),
+        const SizedBox(height: 10),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: children,
         ),
-        SizedBox(height: 24),
+        const SizedBox(height: 20),
       ],
+    );
+  }
+
+  Widget _buildTypeChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF1A0A5B) : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? const Color(0xFF1A0A5B) : Colors.grey.shade300,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            color: selected ? Colors.white : Colors.grey.shade700,
+            fontWeight: FontWeight.w500,
+            fontSize: 13,
+          ),
+        ),
+      ),
     );
   }
 
@@ -724,12 +1071,12 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF1E0E5C) : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(20),
+          color: selected ? const Color(0xFF1A0A5B) : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: selected ? const Color(0xFF1E0E5C) : Colors.grey.shade300,
+            color: selected ? const Color(0xFF1A0A5B) : Colors.grey.shade300,
           ),
         ),
         child: Text(
@@ -737,6 +1084,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
           style: GoogleFonts.inter(
             color: selected ? Colors.white : Colors.grey.shade700,
             fontWeight: FontWeight.w500,
+            fontSize: 13,
           ),
         ),
       ),
@@ -748,9 +1096,14 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
     required SortOption value,
   }) {
     return RadioListTile<SortOption>(
-      title: Text(label),
+      title: Text(
+        label,
+        style: GoogleFonts.inter(fontSize: 14),
+      ),
       value: value,
       groupValue: _tempSort,
+      contentPadding: EdgeInsets.zero,
+      dense: true,
       onChanged: (value) {
         if (value != null) {
           setState(() => _tempSort = value);
@@ -768,6 +1121,31 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
         newTypes.add(type);
       }
       _tempFilters = _tempFilters.copyWith(types: newTypes);
+      debugPrint('Type filter updated: $_tempFilters');
+    });
+  }
+
+  void _toggleBrand(String brand) {
+    setState(() {
+      if (_selectedBrands.contains(brand)) {
+        _selectedBrands.remove(brand);
+      } else {
+        _selectedBrands.add(brand);
+      }
+      _tempFilters = _tempFilters.copyWith(brands: _selectedBrands);
+      debugPrint('Brand filter updated: $_tempFilters');
+    });
+  }
+
+  void _toggleCategory(String category) {
+    setState(() {
+      if (_selectedCategories.contains(category)) {
+        _selectedCategories.remove(category);
+      } else {
+        _selectedCategories.add(category);
+      }
+      _tempFilters = _tempFilters.copyWith(categories: _selectedCategories);
+      debugPrint('Category filter updated: $_tempFilters');
     });
   }
 }

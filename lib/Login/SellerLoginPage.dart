@@ -288,7 +288,7 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
         await saveSellerLocal(customId, email);
         await LocalStorageService.setLoggedIn(true);
 
-        showMessage("Login successful! Redirecting to dashboard...");
+        // showMessage("Login successful! Redirecting to dashboard...");
 
         // Navigate to home after successful login
         if (mounted) {
@@ -298,7 +298,7 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
           );
         }
       } catch (e) {
-        debugPrint("Error saving session data: $e");
+        // debugPrint("Error saving session data: $e");
         showMessage("Login successful but failed to save session. Please restart the app.");
         setState(() => loading = false);
       }
@@ -769,6 +769,8 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
 
     return FaIcon(icon, color: color, size: 20);
   }
+
+
 
   void showMessage(String msg) {
     if (!mounted) return;

@@ -8,6 +8,7 @@ import '../../utils/responsive_utils.dart';
 import '../../services/role_manager.dart';
 import '../../Login/BuyerLoginPage.dart';
 import '../../Login/BuyerRegisterPage.dart';
+import '../services/network_wrapper.dart'; // Import NetworkWrapper
 
 class Training extends StatefulWidget {
   const Training({super.key, required Map course});
@@ -409,25 +410,9 @@ class _TrainingState extends State<Training> {
             color: accentColor,
           ),
           const SizedBox(height: 16),
-          Text(
-            "Something went wrong",
-            style: GoogleFonts.lexend(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: textPrimary,
-            ),
-          ),
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Text(
-              errorMessage,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.lexend(
-                color: textSecondary,
-                fontSize: 14,
-              ),
-            ),
           ),
           const SizedBox(height: 24),
           ElevatedButton(
@@ -588,75 +573,77 @@ class _TrainingState extends State<Training> {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: surfaceColor,
-        elevation: 1,
-        surfaceTintColor: surfaceColor,
-        toolbarHeight: ResponsiveUtils.getAppBarHeight(context),
-        title: Text(
-          "Professional Training",
-          style: GoogleFonts.inter(
-            fontSize: ResponsiveUtils.getTitleFontSize(context),
-            fontWeight: FontWeight.w700,
-            color: primaryColor,
-          ),
-        ),
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: textSecondary,
-            size: ResponsiveUtils.getIconSize(context),
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(ResponsiveUtils.getSearchBarHeight(context) + 20),
-          child: Column(
-            children: [
-              Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: ResponsiveUtils.getHorizontalPadding(context),
-                  vertical: 10,
-                ),
-                child: _buildSearchBar(),
-              ),
-              SizedBox(height: 10),
-            ],
-          ),
-        ),
-      ),
-      body: isLoading
-          ? _buildShimmerLoading()
-          : isError
-          ? _buildErrorState()
-          : filteredTrainings.isEmpty
-          ? _buildEmptyState()
-          : RefreshIndicator(
-        onRefresh: fetchTrainings,
-        color: primaryColor,
-        backgroundColor: surfaceColor,
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: screenWidth * 0.05,
-          ),
-          child: ListView.separated(
-            padding: EdgeInsets.only(
-              top: screenHeight * 0.02,
-              bottom: screenHeight * 0.02,
+    return NetworkWrapper( // Wrap Scaffold with NetworkWrapper
+      child: Scaffold(
+        backgroundColor: backgroundColor,
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          backgroundColor: surfaceColor,
+          elevation: 1,
+          surfaceTintColor: surfaceColor,
+          toolbarHeight: ResponsiveUtils.getAppBarHeight(context),
+          title: Text(
+            "Professional Training",
+            style: GoogleFonts.inter(
+              fontSize: ResponsiveUtils.getTitleFontSize(context),
+              fontWeight: FontWeight.w700,
+              color: primaryColor,
             ),
-            itemCount: filteredTrainings.length,
-            separatorBuilder: (context, index) =>
-                SizedBox(height: screenHeight * 0.02),
-            itemBuilder: (context, index) {
-              return CourseCard(
-                course: filteredTrainings[index],
-                onEnroll: () =>
-                    _handleEnrollNow(filteredTrainings[index]),
-              );
-            },
+          ),
+          leading: IconButton(
+            icon: Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: textSecondary,
+              size: ResponsiveUtils.getIconSize(context),
+            ),
+            onPressed: () => Navigator.pop(context),
+          ),
+          bottom: PreferredSize(
+            preferredSize: Size.fromHeight(ResponsiveUtils.getSearchBarHeight(context) + 20),
+            child: Column(
+              children: [
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: ResponsiveUtils.getHorizontalPadding(context),
+                    vertical: 10,
+                  ),
+                  child: _buildSearchBar(),
+                ),
+                SizedBox(height: 10),
+              ],
+            ),
+          ),
+        ),
+        body: isLoading
+            ? _buildShimmerLoading()
+            : isError
+            ? _buildErrorState()
+            : filteredTrainings.isEmpty
+            ? _buildEmptyState()
+            : RefreshIndicator(
+          onRefresh: fetchTrainings,
+          color: primaryColor,
+          backgroundColor: surfaceColor,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: screenWidth * 0.05,
+            ),
+            child: ListView.separated(
+              padding: EdgeInsets.only(
+                top: screenHeight * 0.02,
+                bottom: screenHeight * 0.02,
+              ),
+              itemCount: filteredTrainings.length,
+              separatorBuilder: (context, index) =>
+                  SizedBox(height: screenHeight * 0.02),
+              itemBuilder: (context, index) {
+                return CourseCard(
+                  course: filteredTrainings[index],
+                  onEnroll: () =>
+                      _handleEnrollNow(filteredTrainings[index]),
+                );
+              },
+            ),
           ),
         ),
       ),

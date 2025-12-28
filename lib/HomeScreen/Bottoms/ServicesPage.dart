@@ -10,6 +10,7 @@ import '../../utils/responsive_utils.dart';
 import '../../services/role_manager.dart';
 import '../../Login/BuyerLoginPage.dart';
 import '../../Login/BuyerRegisterPage.dart';
+import '../../services/network_wrapper.dart'; // Import NetworkWrapper
 
 // --- Professional Theme/Style Constants ---
 const Color kPrimaryColor = Color(0xFF1A0A5B);
@@ -979,95 +980,97 @@ class _ServicesPageState extends State<ServicesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kLightBackground,
-      appBar: AppBar(
-        backgroundColor: kSurfaceColor,
-        elevation: 0.5,
-        surfaceTintColor: kSurfaceColor,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: kPrimaryColor,
-            size: ResponsiveUtils.getIconSize(context) * 0.9,
+    return NetworkWrapper( // Wrap the entire Scaffold with NetworkWrapper
+      child: Scaffold(
+        backgroundColor: kLightBackground,
+        appBar: AppBar(
+          backgroundColor: kSurfaceColor,
+          elevation: 0.5,
+          surfaceTintColor: kSurfaceColor,
+          leading: IconButton(
+            icon: Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: kPrimaryColor,
+              size: ResponsiveUtils.getIconSize(context) * 0.9,
+            ),
+            onPressed: () => Navigator.pop(context),
           ),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          "Drone Services",
-          style: GoogleFonts.inter(
-            fontSize: ResponsiveUtils.getTitleFontSize(context),
-            fontWeight: FontWeight.w600,
-            color: kPrimaryColor,
+          title: Text(
+            "Drone Services",
+            style: GoogleFonts.inter(
+              fontSize: ResponsiveUtils.getTitleFontSize(context),
+              fontWeight: FontWeight.w600,
+              color: kPrimaryColor,
+            ),
           ),
+          centerTitle: false,
         ),
-        centerTitle: false,
-      ),
-      body: Column(
-        children: [
-          _buildSearchBar(),
-
-          if (filteredList.isNotEmpty && !isInitialLoading)
-            Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: ResponsiveUtils.getHorizontalPadding(context),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    "$totalCount services available",
-                    style: GoogleFonts.inter(
-                      fontSize: ResponsiveUtils.getSmallFontSize(context),
-                      color: kTextSecondary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  if (isSearching)
-                    SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: kPrimaryColor,
+        body: Column(
+          children: [
+            _buildSearchBar(),
+      
+            if (filteredList.isNotEmpty && !isInitialLoading)
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: ResponsiveUtils.getHorizontalPadding(context),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "$totalCount services available",
+                      style: GoogleFonts.inter(
+                        fontSize: ResponsiveUtils.getSmallFontSize(context),
+                        color: kTextSecondary,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                ],
+                    if (isSearching)
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: kPrimaryColor,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+      
+            SizedBox(height: ResponsiveUtils.getVerticalPadding(context) * 0.3),
+      
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: refreshServices,
+                color: kPrimaryColor,
+                backgroundColor: kSurfaceColor,
+                child: isInitialLoading
+                    ? Center(
+                  child: CircularProgressIndicator(
+                    color: kPrimaryColor,
+                    strokeWidth: 2,
+                  ),
+                )
+                    : filteredList.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.builder(
+                  controller: _scrollController,
+                  padding: EdgeInsets.only(
+                    bottom: ResponsiveUtils.getVerticalPadding(context),
+                  ),
+                  itemCount: filteredList.length + (hasMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == filteredList.length) {
+                      return isLoadingMore ? _buildLoadingIndicator() : SizedBox();
+                    }
+                    return _buildServiceCard(filteredList[index]);
+                  },
+                ),
               ),
             ),
-
-          SizedBox(height: ResponsiveUtils.getVerticalPadding(context) * 0.3),
-
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: refreshServices,
-              color: kPrimaryColor,
-              backgroundColor: kSurfaceColor,
-              child: isInitialLoading
-                  ? Center(
-                child: CircularProgressIndicator(
-                  color: kPrimaryColor,
-                  strokeWidth: 2,
-                ),
-              )
-                  : filteredList.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                controller: _scrollController,
-                padding: EdgeInsets.only(
-                  bottom: ResponsiveUtils.getVerticalPadding(context),
-                ),
-                itemCount: filteredList.length + (hasMore ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == filteredList.length) {
-                    return isLoadingMore ? _buildLoadingIndicator() : SizedBox();
-                  }
-                  return _buildServiceCard(filteredList[index]);
-                },
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

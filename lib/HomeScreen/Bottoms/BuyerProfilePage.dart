@@ -788,9 +788,39 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                         ],
                       ),
                       const SizedBox(height: 16),
+      // ADD FLYHUB WEBSITE LINK
+                      GestureDetector(
+                        onTap: () async {
+                          final Uri url = Uri.parse("https://www.flyhub.info");
+                          await launchUrl(url, mode: LaunchMode.externalApplication);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.blue.withOpacity(1)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.open_in_new, color: Colors.blue),
+                              SizedBox(width: 8),
+                              Text(
+                                "Explore Our Website",
+                                style: TextStyle(
+                                  color: Colors.blue,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
 
-                      // Version and Copyright - MOVED INSIDE THE SAME CONTAINER
                       const SizedBox(height: 20),
+
                       Text(
                         "v1.0.0",
                         style: TextStyle(

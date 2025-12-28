@@ -221,8 +221,7 @@ class _PilotPageState extends State<PilotPage> {
     } catch (e) {
       if (!mounted) return;
 
-      debugPrint("Error fetching pilots: $e");
-      _showSnackBar("Failed to load pilots. Please try again.", color: Colors.red);
+      // debugPrint("Error fetching pilots: $e");
 
       setState(() {
         isInitialLoading = false;
@@ -1986,14 +1985,14 @@ class _PilotPageState extends State<PilotPage> {
                             height: ResponsiveUtils.getDynamicHeight(context, 0.003)),
                         Row(
                           children: [
-                            Text(
-                              "${pilotList.length} pilots available",
-                              style: GoogleFonts.inter(
-                                color: textSecondary,
-                                fontSize: ResponsiveUtils.getSmallFontSize(context),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
+                            // Text(
+                            //   // "${pilotList.length} pilots available",
+                            //   style: GoogleFonts.inter(
+                            //     color: textSecondary,
+                            //     fontSize: ResponsiveUtils.getSmallFontSize(context),
+                            //     fontWeight: FontWeight.w500,
+                            //   ),
+                            // ),
                             if (activeFilterCount > 0)
                               Container(
                                 margin: EdgeInsets.only(left: 8),

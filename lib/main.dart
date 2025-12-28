@@ -18,6 +18,8 @@ import 'CommonClass/utils.dart';
 import 'config/env.dart';
 import 'firebase_options.dart';
 import 'services/cart_wishlist_provider.dart';
+import 'services/network_wrapper.dart';   // 🔥 ADD THIS
+import 'CommonClass/offline_page.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 FlutterLocalNotificationsPlugin();
@@ -466,7 +468,9 @@ class _MyAppState extends State<MyApp> {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const Splashscreen(),
+      home: NetworkWrapper(
+        child: const Splashscreen(),
+      ),
     );
   }
 }

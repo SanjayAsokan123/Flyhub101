@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 enum SearchableType {
   DRONE,
   PART,
@@ -28,7 +30,18 @@ class SearchFilters {
 
   Map<String, dynamic> toJson() {
     return {
-      'types': types.map((e) => e.toString().split('.').last).toList(),
+      'types': types.map((e) {
+        switch (e) {
+          case SearchableType.DRONE:
+            return 'DRONE';
+          case SearchableType.PART:
+            return 'PART';
+          case SearchableType.ACCESSORY:
+            return 'ACCESSORY';
+          default:
+            return 'DRONE';
+        }
+      }).toList(),
       'minPrice': minPrice,
       'maxPrice': maxPrice,
       'brands': brands,
@@ -50,6 +63,11 @@ class SearchFilters {
       brands: brands ?? this.brands,
       categories: categories ?? this.categories,
     );
+  }
+
+  @override
+  String toString() {
+    return 'SearchFilters(types: $types, minPrice: $minPrice, maxPrice: $maxPrice, brands: $brands, categories: $categories)';
   }
 }
 
@@ -84,6 +102,11 @@ abstract class SearchResult {
       return AccessorySearchResult.fromJson(json);
     }
     return DroneSearchResult.fromJson(json);
+  }
+
+  @override
+  String toString() {
+    return '$runtimeType(id: $id, name: $name, price: $price, type: $type)';
   }
 }
 
@@ -231,7 +254,7 @@ class SearchResponse {
       try {
         return SearchResult.fromJson(item);
       } catch (e) {
-        print('Error parsing search result: $e');
+        debugPrint('Error parsing search result: $e');
         return DroneSearchResult(id: '', type: 'DRONE');
       }
     }).where((result) => result.id.isNotEmpty).toList();

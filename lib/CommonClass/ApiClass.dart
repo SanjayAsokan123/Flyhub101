@@ -75,7 +75,7 @@ class ApiClass {
   ''';
 
     try {
-      debugPrint("🔐 Attempting to deactivate seller account...");
+      // debugPrint("🔐 Attempting to deactivate seller account...");
 
       // Get current user for debugging
       final user = FirebaseAuth.instance.currentUser;
@@ -83,8 +83,8 @@ class ApiClass {
         return ApiResult.error("User not authenticated. Please login.");
       }
 
-      debugPrint("👤 Current Firebase user: ${user.uid}");
-      debugPrint("📧 User email: ${user.email}");
+      // debugPrint("👤 Current Firebase user: ${user.uid}");
+      // debugPrint("📧 User email: ${user.email}");
 
       final variables = {
         "reason": reason,
@@ -1146,8 +1146,8 @@ mutation ChangeSellerPassword($email: String!, $newPassword: String!) {
 
       return result.data!["approvedRentalsPaginated"];
     } catch (e) {
-      debugPrint("Error fetching rentals: $e");
-      throw Exception("Failed to fetch rentals: $e");
+      debugPrint("Error fetching rentals: ");
+      throw Exception("Failed to fetch rentals:");
     }
   }
 
