@@ -1,6 +1,6 @@
 import React from 'react';
 import { FaCheckCircle, FaMobileAlt, FaShieldAlt, FaUsers } from 'react-icons/fa';
-
+import '../styles/Appinfo.css';
 const AppInfo = () => {
   const appFeatures = [
     {

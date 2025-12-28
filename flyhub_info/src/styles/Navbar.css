@@ -1,0 +1,416 @@
+/* Navbar Base Styles */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
+  padding: 0.75rem 0;
+}
+
+.nav-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+}
+
+/* Logo */
+.logo {
+  display: flex;
+  align-items: center;
+  z-index: 1001;
+}
+
+.logo-image {
+  height: 40px;
+  width: auto;
+  transition: transform 0.3s ease;
+}
+
+.logo a:hover .logo-image {
+  transform: scale(1.05);
+}
+
+/* Navigation Links */
+.nav-content {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.nav-links {
+  display: flex;
+  gap: 1.75rem;
+  align-items: center;
+}
+
+.nav-links a {
+  color: #2c3e50;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0.5rem 0.25rem;
+  position: relative;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.nav-links a:hover {
+  color: #3498db;
+}
+
+.nav-links a::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(135deg, #3498db 0%, #2ecc71 100%);
+  border-radius: 1px;
+  transition: width 0.3s ease;
+}
+
+.nav-links a:hover::after {
+  width: 100%;
+}
+
+.nav-links a.active {
+  color: #3498db;
+  font-weight: 600;
+}
+
+.nav-links a.active::after {
+  width: 100%;
+}
+
+/* Google Play Button */
+.play-store-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(66, 133, 244, 0.2);
+  border: none;
+  cursor: pointer;
+}
+
+.play-store-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(66, 133, 244, 0.3);
+  color: white;
+}
+
+.play-store-btn:active {
+  transform: translateY(0);
+}
+
+.play-icon {
+  font-size: 1.25rem;
+}
+
+.play-text {
+  white-space: nowrap;
+}
+
+/* Mobile Menu Toggle */
+.menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #2c3e50;
+  cursor: pointer;
+  padding: 0.5rem;
+  z-index: 1001;
+  transition: color 0.3s ease;
+}
+
+.menu-toggle:hover {
+  color: #3498db;
+}
+
+/* Mobile Menu Overlay */
+.menu-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Responsive Design */
+
+/* Tablet (768px - 1024px) */
+@media (max-width: 1024px) {
+  .nav-container {
+    padding: 0 1.25rem;
+  }
+  
+  .nav-content {
+    gap: 1.5rem;
+  }
+  
+  .nav-links {
+    gap: 1.25rem;
+  }
+  
+  .play-store-btn {
+    padding: 0.65rem 1.25rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* Small Tablet (600px - 768px) */
+@media (max-width: 768px) {
+  .menu-toggle {
+    display: block;
+  }
+  
+  .nav-content {
+    position: fixed;
+    top: 0;
+    right: -100%;
+    height: 100vh;
+    width: 280px;
+    background: white;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 5rem 2rem 2rem;
+    box-shadow: -5px 0 30px rgba(0, 0, 0, 0.1);
+    transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+    overflow-y: auto;
+  }
+  
+  .nav-content.active {
+    right: 0;
+  }
+  
+  .nav-links {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    width: 100%;
+  }
+  
+  .nav-links a {
+    width: 100%;
+    padding: 1rem 0;
+    font-size: 1.1rem;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  
+  .nav-links a:last-child {
+    border-bottom: none;
+  }
+  
+  .nav-links a::after {
+    display: none;
+  }
+  
+  .nav-links a:hover {
+    background: #f8f9fa;
+    padding-left: 0.5rem;
+  }
+  
+  .play-store-btn {
+    width: 100%;
+    justify-content: center;
+    margin-top: 1.5rem;
+    padding: 1rem;
+    font-size: 1rem;
+  }
+  
+  .menu-overlay {
+    display: block;
+  }
+  
+  .logo-image {
+    height: 36px;
+  }
+}
+
+/* Mobile (425px - 600px) */
+@media (max-width: 600px) {
+  .nav-container {
+    padding: 0 1rem;
+  }
+  
+  .nav-content {
+    width: 250px;
+    padding: 4.5rem 1.5rem 1.5rem;
+  }
+  
+  .logo-image {
+    height: 32px;
+  }
+}
+
+/* Small Mobile (320px - 425px) */
+@media (max-width: 425px) {
+  .navbar {
+    padding: 0.5rem 0;
+  }
+  
+  .nav-container {
+    padding: 0 0.75rem;
+  }
+  
+  .nav-content {
+    width: 100%;
+    padding: 4rem 1.25rem 1.25rem;
+  }
+  
+  .logo-image {
+    height: 30px;
+  }
+  
+  .nav-links a {
+    font-size: 1rem;
+    padding: 0.875rem 0;
+  }
+  
+  .play-store-btn {
+    padding: 0.875rem;
+    font-size: 0.95rem;
+  }
+}
+
+/* Large Desktop (1440px+) */
+@media (min-width: 1440px) {
+  .nav-container {
+    max-width: 1400px;
+  }
+}
+
+/* Extra Large Desktop (1920px+) */
+@media (min-width: 1920px) {
+  .nav-container {
+    max-width: 1600px;
+  }
+  
+  .nav-links a {
+    font-size: 1.05rem;
+  }
+  
+  .play-store-btn {
+    font-size: 1rem;
+  }
+}
+
+/* Animation for mobile menu links */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.nav-content.active .nav-links a {
+  animation: slideIn 0.3s ease forwards;
+}
+
+.nav-content.active .nav-links a:nth-child(1) { animation-delay: 0.1s; }
+.nav-content.active .nav-links a:nth-child(2) { animation-delay: 0.15s; }
+.nav-content.active .nav-links a:nth-child(3) { animation-delay: 0.2s; }
+.nav-content.active .nav-links a:nth-child(4) { animation-delay: 0.25s; }
+
+/* Smooth scrolling for whole page */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Fix for body padding when navbar is fixed */
+body {
+  padding-top: 70px;
+}
+
+@media (max-width: 768px) {
+  body {
+    padding-top: 60px;
+  }
+}
+
+/* Active link style enhancement */
+.nav-links a.active {
+  position: relative;
+}
+
+.nav-links a.active::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 60%;
+  background: linear-gradient(135deg, #3498db 0%, #2ecc71 100%);
+  border-radius: 2px;
+}
+
+@media (max-width: 768px) {
+  .nav-links a.active::before {
+    left: -15px;
+    height: 50%;
+  }
+}
+
+/* Hover effect for logo */
+.logo a {
+  display: inline-block;
+  transition: transform 0.3s ease;
+}
+
+.logo a:hover {
+  transform: scale(1.03);
+}
+
+/* Accessibility improvements */
+.menu-toggle:focus,
+.nav-links a:focus,
+.play-store-btn:focus {
+  outline: 2px solid #3498db;
+  outline-offset: 2px;
+}
+
+/* Prevent text selection on interactive elements */
+.menu-toggle,
+.play-store-btn {
+  user-select: none;
+}
+
+/* Smooth transitions for all interactive elements */
+.nav-links a,
+.play-store-btn,
+.menu-toggle,
+.logo a {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}

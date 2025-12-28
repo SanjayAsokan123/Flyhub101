@@ -1,6 +1,6 @@
 import React from 'react';
 import { FaShoppingCart, FaBriefcase, FaGraduationCap, FaUserTie, FaTools, FaCar } from 'react-icons/fa';
-
+import '../styles/Features.css';
 const Features = () => {
   const features = [
     {
