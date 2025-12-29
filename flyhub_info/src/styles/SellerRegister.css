@@ -1,4 +1,4 @@
-/* styles/Register.css */
+/* styles/SellerRegister.css */
 
 /* Reset and base styles */
 * {
@@ -14,7 +14,7 @@ body {
   background-color: #f8fafc;
 }
 
-.register-page {
+.seller-register-page {
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -22,7 +22,7 @@ body {
   padding: 1rem;
 }
 
-.register-container {
+.seller-register-container {
   width: 100%;
   max-width: 500px;
   background: white;
@@ -45,7 +45,7 @@ body {
 }
 
 /* Header Styles */
-.register-header {
+.seller-register-header {
   padding: 1.5rem 1.5rem 0;
   background: white;
 }
@@ -71,12 +71,12 @@ body {
   color: #1f2937;
 }
 
-.register-title {
+.seller-register-title {
   text-align: center;
   margin-bottom: 1rem;
 }
 
-.register-title h1 {
+.seller-register-title h1 {
   color: #1e293b;
   font-size: 1.5rem;
   font-weight: 600;
@@ -84,7 +84,7 @@ body {
   letter-spacing: -0.025em;
 }
 
-.register-subtitle {
+.seller-register-subtitle {
   color: #64748b;
   font-size: 0.875rem;
   margin-bottom: 0.75rem;
@@ -105,7 +105,7 @@ body {
 }
 
 /* Form Styles */
-.register-form {
+.seller-register-form {
   padding: 0 1.5rem 1.5rem;
 }
 
@@ -150,6 +150,11 @@ body {
   margin-bottom: 0.25rem;
 }
 
+.form-group label.required::after {
+  content: " *";
+  color: #dc2626;
+}
+
 .input-with-icon {
   position: relative;
 }
@@ -161,9 +166,11 @@ body {
   transform: translateY(-50%);
   color: #94a3b8;
   font-size: 0.85rem;
+  z-index: 1;
 }
 
-.input-with-icon input {
+.input-with-icon input,
+.input-with-icon select {
   width: 100%;
   padding: 0.625rem 0.75rem 0.625rem 2.25rem;
   border: 1px solid #e2e8f0;
@@ -172,24 +179,39 @@ body {
   color: #1e293b;
   background: white;
   transition: all 0.2s ease;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
 }
 
-.input-with-icon input:focus {
+.input-with-icon select {
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+}
+
+.input-with-icon input:focus,
+.input-with-icon select:focus {
   outline: none;
   border-color: #1f2937;
   box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
 }
 
-.input-with-icon input.error {
+.input-with-icon input.error,
+.input-with-icon select.error {
   border-color: #dc2626;
   background: #fef2f2;
 }
 
-.input-with-icon input.error:focus {
+.input-with-icon input.error:focus,
+.input-with-icon select.error:focus {
   box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1);
 }
 
-.input-with-icon input:disabled {
+.input-with-icon input:disabled,
+.input-with-icon select:disabled {
   background: #f8fafc;
   cursor: not-allowed;
   opacity: 0.7;
@@ -294,6 +316,14 @@ body {
   transform: none !important;
 }
 
+.submit-button.secondary {
+  background: #64748b;
+}
+
+.submit-button.secondary:hover:not(:disabled) {
+  background: #475569;
+}
+
 /* Spinner Animation */
 .spinner {
   width: 16px;
@@ -347,24 +377,24 @@ body {
 
 /* Responsive Design */
 @media (max-width: 640px) {
-  .register-page {
+  .seller-register-page {
     padding: 0.5rem;
   }
   
-  .register-container {
+  .seller-register-container {
     border-radius: 8px;
     max-width: 100%;
   }
   
-  .register-header {
+  .seller-register-header {
     padding: 1rem 1rem 0;
   }
   
-  .register-form {
+  .seller-register-form {
     padding: 0 1rem 1rem;
   }
   
-  .register-title h1 {
+  .seller-register-title h1 {
     font-size: 1.25rem;
   }
   
@@ -400,22 +430,4 @@ body {
 /* Remove default focus styles */
 :focus:not(:focus-visible) {
   outline: none;
-}
-
-/* Scrollbar Styling */
-::-webkit-scrollbar {
-  width: 4px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f5f9;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 2px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
 }

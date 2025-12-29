@@ -41,14 +41,17 @@ const Navbar = () => {
         <div className={`nav-content ${isMenuOpen ? 'active' : ''}`}>
           <div className="nav-links">
             <Link to="/" onClick={closeMenu}>Home</Link>
+             <Link to="/franchise" onClick={closeMenu}>Franchise</Link>
             <Link to="/features" onClick={closeMenu}>Features</Link>
             <Link to="/categories" onClick={closeMenu}>Categories</Link>
-            <Link to="/franchise" onClick={closeMenu}>Franchise</Link>
+             <Link to="/about-us" onClick={closeMenu}>About us</Link>
+             <Link to="/contact" onClick={closeMenu}>Contact</Link>
+           
           
           </div>
           
           <a 
-            href="https://play.google.com/store/apps" 
+            href="https://play.google.com/store/apps/details?id=com.meesho.supply" 
             target="_blank" 
             rel="noopener noreferrer"
             className="play-store-btn"

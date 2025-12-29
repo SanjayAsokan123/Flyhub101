@@ -1,97 +1,160 @@
-/* Footer Styles */
+/* Footer.css */
 .footer {
-  background: #1f2937;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   color: white;
-  padding: 4rem 2rem 2rem;
+  padding: 40px 0 20px;
+  font-size: 14px;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
 }
 
 .footer-content {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 3rem;
-  margin-bottom: 3rem;
-}
-
-/* Logo Styles */
-.footer-logo {
-  max-width: 150px;
-  max-height: 80px;
-  margin-bottom: 1.5rem;
-  display: block;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 30px;
+  margin-bottom: 30px;
 }
 
 .footer-section h4 {
-  margin-bottom: 1.5rem;
-  color: white;
+  font-size: 16px;
+  margin-bottom: 15px;
+  color: #60a5fa;
+  font-weight: 600;
 }
 
-.footer-section p {
-  color: #d1d5db;
+.footer-description {
+  color: #cbd5e1;
   line-height: 1.6;
+  margin: 10px 0 15px;
+  font-size: 13px;
 }
 
 .footer-section ul {
   list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
-.footer-section li {
-  margin-bottom: 0.75rem;
-  color: #d1d5db;
+.footer-section ul li {
+  margin-bottom: 10px;
+  color: #cbd5e1;
+  font-size: 13px;
 }
 
-.footer-section a {
-  color: #d1d5db;
+.footer-section ul li a {
+  color: #cbd5e1;
+  text-decoration: none;
+  transition: color 0.3s ease;
+  font-size: 13px;
+}
+
+.footer-section ul li a:hover {
+  color: #60a5fa;
+}
+
+/* Social Icons */
+.social-icons {
+  display: flex;
+  gap: 12px;
+  margin-top: 15px;
+}
+
+.social-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: #334155;
+  border-radius: 50%;
+  color: #cbd5e1;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  font-size: 14px;
+}
+
+.social-icon:hover {
+  background: #60a5fa;
+  color: white;
+  transform: translateY(-2px);
+}
+
+/* Contact Items with Icons */
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.contact-icon {
+  color: #60a5fa;
+  font-size: 12px;
+  min-width: 14px;
+}
+
+/* Legal Links */
+.legal-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #334155;
+  font-size: 12px;
+}
+
+.legal-links a {
+  color: #94a3b8;
   text-decoration: none;
   transition: color 0.3s ease;
 }
 
-.footer-section a:hover {
-  color: white;
+.legal-links a:hover {
+  color: #60a5fa;
 }
 
-.footer-bottom {
-  text-align: center;
-  padding-top: 2rem;
-  border-top: 1px solid #374151;
-  color: #9ca3af;
+.legal-links .separator {
+  color: #475569;
+  font-weight: 300;
 }
 
-.footer-bottom p {
-  margin-bottom: 0.5rem;
+.footer-logo {
+  max-width: 140px;
+  height: auto;
+  margin-bottom: 10px;
 }
 
 /* Google Play Badge Styles */
 .google-play-link {
   display: inline-block;
   text-decoration: none;
-  transition: transform 0.3s ease, opacity 0.3s ease;
-}
-
-.google-play-link:hover {
-  transform: translateY(-3px);
-  opacity: 0.9;
 }
 
 .google-play-badge {
   display: flex;
   align-items: center;
-  background: #000;
-  color: white;
+  background: linear-gradient(135deg, #1e293b, #334155);
+  padding: 10px 16px;
   border-radius: 8px;
-  padding: 10px 15px;
-  min-width: 180px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
-  transition: box-shadow 0.3s ease;
+  border: 1px solid #475569;
+  transition: all 0.3s ease;
+  max-width: 180px;
 }
 
 .google-play-badge:hover {
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+  background: linear-gradient(135deg, #334155, #475569);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 }
 
 .google-play-icon {
-  font-size: 2.5rem;
+  font-size: 24px;
+  color: #60a5fa;
   margin-right: 10px;
-  color: white;
 }
 
 .google-play-text {
@@ -100,68 +163,115 @@
 }
 
 .google-play-small {
-  font-size: 0.7rem;
-  font-weight: 500;
-  letter-spacing: 1px;
-  margin-bottom: 2px;
+  font-size: 9px;
+  color: #cbd5e1;
+  line-height: 1;
 }
 
 .google-play-large {
-  font-size: 1.1rem;
-  font-weight: 700;
-  letter-spacing: 0.5px;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  line-height: 1.2;
 }
 
-/* Responsive Styles */
+/* Footer Bottom */
+.footer-bottom {
+  border-top: 1px solid #334155;
+  padding-top: 20px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.footer-bottom p {
+  margin: 8px 0;
+}
+
+.design-credit {
+  font-size: 11px;
+  color: #64748b;
+  font-style: italic;
+}
+
+/* Responsive Design */
 @media (max-width: 768px) {
-  .footer-content {
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 2rem;
-  }
-  
   .footer {
-    padding: 3rem 1.5rem 1.5rem;
+    padding: 30px 0 15px;
   }
   
-  .footer-logo {
-    max-width: 120px;
-    max-height: 40px;
+  .footer-content {
+    grid-template-columns: 1fr;
+    gap: 25px;
+  }
+  
+  .footer-section {
+    text-align: center;
+  }
+  
+  .social-icons {
+    justify-content: center;
+  }
+  
+  .legal-links {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
+  .contact-item {
+    justify-content: center;
   }
   
   .google-play-badge {
-    min-width: 160px;
-    padding: 8px 12px;
-  }
-  
-  .google-play-icon {
-    font-size: 2.2rem;
-  }
-  
-  .google-play-small {
-    font-size: 0.65rem;
-  }
-  
-  .google-play-large {
-    font-size: 1rem;
+    margin: 0 auto;
   }
 }
 
 @media (max-width: 480px) {
-  .footer-content {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
+  .footer-section h4 {
+    font-size: 15px;
   }
   
-  .footer {
-    padding: 2.5rem 1rem 1rem;
+  .legal-links {
+    flex-direction: column;
+    gap: 8px;
   }
   
-  .footer-logo {
-    max-width: 100px;
-    max-height: 35px;
+  .legal-links .separator {
+    display: none;
   }
   
   .google-play-badge {
-    min-width: 150px;
+    padding: 8px 14px;
+    max-width: 160px;
+  }
+  
+  .google-play-icon {
+    font-size: 20px;
+  }
+  
+  .google-play-large {
+    font-size: 13px;
+  }
+  
+  .social-icon {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+}
+
+/* For larger screens */
+@media (min-width: 1024px) {
+  .footer-content {
+    gap: 40px;
+  }
+  
+  .footer-section h4 {
+    font-size: 15px;
+  }
+  
+  .footer-description {
+    font-size: 12px;
   }
 }

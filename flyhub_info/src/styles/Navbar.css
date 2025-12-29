@@ -1,69 +1,100 @@
-/* Navbar Base Styles */
+/* Navbar Styles */
 .navbar {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
+  background: #ffffff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   z-index: 1000;
-  background: rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
-  padding: 0.75rem 0;
+  padding: 0;
+  height: 64px;
 }
 
 .nav-container {
-  max-width: 1280px;
+  max-width: 1700px;
   margin: 0 auto;
-  padding: 0 1.5rem;
+  padding: 0 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  position: relative;
+  height: 100%;
 }
 
-/* Logo */
+/* Logo Styles */
 .logo {
+  flex: 0 0 auto;
   display: flex;
-  align-items: center;
-  z-index: 1001;
+ 
 }
 
 .logo-image {
-  height: 40px;
+  height: 46px;
   width: auto;
-  transition: transform 0.3s ease;
+  transition: opacity 0.2s ease;
 }
 
-.logo a:hover .logo-image {
-  transform: scale(1.05);
+.logo-image:hover {
+  opacity: 0.9;
 }
 
-/* Navigation Links */
+/* Mobile Menu Toggle */
+.menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  margin: 0;
+  color: #333;
+  z-index: 1007;
+}
+
+.hamburger {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 24px;
+  height: 18px;
+}
+
+.hamburger span {
+  display: block;
+  height: 2px;
+  background: #333;
+  border-radius: 1px;
+  transition: all 0.3s ease;
+}
+
+/* Navigation Content */
 .nav-content {
   display: flex;
   align-items: center;
-  gap: 2rem;
+  gap: 40px;
 }
 
+/* Navigation Links */
 .nav-links {
   display: flex;
-  gap: 1.75rem;
   align-items: center;
+  gap: 32px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .nav-links a {
-  color: #2c3e50;
+  color: #333;
   text-decoration: none;
-  font-size: 1rem;
+  font-size: 15px;
   font-weight: 500;
-  padding: 0.5rem 0.25rem;
+  padding: 8px 0;
   position: relative;
-  transition: all 0.3s ease;
-  white-space: nowrap;
+  transition: color 0.2s ease;
 }
 
 .nav-links a:hover {
-  color: #3498db;
+  color: #4285f4;
 }
 
 .nav-links a::after {
@@ -73,8 +104,7 @@
   left: 0;
   width: 0;
   height: 2px;
-  background: linear-gradient(135deg, #3498db 0%, #2ecc71 100%);
-  border-radius: 1px;
+  background: #4285f4;
   transition: width 0.3s ease;
 }
 
@@ -82,150 +112,132 @@
   width: 100%;
 }
 
-.nav-links a.active {
-  color: #3498db;
-  font-weight: 600;
-}
-
-.nav-links a.active::after {
-  width: 100%;
-}
-
-/* Google Play Button */
+/* Play Store Button */
 .play-store-btn {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 8px;
   background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
   color: white;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
+  padding: 10px 20px;
+  border-radius: 6px;
   text-decoration: none;
-  font-weight: 500;
-  font-size: 0.95rem;
+  font-weight: 600;
+  font-size: 14px;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(66, 133, 244, 0.2);
+  box-shadow: 0 2px 8px rgba(66, 133, 244, 0.2);
   border: none;
   cursor: pointer;
 }
 
 .play-store-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(66, 133, 244, 0.3);
-  color: white;
-}
-
-.play-store-btn:active {
-  transform: translateY(0);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+  background: linear-gradient(135deg, #3a7ce0 0%, #2d9748 100%);
 }
 
 .play-icon {
-  font-size: 1.25rem;
+  font-size: 16px;
 }
 
-.play-text {
-  white-space: nowrap;
-}
-
-/* Mobile Menu Toggle */
-.menu-toggle {
-  display: none;
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  color: #2c3e50;
-  cursor: pointer;
-  padding: 0.5rem;
-  z-index: 1001;
-  transition: color 0.3s ease;
-}
-
-.menu-toggle:hover {
-  color: #3498db;
-}
-
-/* Mobile Menu Overlay */
+/* Menu Overlay */
 .menu-overlay {
   display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 999;
-  animation: fadeIn 0.3s ease;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
+/* ===== RESPONSIVE STYLES ===== */
 
-/* Responsive Design */
-
-/* Tablet (768px - 1024px) */
-@media (max-width: 1024px) {
+/* Tablet (1024px and below) */
+@media screen and (max-width: 1024px) {
   .nav-container {
-    padding: 0 1.25rem;
+    padding: 0 20px;
   }
   
   .nav-content {
-    gap: 1.5rem;
+    gap: 30px;
   }
   
   .nav-links {
-    gap: 1.25rem;
-  }
-  
-  .play-store-btn {
-    padding: 0.65rem 1.25rem;
-    font-size: 0.9rem;
+    gap: 24px;
   }
 }
 
-/* Small Tablet (600px - 768px) */
-@media (max-width: 768px) {
-  .menu-toggle {
-    display: block;
+/* Mobile (768px and below) - PROFESSIONAL MOBILE NAVBAR */
+@media screen and (max-width: 768px) {
+  .navbar {
+    height: 60px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   }
   
+  .nav-container {
+    padding: 0 16px;
+    justify-content: space-between;
+    position: relative;
+  }
+  
+  /* Professional mobile layout: Logo centered, menu on right */
+  .logo {
+    position: absolute;
+    left: 20%;
+    transform: translateX(-50%);
+  }
+  
+  .logo-image {
+    height: 32px;
+  }
+  
+  /* Menu toggle on right side */
+  .menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+    margin-left: auto;
+    order: 2;
+  }
+  
+  /* Hide desktop navigation */
   .nav-content {
     position: fixed;
     top: 0;
     right: -100%;
+    width: 320px;
     height: 100vh;
-    width: 280px;
     background: white;
     flex-direction: column;
     align-items: flex-start;
-    padding: 5rem 2rem 2rem;
-    box-shadow: -5px 0 30px rgba(0, 0, 0, 0.1);
+    padding: 80px 24px 24px;
+    box-shadow: -2px 0 20px rgba(0, 0, 0, 0.1);
     transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 1000;
+    z-index: 1001;
     overflow-y: auto;
+    gap: 0;
   }
   
   .nav-content.active {
     right: 0;
   }
   
+  /* Mobile navigation links */
   .nav-links {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
     gap: 0;
+    width: 100%;
+    margin-bottom: 24px;
+  }
+  
+  .nav-links li {
     width: 100%;
   }
   
   .nav-links a {
-    width: 100%;
-    padding: 1rem 0;
-    font-size: 1.1rem;
+    display: block;
+    padding: 16px 0;
+    font-size: 16px;
     border-bottom: 1px solid #f0f0f0;
-  }
-  
-  .nav-links a:last-child {
-    border-bottom: none;
+    width: 100%;
   }
   
   .nav-links a::after {
@@ -233,20 +245,99 @@
   }
   
   .nav-links a:hover {
-    background: #f8f9fa;
-    padding-left: 0.5rem;
+    color: #4285f4;
+    background: none;
+    padding-left: 0;
   }
   
-  .play-store-btn {
+  /* Mobile Play Store Button */
+  .nav-content .play-store-btn {
     width: 100%;
     justify-content: center;
-    margin-top: 1.5rem;
-    padding: 1rem;
-    font-size: 1rem;
+    padding: 14px;
+    font-size: 15px;
+    margin-top: 8px;
   }
   
+  /* Menu Overlay */
   .menu-overlay {
     display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+  }
+  
+  .menu-overlay.active {
+    opacity: 1;
+    visibility: visible;
+  }
+  
+  /* Animate hamburger to X */
+  .menu-toggle.active .hamburger span:nth-child(1) {
+    transform: rotate(45deg) translate(6px, 6px);
+  }
+  
+  .menu-toggle.active .hamburger span:nth-child(2) {
+    opacity: 0;
+  }
+  
+  .menu-toggle.active .hamburger span:nth-child(3) {
+    transform: rotate(-45deg) translate(6px, -6px);
+  }
+}
+
+/* Small Mobile (480px and below) */
+@media screen and (max-width: 480px) {
+  .navbar {
+    height: 56px;
+  }
+  
+  .nav-container {
+    padding: 0 12px;
+  }
+  
+  .logo-image {
+    height: 28px;
+  }
+  
+  .menu-toggle {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .hamburger {
+    width: 20px;
+    height: 16px;
+  }
+  
+  .nav-content {
+    width: 280px;
+    padding: 72px 20px 20px;
+  }
+  
+  .nav-links a {
+    padding: 14px 0;
+    font-size: 15px;
+  }
+  
+  .nav-content .play-store-btn {
+    padding: 12px;
+    font-size: 14px;
+  }
+}
+
+/* Extra Small Mobile (360px and below) */
+@media screen and (max-width: 360px) {
+  .nav-content {
+    width: 260px;
+    padding: 68px 16px 16px;
   }
   
   .logo-image {
@@ -254,163 +345,55 @@
   }
 }
 
-/* Mobile (425px - 600px) */
-@media (max-width: 600px) {
-  .nav-container {
-    padding: 0 1rem;
+/* Desktop (769px and above) */
+@media screen and (min-width: 769px) {
+  .menu-toggle {
+    display: none;
   }
   
-  .nav-content {
-    width: 250px;
-    padding: 4.5rem 1.5rem 1.5rem;
+  .menu-overlay {
+    display: none !important;
   }
   
-  .logo-image {
-    height: 32px;
-  }
+  /* Hide mobile-only elements on desktop */
+
 }
 
-/* Small Mobile (320px - 425px) */
-@media (max-width: 425px) {
-  .navbar {
-    padding: 0.5rem 0;
-  }
-  
-  .nav-container {
-    padding: 0 0.75rem;
-  }
-  
-  .nav-content {
-    width: 100%;
-    padding: 4rem 1.25rem 1.25rem;
-  }
-  
-  .logo-image {
-    height: 30px;
-  }
-  
-  .nav-links a {
-    font-size: 1rem;
-    padding: 0.875rem 0;
-  }
-  
-  .play-store-btn {
-    padding: 0.875rem;
-    font-size: 0.95rem;
-  }
-}
-
-/* Large Desktop (1440px+) */
-@media (min-width: 1440px) {
-  .nav-container {
-    max-width: 1400px;
-  }
-}
-
-/* Extra Large Desktop (1920px+) */
-@media (min-width: 1920px) {
-  .nav-container {
-    max-width: 1600px;
-  }
-  
-  .nav-links a {
-    font-size: 1.05rem;
-  }
-  
-  .play-store-btn {
-    font-size: 1rem;
-  }
-}
-
-/* Animation for mobile menu links */
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.nav-content.active .nav-links a {
-  animation: slideIn 0.3s ease forwards;
-}
-
-.nav-content.active .nav-links a:nth-child(1) { animation-delay: 0.1s; }
-.nav-content.active .nav-links a:nth-child(2) { animation-delay: 0.15s; }
-.nav-content.active .nav-links a:nth-child(3) { animation-delay: 0.2s; }
-.nav-content.active .nav-links a:nth-child(4) { animation-delay: 0.25s; }
-
-/* Smooth scrolling for whole page */
-html {
-  scroll-behavior: smooth;
-}
-
-/* Fix for body padding when navbar is fixed */
+/* Body padding to account for fixed navbar */
 body {
-  padding-top: 70px;
+  padding-top: 64px;
 }
 
-@media (max-width: 768px) {
+@media screen and (max-width: 768px) {
   body {
     padding-top: 60px;
   }
 }
 
-/* Active link style enhancement */
-.nav-links a.active {
-  position: relative;
-}
-
-.nav-links a.active::before {
-  content: '';
-  position: absolute;
-  left: -8px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 4px;
-  height: 60%;
-  background: linear-gradient(135deg, #3498db 0%, #2ecc71 100%);
-  border-radius: 2px;
-}
-
-@media (max-width: 768px) {
-  .nav-links a.active::before {
-    left: -15px;
-    height: 50%;
+@media screen and (max-width: 480px) {
+  body {
+    padding-top: 56px;
   }
 }
 
-/* Hover effect for logo */
-.logo a {
-  display: inline-block;
-  transition: transform 0.3s ease;
-}
-
-.logo a:hover {
-  transform: scale(1.03);
-}
-
-/* Accessibility improvements */
-.menu-toggle:focus,
+/* Accessibility */
 .nav-links a:focus,
-.play-store-btn:focus {
-  outline: 2px solid #3498db;
+.play-store-btn:focus,
+.menu-toggle:focus {
+  outline: 2px solid #4285f4;
   outline-offset: 2px;
 }
 
-/* Prevent text selection on interactive elements */
-.menu-toggle,
-.play-store-btn {
-  user-select: none;
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 80px;
 }
 
-/* Smooth transitions for all interactive elements */
-.nav-links a,
-.play-store-btn,
-.menu-toggle,
-.logo a {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaCheckCircle, FaMobileAlt, FaShieldAlt, FaUsers, FaGooglePlay, FaArrowRight, FaStar, FaRocket, FaClock, FaHandshake } from 'react-icons/fa';
+import { FaCheckCircle, FaMobileAlt, FaShieldAlt, FaUsers, FaGooglePlay, FaArrowRight, FaStar, FaRocket, FaClock, FaHandshake, FaTruck, FaUndoAlt } from 'react-icons/fa';
 import '../styles/Appinfo.css';
 
 const AppInfo = () => {
@@ -74,7 +74,7 @@ const AppInfo = () => {
                   <div className="phone-screen">
                     {/* Replace placeholder with your app image */}
                     <img 
-                      src="/images/screenshot.jpeg" 
+                      src="/images/screenshot1.jpg" 
                       alt="FlyHub App Screenshot" 
                       className="app-screenshot"
                     />
@@ -84,12 +84,12 @@ const AppInfo = () => {
                 {/* Floating elements now inside phone container */}
                 <div className="floating-elements">
                   <div className="float-element element-1">
-                    <FaStar className="element-icon" />
-                    <span>4.8 Rating</span>
+                    <FaTruck className="element-icon" />
+                    <span>Free Shipping</span>
                   </div>
                   <div className="float-element element-2">
-                    <FaUsers className="element-icon" />
-                    <span>50K+ Users</span>
+                    <FaUndoAlt className="element-icon" />
+                    <span>Easy Returns</span>
                   </div>
                   <div className="float-element element-3">
                     <FaShieldAlt className="element-icon" />
@@ -154,7 +154,7 @@ const AppInfo = () => {
             ))}
           </div>
         </div>
-        </div>
+      </div>
     </section>
   );
 };
