@@ -1,0 +1,13 @@
+<resources>
+
+    <!-- ✅ Launch screen theme (used before Flutter loads) -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
+
+    <!-- ✅ Normal theme (used after Flutter UI takes over) -->
+    <style name="NormalTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
+
+</resources>
