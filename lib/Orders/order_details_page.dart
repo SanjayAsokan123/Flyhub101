@@ -174,6 +174,7 @@ class OrderDetailsPage extends StatelessWidget {
 
             const SizedBox(height: 16),
 
+
             /// CUSTOMER INFORMATION
             Container(
               padding: const EdgeInsets.all(20),
