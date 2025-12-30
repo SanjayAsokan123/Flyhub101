@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../config/env.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -32,19 +33,87 @@ class _PilotBookingStatusPageState extends State<PilotBookingStatusPage>
 
   // Function to make phone call
   Future<void> _makePhoneCall(String phoneNumber) async {
-    final Uri launchUri = Uri(
-      scheme: 'tel',
-      path: phoneNumber,
-    );
-    if (await canLaunchUrl(launchUri)) {
-      await launchUrl(launchUri);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not launch $phoneNumber'),
-          backgroundColor: Colors.red,
+    PermissionStatus status = await Permission.phone.status;
+
+    // 1️⃣ If permission not granted, explain first
+    if (!status.isGranted) {
+      final allow = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text("Call Permission Required"),
+          content: const Text(
+            "Flyhub needs phone permission to call the seller directly.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text("Allow"),
+            ),
+          ],
         ),
       );
+
+      if (allow != true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Call permission denied"),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      status = await Permission.phone.request();
+    }
+
+    // 2️⃣ Permanently denied → go to settings
+    if (status.isPermanentlyDenied) {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text("Permission Disabled"),
+          content: const Text(
+            "Phone permission is permanently denied. Please enable it from app settings.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                openAppSettings();
+              },
+              child: const Text("Open Settings"),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // 3️⃣ Permission granted → make call
+    if (status.isGranted) {
+      final Uri launchUri = Uri(
+        scheme: 'tel',
+        path: phoneNumber,
+      );
+
+      if (await canLaunchUrl(launchUri)) {
+        await launchUrl(launchUri);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not launch $phoneNumber'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 

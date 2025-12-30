@@ -56,94 +56,135 @@ class _FlyHubSelectionPageState extends State<FlyHubSelectionPage>
   // }
 
   // ✅ Handle Seller Navigation - SIMPLIFIED VERSION
+  // Future<void> _handleSellerTap() async {
+  //   if (_isLoading) return;
+  //
+  //   setState(() => _isLoading = true);
+  //
+  //   try {
+  //     // ALWAYS go to SellerLoginPage for new selection
+  //     print('✅ Seller selected → sellerOption------------------------------------------------------------');
+  //
+  //     // Save role preference
+  //     await RoleManager.setLocalRole("seller");
+  //     bool isLoggedIn = await LocalStorageService.isLoggedIn();
+  //     print('✅ Seller selected → Checking login status $isLoggedIn');
+  //
+  //     if (mounted) {
+  //       Navigator.pushReplacement(
+  //         context,
+  //         MaterialPageRoute(
+  //             builder: (_) => isLoggedIn
+  //                 ? const Dynamichome(selectedIndex: 0)
+  //                 : const SellerLoginPage()
+  //         ),
+  //       );
+  //     }
+  //
+  //   } catch (e) {
+  //     print('❌ Error in seller tap: $e');
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text('Error: $e'),
+  //           backgroundColor: Colors.red,
+  //         ),
+  //       );
+  //     }
+  //   } finally {
+  //     if (mounted) {
+  //       setState(() => _isLoading = false);
+  //     }
+  //   }
+  // }
+
   Future<void> _handleSellerTap() async {
     if (_isLoading) return;
-
     setState(() => _isLoading = true);
 
     try {
-      // ALWAYS go to SellerLoginPage for new selection
-      print('✅ Seller selected → sellerOption------------------------------------------------------------');
-
-      // Save role preference
       await RoleManager.setLocalRole("seller");
-      bool isLoggedIn = await LocalStorageService.isLoggedIn();
-      print('✅ Seller selected → Checking login status $isLoggedIn');
 
       if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-              builder: (_) => isLoggedIn
-                  ? const Dynamichome(selectedIndex: 0)
-                  : const SellerLoginPage()
-          ),
-        );
-      }
-
-    } catch (e) {
-      print('❌ Error in seller tap: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
+            builder: (_) => const SellerLoginPage(),
           ),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   // ✅ Handle Buyer Navigation - SIMPLIFIED VERSION
-  Future<void> _handleBuyerTap() async {
-    if (_isLoading) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      print('✅ Buyer selected → Checking login status');
-
-      // Save role preference
-      await RoleManager.setLocalRole("buyer");
-
-      // Check if buyer is logged in
-      bool isLoggedIn = await LocalStorageService.isLoggedIn();
-      print('✅ Buyer selected → Checking login status $isLoggedIn');
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => isLoggedIn
-                ? const Dynamichome(selectedIndex: 0)
-                : const BuyerLoginPage(),
-          ),
-        );
-      }
-
-    } catch (e) {
-      print('❌ Error in buyer tap: $e');
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
+  // Future<void> _handleBuyerTap() async {
+  //   if (_isLoading) return;
+  //
+  //   setState(() => _isLoading = true);
+  //
+  //   try {
+  //     print('✅ Buyer selected → Checking login status');
+  //
+  //     // Save role preference
+  //     await RoleManager.setLocalRole("buyer");
+  //
+  //     // Check if buyer is logged in
+  //     bool isLoggedIn = await LocalStorageService.isLoggedIn();
+  //     print('✅ Buyer selected → Checking login status $isLoggedIn');
+  //     if (mounted) {
+  //       Navigator.pushReplacement(
+  //         context,
+  //         MaterialPageRoute(
+  //           builder: (_) => isLoggedIn
+  //               ? const Dynamichome(selectedIndex: 0)
+  //               : const BuyerLoginPage(),
+  //         ),
+  //       );
+  //     }
+  //
+  //   } catch (e) {
+  //     print('❌ Error in buyer tap: $e');
+  //
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text('Error: $e'),
+  //           backgroundColor: Colors.red,
+  //         ),
+  //       );
+  //     }
+  //
+  //   } finally {
+  //     if (mounted) {
+  //       setState(() => _isLoading = false);
+  //     }
+  //   }
+  // }
 
   // ✅ Handle Guest Navigation
+
+      Future<void> _handleBuyerTap() async {
+        if (_isLoading) return;
+        setState(() => _isLoading = true);
+
+        try {
+          await RoleManager.setLocalRole("buyer");
+
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const BuyerLoginPage(),
+              ),
+            );
+          }
+        } finally {
+          if (mounted) setState(() => _isLoading = false);
+        }
+      }
+
   Future<void> _handleGuestTap() async {
     if (_isLoading) return;
 

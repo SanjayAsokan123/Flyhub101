@@ -10,6 +10,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 // Screens
 import '../Login/FlyHubSelectionPage.dart';
+import '../services/network_wrapper.dart';
 import '../services/role_manager.dart';
 import 'Bottoms/BuyerProfilePage.dart';
 import 'Bottoms/MarketPage.dart';
@@ -220,16 +221,15 @@ class _DynamichomeState extends State<Dynamichome>
       );
     }
 
-    return WillPopScope(
-      onWillPop: _onWillPop,
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: PageView(
-          controller: _pageController,
-          onPageChanged: _onPageChanged,
-          children: _screens,
-        ),
-
+    return NetworkWrapper(
+        child: WillPopScope(
+          onWillPop: _onWillPop,
+          child: Scaffold(
+            body: PageView(
+              controller: _pageController,
+              children: _screens,
+              onPageChanged: _onPageChanged,
+            ),
         // -----------------------------------------------------------
         // SVG BOTTOM NAVIGATION BAR
         // -----------------------------------------------------------
@@ -282,6 +282,7 @@ class _DynamichomeState extends State<Dynamichome>
               label: "Profile",
             ),
           ],
+        ),
         ),
       ),
     );

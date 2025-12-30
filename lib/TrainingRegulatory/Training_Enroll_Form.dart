@@ -397,8 +397,8 @@ class _TrainingEnrollFormState extends State<TrainingEnrollForm> {
           "I possess a valid driving license",
           isHaveLicence,
               (val) => setState(() => isHaveLicence = val!),
-          isRequired: false,
-          showError: false,
+          isRequired: true,
+          showError: _showCheckboxErrors && !isHaveLicence,
         ),
         const SizedBox(height: 12),
         _buildEnhancedCheckbox(

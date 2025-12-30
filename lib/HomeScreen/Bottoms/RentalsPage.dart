@@ -1148,16 +1148,16 @@ class _RentalsPageState extends State<RentalsPage> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.003)),
-                                Text(
-                                  "${filteredList.length} drone${filteredList.length == 1 ? '' : 's'} available${searchQuery.isNotEmpty ? " for '$searchQuery'" : ""}",
-                                  style: GoogleFonts.inter(
-                                    color: textSecondary,
-                                    fontSize: ResponsiveUtils.getSmallFontSize(context),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                                // Text(
+                                //   "${filteredList.length} drone${filteredList.length == 1 ? '' : 's'} available${searchQuery.isNotEmpty ? " for '$searchQuery'" : ""}",
+                                //   style: GoogleFonts.inter(
+                                //     color: textSecondary,
+                                //     fontSize: ResponsiveUtils.getSmallFontSize(context),
+                                //     fontWeight: FontWeight.w500,
+                                //   ),
+                                //   maxLines: 1,
+                                //   overflow: TextOverflow.ellipsis,
+                                // ),
                               ],
                             ),
                           ),

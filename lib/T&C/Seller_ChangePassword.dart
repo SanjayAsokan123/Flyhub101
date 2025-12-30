@@ -98,7 +98,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   bool get _hasLowercase => RegExp(r'[a-z]').hasMatch(_passwordController.text);
   bool get _hasUppercase => RegExp(r'[A-Z]').hasMatch(_passwordController.text);
   bool get _hasNumber => RegExp(r'[0-9]').hasMatch(_passwordController.text);
-  bool get _hasSpecialChar => RegExp(r'[@$!%*?&]').hasMatch(_passwordController.text);
+  bool get _hasSpecialChar => RegExp(r'[#@$!%*?&]').hasMatch(_passwordController.text);
   bool get _passwordsMatch =>
       _passwordController.text == _confirmPasswordController.text &&
           _passwordController.text.isNotEmpty;

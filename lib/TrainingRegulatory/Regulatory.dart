@@ -4,6 +4,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config/env.dart';
+import '../services/network_wrapper.dart'; // Import NetworkWrapper
 
 // 🧾 Model
 class RegulatoryInfo {
@@ -89,35 +90,6 @@ class Responsive {
     } else {
       return EdgeInsets.all(screenWidth(context) * 0.04);
     }
-  }
-}
-
-// 🔹 Main Function
-void main() {
-  runApp(const MyApp());
-}
-
-// 🔹 App Widget
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Regulatory App',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primaryColor: const Color(0xFF1A0A5B),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF1A0A5B),
-          iconTheme: IconThemeData(color: Colors.white),
-          elevation: 2,
-        ),
-        scaffoldBackgroundColor: Colors.grey[100],
-        textTheme: GoogleFonts.lexendTextTheme(),
-      ),
-      home: const RegulatoryPage(),
-    );
   }
 }
 
@@ -443,88 +415,90 @@ class _RegulatoryPageState extends State<RegulatoryPage> {
     final screenWidth = Responsive.screenWidth(context);
     final screenHeight = Responsive.screenHeight(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          "Regulatory Info",
-          style: GoogleFonts.lexend(
-            color: Colors.black,
-            fontWeight: FontWeight.w600,
-            fontSize: isSmall
-                ? screenWidth * 0.045
-                : isLarge
-                ? 20
-                : 18,
+    return NetworkWrapper( // Wrap Scaffold with NetworkWrapper
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            "Regulatory Info",
+            style: GoogleFonts.lexend(
+              color: Colors.white, // Changed to white to match AppBar theme
+              fontWeight: FontWeight.w600,
+              fontSize: isSmall
+                  ? screenWidth * 0.045
+                  : isLarge
+                  ? 20
+                  : 18,
+            ),
           ),
+          centerTitle: true,
         ),
-        centerTitle: true,
-      ),
-      body: RefreshIndicator(
-        onRefresh: fetchRegulatoryData,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            children: [
-              // STATIC: Quick Access Section (Always Visible)
-              _buildStaticQuickAccessSection(context),
-
-              // Divider after static section
-              Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isSmall ? screenWidth * 0.04 : screenWidth * 0.05,
-                ),
-                child: Divider(
-                  color: Colors.grey[300],
-                  thickness: isSmall ? 1.0 : 1.5,
-                ),
-              ),
-
-              // DYNAMIC: Regulatory Information Section (From Backend)
-              isLoading
-                  ? SizedBox(
-                height: screenHeight * 0.5,
-                child: const Center(child: CircularProgressIndicator()),
-              )
-                  : regulatoryList.isEmpty
-                  ? SizedBox(
-                height: screenHeight * 0.5,
-                child: Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(screenWidth * 0.05),
-                    child: Text(
-                      "No regulatory information available",
-                      style: GoogleFonts.lexend(
-                        fontSize: isSmall ? 16 : 18,
-                        color: Colors.grey[600],
-                      ),
-                    ),
+        body: RefreshIndicator(
+          onRefresh: fetchRegulatoryData,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              children: [
+                // STATIC: Quick Access Section (Always Visible)
+                _buildStaticQuickAccessSection(context),
+      
+                // Divider after static section
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isSmall ? screenWidth * 0.04 : screenWidth * 0.05,
+                  ),
+                  child: Divider(
+                    color: Colors.grey[300],
+                    thickness: isSmall ? 1.0 : 1.5,
                   ),
                 ),
-              )
-                  : Column(
-                children: [
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isSmall ? screenWidth * 0.04 : screenWidth * 0.05,
-                      vertical: isSmall ? screenHeight * 0.01 : screenHeight * 0.015,
-                    ),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
+      
+                // DYNAMIC: Regulatory Information Section (From Backend)
+                isLoading
+                    ? SizedBox(
+                  height: screenHeight * 0.5,
+                  child: const Center(child: CircularProgressIndicator()),
+                )
+                    : regulatoryList.isEmpty
+                    ? SizedBox(
+                  height: screenHeight * 0.5,
+                  child: Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(screenWidth * 0.05),
                       child: Text(
-                        "Regulatory Information",
+                        "No regulatory information available",
                         style: GoogleFonts.lexend(
-                          fontSize: isSmall ? screenWidth * 0.045 : screenWidth * 0.035,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF1A0A5B),
+                          fontSize: isSmall ? 16 : 18,
+                          color: Colors.grey[600],
                         ),
                       ),
                     ),
                   ),
-                  SizedBox(height: screenHeight * 0.01),
-                  _buildRegulatoryList(context),
-                ],
-              ),
-            ],
+                )
+                    : Column(
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isSmall ? screenWidth * 0.04 : screenWidth * 0.05,
+                        vertical: isSmall ? screenHeight * 0.01 : screenHeight * 0.015,
+                      ),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          "Regulatory Information",
+                          style: GoogleFonts.lexend(
+                            fontSize: isSmall ? screenWidth * 0.045 : screenWidth * 0.035,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF1A0A5B),
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: screenHeight * 0.01),
+                    _buildRegulatoryList(context),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
