@@ -241,6 +241,10 @@ class _AddressPageState extends State<AddressPage> {
         centerTitle: true,
         title: Text("Delivery Address",
             style: GoogleFonts.lexend(color: themeColor, fontWeight: FontWeight.w600, fontSize: 18)),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: themeColor, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
         iconTheme: IconThemeData(color: themeColor),
       ),
       body: Padding(

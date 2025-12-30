@@ -279,22 +279,10 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
   // ---------------------------------------------------------
   // 🔵 SAVE FOR LATER (Placeholder)
   // ---------------------------------------------------------
-  void _saveForLater(int index) {
-    final item = cartItems[index];
-    final product = item["product"];
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("${product["name"]} saved for later"),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-  }
 
   // ---------------------------------------------------------
-  // 🔵 PRICE CALCULATIONS
+  // 🔵 PRICE CALCULATIONS - UPDATED DELIVERY FEE LOGIC
   // ---------------------------------------------------------
   double get subtotal =>
       cartItems.fold(0.0,
@@ -302,7 +290,8 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
 
   double get discount => subtotal * 0.10;
 
-  double get deliveryFee => subtotal > 5000 ? 0.0 : 40.0;
+  // UPDATED: Free delivery above ₹2000, ₹60 delivery fee below ₹2000
+  double get deliveryFee => subtotal >= 2000 ? 0.0 : 60.0;
 
   double get total => subtotal - discount + deliveryFee;
 
@@ -326,6 +315,14 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
       return Scaffold(
         backgroundColor: const Color(0xFFF8F9FA),
         appBar: AppBar(
+          leading: IconButton(
+            icon: Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: themeColor,
+              size: 22,
+            ),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
           title: Text(
             "My Cart",
             style: TextStyle(
@@ -478,6 +475,14 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: themeColor,
+            size: 22,
+          ),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -535,7 +540,7 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
           ? _buildEmptyCart()
           : Column(
         children: [
-          // Free delivery banner
+          // Free delivery banner - UPDATED LOGIC
           if (subtotal > 0 && subtotal < 2000)
             Container(
               margin: const EdgeInsets.all(12),
@@ -595,18 +600,6 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.shopping_cart_outlined,
-              size: 80,
-              color: Colors.grey.shade400,
-            ),
-          ),
           const SizedBox(height: 24),
           Text(
             "Your cart is empty",
@@ -625,20 +618,6 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
             ),
           ),
           const SizedBox(height: 32),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.shopping_bag_outlined),
-            label: const Text("Start Shopping"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: themeColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
-              ),
-              elevation: 2,
-            ),
-          ),
         ],
       ),
     );
@@ -775,21 +754,11 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
                   ],
                 ),
 
-                const SizedBox(height: 12),
-                Divider(color: Colors.grey.shade200, height: 1),
-                const SizedBox(height: 12),
-
                 // Action Buttons
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _actionButton(
-                      icon: Icons.favorite_border,
-                      label: "Save",
-                      color: Colors.pink,
-                      onTap: () => _saveForLater(index),
-                    ),
-                    Container(width: 1, height: 20, color: Colors.grey.shade300),
+
                     _actionButton(
                       icon: Icons.shopping_bag_outlined,
                       label: "Buy Now",
@@ -917,8 +886,9 @@ class _MyCartPageState extends State<MyCartPage> with SingleTickerProviderStateM
                   const SizedBox(height: 8),
                   _priceRow(
                     "Delivery Fee",
-                    deliveryFee == 0 ? "FREE" : "₹${deliveryFee.toStringAsFixed(2)}",
-                    color: deliveryFee == 0 ? Colors.green : null,
+                    // UPDATED: Show "FREE" if total >= 2000, otherwise show ₹60
+                    subtotal >= 2000 ? "FREE" : "₹${deliveryFee.toStringAsFixed(2)}",
+                    color: subtotal >= 2000 ? Colors.green : null,
                   ),
 
                   Padding(

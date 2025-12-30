@@ -615,7 +615,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage>
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      if (Navigator.canPop(context)) Navigator.pop(context); // 🔥 FIX 2
+      // if (Navigator.canPop(context)) Navigator.pop(context); // 🔥 FIX 2
 
       await RoleManager.setLocalRole("buyer");
 

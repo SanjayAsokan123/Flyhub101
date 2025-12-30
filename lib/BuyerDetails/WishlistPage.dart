@@ -440,11 +440,11 @@ class _WishlistPageState extends State<WishlistPage> {
   double _getCardImageHeight(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     final crossAxisCount = _getGridCrossAxisCount(context);
-    final availableWidth = width - (_getGridPadding(context) * 2) - (_getGridSpacing(context) * (crossAxisCount - 1));
+    final availableWidth = width - (_getGridPadding(context) * 1) - (_getGridSpacing(context) * (crossAxisCount - 1));
     final cardWidth = availableWidth / crossAxisCount;
 
     // Image takes 60-70% of card height based on screen size
-    final imageHeightRatio = _getResponsiveSize(context, 0.65, 0.68, 0.7);
+    final imageHeightRatio = _getResponsiveSize(context, 0.85, 0.70, 0.15);
     return cardWidth * imageHeightRatio;
   }
 
@@ -1129,46 +1129,46 @@ class _WishlistPageState extends State<WishlistPage> {
                     ),
 
                     // Add to Cart Button - FULLY DYNAMIC SIZING
-                    SizedBox(
-                      width: double.infinity,
-                      height: _getAddToCartButtonHeight(context),
-                      child: FilledButton(
-                        onPressed: () => _moveToCart(product),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: primaryColor,
-                          padding: _getAddToCartButtonPadding(context),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              _getAddToCartButtonBorderRadius(context),
-                            ),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.shopping_cart_outlined,
-                              size: _getAddToCartButtonIconSize(context),
-                              color: surfaceColor,
-                            ),
-                            SizedBox(width: _getResponsiveSize(context, 4, 6, 8)),
-                            Expanded(
-                              child: Text(
-                                "Add to Cart",
-                                style: GoogleFonts.inter(
-                                  fontSize: _getAddToCartButtonFontSize(context),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    // SizedBox(
+                    //   width: double.infinity,
+                    //   height: _getAddToCartButtonHeight(context),
+                    //   child: FilledButton(
+                    //     onPressed: () => _moveToCart(product),
+                    //     style: FilledButton.styleFrom(
+                    //       backgroundColor: primaryColor,
+                    //       padding: _getAddToCartButtonPadding(context),
+                    //       shape: RoundedRectangleBorder(
+                    //         borderRadius: BorderRadius.circular(
+                    //           _getAddToCartButtonBorderRadius(context),
+                    //         ),
+                    //       ),
+                    //       elevation: 0,
+                    //     ),
+                    //     child: Row(
+                    //       mainAxisAlignment: MainAxisAlignment.center,
+                    //       children: [
+                    //         Icon(
+                    //           Icons.shopping_cart_outlined,
+                    //           size: _getAddToCartButtonIconSize(context),
+                    //           color: surfaceColor,
+                    //         ),
+                    //         SizedBox(width: _getResponsiveSize(context, 4, 6, 8)),
+                    //         Expanded(
+                    //           child: Text(
+                    //             "Add to Cart",
+                    //             style: GoogleFonts.inter(
+                    //               fontSize: _getAddToCartButtonFontSize(context),
+                    //               fontWeight: FontWeight.w500,
+                    //             ),
+                    //             maxLines: 1,
+                    //             overflow: TextOverflow.ellipsis,
+                    //             textAlign: TextAlign.center,
+                    //           ),
+                    //         ),
+                    //       ],
+                    //     ),
+                    //   ),
+                    // ),
                   ],
                 ),
               ),

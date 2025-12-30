@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import '../../../config/env.dart';
 
 class SoldProductsPage extends StatefulWidget {
   final String sellerCustomId;
@@ -17,17 +18,179 @@ class _SoldProductsPageState extends State<SoldProductsPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final Color themeColor = const Color(0xFF1A0A5B);
+  late GraphQLClient _client;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+
+    // Initialize GraphQL client with your EnvConfig
+    final HttpLink link = HttpLink(EnvConfig.baseUrl);
+    _client = GraphQLClient(
+      link: link,
+      cache: GraphQLCache(store: InMemoryStore()),
+    );
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  // GraphQL Query - Updated to match your schema
+  String get getDeliveredOrdersQuery => """
+    query {
+      orders {
+        orderId
+        status
+        createdAt
+        payoutStatus
+        items {
+          productId
+          type
+          name
+          price
+          quantity
+          sellerId
+          status
+        }
+      }
+    }
+  """;
+
+  Widget _buildQueryResult(QueryResult result, Future<QueryResult?> Function()? refetch) {
+    if (result.isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A0A5B)),
+        ),
+      );
+    }
+
+    if (result.hasException) {
+      debugPrint("GraphQL Error: ${result.exception}");
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 20),
+              Text(
+                "Unable to Load Data",
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: themeColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                child: Text(
+                  "Error: ${result.exception.toString()}",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    color: Colors.grey,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 28),
+              ElevatedButton(
+                onPressed: () => refetch?.call(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: themeColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 36, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  "Retry",
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final data = result.data;
+    debugPrint("Received data: $data");
+
+    List orders = data?["orders"] ?? [];
+    debugPrint("Orders count: ${orders.length}");
+
+    // Filter: Items that belong to this seller AND order is delivered
+    List<Map<String, dynamic>> deliveredItems = [];
+
+    for (var order in orders) {
+      final orderStatus = order["status"];
+      debugPrint("Order ${order["orderId"]} status: $orderStatus");
+
+      // Skip if order status is not "delivered"
+      if (orderStatus != "delivered") {
+        debugPrint("Skipping order ${order["orderId"]} - status: $orderStatus");
+        continue;
+      }
+
+      final items = order["items"] ?? [];
+      debugPrint("Order ${order["orderId"]} has ${items.length} items");
+
+      for (var item in items) {
+        final sellerId = item["sellerId"];
+        final itemStatus = item["status"];
+
+        debugPrint("Item: ${item["name"]}, Seller: $sellerId, Item Status: $itemStatus");
+
+        // Check if item belongs to this seller (AND order is delivered)
+        if (sellerId == widget.sellerCustomId) {
+          deliveredItems.add({
+            ...item,
+            'orderId': order["orderId"],
+            'orderDate': order["createdAt"],
+            'orderStatus': order["status"],
+            'payoutStatus': order["payoutStatus"] ?? "pending",
+          });
+          debugPrint("Added item (order delivered): ${item["name"]}");
+        }
+      }
+    }
+
+    debugPrint("Total delivered items: ${deliveredItems.length}");
+
+    // Prepare categorized lists
+    final droneItems =
+    deliveredItems.where((e) => (e["type"] as String).toLowerCase() == "drone").toList();
+    final partItems =
+    deliveredItems.where((e) => (e["type"] as String).toLowerCase() == "part").toList();
+    final accessoryItems =
+    deliveredItems.where((e) => (e["type"] as String).toLowerCase() == "accessory").toList();
+
+    debugPrint("Drone items: ${droneItems.length}");
+    debugPrint("Part items: ${partItems.length}");
+    debugPrint("Accessory items: ${accessoryItems.length}");
+
+    // Tab content view
+    return TabBarView(
+      controller: _tabController,
+      children: [
+        _buildTabContent("Drones", droneItems),
+        _buildTabContent("Parts", partItems),
+        _buildTabContent("Accessories", accessoryItems),
+      ],
+    );
   }
 
   @override
@@ -72,111 +235,15 @@ class _SoldProductsPageState extends State<SoldProductsPage>
           fetchPolicy: FetchPolicy.networkOnly,
         ),
         builder: (result, {refetch, fetchMore}) {
-          if (result.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A0A5B)),
-              ),
-            );
-          }
-
-          if (result.hasException) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 20),
-                    Text(
-                      "Unable to Load Data",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: themeColor,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 32.0),
-                      child: Text(
-                        "Please check your connection and try again",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    ElevatedButton(
-                      onPressed: () => refetch?.call(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: themeColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 36, vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text(
-                        "Retry",
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          List orders = result.data?["Orders"] ?? [];
-
-          // Filter: Delivered + Items belonging to seller
-          List deliveredItems = [];
-
-          for (var order in orders) {
-            if (order["status"] != "delivered") continue;
-
-            for (var item in order["items"]) {
-              if (item["sellerId"] == widget.sellerCustomId) {
-                deliveredItems.add({
-                  ...item,
-                  'orderId': order["orderId"],
-                  'orderDate': order["createdAt"] ?? order["orderDate"],
-                });
-              }
-            }
-          }
-
-          // Prepare categorized lists
-          final droneItems =
-          deliveredItems.where((e) => e["type"] == "Drone").toList();
-          final partItems =
-          deliveredItems.where((e) => e["type"] == "Part").toList();
-          final accessoryItems =
-          deliveredItems.where((e) => e["type"] == "Accessory").toList();
-
-          // Tab content view
-          return TabBarView(
-            controller: _tabController,
-            children: [
-              _buildTabContent("Drones", droneItems),
-              _buildTabContent("Parts", partItems),
-              _buildTabContent("Accessories", accessoryItems),
-            ],
-          );
+          return _buildQueryResult(result, refetch);
         },
       ),
     );
   }
 
-  Widget _buildTabContent(String category, List items) {
+  Widget _buildTabContent(String category, List<Map<String, dynamic>> items) {
+    debugPrint("Building $category tab with ${items.length} items");
+
     if (items.isEmpty) {
       return Center(
         child: Padding(
@@ -184,6 +251,15 @@ class _SoldProductsPageState extends State<SoldProductsPage>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              Icon(
+                category == "Drones"
+                    ? Icons.drone
+                    : category == "Parts"
+                    ? Icons.build
+                    : Icons.settings,
+                size: 64,
+                color: Colors.grey[400],
+              ),
               const SizedBox(height: 20),
               Text(
                 "No Sold $category",
@@ -197,13 +273,29 @@ class _SoldProductsPageState extends State<SoldProductsPage>
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 32.0),
                 child: Text(
-                  "Sold $category will appear here",
+                  "Delivered $category will appear here",
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 15,
                     color: Colors.grey[500],
                     height: 1.5,
                   ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                "Seller ID: ${widget.sellerCustomId}",
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                "Showing orders with status: 'delivered'",
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
                 ),
               ),
             ],
@@ -261,6 +353,23 @@ class _SoldProductsPageState extends State<SoldProductsPage>
                   ),
                 ),
               ),
+              const Spacer(),
+              // Order Status Info
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  "DELIVERED",
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -276,9 +385,13 @@ class _SoldProductsPageState extends State<SoldProductsPage>
               final item = items[index];
               final orderId = item["orderId"]?.toString() ?? "";
               final orderDate = item["orderDate"]?.toString() ?? "";
-              final unitPrice = item["price"]?.toDouble() ?? 0.0;
+              final unitPrice = (item["price"] is int
+                  ? item["price"].toDouble()
+                  : item["price"]?.toDouble()) ?? 0.0;
               final quantity = item["quantity"]?.toInt() ?? 1;
               final totalPrice = unitPrice * quantity;
+              final itemStatus = item["status"]?.toString().toLowerCase() ?? "";
+              final orderStatus = item["orderStatus"]?.toString().toLowerCase() ?? "";
 
               return Container(
                 decoration: BoxDecoration(
@@ -301,16 +414,90 @@ class _SoldProductsPageState extends State<SoldProductsPage>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Product Name
-                      Text(
-                        item["name"] ?? "Product",
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                      // Product Name and Status
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item["name"] ?? "Product",
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: orderStatus == "delivered"
+                                            ? Colors.green.withOpacity(0.1)
+                                            : Colors.orange.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(
+                                          color: orderStatus == "delivered"
+                                              ? Colors.green
+                                              : Colors.orange,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        "Order: ${orderStatus.toUpperCase()}",
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: orderStatus == "delivered"
+                                              ? Colors.green
+                                              : Colors.orange,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: itemStatus == "delivered"
+                                            ? Colors.green.withOpacity(0.1)
+                                            : itemStatus == "packed"
+                                            ? Colors.blue.withOpacity(0.1)
+                                            : Colors.orange.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(
+                                          color: itemStatus == "delivered"
+                                              ? Colors.green
+                                              : itemStatus == "packed"
+                                              ? Colors.blue
+                                              : Colors.orange,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        "Item: ${itemStatus.toUpperCase()}",
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: itemStatus == "delivered"
+                                              ? Colors.green
+                                              : itemStatus == "packed"
+                                              ? Colors.blue
+                                              : Colors.orange,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
 
                       const SizedBox(height: 14),
@@ -331,7 +518,7 @@ class _SoldProductsPageState extends State<SoldProductsPage>
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                "₹${unitPrice.toStringAsFixed(0)}",
+                                "₹${unitPrice.toStringAsFixed(2)}",
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
@@ -373,7 +560,7 @@ class _SoldProductsPageState extends State<SoldProductsPage>
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(
-                                "Total Price",
+                                "Total",
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey[600],
@@ -381,7 +568,7 @@ class _SoldProductsPageState extends State<SoldProductsPage>
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                "₹${totalPrice.toStringAsFixed(0)}",
+                                "₹${totalPrice.toStringAsFixed(2)}",
                                 style: const TextStyle(
                                   fontSize: 17,
                                   fontWeight: FontWeight.w700,
@@ -408,94 +595,130 @@ class _SoldProductsPageState extends State<SoldProductsPage>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Order ID
-                          if (orderId.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 6),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SizedBox(
-                                    width: 80,
-                                    child: Text(
-                                      "Order ID:",
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                      orderId,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                          // Order Date
-                          if (orderDate.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 6),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SizedBox(
-                                    width: 80,
-                                    child: Text(
-                                      "Order Date:",
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                      _formatDate(orderDate),
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                          // Product ID
-                          if (item["productId"] != null)
-                            Row(
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 SizedBox(
-                                  width: 80,
+                                  width: 90,
                                   child: Text(
-                                    "Product ID:",
+                                    "Order ID:",
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: Colors.grey[600],
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
                                 ),
                                 Expanded(
                                   child: Text(
-                                    item["productId"].toString(),
+                                    orderId,
                                     style: const TextStyle(
                                       fontSize: 13,
-                                      fontWeight: FontWeight.w500,
+                                      fontWeight: FontWeight.w600,
                                       color: Colors.black87,
                                     ),
                                   ),
                                 ),
                               ],
                             ),
+                          ),
+
+                          // Order Date
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(
+                                  width: 90,
+                                  child: Text(
+                                    "Order Date:",
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    _formatDate(orderDate),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Product ID
+                          if (item["productId"] != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    width: 90,
+                                    child: Text(
+                                      "Product ID:",
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey[600],
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      item["productId"].toString(),
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                          // Payout Status
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(
+                                  width: 90,
+                                  child: Text(
+                                    "Payout:",
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    item['payoutStatus']?.toUpperCase() ?? "PENDING",
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: _getPayoutStatusColor(
+                                          item['payoutStatus']),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ],
@@ -513,30 +736,34 @@ class _SoldProductsPageState extends State<SoldProductsPage>
     try {
       final date = DateTime.tryParse(dateString);
       if (date != null) {
-        return "${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}";
+        return "${_getMonth(date.month)} ${date.day}, ${date.year} at ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}";
       }
     } catch (e) {
       // Handle date parsing error silently
     }
     return dateString;
   }
-}
 
-// GraphQL Query
-const String getDeliveredOrdersQuery = r'''
-  query {
-    Orders {
-      orderId
-      status
-      createdAt
-      items {
-        productId
-        type
-        name
-        price
-        quantity
-        sellerId
-      }
+  String _getMonth(int month) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return months[month - 1];
+  }
+
+  Color _getPayoutStatusColor(String? status) {
+    switch (status?.toLowerCase()) {
+      case "completed":
+        return Colors.green;
+      case "processing":
+        return Colors.orange;
+      case "paid":
+        return Colors.blue;
+      case "failed":
+        return Colors.red;
+      default:
+        return Colors.grey;
     }
   }
-''';
+}

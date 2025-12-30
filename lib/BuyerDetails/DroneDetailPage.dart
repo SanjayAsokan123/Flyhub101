@@ -56,6 +56,7 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
     return body["data"];
   }
 
+
   // -------------------------------------------------------------------
   // 📌 Load Cart Count from Backend
   // -------------------------------------------------------------------
@@ -175,6 +176,42 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
   }
 
   // -------------------------------------------------------------------
+  // 📌 Share Product with Link
+  // -------------------------------------------------------------------
+  Future<void> _shareProduct() async {
+    final drone = widget.drone;
+    final productId = drone["id"] ?? drone["productId"];
+
+    // Create a shareable product link
+    // You need to replace this with your actual product page URL
+    String productLink = "https://yourdroneapp.com/products/$productId";
+
+    // If you don't have a web version yet, you can use a placeholder
+    // or create a deep link for your app
+    String deepLink = "droneshop://product/$productId";
+
+    // Create the share text with clickable link
+    final shareText = """
+🚀 Check out this drone!
+
+📦 ${drone['name']}
+💰 Price: ₹${drone['price']}
+🏷️ Brand: ${drone['brand'] ?? ''}
+
+${drone['description']?.substring(0, 100) ?? "Amazing drone with advanced features"}...
+
+🔗 Click here to view: $productLink
+
+Or open in app: $deepLink
+
+👉 Share this amazing drone with your friends! 🚁
+    """;
+
+    // Share the text with link
+    await Share.share(shareText);
+  }
+
+  // -------------------------------------------------------------------
   // 📌 UI STARTS HERE
   // -------------------------------------------------------------------
 
@@ -260,14 +297,10 @@ class _DroneDetailPageState extends State<DroneDetailPage> {
           ],
         ),
 
-        /// Share Icon
+        /// Share Icon - Updated to use _shareProduct
         IconButton(
           icon: Icon(Icons.share, color: themeColor),
-          onPressed: () {
-            final text =
-                "🚀 Check out this drone!\n${drone['name']} - ₹${drone['price']}\n${drone['description'] ?? "Amazing drone!"}";
-            Share.share(text);
-          },
+          onPressed: _shareProduct, // Changed to use new function
         ),
       ],
     );

@@ -417,11 +417,21 @@ class _RegulatoryPageState extends State<RegulatoryPage> {
 
     return NetworkWrapper( // Wrap Scaffold with NetworkWrapper
       child: Scaffold(
+        backgroundColor: Colors.white, // Changed background to white
         appBar: AppBar(
+          backgroundColor: Colors.white, // Keep app bar color
+          leading: IconButton(
+            icon: Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: Color(0xFF1A0A5B),
+              size: isSmall ? 24 : 28,
+            ),
+            onPressed: () => Navigator.pop(context),
+          ),
           title: Text(
             "Regulatory Info",
             style: GoogleFonts.lexend(
-              color: Colors.white, // Changed to white to match AppBar theme
+              color: Color(0xFF1A0A5B),
               fontWeight: FontWeight.w600,
               fontSize: isSmall
                   ? screenWidth * 0.045
@@ -440,7 +450,7 @@ class _RegulatoryPageState extends State<RegulatoryPage> {
               children: [
                 // STATIC: Quick Access Section (Always Visible)
                 _buildStaticQuickAccessSection(context),
-      
+
                 // Divider after static section
                 Padding(
                   padding: EdgeInsets.symmetric(
@@ -451,7 +461,7 @@ class _RegulatoryPageState extends State<RegulatoryPage> {
                     thickness: isSmall ? 1.0 : 1.5,
                   ),
                 ),
-      
+
                 // DYNAMIC: Regulatory Information Section (From Backend)
                 isLoading
                     ? SizedBox(
@@ -675,7 +685,7 @@ class RegulatoryDetailPage extends StatelessWidget {
     final screenHeight = Responsive.screenHeight(context);
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Colors.white, // Changed background to white
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
@@ -686,6 +696,14 @@ class RegulatoryDetailPage extends StatelessWidget {
                 : screenHeight * 0.35,
             pinned: true,
             backgroundColor: const Color(0xFF1A0A5B),
+            leading: IconButton(
+              icon: Icon(
+                Icons.arrow_back,
+                color: Colors.white,
+                size: isSmall ? 24 : 28,
+              ),
+              onPressed: () => Navigator.pop(context),
+            ),
             flexibleSpace: FlexibleSpaceBar(
               titlePadding: EdgeInsets.symmetric(
                 horizontal: isSmall ? 12 : 16,

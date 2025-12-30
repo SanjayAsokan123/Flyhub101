@@ -110,167 +110,87 @@ class _BuyerJobApplyStatusPageState extends State<BuyerJobApplyStatusPage>
   }
 
   // --------------------------------------------
-  // OPEN RESUME
-  // --------------------------------------------
-  Future<void> _openResume(String? url) async {
-    if (url == null || url.isEmpty) return;
-    final uri = Uri.tryParse(url);
-    if (uri != null && await canLaunchUrl(uri)) {
-      launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
-  // --------------------------------------------
-  // JOB APPLICATION CARD UI
+  // SIMPLE JOB CARD (NO INTERACTION - JUST DISPLAY)
   // --------------------------------------------
   Widget buildJobCard(Map<String, dynamic> job) {
     final status = job['status'] ?? "--";
     final statusColor = getStatusColor(status);
     final formattedDate = formatDate(job['appliedAt'] ?? job['createdAt']);
 
-    return GestureDetector(
-      onTap: () => _showJobDetails(job),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: Colors.grey.shade200),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 8,
-              offset: const Offset(0, 4),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          children: [
+            // Icon
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(Icons.work, size: 28, color: statusColor),
+            ),
+
+            const SizedBox(width: 16),
+
+            // Text details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    job['jobTitle'] ?? "Unknown Job",
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1A0A5B),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Text("🏢 ${job['companyName'] ?? '--'}"),
+                  Text("👤 ${job['name'] ?? '--'}"),
+                  Text("📧 ${job['email'] ?? '--'}"),
+                  Text("📞 ${job['phoneNumber'] ?? '--'}"),
+                  Text("📅 $formattedDate"),
+                ],
+              ),
+            ),
+
+            // Status badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                status.toString().toUpperCase(),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: statusColor,
+                  fontSize: 12,
+                ),
+              ),
             ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Row(
-            children: [
-              // Icon
-              Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(Icons.work, size: 28, color: statusColor),
-              ),
-
-              const SizedBox(width: 16),
-
-              // Text details
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      job['jobTitle'] ?? "Unknown Job",
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF1A0A5B),
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    Text("🏢 ${job['companyName'] ?? '--'}"),
-                    Text("👤 ${job['name'] ?? '--'}"),
-                    Text("📞 ${job['phoneNumber'] ?? '--'}"),
-                    Text("📅 $formattedDate"),
-                  ],
-                ),
-              ),
-
-              // Status badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  status.toString().toUpperCase(),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: statusColor,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // --------------------------------------------
-  // JOB DETAILS DIALOG
-  // --------------------------------------------
-  void _showJobDetails(Map<String, dynamic> job) {
-    final status = job['status'] ?? "--";
-    final statusColor = getStatusColor(status);
-    final formattedDate = formatDate(job['appliedAt'] ?? job['createdAt']);
-    final resumeUrl = job['resumeUrl'];
-
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(
-          job["jobTitle"] ?? "Application Details",
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Application ID: ${job['id']}"),
-              const SizedBox(height: 8),
-              Text("Job: ${job['jobTitle']}"),
-              const SizedBox(height: 4),
-              Text("Company: ${job['companyName']}"),
-              const SizedBox(height: 4),
-              Text("Applicant: ${job['name']}"),
-              const SizedBox(height: 4),
-              Text("Email: ${job['email']}"),
-              const SizedBox(height: 4),
-              Text("Phone: ${job['phoneNumber']}"),
-              const SizedBox(height: 4),
-              Text("Applied On: $formattedDate"),
-              const SizedBox(height: 8),
-              Text(
-                "Status: ${status.toUpperCase()}",
-                style: TextStyle(
-                  color: statusColor,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              if (resumeUrl != null && resumeUrl.isNotEmpty)
-                InkWell(
-                  onTap: () => _openResume(resumeUrl),
-                  child: const Text(
-                    "📄 View Resume",
-                    style: TextStyle(
-                      color: Colors.blue,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Close"),
-          ),
-        ],
       ),
     );
   }
@@ -308,10 +228,27 @@ class _BuyerJobApplyStatusPageState extends State<BuyerJobApplyStatusPage>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text("Error: ${result.exception.toString()}"),
-            const SizedBox(height: 20),
+            const Text(
+              "Network Error",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              "Please check your connection and try again",
+              style: TextStyle(color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
             ElevatedButton(
               onPressed: refetch,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1A0A5B),
+                foregroundColor: Colors.white,
+              ),
               child: const Text("Retry"),
             ),
           ],
@@ -335,9 +272,17 @@ class _BuyerJobApplyStatusPageState extends State<BuyerJobApplyStatusPage>
           SizedBox(
             height: MediaQuery.of(context).size.height * 0.7,
             child: const Center(
-              child: Text(
-                "No applications found",
-                style: TextStyle(color: Colors.grey),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "No applications found",
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -389,10 +334,15 @@ class _BuyerJobApplyStatusPageState extends State<BuyerJobApplyStatusPage>
         children: [
           buildTab(getHiredQuery),
           buildTab(getPendingQuery),
-
           buildTab(getRejectedQuery),
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 }
