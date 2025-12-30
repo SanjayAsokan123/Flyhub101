@@ -34,7 +34,7 @@ const AppInfo = () => {
     {
       step: "1",
       title: "Download App",
-      description: "Get FlyHub from Google Play Store",
+      description: "Get Flyhub from Google Play Store",
       detail: "Free download, no hidden fees"
     },
     {
@@ -61,7 +61,7 @@ const AppInfo = () => {
     <section className="app-info" id="download">
       <div className="container">
         <div className="section-header">
-          <h2>Experience FlyHub on Your Mobile</h2>
+          <h2>Experience Flyhub on Your Mobile</h2>
           <p>The complete drone ecosystem in your pocket. Download now and join thousands of drone enthusiasts.</p>
         </div>
         
@@ -75,7 +75,7 @@ const AppInfo = () => {
                     {/* Replace placeholder with your app image */}
                     <img 
                       src="/images/screenshot1.jpg" 
-                      alt="FlyHub App Screenshot" 
+                      alt="Flyhub App Screenshot" 
                       className="app-screenshot"
                     />
                   </div>
@@ -102,7 +102,7 @@ const AppInfo = () => {
             {/* Download section directly below phone */}
             <div className="download-section bottom-position">
               <h3>Download Now</h3>
-              <p>Get the FlyHub app and take your drone experience to the next level</p>
+              <p>Get the Flyhub app and take your drone experience to the next level</p>
               <a 
                 href="https://play.google.com/store/apps" 
                 target="_blank" 
@@ -121,7 +121,7 @@ const AppInfo = () => {
           
           <div className="app-details">
             <div className="app-features">
-              <h3>Why Choose FlyHub App?</h3>
+              <h3>Why Choose Flyhub App?</h3>
               <div className="features-list">
                 {appFeatures.map((feature, index) => (
                   <div key={index} className="feature-item">
