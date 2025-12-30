@@ -223,9 +223,10 @@ mutation UpdateStatus(\$bookingId: String!, \$status: String!) {
                         style: const TextStyle(color: Colors.black54),
                       ),
                       Text(
-                        "⏰ ${b["startTime"]} - ${b["endTime"]}",
+                        "⏰ ${formatIndianTime(b["startTime"])} - ${formatIndianTime(b["endTime"])}",
                         style: const TextStyle(color: Colors.black54),
                       ),
+
                       if (b["pilotName"] != null && b["pilotName"].isNotEmpty)
                         Text(
                           "👨‍✈️ Pilot: ${b["pilotName"]}",
@@ -342,6 +343,17 @@ mutation UpdateStatus(\$bookingId: String!, \$status: String!) {
         ),
       ),
     );
+  }
+  String formatIndianTime(String? time) {
+    if (time == null || time.length != 4) return "--";
+
+    final hour = int.tryParse(time.substring(0, 2)) ?? 0;
+    final minute = time.substring(2, 4);
+
+    final isPM = hour >= 12;
+    final displayHour = hour % 12 == 0 ? 12 : hour % 12;
+
+    return "$displayHour:$minute ${isPM ? "PM" : "AM"}";
   }
 
   // ---------------------------------------------------

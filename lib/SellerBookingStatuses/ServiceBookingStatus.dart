@@ -49,11 +49,76 @@ class _ServiceBookingStatusPageState extends State<ServiceBookingStatusPage>
     }
   }
 
-  /// FORMAT DATE
-  String formatDate(String? dateString) {
-    if (dateString == null) return "—";
-    DateTime? dt = DateTime.tryParse(dateString);
-    return dt == null ? "—" : DateFormat('dd MMM yyyy').format(dt.toLocal());
+  String formatDate(dynamic value) {
+    if (value == null || value.toString().isEmpty) return "—";
+
+    try {
+      DateTime date;
+
+      debugPrint("formatDate input: $value | type: ${value.runtimeType}");
+
+      if (value is String) {
+        // Try to parse as ISO string first
+        if (value.contains('T')) {
+          date = DateTime.parse(value);
+        } else {
+          // Try different date formats
+          try {
+            // Format: "2024-12-15" (YYYY-MM-DD)
+            if (value.contains('-') && value.length == 10) {
+              date = DateFormat('yyyy-MM-dd').parse(value);
+            }
+            // Format: "15-12-2024" (DD-MM-YYYY)
+            else if (value.contains('-') && value.length == 10) {
+              date = DateFormat('dd-MM-yyyy').parse(value);
+            }
+            // Try milliseconds timestamp
+            else if (int.tryParse(value) != null) {
+              final timestamp = int.tryParse(value)!;
+              if (timestamp > 1000000000000) {
+                // Milliseconds
+                date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+              } else {
+                // Seconds
+                date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+              }
+            } else {
+              return "—";
+            }
+          } catch (e) {
+            debugPrint("String parsing error: $e");
+            return "—";
+          }
+        }
+      }
+      // MongoDB format: {"$date": "ISO_STRING"}
+      else if (value is Map && value.containsKey(r'$date')) {
+        date = DateTime.parse(value[r'$date']);
+      }
+      // Direct DateTime
+      else if (value is DateTime) {
+        date = value;
+      }
+      // Numeric timestamp
+      else if (value is int) {
+        if (value > 1000000000000) {
+          // Milliseconds
+          date = DateTime.fromMillisecondsSinceEpoch(value);
+        } else {
+          // Seconds
+          date = DateTime.fromMillisecondsSinceEpoch(value * 1000);
+        }
+      } else {
+        debugPrint("Unsupported date type: ${value.runtimeType}");
+        return "—";
+      }
+
+      // Format to readable date
+      return DateFormat("MMMM d, yyyy").format(date.toLocal());
+    } catch (e) {
+      debugPrint("Date parsing error: $e | value: $value");
+      return "—";
+    }
   }
 
   /// FETCH BOOKINGS FOR SELLER
@@ -244,12 +309,11 @@ class _ServiceBookingStatusPageState extends State<ServiceBookingStatusPage>
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildDetailRow('📞 Phone', b['phone'] ?? 'N/A'),
                 _buildDetailRow('📍 Location', b['location'] ?? 'N/A'),
                 _buildDetailRow('📅 Date', formatDate(b['date'])),
                 if (b['information'] != null && b['information'].isNotEmpty)
                   _buildDetailRow('📝 Information', b['information']),
-                _buildDetailRow('🆔 Booking ID', b['serviceBookingId'] ?? 'N/A'),
+
               ],
             ),
 

@@ -106,6 +106,7 @@ class SearchService {
                     price
                     image
                     category
+                    description
                     score
                   }
                   ... on PartSearchResult {
@@ -117,6 +118,7 @@ class SearchService {
                     price
                     image
                     compatibleDrones
+                    description
                     score
                   }
                   ... on AccessorySearchResult {
@@ -276,6 +278,7 @@ class SearchService {
               price: (item['price'] as num?)?.toDouble() ?? 0.0,
               image: item['image']?.toString() ?? item['imageUrl']?.toString() ?? item['imageURL']?.toString(),
               category: item['category']?.toString(),
+              description: item['description']?.toString(),
               score: _calculateRelevanceScore(item, queryLower, type),
             );
           case 'PART':
@@ -287,6 +290,7 @@ class SearchService {
               model: item['model']?.toString(),
               price: (item['price'] as num?)?.toDouble() ?? 0.0,
               image: item['image']?.toString() ?? item['imageUrl']?.toString() ?? item['imageURL']?.toString(),
+              description: item['description']?.toString(),
               compatibleDrones: (item['compatibleDrones'] as List<dynamic>?)
                   ?.map((e) => e.toString())
                   .toList() ??
@@ -578,6 +582,7 @@ class SearchService {
       // Field-specific bonuses
       if (field == 'name') score *= 1.5;
       if (field == 'brand') score *= 1.3;
+      if (field == 'description') score *= 1.2;
     }
 
     return (score / 200).clamp(0.0, 1.0);

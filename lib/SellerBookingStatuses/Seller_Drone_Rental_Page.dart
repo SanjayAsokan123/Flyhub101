@@ -3,6 +3,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import '../config/env.dart';
+import 'package:intl/intl.dart';
 
 class SellerDroneRentalPage extends StatefulWidget {
   const SellerDroneRentalPage({Key? key}) : super(key: key);
@@ -210,13 +211,75 @@ class _SellerDroneRentalPageState extends State<SellerDroneRentalPage>
     }
   }
 
-  String formatDate(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty) return "—";
+
+  String formatDate(dynamic value) {
+    if (value == null || value.toString().isEmpty) return "—";
+
     try {
-      final dt = DateTime.parse(dateStr).toLocal();
-      return "${dt.day.toString().padLeft(2, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.year} "
-          "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+      DateTime date;
+
+      debugPrint("formatDate input: $value | type: ${value.runtimeType}");
+
+      if (value is String) {
+        // Try to parse as ISO string first
+        if (value.contains('T')) {
+          date = DateTime.parse(value);
+        } else {
+          // Try different date formats
+          try {
+            // Format: "2024-12-15" (YYYY-MM-DD)
+            if (value.contains('-') && value.length == 10) {
+              date = DateFormat('yyyy-MM-dd').parse(value);
+            }
+            // Format: "15-12-2024" (DD-MM-YYYY)
+            else if (value.contains('-') && value.length == 10) {
+              date = DateFormat('dd-MM-yyyy').parse(value);
+            }
+            // Try milliseconds timestamp
+            else if (int.tryParse(value) != null) {
+              final timestamp = int.tryParse(value)!;
+              if (timestamp > 1000000000000) {
+                // Milliseconds
+                date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+              } else {
+                // Seconds
+                date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+              }
+            } else {
+              return "—";
+            }
+          } catch (e) {
+            debugPrint("String parsing error: $e");
+            return "—";
+          }
+        }
+      }
+      // MongoDB format: {"$date": "ISO_STRING"}
+      else if (value is Map && value.containsKey(r'$date')) {
+        date = DateTime.parse(value[r'$date']);
+      }
+      // Direct DateTime
+      else if (value is DateTime) {
+        date = value;
+      }
+      // Numeric timestamp
+      else if (value is int) {
+        if (value > 1000000000000) {
+          // Milliseconds
+          date = DateTime.fromMillisecondsSinceEpoch(value);
+        } else {
+          // Seconds
+          date = DateTime.fromMillisecondsSinceEpoch(value * 1000);
+        }
+      } else {
+        debugPrint("Unsupported date type: ${value.runtimeType}");
+        return "—";
+      }
+
+      // Format to readable date
+      return DateFormat("MMMM d, yyyy").format(date.toLocal());
     } catch (e) {
+      debugPrint("Date parsing error: $e | value: $value");
       return "—";
     }
   }
@@ -291,18 +354,15 @@ class _SellerDroneRentalPageState extends State<SellerDroneRentalPage>
                         style: const TextStyle(color: Colors.black54),
                       ),
                       Text(
-                        "📅 ${formatDate(b["rentalDate"])}",
+                        "📅 ${b.containsKey("rentalDate") ? formatDate(b["rentalDate"]) : "MISSING"}",
                         style: const TextStyle(color: Colors.black54),
                       ),
+
                       Text(
                         "📞 ${b['phone'] ?? '--'}",
                         style: const TextStyle(color: Colors.black54),
                       ),
-                      Text(
-                        "Booked: ${formatDate(b['createdAt'])}",
-                        style: const TextStyle(
-                            fontSize: 12, color: Colors.black45),
-                      ),
+
                     ],
                   ),
                 ),
@@ -377,9 +437,7 @@ class _SellerDroneRentalPageState extends State<SellerDroneRentalPage>
     );
   }
 
-  // ---------------------------------------------------
-  // TAB VIEW BUILDER WITH PULL-TO-REFRESH
-  // ---------------------------------------------------
+
   Widget buildTab(String statusFilter, int tabIndex) {
     if (_loading && bookings.isEmpty) {
       return const Center(child: CircularProgressIndicator());
@@ -435,9 +493,7 @@ class _SellerDroneRentalPageState extends State<SellerDroneRentalPage>
     super.dispose();
   }
 
-  // ---------------------------------------------------
-  // UI
-  // ---------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

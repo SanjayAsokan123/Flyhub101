@@ -116,7 +116,7 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
         variables: {"firebaseUid": firebaseUid},
       );
 
-      debugPrint("📤 Sending GraphQL query to get buyerId...");
+      // debugPrint("📤 Sending GraphQL query to get buyerId...");
       final QueryResult result = await _client.query(options);
 
       if (!mounted) return;
@@ -127,7 +127,7 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
         return;
       }
 
-      debugPrint("📥 GraphQL Response: ${result.data}");
+      // debugPrint("📥 GraphQL Response: ${result.data}");
       final data = result.data?["getBuyerfirebaseUidInDroneRental"];
 
       if (data != null && data["buyerId"] != null) {
@@ -324,8 +324,8 @@ class _RentalBookNowPageState extends State<RentalBookNowPage> {
         return;
       }
 
-      final bool success = data['success'] ?? false;
-      final String message = data['message'] ?? "Unknown error";
+      final bool success = data['success'];
+      final String message = data['message'];
 
       if (!success) {
         // ❌ DUPLICATE OR ERROR

@@ -38,7 +38,7 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
   SearchFilters _filters = SearchFilters();
   SortOption _sortBy = SortOption.RELEVANCE;
 
-  // Colors - Navy blue theme
+
   static const _kPrimaryColor = Color(0xFF1A0A5B);
   static const _kWhiteColor = Color(0xFFFFFFFF);
   static const _kDarkTextColor = Color(0xFF1A1A1A);
@@ -239,6 +239,8 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
             return 'Parts';
           case SearchableType.ACCESSORY:
             return 'Accessories';
+          default:
+            return 'Unknown';
         }
       }).join(', ');
       filters.add(typeNames);
@@ -281,6 +283,10 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
 
   Widget _buildSearchResultItem(SearchResult result) {
     return Container(
+      constraints: BoxConstraints(
+        minHeight: 280, // Minimum height constraint
+        maxHeight: 320, // Maximum height constraint
+      ),
       decoration: BoxDecoration(
         color: _kWhiteColor,
         borderRadius: BorderRadius.circular(8),
@@ -291,8 +297,9 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
         borderRadius: BorderRadius.circular(8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min, // Changed to min
           children: [
-            // Product Image
+            // Product Image - Fixed height
             Container(
               height: 140,
               width: double.infinity,
@@ -331,89 +338,124 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
               ),
             ),
 
-            // Product Details
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Product Name
-                  Text(
-                    result.name ?? 'Unnamed Product',
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 13,
-                      color: _kDarkTextColor,
-                      height: 1.3,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
 
-                  // Brand/Model
-                  if (_getSubtitle(result).isNotEmpty)
-                    Text(
-                      _getSubtitle(result),
-                      style: GoogleFonts.inter(
-                        color: _kMediumTextColor,
-                        fontSize: 11,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      physics: const NeverScrollableScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
+                        ),
+                        child: IntrinsicHeight(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
 
-                  // Price Section
-                  const SizedBox(height: 6),
-                  Text(
-                    '₹${result.price?.toStringAsFixed(0) ?? "0"}',
-                    style: GoogleFonts.inter(
-                      color: _kPrimaryColor,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                    ),
-                  ),
+                              Text(
+                                result.name ?? 'Unnamed Product',
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 13,
+                                  color: _kDarkTextColor,
+                                  height: 1.3,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
 
-                  // Category Tag
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: _kPrimaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      _getCategoryText(result),
-                      style: GoogleFonts.inter(
-                        color: _kPrimaryColor,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
 
-                  // Delivery Info
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.local_shipping_outlined,
-                        size: 12,
-                        color: _kMediumTextColor,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          'Free Delivery',
-                          style: GoogleFonts.inter(
-                            color: _kMediumTextColor,
-                            fontSize: 11,
+                              if (_getSubtitle(result).isNotEmpty)
+                                Text(
+                                  _getSubtitle(result),
+                                  style: GoogleFonts.inter(
+                                    color: _kMediumTextColor,
+                                    fontSize: 11,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+
+
+                              const SizedBox(height: 6),
+                              Text(
+                                '₹${result.price?.toStringAsFixed(0) ?? "0"}',
+                                style: GoogleFonts.inter(
+                                  color: _kPrimaryColor,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                ),
+                              ),
+
+
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: _kPrimaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  _getCategoryText(result),
+                                  style: GoogleFonts.inter(
+                                    color: _kPrimaryColor,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+
+
+                              if (result.description != null && result.description!.isNotEmpty)
+                                Flexible(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(top: 6),
+                                    child: Text(
+                                      result.description!,
+                                      style: GoogleFonts.inter(
+                                        color: _kMediumTextColor,
+                                        fontSize: 11,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+
+
+                              const Spacer(),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.local_shipping_outlined,
+                                    size: 12,
+                                    color: _kMediumTextColor,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      'Free Delivery',
+                                      style: GoogleFonts.inter(
+                                        color: _kMediumTextColor,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ],
+                    );
+                  },
+                ),
               ),
             ),
           ],
@@ -450,7 +492,7 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
       'name': result.name ?? 'Product',
       'price': result.price ?? 0,
       'image': result.image,
-      'description': '',
+      'description': result.description ?? '',
       'status': 'approved',
     };
 
@@ -458,10 +500,14 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
       normalized['model'] = result.model;
       normalized['category'] = result.category;
       normalized['uin'] = result.uin;
+      normalized['type'] = 'DRONE';
     } else if (result is PartSearchResult) {
       normalized['model'] = result.model;
+      normalized['compatibleDrones'] = result.compatibleDrones;
+      normalized['type'] = 'PART';
     } else if (result is AccessorySearchResult) {
       normalized['category'] = result.category;
+      normalized['type'] = 'ACCESSORY';
     }
 
     Navigator.push(
@@ -482,6 +528,8 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
     final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(20),
@@ -597,7 +645,7 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
           builder: (context, constraints) {
             return Column(
               children: [
-                // Results header
+
                 if (_searchQuery.isNotEmpty && _searchResults.isNotEmpty)
                   Container(
                     color: Colors.white,
@@ -634,7 +682,7 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
                     ),
                   ),
 
-                // Search results
+
                 Expanded(
                   child: _isSearching
                       ? _buildShimmerLoader()
@@ -646,7 +694,7 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
                       crossAxisCount: 2,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
-                      childAspectRatio: constraints.maxWidth > 400 ? 0.62 : 0.58,
+                      childAspectRatio: constraints.maxWidth > 400 ? 0.7 : 0.65,
                     ),
                     itemCount: _searchResults.length,
                     itemBuilder: (context, index) {
@@ -666,32 +714,26 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
     bool hasActive = false;
 
     if (_filters.types.isNotEmpty) {
-      debugPrint('Active: Type filters: ${_filters.types}');
       hasActive = true;
     }
 
     if (_filters.minPrice != null) {
-      debugPrint('Active: Min price: ${_filters.minPrice}');
       hasActive = true;
     }
 
     if (_filters.maxPrice != null) {
-      debugPrint('Active: Max price: ${_filters.maxPrice}');
       hasActive = true;
     }
 
     if (_filters.brands.isNotEmpty) {
-      debugPrint('Active: Brands: ${_filters.brands}');
       hasActive = true;
     }
 
     if (_filters.categories.isNotEmpty) {
-      debugPrint('Active: Categories: ${_filters.categories}');
       hasActive = true;
     }
 
     if (_sortBy != SortOption.RELEVANCE) {
-      debugPrint('Active: Sort by: $_sortBy');
       hasActive = true;
     }
 
@@ -766,7 +808,6 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
       if (parsedMin != null && parsedMin > 0) {
         minPrice = parsedMin;
       } else {
-        // Clear if invalid
         _minPriceController.clear();
       }
     }
@@ -777,19 +818,18 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
       if (parsedMax != null && parsedMax > 0) {
         maxPrice = parsedMax;
       } else {
-        // Clear if invalid
         _maxPriceController.clear();
       }
     }
 
-    // Validate that min is not greater than max
+
     if (minPrice != null && maxPrice != null && minPrice > maxPrice) {
-      // Swap if min > max
+
       final temp = minPrice;
       minPrice = maxPrice;
       maxPrice = temp;
 
-      // Update controllers
+
       _minPriceController.text = minPrice.toStringAsFixed(0);
       _maxPriceController.text = maxPrice.toStringAsFixed(0);
     }
@@ -798,161 +838,184 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
       minPrice: minPrice,
       maxPrice: maxPrice,
     );
-
-    debugPrint('Updated price filters: min=$minPrice, max=$maxPrice');
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
       ),
-      padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 8),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Filter & Sort',
-                  style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Filter & Sort',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close_rounded, size: 20),
+                onPressed: () => Navigator.pop(context),
+                padding: EdgeInsets.zero,
+              ),
+            ],
+          ),
+
+          const Divider(height: 20),
+
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+
+                  _buildFilterSection(
+                    title: 'Product Types',
+                    children: [
+                      _buildTypeChip(
+                        label: 'Drones',
+                        selected: _tempFilters.types.contains(SearchableType.DRONE),
+                        onTap: () => _toggleType(SearchableType.DRONE),
+                      ),
+                      _buildTypeChip(
+                        label: 'Parts',
+                        selected: _tempFilters.types.contains(SearchableType.PART),
+                        onTap: () => _toggleType(SearchableType.PART),
+                      ),
+                      _buildTypeChip(
+                        label: 'Accessories',
+                        selected: _tempFilters.types.contains(SearchableType.ACCESSORY),
+                        onTap: () => _toggleType(SearchableType.ACCESSORY),
+                      ),
+                    ],
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 20),
-                  onPressed: () => Navigator.pop(context),
-                  padding: EdgeInsets.zero,
-                ),
-              ],
-            ),
 
-            const Divider(height: 20),
 
-            // Product Types
-            _buildFilterSection(
-              title: 'Product Types',
-              children: [
-                _buildTypeChip(
-                  label: 'Drones',
-                  selected: _tempFilters.types.contains(SearchableType.DRONE),
-                  onTap: () => _toggleType(SearchableType.DRONE),
-                ),
-                _buildTypeChip(
-                  label: 'Parts',
-                  selected: _tempFilters.types.contains(SearchableType.PART),
-                  onTap: () => _toggleType(SearchableType.PART),
-                ),
-                _buildTypeChip(
-                  label: 'Accessories',
-                  selected: _tempFilters.types.contains(SearchableType.ACCESSORY),
-                  onTap: () => _toggleType(SearchableType.ACCESSORY),
-                ),
-              ],
-            ),
-
-            // Price Range
-            _buildFilterSection(
-              title: 'Price Range',
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _minPriceController,
-                        decoration: const InputDecoration(
-                          labelText: 'Min Price',
-                          prefixText: '₹',
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                        keyboardType: TextInputType.number,
-                        onChanged: (value) {
-                          _updatePriceFilters();
-                        },
+                  _buildFilterSection(
+                    title: 'Price Range',
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _minPriceController,
+                              decoration: InputDecoration(
+                                labelText: 'Min Price',
+                                prefixText: '₹',
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(color: Colors.grey.shade300),
+                                ),
+                              ),
+                              keyboardType: TextInputType.number,
+                              onChanged: (value) {
+                                _updatePriceFilters();
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextField(
+                              controller: _maxPriceController,
+                              decoration: InputDecoration(
+                                labelText: 'Max Price',
+                                prefixText: '₹',
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(color: Colors.grey.shade300),
+                                ),
+                              ),
+                              keyboardType: TextInputType.number,
+                              onChanged: (value) {
+                                _updatePriceFilters();
+                              },
+                            ),
+                          ),
+                        ],
                       ),
+                    ],
+                  ),
+
+
+                  if (widget.brands.isNotEmpty)
+                    _buildFilterSection(
+                      title: 'Brands',
+                      children: widget.brands.map((brand) {
+                        return _buildFilterChip(
+                          label: brand,
+                          selected: _selectedBrands.contains(brand),
+                          onTap: () => _toggleBrand(brand),
+                        );
+                      }).toList(),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _maxPriceController,
-                        decoration: const InputDecoration(
-                          labelText: 'Max Price',
-                          prefixText: '₹',
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                        keyboardType: TextInputType.number,
-                        onChanged: (value) {
-                          _updatePriceFilters();
-                        },
+
+
+                  if (widget.categories.isNotEmpty)
+                    _buildFilterSection(
+                      title: 'Categories',
+                      children: widget.categories.map((category) {
+                        return _buildFilterChip(
+                          label: category,
+                          selected: _selectedCategories.contains(category),
+                          onTap: () => _toggleCategory(category),
+                        );
+                      }).toList(),
+                    ),
+
+
+                  _buildFilterSection(
+                    title: 'Sort By',
+                    children: [
+                      _buildSortOption(
+                        label: 'Most Relevant',
+                        value: SortOption.RELEVANCE,
                       ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-
-            // Brands (if available)
-            if (widget.brands.isNotEmpty)
-              _buildFilterSection(
-                title: 'Brands',
-                children: widget.brands.map((brand) {
-                  return _buildFilterChip(
-                    label: brand,
-                    selected: _selectedBrands.contains(brand),
-                    onTap: () => _toggleBrand(brand),
-                  );
-                }).toList(),
+                      _buildSortOption(
+                        label: 'Price: Low to High',
+                        value: SortOption.PRICE_ASC,
+                      ),
+                      _buildSortOption(
+                        label: 'Price: High to Low',
+                        value: SortOption.PRICE_DESC,
+                      ),
+                      _buildSortOption(
+                        label: 'Newest First',
+                        value: SortOption.NEWEST,
+                      ),
+                    ],
+                  ),
+                ],
               ),
-
-            // Categories (if available)
-            if (widget.categories.isNotEmpty)
-              _buildFilterSection(
-                title: 'Categories',
-                children: widget.categories.map((category) {
-                  return _buildFilterChip(
-                    label: category,
-                    selected: _selectedCategories.contains(category),
-                    onTap: () => _toggleCategory(category),
-                  );
-                }).toList(),
-              ),
-
-            // Sort Options
-            _buildFilterSection(
-              title: 'Sort By',
-              children: [
-                _buildSortOption(
-                  label: 'Most Relevant',
-                  value: SortOption.RELEVANCE,
-                ),
-                _buildSortOption(
-                  label: 'Price: Low to High',
-                  value: SortOption.PRICE_ASC,
-                ),
-                _buildSortOption(
-                  label: 'Price: High to Low',
-                  value: SortOption.PRICE_DESC,
-                ),
-                _buildSortOption(
-                  label: 'Newest First',
-                  value: SortOption.NEWEST,
-                ),
-              ],
             ),
+          ),
 
-            // Apply Button
-            const SizedBox(height: 20),
-            Row(
+
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16, top: 8),
+            child: Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () {
-                      // Clear all filters
                       setState(() {
                         _tempFilters = SearchFilters();
                         _tempSort = SortOption.RELEVANCE;
@@ -984,7 +1047,6 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
-                      // Apply the filters
                       widget.onApply(_tempFilters, _tempSort);
                     },
                     style: ElevatedButton.styleFrom(
@@ -1006,9 +1068,8 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1043,7 +1104,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: selected ? const Color(0xFF1A0A5B) : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(16),
@@ -1071,7 +1132,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: selected ? const Color(0xFF1A0A5B) : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(16),
@@ -1121,7 +1182,6 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
         newTypes.add(type);
       }
       _tempFilters = _tempFilters.copyWith(types: newTypes);
-      debugPrint('Type filter updated: $_tempFilters');
     });
   }
 
@@ -1133,7 +1193,6 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
         _selectedBrands.add(brand);
       }
       _tempFilters = _tempFilters.copyWith(brands: _selectedBrands);
-      debugPrint('Brand filter updated: $_tempFilters');
     });
   }
 
@@ -1145,7 +1204,6 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
         _selectedCategories.add(category);
       }
       _tempFilters = _tempFilters.copyWith(categories: _selectedCategories);
-      debugPrint('Category filter updated: $_tempFilters');
     });
   }
 }

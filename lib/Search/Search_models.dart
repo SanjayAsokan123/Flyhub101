@@ -78,6 +78,7 @@ abstract class SearchResult {
   final double? price;
   final String? image;
   final String? brand;
+  final String? description;
   final double score;
 
   SearchResult({
@@ -87,6 +88,7 @@ abstract class SearchResult {
     this.price,
     this.image,
     this.brand,
+    this.description,
     this.score = 0.0,
   });
 
@@ -114,6 +116,7 @@ class DroneSearchResult extends SearchResult {
   final String? model;
   final String? category;
   final String? uin;
+  // Removed duplicate description field here
 
   DroneSearchResult({
     required String id,
@@ -122,6 +125,7 @@ class DroneSearchResult extends SearchResult {
     double? price,
     String? image,
     String? brand,
+    String? description,
     double score = 0.0,
     this.model,
     this.category,
@@ -133,6 +137,7 @@ class DroneSearchResult extends SearchResult {
     price: price,
     image: image,
     brand: brand,
+    description: description,
     score: score,
   );
 
@@ -144,6 +149,7 @@ class DroneSearchResult extends SearchResult {
       price: (json['price'] as num?)?.toDouble(),
       image: json['image']?.toString(),
       brand: json['brand']?.toString(),
+      description: json['description']?.toString(),
       score: (json['score'] as num?)?.toDouble() ?? 0.0,
       model: json['model']?.toString(),
       category: json['category']?.toString(),
@@ -163,6 +169,7 @@ class PartSearchResult extends SearchResult {
     double? price,
     String? image,
     String? brand,
+    String? description,
     double score = 0.0,
     this.model,
     this.compatibleDrones = const [],
@@ -173,6 +180,7 @@ class PartSearchResult extends SearchResult {
     price: price,
     image: image,
     brand: brand,
+    description: description,
     score: score,
   );
 
@@ -184,6 +192,7 @@ class PartSearchResult extends SearchResult {
       price: (json['price'] as num?)?.toDouble(),
       image: json['image']?.toString(),
       brand: json['brand']?.toString(),
+      description: json['description']?.toString(),
       score: (json['score'] as num?)?.toDouble() ?? 0.0,
       model: json['model']?.toString(),
       compatibleDrones: (json['compatibleDrones'] as List<dynamic>?)
@@ -196,7 +205,6 @@ class PartSearchResult extends SearchResult {
 
 class AccessorySearchResult extends SearchResult {
   final String? category;
-  final String? description;
 
   AccessorySearchResult({
     required String id,
@@ -205,9 +213,9 @@ class AccessorySearchResult extends SearchResult {
     double? price,
     String? image,
     String? brand,
+    String? description,
     double score = 0.0,
     this.category,
-    this.description,
   }) : super(
     id: id,
     type: type,
@@ -215,6 +223,7 @@ class AccessorySearchResult extends SearchResult {
     price: price,
     image: image,
     brand: brand,
+    description: description,
     score: score,
   );
 
@@ -226,9 +235,9 @@ class AccessorySearchResult extends SearchResult {
       price: (json['price'] as num?)?.toDouble(),
       image: json['image']?.toString(),
       brand: json['brand']?.toString(),
+      description: json['description']?.toString(),
       score: (json['score'] as num?)?.toDouble() ?? 0.0,
       category: json['category']?.toString(),
-      description: json['description']?.toString(),
     );
   }
 }

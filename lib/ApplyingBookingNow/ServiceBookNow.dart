@@ -1,4 +1,3 @@
-
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -153,10 +152,10 @@ class _ServiceBookNowState extends State<ServiceBookNow> {
         "location": locationCtrl.text.trim(),
         "information": noteCtrl.text.trim(),
         "phone": "",
-        "date": selectedDate.toString().split(" ")[0],
-        "serviceId": widget.service["serviceId"],
+        "date": selectedDate!.toIso8601String(),
+        "serviceId": widget.service["serviceId"].toString(),
         "sellerId": widget.service["sellerId"] ?? "",
-        "buyerId": buyerId, // ******** BUYER ID ADDED ********
+        "buyerId": buyerId,
       }
     };
 
@@ -170,8 +169,8 @@ class _ServiceBookNowState extends State<ServiceBookNow> {
       Utils.bottomToast(context, "Booking Successful!");
       Navigator.pop(context);
     } else {
-      if (response.message == "Service already booked") {
-        Utils.bottomToast(context, "❗ You already booked this service.");
+      if (response.message?.contains("already booked") == true) {
+        Utils.bottomToast(context, "❗ You already booked this service on this date.");
       } else {
         Utils.bottomToast(context, "Error: ${response.message}");
       }
