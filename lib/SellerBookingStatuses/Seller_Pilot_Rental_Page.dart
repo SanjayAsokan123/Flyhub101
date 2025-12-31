@@ -502,7 +502,7 @@ mutation UpdateStatus(\$bookingId: String!, \$status: String!) {
         backgroundColor: const Color(0xFF1E0E5C),
         title: const Text("Pilot Bookings", style: TextStyle(color: Colors.white)),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
         bottom: TabBar(

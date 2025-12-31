@@ -285,6 +285,11 @@ class _JobApplyStatusPageState extends State<JobApplyStatusPage>
 
     return Scaffold(
       appBar: AppBar(
+        // ✅ CUSTOM arrow_back_ios BACK BUTTON
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text('Seller Applications'),
         backgroundColor: themeColor,
         foregroundColor: Colors.white,
