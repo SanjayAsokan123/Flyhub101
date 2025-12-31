@@ -35,19 +35,10 @@ class _ReturnedProductsPageState extends State<ReturnedProductsPage>
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        // ✅ CUSTOM < BACK BUTTON
-        leading: GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: Center(
-            child: Text(
-              '<',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-          ),
+        // ✅ CUSTOM arrow_back_ios BACK BUTTON
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           "Returned Products",
@@ -57,7 +48,6 @@ class _ReturnedProductsPageState extends State<ReturnedProductsPage>
           ),
         ),
         backgroundColor: themeColor,
-        // ✅ REMOVE iconTheme line (not needed anymore)
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: Container(
@@ -94,6 +84,7 @@ class _ReturnedProductsPageState extends State<ReturnedProductsPage>
             );
           }
 
+          // ✅ SHOW ONLY "Network Error"
           if (result.hasException) {
             return Center(
               child: Padding(
