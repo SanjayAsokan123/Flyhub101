@@ -282,22 +282,6 @@ class _SoldProductsPageState extends State<SoldProductsPage>
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
-              Text(
-                "Seller ID: ${widget.sellerCustomId}",
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                "Showing orders with status: 'delivered'",
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey,
-                ),
-              ),
             ],
           ),
         ),
@@ -354,7 +338,7 @@ class _SoldProductsPageState extends State<SoldProductsPage>
                 ),
               ),
               const Spacer(),
-              // Order Status Info
+              // Simple Delivered Badge
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
@@ -383,15 +367,12 @@ class _SoldProductsPageState extends State<SoldProductsPage>
             const SizedBox(height: 12),
             itemBuilder: (context, index) {
               final item = items[index];
-              final orderId = item["orderId"]?.toString() ?? "";
               final orderDate = item["orderDate"]?.toString() ?? "";
               final unitPrice = (item["price"] is int
                   ? item["price"].toDouble()
                   : item["price"]?.toDouble()) ?? 0.0;
               final quantity = item["quantity"]?.toInt() ?? 1;
               final totalPrice = unitPrice * quantity;
-              final itemStatus = item["status"]?.toString().toLowerCase() ?? "";
-              final orderStatus = item["orderStatus"]?.toString().toLowerCase() ?? "";
 
               return Container(
                 decoration: BoxDecoration(
@@ -414,87 +395,20 @@ class _SoldProductsPageState extends State<SoldProductsPage>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Product Name and Status
+                      // Product Name only
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  item["name"] ?? "Product",
-                                  style: const TextStyle(
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black87,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: orderStatus == "delivered"
-                                            ? Colors.green.withOpacity(0.1)
-                                            : Colors.orange.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(
-                                          color: orderStatus == "delivered"
-                                              ? Colors.green
-                                              : Colors.orange,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        "Order: ${orderStatus.toUpperCase()}",
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                          color: orderStatus == "delivered"
-                                              ? Colors.green
-                                              : Colors.orange,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: itemStatus == "delivered"
-                                            ? Colors.green.withOpacity(0.1)
-                                            : itemStatus == "packed"
-                                            ? Colors.blue.withOpacity(0.1)
-                                            : Colors.orange.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(
-                                          color: itemStatus == "delivered"
-                                              ? Colors.green
-                                              : itemStatus == "packed"
-                                              ? Colors.blue
-                                              : Colors.orange,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        "Item: ${itemStatus.toUpperCase()}",
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                          color: itemStatus == "delivered"
-                                              ? Colors.green
-                                              : itemStatus == "packed"
-                                              ? Colors.blue
-                                              : Colors.orange,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                            child: Text(
+                              item["name"] ?? "Product",
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -590,133 +504,24 @@ class _SoldProductsPageState extends State<SoldProductsPage>
 
                       const SizedBox(height: 14),
 
-                      // Order Details
-                      Column(
+                      // Order Date only (removed other details)
+                      Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Order ID
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  width: 90,
-                                  child: Text(
-                                    "Order ID:",
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey[600],
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    orderId,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                          Icon(
+                            Icons.calendar_today,
+                            size: 16,
+                            color: Colors.grey[600],
                           ),
-
-                          // Order Date
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  width: 90,
-                                  child: Text(
-                                    "Order Date:",
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey[600],
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    _formatDate(orderDate),
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // Product ID
-                          if (item["productId"] != null)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SizedBox(
-                                    width: 90,
-                                    child: Text(
-                                      "Product ID:",
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey[600],
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                      item["productId"].toString(),
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _formatDate(orderDate),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black87,
                               ),
-                            ),
-
-                          // Payout Status
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  width: 90,
-                                  child: Text(
-                                    "Payout:",
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey[600],
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    item['payoutStatus']?.toUpperCase() ?? "PENDING",
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: _getPayoutStatusColor(
-                                          item['payoutStatus']),
-                                    ),
-                                  ),
-                                ),
-                              ],
                             ),
                           ),
                         ],
@@ -736,7 +541,7 @@ class _SoldProductsPageState extends State<SoldProductsPage>
     try {
       final date = DateTime.tryParse(dateString);
       if (date != null) {
-        return "${_getMonth(date.month)} ${date.day}, ${date.year} at ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}";
+        return "${_getMonth(date.month)} ${date.day}, ${date.year}";
       }
     } catch (e) {
       // Handle date parsing error silently
@@ -750,20 +555,5 @@ class _SoldProductsPageState extends State<SoldProductsPage>
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     return months[month - 1];
-  }
-
-  Color _getPayoutStatusColor(String? status) {
-    switch (status?.toLowerCase()) {
-      case "completed":
-        return Colors.green;
-      case "processing":
-        return Colors.orange;
-      case "paid":
-        return Colors.blue;
-      case "failed":
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
   }
 }

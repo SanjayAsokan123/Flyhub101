@@ -22,11 +22,11 @@ class _AddDronePageState extends State<AddDronePage> {
   final picker = ImagePicker();
 
   // Clean White Theme Colors
-  final Color _primaryColor = Color(0xFF1E0E5C); // Deep Purple
+  final Color _primaryColor = Color(0xFF1E0E5C);
   final Color _primaryLight = Color(0xFF2D1B69);
-  final Color _secondaryColor = Color(0xFF7C3AED); // Vibrant Purple
-  final Color _accentColor = Color(0xFFA855F7); // Light Purple
-  final Color _backgroundColor = Color(0xFFFFFFFF); // White
+  final Color _secondaryColor = Color(0xFF7C3AED);
+  final Color _accentColor = Color(0xFFA855F7);
+  final Color _backgroundColor = Color(0xFFFFFFFF);
   final Color _cardColor = Color(0xFFFFFFFF);
   final Color _borderColor = Color(0xFFE5E7EB);
   final Color _textPrimary = Color(0xFF111827);
@@ -39,20 +39,56 @@ class _AddDronePageState extends State<AddDronePage> {
   String brand = '';
   String uin = '';
   String description = '';
-  String additionalInfo = ''; // Added this field
+  String additionalInfo = '';
   double? price;
   File? imageFile;
   bool _isSubmitting = false;
-  bool _imageValidationError = false; // New flag for image validation
+  bool _imageValidationError = false;
+
+  // ✅ Track which fields have errors
+  Map<String, String> _fieldErrors = {};
 
   final String graphqlUrl = EnvConfig.baseUrl;
+
+  // ✅ UIN Validation - 12 character alphanumeric (OPTIONAL)
+  bool _isValidUIN(String uin) {
+    if (uin.isEmpty) return true;
+    if (uin.length != 12) return false;
+    return RegExp(r'^[a-zA-Z0-9]{12}$').hasMatch(uin);
+  }
+
+  // ✅ Get UIN error message
+  String? _getUINErrorMessage(String uin) {
+    if (uin.isEmpty) return null;
+
+    if (uin.length != 12) {
+      return "UIN must be exactly 12 characters (current: ${uin.length})";
+    }
+
+    if (!RegExp(r'^[a-zA-Z0-9]{12}$').hasMatch(uin)) {
+      return "UIN must contain only letters (A-Z, a-z) and numbers (0-9)";
+    }
+
+    return null;
+  }
 
   Future<void> _pickImage() async {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
+      final fileBytes = await pickedFile.readAsBytes();
+      if (fileBytes.length > 1048576) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Image size must be less than 1MB"),
+            backgroundColor: _dangerColor,
+          ),
+        );
+        return;
+      }
       setState(() {
         imageFile = File(pickedFile.path);
-        _imageValidationError = false; // Clear error when image is selected
+        _imageValidationError = false;
+        _fieldErrors.remove('image');
       });
       debugPrint("📸 Selected image: ${pickedFile.path}");
     }
@@ -90,7 +126,6 @@ class _AddDronePageState extends State<AddDronePage> {
   Future<String> _uploadImageToFirebase(File file) async {
     await _ensureFirebaseAuth();
 
-    // Check if seller is allowed before upload
     if (!await _isSeller()) {
       throw Exception("Unauthorized: Only verified sellers can upload drones.");
     }
@@ -115,18 +150,23 @@ class _AddDronePageState extends State<AddDronePage> {
 
   /// ✅ Validate Form (including image)
   bool _validateForm() {
+    // Clear previous errors
+    setState(() {
+      _fieldErrors.clear();
+    });
+
     // First validate text fields
     if (!_formKey.currentState!.validate()) {
       return false;
     }
 
-    // Then validate image - only check when user tries to submit
+    // Validate image
     if (imageFile == null) {
       setState(() {
-        _imageValidationError = true; // Set error flag
+        _imageValidationError = true;
+        _fieldErrors['image'] = 'Please select a drone image';
       });
 
-      // Scroll to image section to show error
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final context = this.context;
         if (context != null) {
@@ -149,26 +189,24 @@ class _AddDronePageState extends State<AddDronePage> {
     if (!_validateForm()) return;
     _formKey.currentState!.save();
 
-    setState(() => _isSubmitting = true);
+    setState(() {
+      _isSubmitting = true;
+    });
 
     try {
       await _ensureFirebaseAuth();
 
       if (!await _isSeller()) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text("❌ Only verified sellers can upload drones."),
-          backgroundColor: _dangerColor,
-        ));
-        setState(() => _isSubmitting = false);
+        setState(() {
+          _fieldErrors['submit'] = 'Only verified sellers can upload drones';
+          _isSubmitting = false;
+        });
         return;
       }
 
       String imageUrl = "";
       if (imageFile != null) {
         imageUrl = await _uploadImageToFirebase(imageFile!);
-      } else {
-        imageUrl =
-        "https://via.placeholder.com/400x300.png?text=${Uri.encodeComponent(name)}";
       }
 
       final HttpLink httpLink = HttpLink(graphqlUrl);
@@ -176,7 +214,6 @@ class _AddDronePageState extends State<AddDronePage> {
         link: httpLink,
         cache: GraphQLCache(store: InMemoryStore()),
       );
-
 
       final mutation = gql("""
         mutation CreateDrone(\$input: DroneInput!) {
@@ -191,37 +228,41 @@ class _AddDronePageState extends State<AddDronePage> {
         }
       """);
 
-      // OPTION 1: If backend doesn't have additionalInfo field, combine them
       final variables = {
         "input": {
           "name": name,
           "brand": brand,
-          "uin": uin,
+          "uin": uin.isEmpty ? null : uin,
           "price": price,
-          "description":description , // Combine both fields
-          "additionalInformation": additionalInfo, // Combine both fields
-          "image": imageUrl,
+          "description": description,
+          "additionalInformation": additionalInfo,
+          "image": imageUrl.isEmpty ? null : imageUrl,
           "status": "pending",
           "sellerId": widget.sellerId,
         }
       };
 
-      debugPrint("GraphQL Variables: $variables");
+      debugPrint("📦 GraphQL Variables: $variables");
 
       final result = await client.mutate(
         MutationOptions(document: mutation, variables: variables),
       );
 
       if (result.hasException) {
-        debugPrint("GraphQL Error: ${result.exception}");
+        debugPrint("❌ GraphQL Error: ${result.exception}");
         final err = result.exception!.graphqlErrors.isNotEmpty
             ? result.exception!.graphqlErrors.first.message
             : result.exception!.linkException.toString();
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text("❌ GraphQL Error: $err"),
-          backgroundColor: _dangerColor,
-        ));
+
+        setState(() {
+          _fieldErrors['submit'] = 'Error: $err';
+          _isSubmitting = false;
+        });
       } else {
+        setState(() {
+          _isSubmitting = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text("✅ Drone submitted successfully!"),
           backgroundColor: _successColor,
@@ -230,12 +271,10 @@ class _AddDronePageState extends State<AddDronePage> {
       }
     } catch (e) {
       debugPrint("⚠ Submit error: $e");
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text("Error: ${e.toString()}"),
-        backgroundColor: _dangerColor,
-      ));
-    } finally {
-      setState(() => _isSubmitting = false);
+      setState(() {
+        _fieldErrors['submit'] = 'Error: ${e.toString()}';
+        _isSubmitting = false;
+      });
     }
   }
 
@@ -324,7 +363,7 @@ class _AddDronePageState extends State<AddDronePage> {
                         padding: const EdgeInsets.only(top: 8),
                         child: Row(
                           children: [
-                            SizedBox(width: 40), // Align with the icon
+                            SizedBox(width: 40),
                             Expanded(
                               child: Text(
                                 "Please select a drone image",
@@ -383,7 +422,7 @@ class _AddDronePageState extends State<AddDronePage> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              "PNG, JPG • Max 5MB",
+                              "PNG, JPG • Max 1MB",
                               style: GoogleFonts.lexend(
                                 color: _imageValidationError
                                     ? _dangerColor.withOpacity(0.7)
@@ -498,8 +537,7 @@ class _AddDronePageState extends State<AddDronePage> {
                     _buildTextField("Brand", (v) => brand = v!,
                         hintText: "Enter brand name"),
                     const SizedBox(height: 16),
-                    _buildTextField("UIN (optional)", (v) => uin = v!,
-                        hintText: "Unique Identification Number"),
+                    _buildUINField(),
                     const SizedBox(height: 16),
                     _buildPriceField(),
                     const SizedBox(height: 16),
@@ -512,14 +550,96 @@ class _AddDronePageState extends State<AddDronePage> {
 
               const SizedBox(height: 28),
 
-              // Submit Button
+              // ✅ ERROR SUMMARY CONTAINER ABOVE SUBMIT BUTTON
+              if (_fieldErrors.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: _dangerColor.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _dangerColor.withOpacity(0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _dangerColor.withOpacity(0.15),
+                            ),
+                            child: Icon(
+                              Icons.error_outline_rounded,
+                              color: _dangerColor,
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            "Please fix the following errors:",
+                            style: GoogleFonts.lexend(
+                              fontSize: 14,
+                              color: _dangerColor,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: _fieldErrors.entries.map((entry) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "• ",
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 13,
+                                    color: _dangerColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    entry.value,
+                                    style: GoogleFonts.lexend(
+                                      fontSize: 13,
+                                      color: _dangerColor,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // Submit Button with Loading
               SizedBox(
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
                   onPressed: _isSubmitting ? null : _submitForm,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _primaryColor,
+                    backgroundColor: _isSubmitting
+                        ? _primaryColor.withOpacity(0.6)
+                        : _primaryColor,
                     foregroundColor: Colors.white,
                     elevation: 4,
                     shape: RoundedRectangleBorder(
@@ -529,13 +649,26 @@ class _AddDronePageState extends State<AddDronePage> {
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                   ),
                   child: _isSubmitting
-                      ? SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation(Colors.white),
-                    ),
+                      ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          valueColor: AlwaysStoppedAnimation(Colors.white),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        "Submitting...",
+                        style: GoogleFonts.lexend(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   )
                       : Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -576,7 +709,7 @@ class _AddDronePageState extends State<AddDronePage> {
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        "Your drone will be reviewed before going live on the marketplace. Both description and additional information must contain at least 50 words each.",
+                        "UIN is completely optional - leave empty or enter 12 alphanumeric characters. Description & info: min 25 characters.",
                         style: GoogleFonts.lexend(
                           fontSize: 13,
                           color: _textSecondary,
@@ -655,10 +788,71 @@ class _AddDronePageState extends State<AddDronePage> {
           keyboardType: keyboardType,
           maxLines: maxLines,
           validator: (v) =>
-          (v == null || v.isEmpty) && !label.contains("optional")
-              ? "Please enter $label"
-              : null,
+          (v == null || v.isEmpty) ? "Please enter $label" : null,
           onSaved: onSaved,
+        ),
+      ],
+    );
+  }
+
+  // ✅ UIN Field - OPTIONAL
+  Widget _buildUINField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "UIN *",
+          style: GoogleFonts.lexend(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: _textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          decoration: InputDecoration(
+            hintText: "12 character alphanumeric UIN (e.g., ABC123DEF456)",
+            hintStyle: GoogleFonts.lexend(
+              color: _textSecondary.withOpacity(0.7),
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+            ),
+            filled: true,
+            fillColor: Color(0xFFF9FAFB),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: _borderColor, width: 1),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                color: _borderColor,
+                width: 1,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                color: _primaryColor,
+                width: 2,
+              ),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+          ),
+          style: GoogleFonts.lexend(
+            fontSize: 14,
+            color: _textPrimary,
+            fontWeight: FontWeight.w500,
+          ),
+          keyboardType: TextInputType.text,
+          validator: (v) {
+            final error = _getUINErrorMessage(v ?? '');
+            return error;
+          },
+          onSaved: (v) => uin = v ?? '',
         ),
       ],
     );
@@ -721,9 +915,8 @@ class _AddDronePageState extends State<AddDronePage> {
             if (v == null || v.isEmpty) {
               return "Please enter description";
             }
-            final words = v.trim().split(RegExp(r'\s+'));
-            if (words.length < 50) {
-              return "Description must contain at least 50 words (current: ${words.length})";
+            if (v.trim().length < 25) {
+              return "Description must contain at least 25 characters (current: ${v.trim().length})";
             }
             return null;
           },
@@ -789,9 +982,8 @@ class _AddDronePageState extends State<AddDronePage> {
             if (v == null || v.isEmpty) {
               return "Please enter additional information";
             }
-            final words = v.trim().split(RegExp(r'\s+'));
-            if (words.length < 50) {
-              return "Additional information must contain at least 50 words (current: ${words.length})";
+            if (v.trim().length < 25) {
+              return "Additional info must contain at least 25 characters (current: ${v.trim().length})";
             }
             return null;
           },
@@ -805,7 +997,7 @@ class _AddDronePageState extends State<AddDronePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          "Price (₹)",
+          "Price (₹) *",
           style: GoogleFonts.lexend(
             fontSize: 14,
             fontWeight: FontWeight.w600,

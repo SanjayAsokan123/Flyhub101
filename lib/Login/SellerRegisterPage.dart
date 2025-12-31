@@ -628,7 +628,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
                         // WhatsApp
                         _buildSocialIcon('assets/categories/whatsapp.png',
-                            'https://whatsapp.com'),
+                            'https://whatsapp.com/channel/0029VbCWqYHJP219qPZVns0P'),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -1492,7 +1492,7 @@ class _SellerDetailsScreenState extends State<SellerDetailsScreen> {
 
                         // WhatsApp
                         _buildSocialIcon('assets/categories/whatsapp.png',
-                            'https://whatsapp.com'),
+                            'https://whatsapp.com/channel/0029VbCWqYHJP219qPZVns0P'),
                       ],
                     ),
                     const SizedBox(height: 16),

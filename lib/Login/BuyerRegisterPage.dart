@@ -77,7 +77,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage>
 
     },
     'whatsapp': {
-      'url': 'https://wa.me/+919003992693',
+      'url': 'https://whatsapp.com/channel/0029VbCWqYHJP219qPZVns0P',
 
     },
   };

@@ -78,7 +78,7 @@ class _SellerPageState extends State<SellerPage> {
     'instagram': 'https://www.instagram.com/flyhub_info',
     'linkedin': 'https://www.linkedin.com/company/flyhubinfo',
     'facebook': 'https://www.facebook.com/share/1A8fBiqxmt/',
-    'whatsapp': 'https://wa.me/6379800193', // Replace with your number
+    'whatsapp': 'https://whatsapp.com/channel/0029VbCWqYHJP219qPZVns0P',
   };
 
   final String graphqlUrl = EnvConfig.baseUrl;

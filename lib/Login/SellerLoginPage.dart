@@ -44,7 +44,7 @@ class _SellerLoginPageState extends State<SellerLoginPage> {
     'instagram': 'https://www.instagram.com/flyhub_info?igsh=OWM2a3E2Ym81bzRs',
     'linkedin': 'https://www.linkedin.com/company/flyhubinfo/',
     'facebook': 'https://www.facebook.com/share/1A8fBiqxmt/',
-    'whatsapp': 'https://wa.me/yourphonenumber',
+    'whatsapp': 'https://whatsapp.com/channel/0029VbCWqYHJP219qPZVns0P',
   };
 
   // Clear errors when user starts typing

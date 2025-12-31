@@ -15,20 +15,14 @@ class MyOrderPage extends StatefulWidget {
 class _MyOrderPageState extends State<MyOrderPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey = GlobalKey<RefreshIndicatorState>();
 
-
-  static const Color primaryColor = Color(0xFF1A0A5B);
-  static const Color accentColor = Color(0xFF4A7DFF);
-  static const Color backgroundColor = Color(0xFFF9FAFF);
-  static const Color surfaceColor = Colors.white;
-  static const Color textPrimary = Color(0xFF1A1A2E);
-  static const Color textSecondary = Color(0xFF6B7280);
-  static const Color textTertiary = Color(0xFF9CA3AF);
-  static const Color borderColor = Color(0xFFE5E7EB);
-  static const Color successColor = Color(0xFF10B981);
-  static const Color warningColor = Color(0xFFF59E0B);
-  static const Color errorColor = Color(0xFFEF4444);
-  static const Color infoColor = Color(0xFF3B82F6);
+  static const Color primaryColor = Color(0xFF2874F0);
+  static const Color backgroundColor = Color(0xFFF5F5F5);
+  static const Color cardColor = Colors.white;
+  static const Color textPrimary = Color(0xFF212121);
+  static const Color textSecondary = Color(0xFF757575);
+  static const Color borderColor = Color(0xFFE0E0E0);
 
   final String getOrdersQuery = r'''
   query ($buyerId: String!) {
@@ -36,6 +30,8 @@ class _MyOrderPageState extends State<MyOrderPage>
       orderId
       status
       createdAt
+    
+      updatedAt
       totalAmount
       invoiceUrl
       trackingNumber
@@ -58,7 +54,7 @@ class _MyOrderPageState extends State<MyOrderPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -67,105 +63,57 @@ class _MyOrderPageState extends State<MyOrderPage>
     super.dispose();
   }
 
-  /// ================= FILTER HELPERS =================
-
-  List<OrderModel> _filterByStatuses(
-      List<OrderModel> orders,
-      List<String> statuses,
-      ) {
-    return orders
-        .where((o) => statuses.contains(o.status.toLowerCase()))
-        .toList();
+  List<OrderModel> _filterByStatuses(List<OrderModel> orders, List<String> statuses) {
+    return orders.where((o) => statuses.contains(o.status.toLowerCase())).toList();
   }
 
   void _openOrderDetails(OrderModel order) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => OrderDetailsPage(
-          order: order,
-          buyerId: widget.buyerId,
-        ),
+        builder: (_) => OrderDetailsPage(order: order, buyerId: widget.buyerId),
       ),
     );
   }
 
-  /// ================= UI =================
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-        backgroundColor: surfaceColor,
+        backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        surfaceTintColor: Colors.transparent,
-        scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: Container(
-            padding: const EdgeInsets.all(8),
-            child: Icon(
-              Icons.arrow_back_ios_new_rounded,
-              size: 20,
-              color: primaryColor,
-            ),
-          ),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           "My Orders",
-          style: GoogleFonts.inter(
-            fontWeight: FontWeight.w700,
-            fontSize: 20,
+          style: GoogleFonts.roboto(
+            fontWeight: FontWeight.w500,
+            fontSize: 18,
             color: textPrimary,
-            letterSpacing: -0.5,
           ),
         ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(56),
-          child: Container(
-            decoration: BoxDecoration(
-              color: surfaceColor,
-              border: Border(
-                bottom: BorderSide(color: borderColor, width: 1),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.02),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: TabBar(
-              controller: _tabController,
-              labelColor: primaryColor,
-              unselectedLabelColor: textSecondary,
-              indicatorColor: primaryColor,
-              indicatorWeight: 3,
-              indicatorPadding: const EdgeInsets.symmetric(horizontal: 12),
-              labelStyle: GoogleFonts.inter(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-                letterSpacing: -0.3,
-              ),
-              unselectedLabelStyle: GoogleFonts.inter(
-                fontWeight: FontWeight.w500,
-                fontSize: 14,
-                letterSpacing: -0.3,
-              ),
-              splashBorderRadius: BorderRadius.circular(8),
-              tabs: const [
-                Tab(text: "Placed"),
-                Tab(text: "Processing"),
-                Tab(text: "Completed"),
-                Tab(text: "Cancelled"),
-              ],
-            ),
-          ),
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: primaryColor,
+          unselectedLabelColor: textSecondary,
+          indicatorColor: primaryColor,
+          indicatorWeight: 3,
+          labelStyle: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w500),
+          unselectedLabelStyle: GoogleFonts.roboto(fontSize: 13),
+          tabs: const [
+            Tab(text: "Active"),
+            Tab(text: "Completed"),
+            Tab(text: "Cancelled"),
+          ],
         ),
       ),
+
       body: gql.Query(
         options: gql.QueryOptions(
           document: gql.gql(getOrdersQuery),
@@ -173,164 +121,72 @@ class _MyOrderPageState extends State<MyOrderPage>
           fetchPolicy: gql.FetchPolicy.networkOnly,
         ),
         builder: (result, {refetch, fetchMore}) {
-          if (result.isLoading) {
+          // Function to handle refresh
+          Future<void> handleRefresh() async {
+            if (refetch != null) {
+              await refetch();
+            }
+          }
+
+          if (result.isLoading && result.data == null) {
+            return Center(
+              child: CircularProgressIndicator(color: primaryColor),
+            );
+          }
+
+          if (result.hasException) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 60,
-                    height: 60,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: surfaceColor,
-                      borderRadius: BorderRadius.circular(15),
-                      boxShadow: [
-                        BoxShadow(
-                          color: primaryColor.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: CircularProgressIndicator(
-                      color: primaryColor,
-                      strokeWidth: 3,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    "Loading Orders",
-                    style: GoogleFonts.inter(
-                      color: textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  Icon(Icons.error_outline, color: Colors.red, size: 48),
+                  const SizedBox(height: 16),
+                  Text("Failed to load orders", style: GoogleFonts.roboto()),
                   const SizedBox(height: 8),
-                  Text(
-                    "Fetching your order details...",
-                    style: GoogleFonts.inter(
-                      color: textSecondary,
-                      fontSize: 14,
-                    ),
+                  ElevatedButton(
+                    onPressed: () => handleRefresh(),
+                    style: ElevatedButton.styleFrom(backgroundColor: primaryColor),
+                    child: const Text("Retry"),
                   ),
                 ],
               ),
             );
           }
 
-          if (result.hasException) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: errorColor.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.error_outline_rounded,
-                        color: errorColor,
-                        size: 40,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      "Connection Error",
-                      style: GoogleFonts.inter(
-                        color: textPrimary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 20,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      "Unable to load your orders. Please check your internet connection and try again.",
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(
-                        color: textSecondary,
-                        fontSize: 15,
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    ElevatedButton(
-                      onPressed: () => refetch!(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 32,
-                          vertical: 16,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                        shadowColor: primaryColor.withOpacity(0.3),
-                      ),
-                      child: Text(
-                        "Retry Connection",
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
           final List data = result.data?['ordersByBuyer'] ?? [];
-          final orders =
-          data.map((e) => OrderModel.fromJson(e)).toList();
+          final orders = data.map((e) => OrderModel.fromJson(e)).toList();
+
+          // Sort orders by date (newest first)
+          orders.sort((a, b) {
+            DateTime dateA = DateTime(0);
+            DateTime dateB = DateTime(0);
+
+            // For cancelled orders, use cancelledAt if available
+            if (a.status.toLowerCase() == 'cancelled' && a.updatedAt != null) {
+              dateA = DateTime.tryParse(a.updatedAt!) ?? DateTime.tryParse(a.updatedAt ?? '') ?? DateTime(0);
+            } else {
+              dateA = DateTime.tryParse(a.updatedAt ?? '') ?? DateTime(0);
+            }
+
+            if (b.status.toLowerCase() == 'cancelled' && b.updatedAt != null) {
+              dateB = DateTime.tryParse(b.updatedAt!) ?? DateTime.tryParse(b.updatedAt ?? '') ?? DateTime(0);
+            } else {
+              dateB = DateTime.tryParse(b.updatedAt ?? '') ?? DateTime(0);
+            }
+
+            return dateB.compareTo(dateA);
+          });
 
           return RefreshIndicator(
+            key: _refreshIndicatorKey,
             color: primaryColor,
-            backgroundColor: surfaceColor,
-            displacement: 40,
-            edgeOffset: 20,
-            onRefresh: () async {
-              await refetch!();
-            },
+            onRefresh: handleRefresh,
             child: TabBarView(
               controller: _tabController,
               children: [
-                /// 🟠 ORDER PLACED
-                _buildOrderList(
-                  _filterByStatuses(orders, ["pending"]),
-                  "No Orders Placed",
-                  "You haven't placed any orders yet",
-                ),
-
-                /// 🔵 PROCESSING
-                _buildOrderList(
-                  _filterByStatuses(orders, ["packed", "shipped"]),
-                  "No Orders in Progress",
-                  "All your orders are either completed or pending",
-                ),
-
-                /// 🟢 COMPLETED
-                _buildOrderList(
-                  _filterByStatuses(orders, ["delivered"]),
-                  "No Completed Orders",
-                  "Your completed orders will appear here",
-                ),
-
-                /// 🔴 CANCELLED
-                _buildOrderList(
-                  _filterByStatuses(orders, ["cancelled", "rejected"]),
-                  "No Cancelled Orders",
-                  "You haven't cancelled any orders",
-                ),
+                _buildOrderList(_filterByStatuses(orders, ["pending", "packed", "shipped"]), "No active orders"),
+                _buildOrderList(_filterByStatuses(orders, ["delivered"]), "No completed orders"),
+                _buildOrderList(_filterByStatuses(orders, ["cancelled", "rejected"]), "No cancelled orders"),
               ],
             ),
           );
@@ -339,398 +195,286 @@ class _MyOrderPageState extends State<MyOrderPage>
     );
   }
 
-  /// ================= ENHANCED ORDER CARD =================
-
-  Widget _buildOrderList(List<OrderModel> orders, String emptyTitle,
-      String emptySubtitle) {
+  Widget _buildOrderList(List<OrderModel> orders, String emptyMessage) {
     if (orders.isEmpty) {
       return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(40),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  color: surfaceColor,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  Icons.shopping_bag_outlined,
-                  size: 48,
-                  color: textTertiary,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                emptyTitle,
-                style: GoogleFonts.inter(
-                  color: textPrimary,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                emptySubtitle,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  color: textSecondary,
-                  fontSize: 15,
-                  height: 1.6,
-                ),
-              ),
-              const SizedBox(height: 32),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ],
-          ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.shopping_bag_outlined, size: 80, color: Colors.grey[300]),
+            const SizedBox(height: 16),
+            Text(emptyMessage, style: GoogleFonts.roboto(color: textSecondary, fontSize: 16)),
+          ],
         ),
       );
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      padding: const EdgeInsets.all(16),
+      physics: const AlwaysScrollableScrollPhysics(),
       itemCount: orders.length,
-      physics: const BouncingScrollPhysics(),
       itemBuilder: (context, index) {
         final order = orders[index];
-        final isLast = index == orders.length - 1;
+        final firstItem = order.items.isNotEmpty ? order.items[0] : null;
 
         return Container(
-          margin: EdgeInsets.only(bottom: isLast ? 0 : 12),
-          child: _buildOrderCard(order),
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: borderColor),
+          ),
+          child: InkWell(
+            onTap: () => _openOrderDetails(order),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Status and Date Row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            _statusIcon(order.status),
+                            size: 16,
+                            color: _statusColor(order.status),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _statusText(order.status),
+                            style: GoogleFonts.roboto(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: _statusColor(order.status),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        _getDateText(order),
+                        style: GoogleFonts.roboto(
+                          fontSize: 12,
+                          color: textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Product Image and Info
+                  if (firstItem != null)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Product Image
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(6),
+                            color: Colors.grey[100],
+                            image: firstItem.image.isNotEmpty
+                                ? DecorationImage(
+                              image: NetworkImage(firstItem.image),
+                              fit: BoxFit.cover,
+                            )
+                                : null,
+                          ),
+                          child: firstItem.image.isEmpty
+                              ? Center(child: Icon(Icons.shopping_bag, color: Colors.grey[400]))
+                              : null,
+                        ),
+                        const SizedBox(width: 12),
+
+                        // Product Details
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                firstItem.name,
+                                style: GoogleFonts.roboto(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: textPrimary,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Text(
+                                    "₹${firstItem.price.toStringAsFixed(2)}",
+                                    style: GoogleFonts.roboto(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[100],
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      "Qty: ${firstItem.quantity}",
+                                      style: GoogleFonts.roboto(
+                                        fontSize: 12,
+                                        color: textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  // Arrow icon instead of amount
+                                  Icon(
+                                    Icons.arrow_forward_ios,
+                                    size: 16,
+                                    color: textSecondary,
+                                  ),
+                                ],
+                              ),
+                              if (order.items.length > 1)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Text(
+                                    "+ ${order.items.length - 1} more item${order.items.length - 1 > 1 ? 's' : ''}",
+                                    style: GoogleFonts.roboto(
+                                      fontSize: 13,
+                                      color: primaryColor,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+          ),
         );
       },
     );
   }
 
-  Widget _buildOrderCard(OrderModel order) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: () => _openOrderDetails(order),
-        child: Container(
-          decoration: BoxDecoration(
-            color: surfaceColor,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-            border: Border.all(
-              color: borderColor.withOpacity(0.5),
-              width: 1,
-            ),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                /// HEADER - Order ID only (status badge removed)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        color: borderColor.withOpacity(0.5),
-                        width: 1,
-                      ),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Order #${order.orderId}",
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                          color: textPrimary,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "${order.items.length} item${order.items.length > 1 ? 's' : ''} • ${_formatDate(DateTime.parse(order.items.isNotEmpty ? '2023-01-01' : DateTime.now().toString()))}",
-                        style: GoogleFonts.inter(
-                          color: textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+  // Updated date calculation that uses cancelledAt for cancelled orders
+  String _getDateText(OrderModel order) {
+    String dateString;
 
-                /// ORDER ITEMS PREVIEW
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Items",
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          color: textPrimary,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      ...order.items.take(2).map((item) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 45,
-                              height: 45,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                color: backgroundColor,
-                                image: item.image.isNotEmpty
-                                    ? DecorationImage(
-                                  image: NetworkImage(item.image),
-                                  fit: BoxFit.cover,
-                                )
-                                    : null,
-                              ),
-                              child: item.image.isEmpty
-                                  ? Icon(
-                                Icons.inventory_2_outlined,
-                                color: textTertiary,
-                                size: 22,
-                              )
-                                  : null,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    item.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.inter(
-                                      fontWeight: FontWeight.w500,
-                                      fontSize: 13,
-                                      color: textPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    "${item.type} • Qty: ${item.quantity}",
-                                    style: GoogleFonts.inter(
-                                      color: textSecondary,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Text(
-                              "₹${item.total.toStringAsFixed(2)}",
-                              style: GoogleFonts.inter(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                                color: textPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )),
-                      if (order.items.length > 2)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.more_horiz,
-                                color: textTertiary,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                "+${order.items.length - 2} more items",
-                                style: GoogleFonts.inter(
-                                  color: textSecondary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-
-                /// FOOTER WITH TOTAL AND CTA
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: backgroundColor,
-                    border: Border(
-                      top: BorderSide(
-                        color: borderColor.withOpacity(0.5),
-                        width: 1,
-                      ),
-                    ),
-                    borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(16),
-                      bottomRight: Radius.circular(16),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Total Amount",
-                            style: GoogleFonts.inter(
-                              color: textSecondary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            "₹${order.totalAmount.toStringAsFixed(2)}",
-                            style: GoogleFonts.inter(
-                              color: primaryColor,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [primaryColor, accentColor],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(10),
-                          child: InkWell(
-                            onTap: () => _openOrderDetails(order),
-                            borderRadius: BorderRadius.circular(10),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 10,
-                              ),
-                              child: Row(
-                                children: [
-                                  Text(
-                                    "View Details",
-                                    style: GoogleFonts.inter(
-                                      color: Colors.white,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Icon(
-                                    Icons.arrow_forward_rounded,
-                                    color: Colors.white,
-                                    size: 16,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// ================= HELPERS =================
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inDays == 0) {
-      return 'Today';
-    } else if (difference.inDays == 1) {
-      return 'Yesterday';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays} days ago';
+    // Use cancelledAt for cancelled/rejected orders if available
+    if ((order.status.toLowerCase() == 'cancelled' ||
+        order.status.toLowerCase() == 'rejected') &&
+        order.updatedAt != null && order.updatedAt!.isNotEmpty) {
+      dateString = order.updatedAt!;
     } else {
-      final month = _getMonthAbbreviation(date.month);
-      return '${date.day} $month ${date.year}';
+      dateString = order.updatedAt ?? '';
+    }
+
+    if (dateString.isEmpty) return "";
+
+    try {
+      final date = DateTime.tryParse(dateString);
+      if (date == null) return "";
+
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final yesterday = DateTime(now.year, now.month, now.day - 1);
+      final orderDate = DateTime(date.year, date.month, date.day);
+
+      if (orderDate == today) {
+        return "Today";
+      } else if (orderDate == yesterday) {
+        return "Yesterday";
+      } else {
+        final difference = now.difference(date);
+        if (difference.inDays < 7) {
+          return "${difference.inDays} days ago";
+        } else {
+          final month = _getMonth(date.month);
+          return "${date.day} $month ${date.year != now.year ? date.year : ''}".trim();
+        }
+      }
+    } catch (e) {
+      return "";
     }
   }
 
-  String _getMonthAbbreviation(int month) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
+  String _getMonth(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return months[month - 1];
+  }
+
+  Color _statusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending': return const Color(0xFFFF9800);
+      case 'packed': return const Color(0xFF2196F3);
+      case 'shipped': return const Color(0xFF3F51B5);
+      case 'delivered': return const Color(0xFF4CAF50);
+      case 'cancelled': return const Color(0xFFF44336);
+      case 'rejected': return const Color(0xFF9C27B0);
+      default: return Colors.grey;
+    }
+  }
+
+  IconData _statusIcon(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending': return Icons.pending;
+      case 'packed': return Icons.inventory;
+      case 'shipped': return Icons.local_shipping;
+      case 'delivered': return Icons.check_circle;
+      case 'cancelled': return Icons.cancel;
+      case 'rejected': return Icons.block;
+      default: return Icons.shopping_bag;
+    }
+  }
+
+  String _statusText(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending': return "Order Placed";
+      case 'packed': return "Packed";
+      case 'shipped': return "Shipped";
+      case 'delivered': return "Delivered";
+      case 'cancelled': return "Cancelled";
+      case 'rejected': return "Rejected";
+      default: return status;
+    }
   }
 }
 
-/// ================= MODELS (UNCHANGED) =================
+// Models
 class OrderModel {
   final String orderId;
   final String status;
+  final String? createdAt;
+
+  final String? updatedAt;
   final double totalAmount;
   final String buyerName;
   final String buyerPhone;
   final String buyerEmail;
-  final List<OrderItem> items;
   final String? invoiceUrl;
   final String? invoiceNo;
   final String? trackingNumber;
   final String? trackingProvider;
+  final List<OrderItem> items;
 
   OrderModel({
     required this.orderId,
     required this.status,
+    this.createdAt,
+
+    this.updatedAt,
     required this.totalAmount,
     required this.buyerName,
     required this.buyerPhone,
@@ -744,10 +488,12 @@ class OrderModel {
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     final buyer = json['buyer'] ?? {};
-
     return OrderModel(
       orderId: json['orderId'],
       status: json['status'],
+      createdAt: json['createdAt'],
+
+      updatedAt: json['updatedAt'],
       totalAmount: (json['totalAmount'] as num).toDouble(),
       buyerName: buyer['name'] ?? '',
       buyerPhone: buyer['phone'] ?? '',
@@ -756,9 +502,7 @@ class OrderModel {
       invoiceNo: json['invoiceNo'],
       trackingNumber: json['trackingNumber'],
       trackingProvider: json['trackingProvider'],
-      items: (json['items'] as List)
-          .map((e) => OrderItem.fromJson(e))
-          .toList(),
+      items: (json['items'] as List).map((e) => OrderItem.fromJson(e)).toList(),
     );
   }
 }
@@ -778,8 +522,6 @@ class OrderItem {
     required this.image,
   });
 
-  double get total => price * quantity;
-
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     return OrderItem(
       name: json['name'],
@@ -789,4 +531,6 @@ class OrderItem {
       image: json['image'] ?? '',
     );
   }
+
+  get id => null;
 }

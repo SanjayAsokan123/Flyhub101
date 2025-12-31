@@ -44,8 +44,7 @@ class _BuyerLoginPageState extends State<BuyerLoginPage> {
     'instagram': 'https://www.instagram.com/flyhub_info?igsh=OWM2a3E2Ym81bzRs',
     'linkedin': 'https://www.linkedin.com/company/flyhubinfo/',
     'facebook': 'https://www.facebook.com/share/1A8fBiqxmt/',
-    'twitter': 'https://twitter.com/your_handle',
-    // 'whatsapp': 'https://wa.me/+91',
+    'whatsapp': 'https://whatsapp.com/channel/0029VbCWqYHJP219qPZVns0P',
   };
 
   // Back navigation to FlyHubSelectionPage
