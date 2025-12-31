@@ -187,6 +187,20 @@ class _PendingProductsPageState extends State<PendingProductsPage>
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        // ✅ CUSTOM < BACK BUTTON
+        leading: GestureDetector(
+          onTap: () => Navigator.pop(context),
+          child: Center(
+            child: Text(
+              '<',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
         title: const Text(
           "Pending Products",
           style: TextStyle(
@@ -195,7 +209,7 @@ class _PendingProductsPageState extends State<PendingProductsPage>
           ),
         ),
         backgroundColor: themeColor,
-        iconTheme: const IconThemeData(color: Colors.white),
+        // ✅ REMOVE iconTheme line (not needed anymore)
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,

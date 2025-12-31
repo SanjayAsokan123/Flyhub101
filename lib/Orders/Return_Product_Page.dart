@@ -35,7 +35,20 @@ class _ReturnedProductsPageState extends State<ReturnedProductsPage>
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        iconTheme: const IconThemeData(color: Colors.white),
+        // ✅ CUSTOM < BACK BUTTON
+        leading: GestureDetector(
+          onTap: () => Navigator.pop(context),
+          child: Center(
+            child: Text(
+              '<',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
         title: const Text(
           "Returned Products",
           style: TextStyle(
@@ -44,6 +57,7 @@ class _ReturnedProductsPageState extends State<ReturnedProductsPage>
           ),
         ),
         backgroundColor: themeColor,
+        // ✅ REMOVE iconTheme line (not needed anymore)
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: Container(

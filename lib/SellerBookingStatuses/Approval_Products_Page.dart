@@ -218,7 +218,20 @@ class _ApprovalProductsPageState extends State<ApprovalProductsPage>
     return Scaffold(
       backgroundColor: const Color(0xFFFFFFFF),
       appBar: AppBar(
-        iconTheme: const IconThemeData(color: Colors.white),
+        // ✅ CUSTOM < BACK BUTTON
+        leading: GestureDetector(
+          onTap: () => Navigator.pop(context),
+          child: Center(
+            child: Text(
+              '<',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
         title: const Text(
           "Approved Products",
           style: TextStyle(
@@ -227,6 +240,7 @@ class _ApprovalProductsPageState extends State<ApprovalProductsPage>
           ),
         ),
         backgroundColor: themeColor,
+        // ✅ REMOVE iconTheme line (not needed anymore)
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
