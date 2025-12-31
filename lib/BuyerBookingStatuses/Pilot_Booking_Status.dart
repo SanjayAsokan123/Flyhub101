@@ -35,7 +35,6 @@ class _PilotBookingStatusPageState extends State<PilotBookingStatusPage>
   Future<void> _makePhoneCall(String phoneNumber) async {
     PermissionStatus status = await Permission.phone.status;
 
-    // 1️⃣ If permission not granted, explain first
     if (!status.isGranted) {
       final allow = await showDialog<bool>(
         context: context,
@@ -70,7 +69,6 @@ class _PilotBookingStatusPageState extends State<PilotBookingStatusPage>
       status = await Permission.phone.request();
     }
 
-    // 2️⃣ Permanently denied → go to settings
     if (status.isPermanentlyDenied) {
       showDialog(
         context: context,
@@ -97,7 +95,6 @@ class _PilotBookingStatusPageState extends State<PilotBookingStatusPage>
       return;
     }
 
-    // 3️⃣ Permission granted → make call
     if (status.isGranted) {
       final Uri launchUri = Uri(
         scheme: 'tel',
@@ -245,7 +242,6 @@ mutation DeletePendingBooking(\$bookingId: String!, \$buyerId: String!) {
     final buyerName = b['buyerName'] ?? '--';
     final buyerPhone = b['buyerPhone'] ?? '--';
 
-    // Determine which tab we're in based on status
     bool isApprovedTab = status.toLowerCase() == 'approved';
     bool isPendingTab = status.toLowerCase() == 'pending';
 
@@ -268,7 +264,6 @@ mutation DeletePendingBooking(\$bookingId: String!, \$buyerId: String!) {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row with PILOT NAME
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -287,20 +282,14 @@ mutation DeletePendingBooking(\$bookingId: String!, \$buyerId: String!) {
             ),
 
             const SizedBox(height: 12),
-
-            // Divider
             Divider(color: Colors.grey.shade300, height: 1),
-
             const SizedBox(height: 12),
 
-            // Details grid
             Row(
               children: [
-                // Left side - details
                 Expanded(
                   child: Row(
                     children: [
-                      // Icon container
                       Container(
                         width: 54,
                         height: 54,
@@ -310,15 +299,11 @@ mutation DeletePendingBooking(\$bookingId: String!, \$buyerId: String!) {
                         ),
                         child: Icon(Icons.person, size: 28, color: const Color(0xFF1E0E5C)),
                       ),
-
                       const SizedBox(width: 16),
-
-                      // Details column
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Seller Info (only for approved tab)
                             if (isApprovedTab && sellerName != '--') ...[
                               _buildDetailRow(
                                 icon: Icons.person,
@@ -327,7 +312,6 @@ mutation DeletePendingBooking(\$bookingId: String!, \$buyerId: String!) {
                               ),
                               const SizedBox(height: 6),
                             ],
-
                             if (isApprovedTab && sellerPhone != '--') ...[
                               _buildDetailRow(
                                 icon: Icons.phone,
@@ -336,24 +320,18 @@ mutation DeletePendingBooking(\$bookingId: String!, \$buyerId: String!) {
                               ),
                               const SizedBox(height: 6),
                             ],
-
-                            // Date
                             _buildDetailRow(
                               icon: Icons.calendar_today,
                               text: formattedDate,
                               iconColor: Colors.orange,
                             ),
                             const SizedBox(height: 6),
-
-                            // Time
                             _buildDetailRow(
                               icon: Icons.access_time,
                               text: "$startTime - $endTime",
                               iconColor: Colors.purple,
                             ),
                             const SizedBox(height: 6),
-
-                            // Location
                             if (b['location'] != null && b['location'].isNotEmpty)
                               _buildDetailRow(
                                 icon: Icons.location_on,
@@ -366,11 +344,8 @@ mutation DeletePendingBooking(\$bookingId: String!, \$buyerId: String!) {
                     ],
                   ),
                 ),
-
-                // Right side - Action buttons
                 Column(
                   children: [
-                    // Call Now button (only for approved tab with seller phone)
                     if (isApprovedTab && sellerPhone != '--' && sellerPhone != '')
                       ElevatedButton.icon(
                         onPressed: () => _makePhoneCall(sellerPhone),
@@ -389,70 +364,39 @@ mutation DeletePendingBooking(\$bookingId: String!, \$buyerId: String!) {
                           elevation: 0,
                         ),
                       ),
-
-                    // Delete button (only for pending tab)
-                    if (isPendingTab)
-                      Mutation(
-                        options: MutationOptions(
-                          document: gql(deletePendingBookingMutation()),
-                          onCompleted: (data) async {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  data?['deletePilotBookingByBuyer']?['message'] ?? "Booking deleted",
+                    if (isPendingTab && showDelete)
+                      IconButton(
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text("Delete Booking"),
+                              content: const Text(
+                                  "Are you sure you want to delete this pending booking?"),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text("Cancel"),
                                 ),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                            await client.resetStore();
-                          },
-                          onError: (error) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text("Error: ${error.toString()}"),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          },
-                        ),
-                        builder: (runMutation, result) {
-                          return IconButton(
-                            onPressed: () {
-                              showDialog(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  title: const Text("Delete Booking"),
-                                  content: const Text(
-                                      "Are you sure you want to delete this pending booking?"),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      child: const Text("Cancel"),
-                                    ),
-                                    TextButton(
-                                      onPressed: () async {
-                                        Navigator.pop(context);
-                                        runMutation({
-                                          'bookingId': b['bookingId'],
-                                          'buyerId': widget.buyerId,
-                                        });
-                                      },
-                                      child: const Text(
-                                        "Delete",
-                                        style: TextStyle(color: Colors.red),
-                                      ),
-                                    ),
-                                  ],
+                                TextButton(
+                                  onPressed: () async {
+                                    Navigator.pop(context);
+                                    await _deleteBooking(b['bookingId']);
+                                  },
+                                  child: const Text(
+                                    "Delete",
+                                    style: TextStyle(color: Colors.red),
+                                  ),
                                 ),
-                              );
-                            },
-                            icon: Icon(
-                              Icons.delete_outline,
-                              color: Colors.red.shade600,
-                              size: 28,
+                              ],
                             ),
                           );
                         },
+                        icon: Icon(
+                          Icons.delete_outline,
+                          color: Colors.red.shade600,
+                          size: 28,
+                        ),
                       ),
                   ],
                 ),
@@ -493,6 +437,47 @@ mutation DeletePendingBooking(\$bookingId: String!, \$buyerId: String!) {
     );
   }
 
+  // ✅ FIXED: Delete booking method - shows only "Network Error"
+  Future<void> _deleteBooking(String bookingId) async {
+    try {
+      final result = await client.mutate(
+        MutationOptions(
+          document: gql(deletePendingBookingMutation()),
+          variables: {
+            'bookingId': bookingId,
+            'buyerId': widget.buyerId,
+          },
+        ),
+      );
+
+      final response = result.data?['deletePilotBookingByBuyer'];
+
+      if (response != null && response['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Booking deleted successfully"),
+            backgroundColor: Colors.green,
+          ),
+        );
+        setState(() {});
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Network Error"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Network Error"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   // --------------------------------------------
   // TAB VIEW BUILDER WITH REFRESH INDICATOR
   // --------------------------------------------
@@ -503,7 +488,6 @@ mutation DeletePendingBooking(\$bookingId: String!, \$buyerId: String!) {
         pollInterval: const Duration(seconds: 3),
       ),
       builder: (result, {refetch, fetchMore}) {
-        // Pull-to-refresh functionality
         return RefreshIndicator(
           onRefresh: () async {
             if (refetch != null) {
@@ -521,25 +505,49 @@ mutation DeletePendingBooking(\$bookingId: String!, \$buyerId: String!) {
       return const Center(child: CircularProgressIndicator());
     }
 
+    // ✅ FIXED: Show ONLY "Network Error" - NO icons, NO technical details
     if (result.hasException) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text("Error: ${result.exception.toString()}"),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: refetch,
-              child: const Text("Retry"),
-            ),
-          ],
+      return RefreshIndicator(
+        onRefresh: () async {
+          if (refetch != null) {
+            await refetch!();
+          }
+        },
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                "Network Error",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "Please check your connection and try again",
+                style: TextStyle(color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: refetch,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E0E5C),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text("Retry"),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     final data = result.data ?? {};
 
-    // detect correct response key
     String key = data.keys.firstWhere(
           (k) => k != "__typename",
       orElse: () => "",
@@ -548,16 +556,23 @@ mutation DeletePendingBooking(\$bookingId: String!, \$buyerId: String!) {
     final list = (data[key] ?? []) as List;
 
     if (list.isEmpty) {
-      return ListView(
-        children: [
-          SizedBox(
-            height: MediaQuery.of(context).size.height * 0.7,
-            child: const Center(
-              child: Text("No bookings found",
-                  style: TextStyle(color: Colors.grey)),
+      return RefreshIndicator(
+        onRefresh: () async {
+          if (refetch != null) {
+            await refetch();
+          }
+        },
+        child: ListView(
+          children: [
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.7,
+              child: const Center(
+                child: Text("No bookings found",
+                    style: TextStyle(color: Colors.grey)),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       );
     }
 
@@ -567,9 +582,6 @@ mutation DeletePendingBooking(\$bookingId: String!, \$buyerId: String!) {
     );
   }
 
-  // --------------------------------------------
-  // UI
-  // --------------------------------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -605,5 +617,11 @@ mutation DeletePendingBooking(\$bookingId: String!, \$buyerId: String!) {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 }

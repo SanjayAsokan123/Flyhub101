@@ -238,7 +238,7 @@ mutation ($droneRentalId: String!) {
     }
   }
 
-  // Delete function remains exactly the same
+  // Delete function - HIDE TECHNICAL ERRORS
   Future<void> _deleteRental(String rentalId, int index) async {
     bool? confirm = await showDialog(
       context: context,
@@ -260,43 +260,43 @@ mutation ($droneRentalId: String!) {
 
     if (confirm != true) return;
 
-    final result = await client.mutate(
-      MutationOptions(
-        document: gql(DELETE_RENTAL),
-        variables: {"droneRentalId": rentalId},
-      ),
-    );
-
-    // if (result.hasException) {
-    //   ScaffoldMessenger.of(context).showSnackBar(
-    //
-    //   );
-    //   return;
-    // }
-
-    final response = result.data?['deleteDroneRentalByBuyer'];
-
-    if (response != null && response['success'] == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Rental deleted successfully"),
-          backgroundColor: Colors.green,
+    try {
+      final result = await client.mutate(
+        MutationOptions(
+          document: gql(DELETE_RENTAL),
+          variables: {"droneRentalId": rentalId},
         ),
       );
-      setState(() {});
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            "Failed to delete: ${response?['message'] ?? ''}",
+
+      final response = result.data?['deleteDroneRentalByBuyer'];
+
+      if (response != null && response['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Rental deleted successfully"),
+            backgroundColor: Colors.green,
           ),
+        );
+        setState(() {});
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Network Error"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Network Error"),
           backgroundColor: Colors.red,
         ),
       );
     }
   }
 
-  // Tab builder remains exactly the same
+  // Tab builder - FIXED ERROR HANDLING (NO ICONS, JUST "Network Error")
   Widget buildStatusTab(String queryKey, String query, int tabIndex) {
     return FutureBuilder<QueryResult>(
       future: client.query(
@@ -311,8 +311,44 @@ mutation ($droneRentalId: String!) {
           return const Center(child: CircularProgressIndicator());
         }
 
+        // ✅ FIXED: Show ONLY "Network Error" - NO icons, NO technical details
         if (snapshot.data!.hasException) {
-          return Center(child: Text("Error: ${snapshot.data!.exception}"));
+          return SmartRefresher(
+            enablePullDown: true,
+            enablePullUp: false,
+            controller: _getRefreshController(tabIndex),
+            onRefresh: () => _onRefresh(tabIndex),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    "Network Error",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "Please check your connection and try again",
+                    style: TextStyle(color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () => _onRefresh(tabIndex),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1A0A5B),
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text("Retry"),
+                  ),
+                ],
+              ),
+            ),
+          );
         }
 
         final rentals = snapshot.data!.data?[queryKey] ?? [];
@@ -359,7 +395,7 @@ mutation ($droneRentalId: String!) {
     }
   }
 
-  // UPDATED: Rental card to match BuyerServiceBookingStatusPage style
+  // Rental card - NO CHANGES
   Widget buildRentalCard(dynamic rental, int index, int tabIndex) {
     final formattedDate = formatDate(rental['rentalDate']);
     final rentalId = rental['drone_rental_id'];
@@ -391,13 +427,13 @@ mutation ($droneRentalId: String!) {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row with CUSTOMER NAME - CHANGED FROM "Drone Rental"
+            // Header row with CUSTOMER NAME
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
                   child: Text(
-                    customerName, // CHANGED: Display customer name instead of "Drone Rental"
+                    customerName,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -411,19 +447,19 @@ mutation ($droneRentalId: String!) {
 
             const SizedBox(height: 12),
 
-            // Divider - exactly like service booking
+            // Divider
             Divider(color: Colors.grey.shade300, height: 1),
 
             const SizedBox(height: 12),
 
-            // Details grid - exactly like service booking layout
+            // Details grid
             Row(
               children: [
                 // Left side - details
                 Expanded(
                   child: Row(
                     children: [
-                      // Icon container - exactly like service booking
+                      // Icon container
                       Container(
                         width: 54,
                         height: 54,
@@ -443,12 +479,12 @@ mutation ($droneRentalId: String!) {
 
                       const SizedBox(width: 16),
 
-                      // Details column - exactly like service booking
+                      // Details column
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Seller Info (only for approved tab) - like service booking
+                            // Seller Info (only for approved tab)
                             if (isApprovedTab && sellerName != '--') ...[
                               _buildDetailRow(
                                 icon: Icons.person,
@@ -467,7 +503,7 @@ mutation ($droneRentalId: String!) {
                               const SizedBox(height: 6),
                             ],
 
-                            // Date - exactly like service booking
+                            // Date
                             _buildDetailRow(
                               icon: Icons.calendar_today,
                               text: formattedDate,
@@ -490,7 +526,7 @@ mutation ($droneRentalId: String!) {
                   ),
                 ),
 
-                // Right side - Action buttons - exactly like service booking
+                // Right side - Action buttons
                 Column(
                   children: [
                     // Call Now button (only for approved tab with seller phone)
@@ -513,11 +549,10 @@ mutation ($droneRentalId: String!) {
                         ),
                       ),
 
-                    // Delete button (only for pending tab) - like service booking
+                    // Delete button (only for pending tab)
                     if (isPendingTab)
                       IconButton(
                         onPressed: () {
-                          // Show confirmation dialog - exactly like service booking
                           showDialog(
                             context: context,
                             builder: (context) => AlertDialog(
@@ -559,7 +594,7 @@ mutation ($droneRentalId: String!) {
     );
   }
 
-  // Detail row widget - exactly like service booking
+  // Detail row widget
   Widget _buildDetailRow({
     required IconData icon,
     required String text,
