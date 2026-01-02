@@ -74,9 +74,10 @@ class _RejectedProductsPageState extends State<RejectedProductsPage>
       );
 
       if (result.hasException) {
+        // ✅ SHOW ONLY "Network Error"
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("❌ ${result.exception.toString()}"),
+          const SnackBar(
+            content: Text("Network Error"),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -92,9 +93,10 @@ class _RejectedProductsPageState extends State<RejectedProductsPage>
         });
       }
     } catch (e) {
+      // ✅ SHOW ONLY "Network Error"
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("❌ Error fetching products: $e"),
+        const SnackBar(
+          content: Text("Network Error"),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -177,7 +179,11 @@ class _RejectedProductsPageState extends State<RejectedProductsPage>
     return Scaffold(
       backgroundColor: const Color(0xFFFFFFFF),
       appBar: AppBar(
-        iconTheme: const IconThemeData(color: Colors.white),
+        // ✅ CUSTOM arrow_back_ios BACK BUTTON
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
         backgroundColor: themeColor,
         title: const Text(
           "Rejected Products",

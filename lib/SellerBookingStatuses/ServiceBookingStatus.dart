@@ -580,8 +580,9 @@ class _ServiceBookingStatusPageState extends State<ServiceBookingStatusPage>
         backgroundColor: themeColor,
         title: const Text("Service Booking Status",
             style: TextStyle(color: Colors.white)),
+        // ✅ CUSTOM arrow_back_ios BACK BUTTON
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
         bottom: TabBar(

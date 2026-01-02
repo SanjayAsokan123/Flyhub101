@@ -349,6 +349,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   // ========================================================
+  // 🔥 COD Handler
+  // ========================================================
+  void _handleCOD() {
+    _createOrder(
+      mode: "COD",
+      method: null,
+      isCOD: true,
+    );
+  }
+
+
+  // ========================================================
   // UI ---------------------------------------------
   // ========================================================
 
@@ -364,14 +376,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 color: themeColor, fontWeight: FontWeight.w600)),
         centerTitle: true,
         iconTheme: IconThemeData(color: themeColor),
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: themeColor,
-            size: 22,
-          ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
       ),
       body: _buildBody(),
       bottomNavigationBar: _cancelButton(),
@@ -466,10 +470,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
           onTap: _startRazorpayPayment,
           primary: true,
         ),
+
+        // _paymentCard(
+        //   icon: Icons.money_rounded,
+        //   title: "Cash on Delivery",
+        //   subtitle: "Pay when product is delivered",
+        //   actionText: "Confirm COD",
+        //   onTap: _handleCOD,
+        //   primary: false,
+        // ),
       ],
     );
   }
-
   Widget _paymentCard({
     required IconData icon,
     required String title,

@@ -26,7 +26,6 @@ class _ApprovalProductsPageState extends State<ApprovalProductsPage>
   List<dynamic> approvedJobs = [];
   List<dynamic> approvedPilots = [];
 
-
   late GraphQLClient client;
 
   @override
@@ -85,13 +84,13 @@ class _ApprovalProductsPageState extends State<ApprovalProductsPage>
           status
         }
         hirePilotsApproved(sellerId: $sellerId) {
-      pilotId
-      pilotName
-      location
-      price { perHour perDay }
-      adminStatus
-      sellerId
-    }
+          pilotId
+          pilotName
+          location
+          price { perHour perDay }
+          adminStatus
+          sellerId
+        }
       }
     ''';
 
@@ -105,9 +104,10 @@ class _ApprovalProductsPageState extends State<ApprovalProductsPage>
       );
 
       if (result.hasException) {
+        // ✅ SHOW ONLY "Network Error"
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("❌ ${result.exception.toString()}"),
+          const SnackBar(
+            content: Text("Network Error"),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -120,13 +120,13 @@ class _ApprovalProductsPageState extends State<ApprovalProductsPage>
           approvedServices = result.data?['approvedServices'] ?? [];
           approvedJobs = result.data?['approvedJobs'] ?? [];
           approvedPilots = result.data?['hirePilotsApproved'] ?? [];
-
         });
       }
     } catch (e) {
+      // ✅ SHOW ONLY "Network Error"
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("❌ Error fetching products: $e"),
+        const SnackBar(
+          content: Text("Network Error"),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -170,7 +170,6 @@ class _ApprovalProductsPageState extends State<ApprovalProductsPage>
           subtitle = "Price: ₹${item['price']} · Status: ${item['status']}";
         }
 
-
         return Card(
           color: Colors.white,
           elevation: 0,
@@ -198,8 +197,6 @@ class _ApprovalProductsPageState extends State<ApprovalProductsPage>
                 color: Colors.black87,
               ),
             ),
-
-            // ✅ Right-side approval icon removed
             trailing: null,
           ),
         );
@@ -218,7 +215,11 @@ class _ApprovalProductsPageState extends State<ApprovalProductsPage>
     return Scaffold(
       backgroundColor: const Color(0xFFFFFFFF),
       appBar: AppBar(
-        iconTheme: const IconThemeData(color: Colors.white),
+        // ✅ CUSTOM arrow_back_ios BACK BUTTON
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text(
           "Approved Products",
           style: TextStyle(

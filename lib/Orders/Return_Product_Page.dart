@@ -35,7 +35,11 @@ class _ReturnedProductsPageState extends State<ReturnedProductsPage>
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        iconTheme: const IconThemeData(color: Colors.white),
+        // ✅ CUSTOM arrow_back_ios BACK BUTTON
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text(
           "Returned Products",
           style: TextStyle(
@@ -80,6 +84,7 @@ class _ReturnedProductsPageState extends State<ReturnedProductsPage>
             );
           }
 
+          // ✅ SHOW ONLY "Network Error"
           if (result.hasException) {
             return Center(
               child: Padding(

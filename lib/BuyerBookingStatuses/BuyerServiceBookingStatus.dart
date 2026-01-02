@@ -605,11 +605,6 @@ class _BuyerServiceBookingStatusPageState
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.wifi_off,
-                size: 64,
-                color: Colors.grey[400],
-              ),
               const SizedBox(height: 16),
               const Text(
                 "Check your internet connection",
@@ -644,7 +639,7 @@ class _BuyerServiceBookingStatusPageState
                       vertical: 12,
                     ),
                   ),
-                  child: const Text("Retry Connection"),
+                  child: const Text("Retry"),
                 ),
             ],
           ),

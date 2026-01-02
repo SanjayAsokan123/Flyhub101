@@ -346,3 +346,4 @@ class _BuyerJobApplyStatusPageState extends State<BuyerJobApplyStatusPage>
     super.dispose();
   }
 }
+

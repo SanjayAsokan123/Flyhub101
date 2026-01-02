@@ -29,7 +29,6 @@ class _PendingProductsPageState extends State<PendingProductsPage>
   List<dynamic> pendingJobs = [];
   List<dynamic> pendingPilots = [];
 
-
   late GraphQLClient client;
 
   @override
@@ -82,9 +81,10 @@ class _PendingProductsPageState extends State<PendingProductsPage>
       );
 
       if (result.hasException) {
+        // ✅ SHOW ONLY "Network Error"
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("❌ ${result.exception.toString()}"),
+          const SnackBar(
+            content: Text("Network Error"),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -97,13 +97,13 @@ class _PendingProductsPageState extends State<PendingProductsPage>
           pendingServices = result.data?['pendingServices'] ?? [];
           pendingJobs = result.data?['pendingJobs'] ?? [];
           pendingPilots = result.data?['hirePilotsPending'] ?? [];
-
         });
       }
     } catch (e) {
+      // ✅ SHOW ONLY "Network Error"
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("❌ Error fetching products: $e"),
+        const SnackBar(
+          content: Text("Network Error"),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -167,8 +167,6 @@ class _PendingProductsPageState extends State<PendingProductsPage>
               subtitle,
               style: const TextStyle(color: Colors.black87),
             ),
-
-            // ❌ Removed the pending icon from the right side
             trailing: null,
           ),
         );
@@ -187,6 +185,11 @@ class _PendingProductsPageState extends State<PendingProductsPage>
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        // ✅ CUSTOM arrow_back_ios BACK BUTTON
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text(
           "Pending Products",
           style: TextStyle(
@@ -195,7 +198,6 @@ class _PendingProductsPageState extends State<PendingProductsPage>
           ),
         ),
         backgroundColor: themeColor,
-        iconTheme: const IconThemeData(color: Colors.white),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
