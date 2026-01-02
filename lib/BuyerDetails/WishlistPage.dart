@@ -759,66 +759,21 @@ class _WishlistPageState extends State<WishlistPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: EdgeInsets.all(iconSize * 0.3),
-              decoration: BoxDecoration(
-                color: surfaceColor,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Icon(
-                Icons.favorite_border_rounded,
-                size: iconSize,
-                color: textSecondary,
-              ),
-            ),
+
             SizedBox(height: _getResponsiveSize(context, 24, 32, 40)),
             Text(
               "Your Wishlist is Empty",
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
-                fontSize: _getResponsiveSize(context, 22, 26, 30),
-                fontWeight: FontWeight.w700,
+                fontSize: _getResponsiveSize(context, 16, 26, 30),
+                fontWeight: FontWeight.w500,
                 color: textPrimary,
               ),
             ),
             SizedBox(height: _getResponsiveSize(context, 12, 16, 20)),
-            Text(
-              "Save items you love for later\nExplore products and add them to your wishlist",
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                fontSize: _getResponsiveSize(context, 14, 16, 18),
-                color: textSecondary,
-                height: 1.5,
-              ),
-            ),
+
             SizedBox(height: _getResponsiveSize(context, 24, 32, 40)),
-            FilledButton(
-              onPressed: () => Navigator.pop(context),
-              style: FilledButton.styleFrom(
-                backgroundColor: primaryColor,
-                padding: EdgeInsets.symmetric(
-                  horizontal: _getResponsiveSize(context, 32, 40, 48),
-                  vertical: _getResponsiveSize(context, 16, 18, 20),
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text(
-                "Continue Shopping",
-                style: GoogleFonts.inter(
-                  fontSize: _getResponsiveSize(context, 16, 18, 20),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
+
           ],
         ),
       ),

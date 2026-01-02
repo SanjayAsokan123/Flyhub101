@@ -198,7 +198,11 @@ class _SoldProductsPageState extends State<SoldProductsPage>
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        iconTheme: const IconThemeData(color: Colors.white),
+        // ✅ CUSTOM arrow_back_ios BACK BUTTON
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text(
           "Sold Products",
           style: TextStyle(
@@ -251,37 +255,16 @@ class _SoldProductsPageState extends State<SoldProductsPage>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                category == "Drones"
-                    ? Icons.drone
-                    : category == "Parts"
-                    ? Icons.build
-                    : Icons.settings,
-                size: 64,
-                color: Colors.grey[400],
-              ),
               const SizedBox(height: 20),
               Text(
                 "No Sold $category",
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: 15,
                   fontWeight: FontWeight.w600,
                   color: Colors.grey[600],
                 ),
               ),
               const SizedBox(height: 12),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32.0),
-                child: Text(
-                  "Delivered $category will appear here",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.grey[500],
-                    height: 1.5,
-                  ),
-                ),
-              ),
             ],
           ),
         ),
