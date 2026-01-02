@@ -422,6 +422,7 @@ class _RegulatoryPageState extends State<RegulatoryPage> {
           backgroundColor: Colors.white, // Keep app bar color
           leading: IconButton(
             icon: Icon(
+
               Icons.arrow_back_ios_new_rounded,
               color: Color(0xFF1A0A5B),
               size: isSmall ? 24 : 28,

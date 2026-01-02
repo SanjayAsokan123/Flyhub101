@@ -515,6 +515,12 @@ class _AddServiceFormState extends State<AddServiceForm> {
         foregroundColor: Colors.white,
         elevation: 2,
         centerTitle: true,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+        ),
         iconTheme: IconThemeData(color: Colors.white),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
@@ -768,7 +774,7 @@ class _AddServiceFormState extends State<AddServiceForm> {
                         // validator: (v) => v!.isEmpty ? "Description is required" : null,
                         validator: (v) {
                           if (v == null || v.isEmpty) return 'Description is required';
-                          if (v.length < 50) return 'Description must be at least 50 characters';
+                          if (v.length < 20) return 'Description must be at least 20 characters';
                           return null;
                         },
                       ),

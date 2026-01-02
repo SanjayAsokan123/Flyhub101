@@ -522,6 +522,12 @@ class _AddAccessoryFormState extends State<AddAccessoryForm> {
         elevation: 2,
         centerTitle: true,
         iconTheme: IconThemeData(color: Colors.white),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
             bottom: Radius.circular(12),

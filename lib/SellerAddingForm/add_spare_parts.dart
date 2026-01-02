@@ -577,6 +577,12 @@ class _AddSparePartFormState extends State<AddSparePartForm> {
         foregroundColor: Colors.white,
         elevation: 2,
         centerTitle: true,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+        ),
         iconTheme: IconThemeData(color: Colors.white),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
@@ -1031,7 +1037,7 @@ class _AddSparePartFormState extends State<AddSparePartForm> {
         TextFormField(
           controller: _descriptionController,
           decoration: InputDecoration(
-            hintText: "Describe the part, compatibility, condition, specifications, usage, warranty, etc... (Minimum 50 words)",
+            hintText: "Describe the part, compatibility, condition, specifications, usage, warranty, etc... (Minimum 20 words)",
             hintStyle: GoogleFonts.lexend(
               color: _textSecondary.withOpacity(0.6),
               fontSize: 14,
@@ -1077,7 +1083,11 @@ class _AddSparePartFormState extends State<AddSparePartForm> {
           ),
           maxLines: 4,
           minLines: 4,
-          validator: (v) => _wordCountValidator(v, "Description"),
+          validator: (v) {
+            if (v == null || v.isEmpty) return 'Description is required';
+            if (v.length < 20) return 'Description must be at least 20 characters';
+            return null;
+          },
         ),
       ],
     );
@@ -1099,7 +1109,7 @@ class _AddSparePartFormState extends State<AddSparePartForm> {
         TextFormField(
           controller: _additionalInfoController,
           decoration: InputDecoration(
-            hintText: "Manufacturing date, storage conditions, packaging details, shipping information, return policy, etc... (Minimum 50 words)",
+            hintText: "Manufacturing date, storage conditions, packaging details, shipping information, return policy, etc... (Minimum 20 words)",
             hintStyle: GoogleFonts.lexend(
               color: _textSecondary.withOpacity(0.6),
               fontSize: 14,
@@ -1145,7 +1155,11 @@ class _AddSparePartFormState extends State<AddSparePartForm> {
           ),
           maxLines: 4,
           minLines: 4,
-          validator: (v) => _wordCountValidator(v, "Additional information"),
+          validator: (v) {
+            if (v == null || v.isEmpty) return 'Additional Information is required';
+            if (v.length < 20) return 'Additional Information must be at least 20 characters';
+            return null;
+          },
         ),
       ],
     );

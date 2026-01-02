@@ -557,6 +557,12 @@ class _AddJobFormState extends State<AddJobForm> {
                   foregroundColor: Colors.white,
                   elevation: 2,
                   centerTitle: true,
+                  leading: IconButton(
+                    icon: Icon(Icons.arrow_back_ios_new_rounded),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                  ),
                   iconTheme: IconThemeData(color: Colors.white),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.vertical(
@@ -851,8 +857,8 @@ class _AddJobFormState extends State<AddJobForm> {
                                     if (value == null || value.isEmpty) {
                                       return "Description is required";
                                     }
-                                    if (value.length < 25) {
-                                      return "Description must be at least 25 characters";
+                                    if (value.length < 20) {
+                                      return "Description must be at least 20 characters";
                                     }
                                     return null;
                                   },
