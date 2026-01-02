@@ -48,7 +48,7 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
     'instagram': 'https://www.instagram.com/flyhub_info',
     'linkedin': 'https://www.linkedin.com/company/flyhubinfo',
     'facebook': 'https://www.facebook.com/share/1A8fBiqxmt/',
-    'whatsapp': 'https://whatsapp.com/channel/0029VbCWqYHJP219qPZVns0P',
+    'whatsapp': 'https://wa.me/6379800193',
   };
 
   @override
@@ -139,12 +139,10 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Cancel button stays on left
               TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: const Text("Cancel"),
               ),
-              // Logout button aligned to right with red color
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
@@ -174,7 +172,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
     );
   }
 
-  // Launch social media URL - FIXED VERSION
   Future<void> _launchSocialMedia(String platform) async {
     final url = socialMediaUrls[platform];
 
@@ -186,12 +183,10 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
     try {
       final uri = Uri.parse(url);
 
-      // Check if WhatsApp URL and format properly
       if (platform == 'whatsapp' && url.contains('wa.me')) {
         if (await canLaunchUrl(uri)) {
           await launchUrl(uri);
         } else {
-          // Try with web version
           final webUri = Uri.parse('https://web.whatsapp.com/');
           if (await canLaunchUrl(webUri)) {
             await launchUrl(webUri);
@@ -200,7 +195,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
           }
         }
       } else {
-        // For other social media
         if (await canLaunchUrl(uri)) {
           await launchUrl(
             uri,
@@ -359,6 +353,7 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
     required VoidCallback onTap,
     Color? iconColor,
     bool showTrailing = true,
+    String? subtitle,
   }) {
     return ListTile(
       onTap: onTap,
@@ -383,6 +378,15 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
           color: Colors.black87,
         ),
       ),
+      subtitle: subtitle != null
+          ? Text(
+        subtitle,
+        style: const TextStyle(
+          fontSize: 12,
+          color: Colors.grey,
+        ),
+      )
+          : null,
       trailing: showTrailing
           ? Icon(Icons.chevron_right, size: 20, color: Colors.grey.shade400)
           : null,
@@ -466,6 +470,108 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
             },
           ),
         ),
+      ),
+    );
+  }
+
+  // Simplified Earn with Flyhub Section
+  Widget _buildEarnWithFlyhubSection() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section Header
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            child: Text(
+              "Earn with Flyhub",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+
+          // Sell on Flyhub Card
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SellerLoginPage()),
+              ),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Colors.green.withOpacity(0.3),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.storefront_outlined,
+                        color: Colors.green.shade700,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Sell on Flyhub",
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "Start your seller journey and grow your business",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      color: Colors.grey.shade500,
+                      size: 16,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -570,7 +676,7 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                   ),
                 ),
 
-                // Activities Section - UPDATED: Drone Rentals now uses SVG icon
+                // Activities Section
                 _buildSection(
                   title: "My Activities",
                   children: [
@@ -628,35 +734,8 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                   ],
                 ),
 
-                // Account Section
-                _buildSection(
-                  title: "Account",
-                  children: [
-                    _buildListItem(
-                      icon: Icons.settings_outlined,
-                      title: "Settings",
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const SettingsPage()),
-                      ),
-                    ),
-                  ],
-                ),
-
-                // Seller Account Section
-                _buildSection(
-                  title: "Earn with Flyhub",
-                  children: [
-                    _buildListItem(
-                      icon: Icons.storefront_outlined,
-                      title: "Sell on Flyhub",
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const SellerLoginPage()),
-                      ),
-                    ),
-                  ],
-                ),
+                // Earn with Flyhub Section
+                _buildEarnWithFlyhubSection(),
 
                 // Support Section
                 _buildSection(
@@ -714,24 +793,57 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                   showDivider: false,
                 ),
 
-                // Logout Button in bottom left corner
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.all(0),
-                    child: _buildListItem(
-                      icon: Icons.logout,
-                      title: "Logout",
-                      iconColor: Colors.red,
-                      onTap: _logout,
-                      showTrailing: false,
+                // Account Section
+                _buildSection(
+                  title: "Account",
+                  children: [
+                    _buildListItem(
+                      icon: Icons.settings_outlined,
+                      title: "Settings",
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SettingsPage()),
+                      ),
                     ),
+                  ],
+                ),
+
+                // Logout Button
+                Container(
+                  color: Colors.white,
+                  margin: const EdgeInsets.only(top: 8),
+                  child: ListTile(
+                    onTap: _logout,
+                    leading: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.logout,
+                        size: 20,
+                        color: Colors.red,
+                      ),
+                    ),
+                    title: const Text(
+                      "Logout",
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.red,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    dense: true,
                   ),
                 ),
 
-                // Follow Us Footer - CORRECTED SIZE
+                // Follow Us Footer
                 Container(
                   width: double.infinity,
+                  margin: const EdgeInsets.only(top: 16),
                   padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
                   decoration: BoxDecoration(
                     color: primaryColor.withOpacity(0.05),
@@ -755,7 +867,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          // Instagram
                           _buildSocialIcon(
                             'assets/categories/instagram.png',
                             onTap: () => _launchSocialMedia('instagram'),
@@ -763,7 +874,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                           ),
                           const SizedBox(width: 20),
 
-                          // Facebook
                           _buildSocialIcon(
                             'assets/categories/facebook.png',
                             onTap: () => _launchSocialMedia('facebook'),
@@ -771,7 +881,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                           ),
                           const SizedBox(width: 20),
 
-                          // LinkedIn
                           _buildSocialIcon(
                             'assets/categories/linkedin.png',
                             onTap: () => _launchSocialMedia('linkedin'),
@@ -779,7 +888,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                           ),
                           const SizedBox(width: 20),
 
-                          // WhatsApp
                           _buildSocialIcon(
                             'assets/categories/whatsapp.png',
                             onTap: () => _launchSocialMedia('whatsapp'),
@@ -788,7 +896,7 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                         ],
                       ),
                       const SizedBox(height: 16),
-      // ADD FLYHUB WEBSITE LINK
+
                       GestureDetector(
                         onTap: () async {
                           final Uri url = Uri.parse("https://www.flyhub.info");
@@ -830,7 +938,6 @@ class _BuyerProfilePageState extends State<BuyerProfilePage> {
                         ),
                       ),
                       const SizedBox(height: 4),
-
                     ],
                   ),
                 ),
