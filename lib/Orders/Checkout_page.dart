@@ -471,14 +471,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
           primary: true,
         ),
 
-        _paymentCard(
-          icon: Icons.money_rounded,
-          title: "Cash on Delivery",
-          subtitle: "Pay when product is delivered",
-          actionText: "Confirm COD",
-          onTap: _handleCOD,
-          primary: false,
-        ),
+        // _paymentCard(
+        //   icon: Icons.money_rounded,
+        //   title: "Cash on Delivery",
+        //   subtitle: "Pay when product is delivered",
+        //   actionText: "Confirm COD",
+        //   onTap: _handleCOD,
+        //   primary: false,
+        // ),
       ],
     );
   }
