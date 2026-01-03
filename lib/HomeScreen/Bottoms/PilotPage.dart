@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flyhub/BuyerDetails/MyCartPage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -15,6 +18,7 @@ import '../../utils/responsive_utils.dart';
 import '../../services/role_manager.dart';
 import '../../Login/BuyerLoginPage.dart';
 import '../../Login/BuyerRegisterPage.dart';
+import '../../BuyerDetails/BecomeAPilotPage.dart';
 
 class PilotPage extends StatefulWidget {
   const PilotPage({super.key});
@@ -458,6 +462,72 @@ class _PilotPageState extends State<PilotPage> {
     ).then((_) => _loadCartCount());
   }
 
+  Future<void> _navigateToBecomePilot() async {
+    debugPrint("DEBUG: Starting navigate to become pilot...");
+
+    final role = await RoleManager.getLocalRole();
+    debugPrint("DEBUG: Current role from RoleManager: $role");
+
+    if (role != "buyer") {
+      debugPrint("DEBUG: User is not a buyer, showing auth dialog");
+      await _showAuthRequiredDialog(role);
+      return;
+    }
+
+    // Get buyerId from RoleManager
+    final buyerId = await RoleManager.getBuyerId();
+    debugPrint("DEBUG: BuyerId from RoleManager: $buyerId");
+
+    if (buyerId == null || buyerId.isEmpty) {
+      debugPrint("DEBUG: BuyerId is null or empty, checking Firebase...");
+
+      // Try to get from Firebase current user
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        debugPrint("DEBUG: Firebase user found: ${user.uid}");
+        // Check Firestore for buyer document
+        try {
+          final buyerDoc = await FirebaseFirestore.instance
+              .collection('buyers')
+              .where('firebaseUid', isEqualTo: user.uid)
+              .limit(1)
+              .get();
+
+          if (buyerDoc.docs.isNotEmpty) {
+            final buyerData = buyerDoc.docs.first;
+            final foundBuyerId = buyerData.id;
+            debugPrint("DEBUG: Found buyer in Firestore: $foundBuyerId");
+
+            // Save it to RoleManager for future use
+            await RoleManager.saveBuyerId(foundBuyerId);
+
+            // Navigate with the found buyerId
+            _navigateWithBuyerId(foundBuyerId);
+            return;
+          }
+        } catch (e) {
+          debugPrint("DEBUG: Error fetching from Firestore: $e");
+        }
+      }
+
+      debugPrint("DEBUG: No buyerId found anywhere");
+      _showSnackBar("Could not retrieve your buyer information. Please logout and login again.");
+      return;
+    }
+
+    debugPrint("DEBUG: Found buyerId: $buyerId, navigating...");
+    _navigateWithBuyerId(buyerId);
+  }
+
+  void _navigateWithBuyerId(String buyerId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BecomeAPilotPage(buyerId: buyerId),
+      ),
+    );
+  }
+
   bool get _hasActiveFilters {
     return _searchController.text.isNotEmpty ||
         selectedLocation.isNotEmpty ||
@@ -590,32 +660,6 @@ class _PilotPageState extends State<PilotPage> {
                                   ),
                                 ),
                               ),
-                              // if (available)
-                              //   Positioned(
-                              //     top: ResponsiveUtils.getDynamicPadding(context, 0.01),
-                              //     right: ResponsiveUtils.getDynamicPadding(context, 0.01),
-                              //     child: Container(
-                              //       padding: EdgeInsets.symmetric(
-                              //         horizontal: ResponsiveUtils.getDynamicPadding(context, 0.008),
-                              //         vertical: ResponsiveUtils.getDynamicPadding(context, 0.004),
-                              //       ),
-                              //       decoration: BoxDecoration(
-                              //         color: successColor,
-                              //         borderRadius: BorderRadius.circular(
-                              //           ResponsiveUtils.getDynamicPadding(context, 0.006),
-                              //         ),
-                              //       ),
-                              //       child: Text(
-                              //         "AVAILABLE",
-                              //         style: GoogleFonts.inter(
-                              //           color: Colors.white,
-                              //           fontSize: ResponsiveUtils.getSmallFontSize(context) - 2,
-                              //           fontWeight: FontWeight.w800,
-                              //           letterSpacing: 0.3,
-                              //         ),
-                              //       ),
-                              //     ),
-                              //   ),
                             ],
                           ),
                           if (hasCertification)
@@ -1235,14 +1279,6 @@ class _PilotPageState extends State<PilotPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  "$totalCount pilots found",
-                  style: GoogleFonts.inter(
-                    fontSize: ResponsiveUtils.getSmallFontSize(context),
-                    color: textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
                 if (isSearching)
                   SizedBox(
                     width: 20,
@@ -1874,14 +1910,7 @@ class _PilotPageState extends State<PilotPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      "$totalCount pilots found",
-                      style: GoogleFonts.inter(
-                        fontSize: ResponsiveUtils.getSmallFontSize(context),
-                        color: textSecondary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+
                     if (isSearching)
                       SizedBox(
                         width: 20,
@@ -1947,6 +1976,7 @@ class _PilotPageState extends State<PilotPage> {
             height: ResponsiveUtils.getAppBarHeight(context),
             child: Row(
               children: [
+                // Back button
                 IconButton(
                   icon: Icon(
                     Icons.arrow_back_ios_new_rounded,
@@ -1960,6 +1990,8 @@ class _PilotPageState extends State<PilotPage> {
                     ),
                   ),
                 ),
+
+                // Title section
                 Expanded(
                   child: Container(
                     padding: EdgeInsets.only(
@@ -1985,14 +2017,6 @@ class _PilotPageState extends State<PilotPage> {
                             height: ResponsiveUtils.getDynamicHeight(context, 0.003)),
                         Row(
                           children: [
-                            // Text(
-                            //   // "${pilotList.length} pilots available",
-                            //   style: GoogleFonts.inter(
-                            //     color: textSecondary,
-                            //     fontSize: ResponsiveUtils.getSmallFontSize(context),
-                            //     fontWeight: FontWeight.w500,
-                            //   ),
-                            // ),
                             if (activeFilterCount > 0)
                               Container(
                                 margin: EdgeInsets.only(left: 8),
@@ -2026,6 +2050,44 @@ class _PilotPageState extends State<PilotPage> {
                                 ),
                               ),
                           ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                Container(
+                  width: 100,
+                  height: 36,
+                  margin: const EdgeInsets.only(left: 8),
+                  child: ElevatedButton(
+                    onPressed: _navigateToBecomePilot,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
+                      elevation: 2,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      shadowColor: accentColor.withOpacity(0.3),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.person_add_alt_1_rounded,
+                          size: 16,
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          "Become Pilot",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                            height: 1.0,
+                          ),
                         ),
                       ],
                     ),

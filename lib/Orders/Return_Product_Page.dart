@@ -35,32 +35,28 @@ class _ReturnedProductsPageState extends State<ReturnedProductsPage>
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        // ✅ CUSTOM arrow_back_ios BACK BUTTON
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          "Returned Products",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        backgroundColor: themeColor,
+        //   // iconTheme: const IconThemeData(color: Colors.white),
+        //   // title: const Text(
+        //   //   "Returned Products",
+        //   //   style: TextStyle(
+        //   //     fontWeight: FontWeight.bold,
+        //   //     color: Colors.white,
+        //   //   ),
+        //   // ),
+        backgroundColor: Colors.white,
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
+          preferredSize: const Size.fromHeight(0),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.symmetric(horizontal: 0),
+            alignment: Alignment.center,
             child: TabBar(
               controller: _tabController,
               isScrollable: true,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white.withOpacity(0.7),
-              indicatorColor: Colors.white,
+              labelColor: themeColor,
+              unselectedLabelColor: themeColor,
+              indicatorColor: themeColor,
               indicatorSize: TabBarIndicatorSize.label,
-              labelPadding: const EdgeInsets.symmetric(horizontal: 24),
+              labelPadding: const EdgeInsets.symmetric(horizontal: 20),
               tabs: const [
                 Tab(text: "Drones"),
                 Tab(text: "Parts"),
@@ -84,7 +80,6 @@ class _ReturnedProductsPageState extends State<ReturnedProductsPage>
             );
           }
 
-          // ✅ SHOW ONLY "Network Error"
           if (result.hasException) {
             return Center(
               child: Padding(

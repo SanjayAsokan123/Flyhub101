@@ -9,9 +9,7 @@ class RoleManager {
   static const String _buyerIdKey = "buyer_id";
   static const String _sellerIdKey = "seller_id";
   static const String _userIdKey = "user_id"; // NEW: for Firebase UID
-
   static const String _defaultRole = "guest";
-
   static String? _cachedRole;
   static String? _cachedBuyerId;
   static String? _cachedSellerId;

@@ -17,7 +17,7 @@ import '../../Login/SellerLoginPage.dart';
 import '../../Login/splashscreen.dart';
 import '../../SellerBookingStatuses/Pending_Products_Page.dart';
 import '../../SellerBookingStatuses/Rejected_Products_Page.dart';
-import '../../Orders/Return_Product_Page.dart';
+// import '../../Orders/Return_Product_Page.dart';
 import '../../Orders/Seller_Order_Page.dart';
 // Rental pages
 import '../../SellerBookingStatuses/Seller_Drone_Rental_Page.dart';
@@ -26,7 +26,7 @@ import '../../SellerBookingStatuses/Seller_Pilot_Rental_Page.dart';
 import '../../SellerBookingStatuses/Seller_Return_Policy.dart';
 import '../../SellerBookingStatuses/Seller_Shipping_Policy.dart';
 import '../../SellerBookingStatuses/ServiceBookingStatus.dart';
-import '../../Orders/Sold_Product_Page.dart';
+// import '../../Orders/Sold_Product_Page.dart';
 import '../../SellerAddingForm/add_accessories_form.dart';
 import '../../SellerAddingForm/add_drone_rental_form.dart';
 import '../../SellerAddingForm/add_hire_pilots_form.dart';
@@ -78,7 +78,7 @@ class _SellerPageState extends State<SellerPage> {
     'instagram': 'https://www.instagram.com/flyhub_info',
     'linkedin': 'https://www.linkedin.com/company/flyhubinfo',
     'facebook': 'https://www.facebook.com/share/1A8fBiqxmt/',
-    'whatsapp': 'https://whatsapp.com/channel/0029VbCWqYHJP219qPZVns0P',
+    'whatsapp': 'https://wa.me/6379800193', // Replace with your number
   };
 
   final String graphqlUrl = EnvConfig.baseUrl;
@@ -1478,24 +1478,24 @@ class _SellerPageState extends State<SellerPage> {
 
   List<Widget> _buildProductStatusItems() {
     return [
-      _buildMenuItem(
-        title: "Sold Products",
-        icon: Icons.check_circle_outline,
-        onTap: () {
-          if (_sellerId == null) {
-            _showMissingSellerSnack();
-            return;
-          }
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => SoldProductsPage(sellerCustomId: _sellerId!),
-            ),
-          );
-        },
-        disabled: !_isApproved,
-        iconColor: themeColor,
-      ),
+      // _buildMenuItem(
+      //   title: "Sold Products",
+      //   icon: Icons.check_circle_outline,
+      //   onTap: () {
+      //     if (_sellerId == null) {
+      //       _showMissingSellerSnack();
+      //       return;
+      //     }
+      //     Navigator.push(
+      //       context,
+      //       MaterialPageRoute(
+      //         builder: (_) => SoldProductsPage(sellerCustomId: _sellerId!),
+      //       ),
+      //     );
+      //   },
+      //   disabled: !_isApproved,
+      //   iconColor: themeColor,
+      // ),
       _buildMenuItem(
         title: "Rejected Products",
         icon: Icons.cancel_outlined,
@@ -1550,16 +1550,16 @@ class _SellerPageState extends State<SellerPage> {
         disabled: !_isApproved,
         iconColor: themeColor,
       ),
-      _buildMenuItem(
-        title: "Return Products",
-        icon: Icons.keyboard_return_outlined,
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => ReturnedProductsPage(sellerCustomId: _sellerId!)),
-        ),
-        disabled: !_isApproved,
-        iconColor: themeColor,
-      ),
+      // _buildMenuItem(
+      //   title: "Return Products",
+      //   icon: Icons.keyboard_return_outlined,
+      //   onTap: () => Navigator.push(
+      //     context,
+      //     MaterialPageRoute(builder: (_) => ReturnedProductsPage(sellerCustomId: _sellerId!)),
+      //   ),
+      //   disabled: !_isApproved,
+      //   iconColor: themeColor,
+      // ),
     ];
   }
 
