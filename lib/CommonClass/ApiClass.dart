@@ -870,6 +870,8 @@ mutation ChangeSellerPassword($email: String!, $newPassword: String!) {
     }
   }
 
+  // Update this method in your ApiClass.dart
+
   Future<Map<String, dynamic>> bookPilot({
     required String pilotId,
     required String buyerId,
@@ -880,6 +882,7 @@ mutation ChangeSellerPassword($email: String!, $newPassword: String!) {
     required String date,
     required String startTime,
     required String endTime,
+    required bool isBuyerPilot, // Add this parameter
   }) async {
     final url = EnvConfig.baseUrl;
 
@@ -891,6 +894,19 @@ mutation ChangeSellerPassword($email: String!, $newPassword: String!) {
       booking {
         bookingId
         status
+        pilotName
+        pilotType
+        date
+        startTime
+        endTime
+      }
+      bookingSummary {
+        bookingId
+        pilotName
+        date
+        time
+        duration
+        totalAmount
       }
     }
   }
@@ -907,8 +923,13 @@ mutation ChangeSellerPassword($email: String!, $newPassword: String!) {
         "date": date,
         "startTime": startTime,
         "endTime": endTime,
+        "pilotType": isBuyerPilot ? "buyer" : "seller", // Add pilot type
       }
     };
+
+    debugPrint("📤 Booking pilot with type: ${isBuyerPilot ? 'buyer' : 'seller'}");
+    debugPrint("📤 Pilot ID: $pilotId");
+    debugPrint("📤 Variables: ${jsonEncode(variables)}");
 
     final body = jsonEncode({
       "query": mutation,
@@ -924,8 +945,12 @@ mutation ChangeSellerPassword($email: String!, $newPassword: String!) {
 
       final json = jsonDecode(res.body);
 
+      debugPrint("📥 Response: ${res.statusCode}");
+      debugPrint("📥 Body: ${jsonEncode(json)}");
+
       // ❌ GraphQL-level error
       if (json["errors"] != null && json["errors"].isNotEmpty) {
+        debugPrint("❌ GraphQL errors: ${json["errors"]}");
         return {
           "success": false,
           "message": json["errors"][0]["message"],
@@ -936,21 +961,25 @@ mutation ChangeSellerPassword($email: String!, $newPassword: String!) {
       final bookPilot = json["data"]?["bookPilot"];
 
       if (bookPilot == null) {
+        debugPrint("❌ No booking data in response");
         return {
           "success": false,
           "message": "Invalid server response",
         };
       }
 
+      debugPrint("✅ Booking response: ${bookPilot["success"]}");
       return {
         "success": bookPilot["success"] ?? false,
-        "message": bookPilot["message"] ,
+        "message": bookPilot["message"] ?? "Unknown response",
         "booking": bookPilot["booking"],
+        "bookingSummary": bookPilot["bookingSummary"],
       };
     } catch (e) {
+      debugPrint("❌ Exception in bookPilot: $e");
       return {
         "success": false,
-        "message": e.toString(),
+        "message": "Network error: ${e.toString()}",
       };
     }
   }
@@ -1374,9 +1403,9 @@ query ApprovedJobsPaginated(\$page: Int!, \$limit: Int!, \$query: String, \$sear
   }
 }
 """;
-  // In your ApiClass.dart, add these methods:
 
-// Method for paginated pilots query
+
+// // Method for paginated pilots query
   Future<Map<String, dynamic>> getPilotsPaginated({
     required int page,
     required int limit,
@@ -1451,7 +1480,312 @@ query ApprovedHirePilotsPaginated(\$page: Int!, \$limit: Int!, \$query: String, 
 }
 """;
 
+// In ApiClass.dart - Updated method
+  Future<Map<String, dynamic>> getAllPilotsPaginated({
+    required int page,
+    required int limit,
+    String? query,
+    Map<String, dynamic>? search,
+  }) async {
+    const String queryString = """
+  query GetAllApprovedPilotsPaginated(
+    \$page: Int!, 
+    \$limit: Int!, 
+    \$query: String, 
+    \$search: CombinedPilotSearchInput
+  ) {
+    getAllApprovedPilotsPaginated(
+      page: \$page, 
+      limit: \$limit, 
+      query: \$query, 
+      search: \$search
+    ) {
+      items {
+        _id
+        pilotId
+        pilotName
+        pilotCompany
+        location
+        availability
+        specification
+        price {
+          perHour
+          perDay
+        }
+        description
+        source
+        displayId
+        contactPerson
+        contactEmail
+        contactPhone
+        certifications {
+          url
+        }
+        resume {
+          url
+        }
+        profilePhoto {
+          url
+        }
+        adminStatus
+        buyerStatus
+        createdAt
+      }
+      totalCount
+      page
+      limit
+      pageCount
+    }
+  }
+  """;
 
+    try {
+      final client = await GraphQLService.initClient();
+      final result = await client.query(
+        QueryOptions(
+          document: gql(queryString),
+          variables: {
+            "page": page,
+            "limit": limit,
+            "query": query ?? "",
+            "search": search ?? {},
+          },
+        ),
+      );
+
+      if (result.hasException) {
+        debugPrint("❌ GraphQL Error: ${result.exception}");
+        throw Exception("Failed to fetch pilots: ${result.exception}");
+      }
+
+      final data = result.data?["getAllApprovedPilotsPaginated"];
+      if (data == null) {
+        throw Exception("No data received from server");
+      }
+
+      return data;
+    } catch (e) {
+      debugPrint("Error fetching combined pilots: $e");
+
+      // Fallback to separate queries if combined query fails
+      try {
+        debugPrint("⚠ Trying fallback to separate queries...");
+        return await _getPilotsFallback(
+          page: page,
+          limit: limit,
+          query: query,
+          search: search,
+        );
+      } catch (fallbackError) {
+        debugPrint("Fallback also failed: $fallbackError");
+        throw Exception("Failed to fetch pilots: $e");
+      }
+    }
+  }
+
+// Fallback method if combined query doesn't exist yet
+  Future<Map<String, dynamic>> _getPilotsFallback({
+    required int page,
+    required int limit,
+    String? query,
+    Map<String, dynamic>? search,
+  }) async {
+    // Fetch seller pilots
+    final sellerQuery = """
+  query ApprovedHirePilotsPaginated(
+    \$page: Int!, 
+    \$limit: Int!, 
+    \$query: String, 
+    \$search: HirePilotSearchInput
+  ) {
+    approvedHirePilotsPaginated(
+      page: \$page, 
+      limit: \$limit, 
+      query: \$query, 
+      search: \$search
+    ) {
+      items {
+        pilotId
+        pilotName
+        pilotCompany
+        location
+        specification
+        availability
+        price {
+          perHour
+          perDay
+        }
+        certifications {
+          url
+        }
+        resume {
+          url
+        }
+        description
+        newemail
+        newphoneNumber
+        adminStatus
+        buyerStatus
+        seller {
+          name
+          email
+          phoneNumber
+        }
+      }
+      totalCount
+      page
+      limit
+      pageCount
+    }
+  }
+  """;
+
+    // Fetch buyer pilots
+    final buyerQuery = """
+  query GetApprovedPilotsPaginated(
+    \$page: Int!, 
+    \$limit: Int!, 
+    \$query: String, 
+    \$search: JSON
+  ) {
+    getApprovedPilotsPaginated(
+      page: \$page, 
+      limit: \$limit, 
+      query: \$query, 
+      search: \$search
+    ) {
+      items {
+        _id
+        buyerPilotId
+        pilotName
+        pilotCompany
+        location
+        availability
+        specification
+        price {
+          perHour
+          perDay
+        }
+        profilePhoto {
+          url
+        }
+        certifications {
+          url
+        }
+        description
+        newemail
+        newphoneNumber
+        adminStatus
+        buyerStatus
+        buyer {
+          name
+          email
+          phoneNumber
+        }
+        createdAt
+      }
+      totalCount
+      pageCount
+      currentPage
+      hasNextPage
+    }
+  }
+  """;
+
+    try {
+      final client = await GraphQLService.initClient();
+
+      // Fetch both in parallel
+      final sellerResult = await client.query(
+        QueryOptions(
+          document: gql(sellerQuery),
+          variables: {
+            "page": page,
+            "limit": limit ~/ 2, // Half for sellers
+            "query": query ?? "",
+            "search": search ?? {},
+          },
+        ),
+      );
+
+      final buyerResult = await client.query(
+        QueryOptions(
+          document: gql(buyerQuery),
+          variables: {
+            "page": page,
+            "limit": limit ~/ 2, // Half for buyers
+            "query": query ?? "",
+            "search": search ?? {},
+          },
+        ),
+      );
+
+      // Combine results
+      final sellerData = sellerResult.data?["approvedHirePilotsPaginated"] ?? {"items": [], "totalCount": 0};
+      final buyerData = buyerResult.data?["getApprovedPilotsPaginated"] ?? {"items": [], "totalCount": 0};
+
+      // Transform seller pilots
+      final sellerItems = (sellerData["items"] as List).map((item) {
+        return {
+          ...item,
+          "_id": item["pilotId"],
+          "source": "seller",
+          "displayId": item["pilotId"],
+          "contactPerson": item["seller"]?["name"],
+          "contactEmail": item["newemail"] ?? item["seller"]?["email"],
+          "contactPhone": item["newphoneNumber"] ?? item["seller"]?["phoneNumber"],
+        };
+      }).toList();
+
+      // Transform buyer pilots
+      final buyerItems = (buyerData["items"] as List).map((item) {
+        return {
+          ...item,
+          "pilotId": item["buyerPilotId"],
+          "source": "buyer",
+          "displayId": item["buyerPilotId"],
+          "contactPerson": item["buyer"]?["name"],
+          "contactEmail": item["newemail"] ?? item["buyer"]?["email"],
+          "contactPhone": item["newphoneNumber"] ?? item["buyer"]?["phoneNumber"],
+        };
+      }).toList();
+
+      // Combine and paginate
+      final allItems = [...sellerItems, ...buyerItems];
+      final startIndex = (page - 1) * limit;
+      final endIndex = startIndex + limit;
+      final paginatedItems = allItems.sublist(
+        startIndex.clamp(0, allItems.length),
+        endIndex.clamp(0, allItems.length),
+      );
+
+      return {
+        "items": paginatedItems,
+        "totalCount": allItems.length,
+        "page": page,
+        "limit": limit,
+        "pageCount": (allItems.length / limit).ceil(),
+      };
+    } catch (e) {
+      debugPrint("Fallback error: $e");
+      throw Exception("Fallback failed: $e");
+    }
+  }
+
+  //
+  // Future<Map<String, dynamic>> getPilotsPaginated({
+  //   required int page,
+  //   required int limit,
+  //   String? query,
+  //   Map<String, dynamic>? search,
+  // }) async {
+  //   return await getAllPilotsPaginated(
+  //     page: page,
+  //     limit: limit,
+  //     query: query,
+  //     search: search,
+  //   );
+  // }
   // ============================================================
   // 🧠 Helper Methods
   // ============================================================
@@ -1500,5 +1834,4 @@ query ApprovedHirePilotsPaginated(\$page: Int!, \$limit: Int!, \$query: String, 
 
     return "GraphQL operation failed";
   }
-
 }

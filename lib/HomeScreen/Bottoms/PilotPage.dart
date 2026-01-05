@@ -159,6 +159,8 @@ class _PilotPageState extends State<PilotPage> {
     });
   }
 
+  // In PilotPage.dart, update the fetchPilots() method:
+
   Future<void> fetchPilots() async {
     try {
       if (currentPage == 1) {
@@ -182,7 +184,8 @@ class _PilotPageState extends State<PilotPage> {
       // Add text search to query if exists
       final String? queryText = _searchController.text.isNotEmpty ? _searchController.text : null;
 
-      final result = await _apiClass.getPilotsPaginated(
+      // ✅ CHANGE THIS LINE: Use getAllPilotsPaginated instead of getPilotsPaginated
+      final result = await _apiClass.getAllPilotsPaginated(
         page: currentPage,
         limit: limit,
         query: queryText,
@@ -225,12 +228,11 @@ class _PilotPageState extends State<PilotPage> {
     } catch (e) {
       if (!mounted) return;
 
-      // debugPrint("Error fetching pilots: $e");
+      debugPrint("Error fetching pilots: $e");
 
       setState(() {
         isInitialLoading = false;
         isLoadingMore = false;
-        // Ensure filteredList is not null even on error
         if (currentPage == 1) {
           pilotList = [];
           filteredList = [];
@@ -454,12 +456,29 @@ class _PilotPageState extends State<PilotPage> {
     final isAuthenticated = await _checkBuyerAuth();
     if (!isAuthenticated) return;
 
+    // Check if it's a seller pilot or buyer pilot
+    final String source = pilot['source'] ?? 'seller';
+    final bool isBuyerPilot = source == 'buyer';
+
+    // Get the correct pilot ID
+    final String pilotId;
+    if (isBuyerPilot) {
+      pilotId = pilot['buyerPilotId'] ?? pilot['pilotId'] ?? '';
+    } else {
+      pilotId = pilot['pilotId'] ?? '';
+    }
+
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => PilotBookNowPage(pilot: pilot),
+        builder: (_) => PilotBookNowPage(
+          pilot: pilot,
+          isBuyerPilot: isBuyerPilot,
+          pilotId: pilotId,
+        ),
       ),
-    ).then((_) => _loadCartCount());
+    );
   }
 
   Future<void> _navigateToBecomePilot() async {
@@ -567,18 +586,39 @@ class _PilotPageState extends State<PilotPage> {
   }
 
   Widget _buildPilotCard(Map<String, dynamic> pilot) {
-    final certs = pilot['certifications'] ?? [];
-    final imageUrl = (certs.isNotEmpty && certs[0]['url'] != null)
-        ? certs[0]['url'] as String
-        : "";
+    final String source = pilot['source'] ?? 'seller';
+    final bool isBuyerPilot = source == 'buyer';
 
-    final lowerUrl = imageUrl.toLowerCase();
-    final isImage = lowerUrl.endsWith('.jpg') ||
-        lowerUrl.endsWith('.jpeg') ||
-        lowerUrl.endsWith('.png') ||
-        lowerUrl.endsWith('.webp');
+    // Handle images from different sources
+    String? imageUrl;
+    if (isBuyerPilot) {
+      // For buyer pilots, use profilePhoto
+      if (pilot['profilePhoto'] != null && pilot['profilePhoto'] is Map) {
+        imageUrl = pilot['profilePhoto']['url'];
+      }
+    } else {
+      // For seller pilots, use certifications or resume
+      if (pilot['certifications'] != null &&
+          pilot['certifications'] is List &&
+          pilot['certifications'].isNotEmpty) {
+        final firstCert = pilot['certifications'][0];
+        if (firstCert is Map && firstCert['url'] != null) {
+          imageUrl = firstCert['url'];
+        }
+      } else if (pilot['resume'] != null &&
+          pilot['resume'] is Map &&
+          pilot['resume']['url'] != null) {
+        imageUrl = pilot['resume']['url'];
+      }
+    }
 
-    final hasCertification = !isImage && imageUrl.isNotEmpty;
+    // Get display ID
+    final displayId = pilot['displayId'] ?? pilot['pilotId'] ?? '';
+
+    // Get contact info
+    final contactPerson = pilot['contactPerson'] ?? '';
+    final contactEmail = pilot['contactEmail'] ?? pilot['newemail'] ?? '';
+    final contactPhone = pilot['contactPhone'] ?? pilot['newphoneNumber'] ?? '';
 
     return Container(
       decoration: BoxDecoration(
@@ -610,19 +650,72 @@ class _PilotPageState extends State<PilotPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Source badge
+                if (isBuyerPilot)
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: Colors.blue),
+                    ),
+                    child: Text(
+                      'Buyer Pilot',
+                      style: GoogleFonts.inter(
+                        color: Colors.blue,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.green[50],
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: Colors.green),
+                    ),
+                    child: Text(
+                      'Seller Pilot',
+                      style: GoogleFonts.inter(
+                        color: Colors.green,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+
+                SizedBox(height: 8),
+
+                // Pilot info
                 Expanded(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Profile image
                       Column(
                         children: [
-                          Stack(
-                            children: [
-                              ClipRRect(
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(
+                              ResponsiveUtils.getDynamicPadding(context, 0.02),
+                            ),
+                            child: Container(
+                              width: ResponsiveUtils.getPilotImageSize(context),
+                              height: ResponsiveUtils.getPilotImageSize(context),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
                                 borderRadius: BorderRadius.circular(
                                   ResponsiveUtils.getDynamicPadding(context, 0.02),
                                 ),
-                                child: Container(
+                              ),
+                              child: imageUrl != null
+                                  ? CachedNetworkImage(
+                                imageUrl: imageUrl,
+                                width: ResponsiveUtils.getPilotImageSize(context),
+                                height: ResponsiveUtils.getPilotImageSize(context),
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => Container(
                                   width: ResponsiveUtils.getPilotImageSize(context),
                                   height: ResponsiveUtils.getPilotImageSize(context),
                                   decoration: BoxDecoration(
@@ -631,80 +724,20 @@ class _PilotPageState extends State<PilotPage> {
                                       ResponsiveUtils.getDynamicPadding(context, 0.02),
                                     ),
                                   ),
-                                  child: isImage
-                                      ? CachedNetworkImage(
-                                    imageUrl: imageUrl,
-                                    width: ResponsiveUtils.getPilotImageSize(context),
-                                    height: ResponsiveUtils.getPilotImageSize(context),
-                                    fit: BoxFit.cover,
-                                    placeholder: (_, __) => Container(
-                                      width: ResponsiveUtils.getPilotImageSize(context),
-                                      height: ResponsiveUtils.getPilotImageSize(context),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF8FAFC),
-                                        borderRadius: BorderRadius.circular(
-                                          ResponsiveUtils.getDynamicPadding(context, 0.02),
-                                        ),
-                                      ),
-                                    ),
-                                    errorWidget: (_, __, ___) => Icon(
-                                      Icons.person_rounded,
-                                      size: ResponsiveUtils.getPilotAvatarSize(context),
-                                      color: textSecondary.withOpacity(0.4),
-                                    ),
-                                  )
-                                      : Icon(
-                                    Icons.person_rounded,
-                                    size: ResponsiveUtils.getPilotAvatarSize(context),
-                                    color: textSecondary.withOpacity(0.4),
-                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          if (hasCertification)
-                            Container(
-                              margin: EdgeInsets.only(
-                                top: ResponsiveUtils.getPilotActionSpacing(context),
-                              ),
-                              width: ResponsiveUtils.getPilotCertButtonSize(context),
-                              child: InkWell(
-                                onTap: () => launchUrl(Uri.parse(imageUrl)),
-                                child: Container(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: ResponsiveUtils.getDynamicPadding(context, 0.015),
-                                    vertical: ResponsiveUtils.getDynamicPadding(context, 0.008),
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: accentColor.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(
-                                      ResponsiveUtils.getDynamicPadding(context, 0.02),
-                                    ),
-                                    border: Border.all(color: accentColor.withOpacity(0.3)),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.visibility_outlined,
-                                        size: ResponsiveUtils.getPilotCertIconSize(context),
-                                        color: accentColor,
-                                      ),
-                                      SizedBox(width: ResponsiveUtils.getDynamicPadding(context, 0.004)),
-                                      Text(
-                                        "View Cert",
-                                        style: GoogleFonts.inter(
-                                          color: accentColor,
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: ResponsiveUtils.getSmallFontSize(context) - 2,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                errorWidget: (_, __, ___) => Icon(
+                                  Icons.person_rounded,
+                                  size: ResponsiveUtils.getPilotAvatarSize(context),
+                                  color: textSecondary.withOpacity(0.4),
                                 ),
+                              )
+                                  : Icon(
+                                Icons.person_rounded,
+                                size: ResponsiveUtils.getPilotAvatarSize(context),
+                                color: textSecondary.withOpacity(0.4),
                               ),
                             ),
+                          ),
                         ],
                       ),
                       SizedBox(width: ResponsiveUtils.getPilotActionSpacing(context)),
@@ -712,32 +745,27 @@ class _PilotPageState extends State<PilotPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  pilot['pilotName'] ?? 'Certified Pilot',
-                                  style: GoogleFonts.inter(
-                                    fontSize: ResponsiveUtils.getPilotNameFontSize(context),
-                                    fontWeight: FontWeight.w800,
-                                    color: textPrimary,
-                                    height: 1.3,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.005)),
-                                if (pilot['pilotCompany'] != null && pilot['pilotCompany'].toString().isNotEmpty)
-                                  Text(
-                                    pilot['pilotCompany'],
-                                    style: GoogleFonts.inter(
-                                      color: textSecondary,
-                                      fontSize: ResponsiveUtils.getBodyFontSize(context),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                              ],
+                            Text(
+                              pilot['pilotName'] ?? 'Certified Pilot',
+                              style: GoogleFonts.inter(
+                                fontSize: ResponsiveUtils.getPilotNameFontSize(context),
+                                fontWeight: FontWeight.w800,
+                                color: textPrimary,
+                                height: 1.3,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
+                            SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.005)),
+                            if (pilot['pilotCompany'] != null && pilot['pilotCompany'].toString().isNotEmpty)
+                              Text(
+                                pilot['pilotCompany'],
+                                style: GoogleFonts.inter(
+                                  color: textSecondary,
+                                  fontSize: ResponsiveUtils.getBodyFontSize(context),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.01)),
                             Row(
                               children: [
@@ -770,6 +798,19 @@ class _PilotPageState extends State<PilotPage> {
                                   fontWeight: FontWeight.w500,
                                 ),
                                 maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            // Contact info
+                            SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.01)),
+                            if (contactPerson.isNotEmpty)
+                              Text(
+                                'Contact: $contactPerson',
+                                style: GoogleFonts.inter(
+                                  color: textSecondary,
+                                  fontSize: ResponsiveUtils.getSmallFontSize(context),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                           ],
@@ -865,6 +906,50 @@ class _PilotPageState extends State<PilotPage> {
       ),
     );
   }
+
+  // Future<void> _handleBookNow(Map<String, dynamic> pilot) async {
+  //   final isAuthenticated = await _checkBuyerAuth();
+  //   if (!isAuthenticated) return;
+  //
+  //   // Get the correct pilot ID
+  //   final String pilotId;
+  //   final String source = pilot['source'] ?? 'seller';
+  //
+  //   if (source == 'buyer') {
+  //     // For buyer pilots, use buyerPilotId if available, otherwise use pilotId
+  //     pilotId = pilot['buyerPilotId'] ?? pilot['pilotId'] ?? '';
+  //   } else {
+  //     // For seller pilots, use pilotId
+  //     pilotId = pilot['pilotId'] ?? '';
+  //   }
+  //
+  //   // Get contact information
+  //   final contactPerson = pilot['contactPerson'] ?? '';
+  //   final contactEmail = pilot['contactEmail'] ?? pilot['newemail'] ?? '';
+  //   final contactPhone = pilot['contactPhone'] ?? pilot['newphoneNumber'] ?? '';
+  //
+  //   // Create a map with all necessary information for booking
+  //   final bookingInfo = {
+  //     ...pilot,
+  //     'pilotId': pilotId,
+  //     'isBuyerPilot': source == 'buyer',
+  //     'contactPerson': contactPerson,
+  //     'contactEmail': contactEmail,
+  //     'contactPhone': contactPhone,
+  //   };
+  //
+  //   // Navigate to booking page
+  //   Navigator.push(
+  //     context,
+  //     MaterialPageRoute(
+  //       builder: (_) => PilotBookNowPage(
+  //         pilot: bookingInfo,
+  //         isBuyerPilot: source == 'buyer',
+  //         pilotId: pilotId,
+  //       ),
+  //     ),
+  //   ).then((_) => _loadCartCount());
+  // }
 
   Widget _buildLoadingIndicator() {
     return Padding(
