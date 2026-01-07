@@ -589,37 +589,6 @@ class _PilotPageState extends State<PilotPage> {
     final String source = pilot['source'] ?? 'seller';
     final bool isBuyerPilot = source == 'buyer';
 
-    // Handle images from different sources
-    String? imageUrl;
-    if (isBuyerPilot) {
-      // For buyer pilots, use profilePhoto
-      if (pilot['profilePhoto'] != null && pilot['profilePhoto'] is Map) {
-        imageUrl = pilot['profilePhoto']['url'];
-      }
-    } else {
-      // For seller pilots, use certifications or resume
-      if (pilot['certifications'] != null &&
-          pilot['certifications'] is List &&
-          pilot['certifications'].isNotEmpty) {
-        final firstCert = pilot['certifications'][0];
-        if (firstCert is Map && firstCert['url'] != null) {
-          imageUrl = firstCert['url'];
-        }
-      } else if (pilot['resume'] != null &&
-          pilot['resume'] is Map &&
-          pilot['resume']['url'] != null) {
-        imageUrl = pilot['resume']['url'];
-      }
-    }
-
-    // Get display ID
-    final displayId = pilot['displayId'] ?? pilot['pilotId'] ?? '';
-
-    // Get contact info
-    final contactPerson = pilot['contactPerson'] ?? '';
-    final contactEmail = pilot['contactEmail'] ?? pilot['newemail'] ?? '';
-    final contactPhone = pilot['contactPhone'] ?? pilot['newphoneNumber'] ?? '';
-
     return Container(
       decoration: BoxDecoration(
         color: surfaceColor,
@@ -649,176 +618,102 @@ class _PilotPageState extends State<PilotPage> {
             padding: ResponsiveUtils.getPilotCardPadding(context),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Source badge
-                if (isBuyerPilot)
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: Colors.blue),
-                    ),
-                    child: Text(
-                      'Buyer Pilot',
-                      style: GoogleFonts.inter(
-                        color: Colors.blue,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  )
-                else
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.green[50],
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: Colors.green),
-                    ),
-                    child: Text(
-                      'Seller Pilot',
-                      style: GoogleFonts.inter(
-                        color: Colors.green,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-
                 SizedBox(height: 8),
 
-                // Pilot info
-                Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Profile image
-                      Column(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(
-                              ResponsiveUtils.getDynamicPadding(context, 0.02),
-                            ),
-                            child: Container(
-                              width: ResponsiveUtils.getPilotImageSize(context),
-                              height: ResponsiveUtils.getPilotImageSize(context),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(
-                                  ResponsiveUtils.getDynamicPadding(context, 0.02),
-                                ),
-                              ),
-                              child: imageUrl != null
-                                  ? CachedNetworkImage(
-                                imageUrl: imageUrl,
-                                width: ResponsiveUtils.getPilotImageSize(context),
-                                height: ResponsiveUtils.getPilotImageSize(context),
-                                fit: BoxFit.cover,
-                                placeholder: (_, __) => Container(
-                                  width: ResponsiveUtils.getPilotImageSize(context),
-                                  height: ResponsiveUtils.getPilotImageSize(context),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF8FAFC),
-                                    borderRadius: BorderRadius.circular(
-                                      ResponsiveUtils.getDynamicPadding(context, 0.02),
-                                    ),
-                                  ),
-                                ),
-                                errorWidget: (_, __, ___) => Icon(
-                                  Icons.person_rounded,
-                                  size: ResponsiveUtils.getPilotAvatarSize(context),
-                                  color: textSecondary.withOpacity(0.4),
-                                ),
-                              )
-                                  : Icon(
-                                Icons.person_rounded,
-                                size: ResponsiveUtils.getPilotAvatarSize(context),
-                                color: textSecondary.withOpacity(0.4),
-                              ),
-                            ),
-                          ),
-                        ],
+                // Pilot info - No image
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Placeholder icon instead of image
+                    Container(
+                      width: ResponsiveUtils.getPilotImageSize(context),
+                      height: ResponsiveUtils.getPilotImageSize(context),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F4F6),
+                        borderRadius: BorderRadius.circular(
+                          ResponsiveUtils.getDynamicPadding(context, 0.02),
+                        ),
                       ),
-                      SizedBox(width: ResponsiveUtils.getPilotActionSpacing(context)),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                      child: Center(
+                        child: Icon(
+                          Icons.person_outline_rounded,
+                          size: ResponsiveUtils.getPilotAvatarSize(context),
+                          color: primaryColor.withOpacity(0.6),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: ResponsiveUtils.getPilotActionSpacing(context)),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            pilot['pilotName'] ?? 'Certified Pilot',
+                            style: GoogleFonts.inter(
+                              fontSize: ResponsiveUtils.getPilotNameFontSize(context),
+                              fontWeight: FontWeight.w800,
+                              color: textPrimary,
+                              height: 1.3,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.005)),
+                          if (pilot['pilotCompany'] != null && pilot['pilotCompany'].toString().isNotEmpty)
                             Text(
-                              pilot['pilotName'] ?? 'Certified Pilot',
+                              pilot['pilotCompany'],
                               style: GoogleFonts.inter(
-                                fontSize: ResponsiveUtils.getPilotNameFontSize(context),
-                                fontWeight: FontWeight.w800,
-                                color: textPrimary,
-                                height: 1.3,
+                                color: textSecondary,
+                                fontSize: ResponsiveUtils.getBodyFontSize(context),
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.01)),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.location_on_outlined,
+                                size: ResponsiveUtils.getIconSize(context) - 4,
+                                color: textSecondary,
+                              ),
+                              SizedBox(width: ResponsiveUtils.getDynamicPadding(context, 0.006)),
+                              Expanded(
+                                child: Text(
+                                  pilot['location'] ?? 'Multiple Locations',
+                                  style: GoogleFonts.inter(
+                                    color: textSecondary,
+                                    fontSize: ResponsiveUtils.getBodyFontSize(context),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.005)),
+                          if (pilot['specification'] != null && pilot['specification'].toString().isNotEmpty)
+                            Text(
+                              pilot['specification'],
+                              style: GoogleFonts.inter(
+                                color: textSecondary,
+                                fontSize: ResponsiveUtils.getSmallFontSize(context),
+                                fontWeight: FontWeight.w500,
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.005)),
-                            if (pilot['pilotCompany'] != null && pilot['pilotCompany'].toString().isNotEmpty)
-                              Text(
-                                pilot['pilotCompany'],
-                                style: GoogleFonts.inter(
-                                  color: textSecondary,
-                                  fontSize: ResponsiveUtils.getBodyFontSize(context),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.01)),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.location_on_outlined,
-                                  size: ResponsiveUtils.getIconSize(context) - 4,
-                                  color: textSecondary,
-                                ),
-                                SizedBox(width: ResponsiveUtils.getDynamicPadding(context, 0.006)),
-                                Expanded(
-                                  child: Text(
-                                    pilot['location'] ?? 'Multiple Locations',
-                                    style: GoogleFonts.inter(
-                                      color: textSecondary,
-                                      fontSize: ResponsiveUtils.getBodyFontSize(context),
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.01)),
-                            if (pilot['specification'] != null && pilot['specification'].toString().isNotEmpty)
-                              Text(
-                                pilot['specification'],
-                                style: GoogleFonts.inter(
-                                  color: textSecondary,
-                                  fontSize: ResponsiveUtils.getSmallFontSize(context),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            // Contact info
-                            SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.01)),
-                            if (contactPerson.isNotEmpty)
-                              Text(
-                                'Contact: $contactPerson',
-                                style: GoogleFonts.inter(
-                                  color: textSecondary,
-                                  fontSize: ResponsiveUtils.getSmallFontSize(context),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                          ],
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
+                SizedBox(height: ResponsiveUtils.getDynamicHeight(context, 0.01)),
                 Container(
                   padding: EdgeInsets.only(
                     top: ResponsiveUtils.getPilotSectionPadding(context),
@@ -836,6 +731,7 @@ class _PilotPageState extends State<PilotPage> {
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Row(
                               children: [
@@ -865,6 +761,8 @@ class _PilotPageState extends State<PilotPage> {
                                 fontSize: ResponsiveUtils.getBodyFontSize(context),
                                 fontWeight: FontWeight.w500,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
@@ -880,6 +778,7 @@ class _PilotPageState extends State<PilotPage> {
                             elevation: ResponsiveUtils.getElevation(context),
                             padding: EdgeInsets.symmetric(
                               horizontal: ResponsiveUtils.getDynamicPadding(context, 0.015),
+                              vertical: ResponsiveUtils.getDynamicPadding(context, 0.008),
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(
@@ -906,50 +805,6 @@ class _PilotPageState extends State<PilotPage> {
       ),
     );
   }
-
-  // Future<void> _handleBookNow(Map<String, dynamic> pilot) async {
-  //   final isAuthenticated = await _checkBuyerAuth();
-  //   if (!isAuthenticated) return;
-  //
-  //   // Get the correct pilot ID
-  //   final String pilotId;
-  //   final String source = pilot['source'] ?? 'seller';
-  //
-  //   if (source == 'buyer') {
-  //     // For buyer pilots, use buyerPilotId if available, otherwise use pilotId
-  //     pilotId = pilot['buyerPilotId'] ?? pilot['pilotId'] ?? '';
-  //   } else {
-  //     // For seller pilots, use pilotId
-  //     pilotId = pilot['pilotId'] ?? '';
-  //   }
-  //
-  //   // Get contact information
-  //   final contactPerson = pilot['contactPerson'] ?? '';
-  //   final contactEmail = pilot['contactEmail'] ?? pilot['newemail'] ?? '';
-  //   final contactPhone = pilot['contactPhone'] ?? pilot['newphoneNumber'] ?? '';
-  //
-  //   // Create a map with all necessary information for booking
-  //   final bookingInfo = {
-  //     ...pilot,
-  //     'pilotId': pilotId,
-  //     'isBuyerPilot': source == 'buyer',
-  //     'contactPerson': contactPerson,
-  //     'contactEmail': contactEmail,
-  //     'contactPhone': contactPhone,
-  //   };
-  //
-  //   // Navigate to booking page
-  //   Navigator.push(
-  //     context,
-  //     MaterialPageRoute(
-  //       builder: (_) => PilotBookNowPage(
-  //         pilot: bookingInfo,
-  //         isBuyerPilot: source == 'buyer',
-  //         pilotId: pilotId,
-  //       ),
-  //     ),
-  //   ).then((_) => _loadCartCount());
-  // }
 
   Widget _buildLoadingIndicator() {
     return Padding(
