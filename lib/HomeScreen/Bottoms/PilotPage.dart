@@ -11,6 +11,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../CommonClass/ApiClass.dart';
+import '../../config/env.dart';
 import '../../services/graphql_client.dart';
 import '../../ApplyingBookingNow/PilotBookNow.dart';
 import '../Dynamichome.dart';
@@ -72,7 +73,9 @@ class _PilotPageState extends State<PilotPage> {
   @override
   void initState() {
     super.initState();
-
+    _verifyBuyerId().then((_) {
+      _checkCurrentUserPilotStatus();
+    });
     // Initialize lists
     pilotList = [];
     filteredList = [];
@@ -158,9 +161,151 @@ class _PilotPageState extends State<PilotPage> {
       isLoadingMore = false;
     });
   }
+// Add these variables at the top of _PilotPageState
+  Map<String, dynamic>? _currentUserPilotStatus;
+  bool _checkingUserPilotStatus = false;
 
-  // In PilotPage.dart, update the fetchPilots() method:
+  Future<void> _checkCurrentUserPilotStatus() async {
+    try {
+      debugPrint("=== CHECKING USER PILOT STATUS ===");
 
+      final role = await RoleManager.getLocalRole();
+      debugPrint("User role: $role");
+
+      if (role != "buyer") {
+        debugPrint("User is not a buyer, cannot become pilot");
+        setState(() {
+          _currentUserPilotStatus = {'isApproved': false, 'hasRegistration': false};
+          _checkingUserPilotStatus = false;
+        });
+        return;
+      }
+
+      final buyerId = await RoleManager.getBuyerId();
+      debugPrint("Buyer ID from RoleManager: $buyerId");
+
+      if (buyerId == null || buyerId.isEmpty) {
+        debugPrint("Buyer ID is null or empty");
+        setState(() {
+          _currentUserPilotStatus = {'isApproved': false, 'hasRegistration': false};
+          _checkingUserPilotStatus = false;
+        });
+        return;
+      }
+
+      // ✅ CRITICAL: Check if this matches the buyerId in your pilot data
+      // Your pilot has buyerId: "FLYHUBB0004"
+      debugPrint("Expected buyerId for comparison: $buyerId");
+      debugPrint("Pilot data shows buyerId: FLYHUBB0004");
+
+      final String query = '''
+    query CheckUserPilotStatus(\$buyerId: String!) {
+      buyerPilotsByBuyer(buyerId: \$buyerId) {
+        buyerPilotId
+        pilotName
+        adminStatus
+        buyerId
+      }
+    }
+    ''';
+
+      debugPrint("Executing GraphQL query for buyerId: $buyerId");
+
+      final client = GraphQLClient(
+        link: HttpLink(EnvConfig.baseUrl),
+        cache: GraphQLCache(),
+      );
+
+      final result = await client.query(
+        QueryOptions(
+          document: gql(query),
+          variables: {'buyerId': buyerId},
+          fetchPolicy: FetchPolicy.networkOnly,
+        ),
+      );
+
+      debugPrint("GraphQL result: ${result.data}");
+      debugPrint("GraphQL errors: ${result.exception}");
+
+      if (result.hasException) {
+        debugPrint("GraphQL Error: ${result.exception}");
+        setState(() {
+          _currentUserPilotStatus = {'isApproved': false, 'hasRegistration': false};
+          _checkingUserPilotStatus = false;
+        });
+        return;
+      }
+
+      final List<dynamic> buyerPilots = result.data?['buyerPilotsByBuyer'] ?? [];
+      debugPrint("Number of pilot registrations found: ${buyerPilots.length}");
+
+      bool hasApprovedPilot = false;
+      bool hasRegistration = buyerPilots.isNotEmpty;
+
+      for (var pilot in buyerPilots) {
+        final status = pilot['adminStatus']?.toString().toLowerCase();
+        final pilotId = pilot['buyerPilotId'];
+        final pilotBuyerId = pilot['buyerId'];
+        debugPrint("Pilot ID: $pilotId, Buyer ID: $pilotBuyerId, Status: $status");
+
+        if (status == 'approved') {
+          hasApprovedPilot = true;
+          debugPrint("✅ FOUND APPROVED PILOT: $pilotId");
+          break;
+        }
+      }
+
+      debugPrint("Final Status:");
+      debugPrint("  - hasApprovedPilot: $hasApprovedPilot");
+      debugPrint("  - hasRegistration: $hasRegistration");
+
+      setState(() {
+        _currentUserPilotStatus = {
+          'isApproved': hasApprovedPilot,
+          'hasRegistration': hasRegistration,
+        };
+        _checkingUserPilotStatus = false;
+      });
+
+    } catch (e) {
+      debugPrint("Error checking user pilot status: $e");
+      setState(() {
+        _currentUserPilotStatus = {'isApproved': false, 'hasRegistration': false};
+        _checkingUserPilotStatus = false;
+      });
+    }
+  }
+  Future<void> _verifyBuyerId() async {
+    try {
+      // Get buyerId from RoleManager
+      final savedBuyerId = await RoleManager.getBuyerId();
+      debugPrint("Saved Buyer ID from RoleManager: $savedBuyerId");
+
+      // Check Firebase for current user's buyer document
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        debugPrint("Firebase UID: ${user.uid}");
+
+        final buyerDoc = await FirebaseFirestore.instance
+            .collection('buyers')
+            .where('firebaseUid', isEqualTo: user.uid)
+            .limit(1)
+            .get();
+
+        if (buyerDoc.docs.isNotEmpty) {
+          final actualBuyerId = buyerDoc.docs.first.id;
+          debugPrint("Actual Buyer ID from Firestore: $actualBuyerId");
+
+          if (savedBuyerId != actualBuyerId) {
+            debugPrint("⚠️ MISMATCH! Updating RoleManager with correct buyerId");
+            await RoleManager.saveBuyerId(actualBuyerId);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error verifying buyer ID: $e");
+    }
+  }
   Future<void> fetchPilots() async {
     try {
       if (currentPage == 1) {
@@ -481,30 +626,84 @@ class _PilotPageState extends State<PilotPage> {
     );
   }
 
+  // Future<void> _navigateToBecomePilot() async {
+  //   debugPrint("DEBUG: Starting navigate to become pilot...");
+  //
+  //   final role = await RoleManager.getLocalRole();
+  //   debugPrint("DEBUG: Current role from RoleManager: $role");
+  //
+  //   if (role != "buyer") {
+  //     debugPrint("DEBUG: User is not a buyer, showing auth dialog");
+  //     await _showAuthRequiredDialog(role);
+  //     return;
+  //   }
+  //
+  //   // Get buyerId from RoleManager
+  //   final buyerId = await RoleManager.getBuyerId();
+  //   debugPrint("DEBUG: BuyerId from RoleManager: $buyerId");
+  //
+  //   if (buyerId == null || buyerId.isEmpty) {
+  //     debugPrint("DEBUG: BuyerId is null or empty, checking Firebase...");
+  //
+  //     // Try to get from Firebase current user
+  //     final user = FirebaseAuth.instance.currentUser;
+  //     if (user != null) {
+  //       debugPrint("DEBUG: Firebase user found: ${user.uid}");
+  //       // Check Firestore for buyer document
+  //       try {
+  //         final buyerDoc = await FirebaseFirestore.instance
+  //             .collection('buyers')
+  //             .where('firebaseUid', isEqualTo: user.uid)
+  //             .limit(1)
+  //             .get();
+  //
+  //         if (buyerDoc.docs.isNotEmpty) {
+  //           final buyerData = buyerDoc.docs.first;
+  //           final foundBuyerId = buyerData.id;
+  //           debugPrint("DEBUG: Found buyer in Firestore: $foundBuyerId");
+  //
+  //           // Save it to RoleManager for future use
+  //           await RoleManager.saveBuyerId(foundBuyerId);
+  //
+  //           // Navigate with the found buyerId
+  //           _navigateWithBuyerId(foundBuyerId);
+  //           return;
+  //         }
+  //       } catch (e) {
+  //         debugPrint("DEBUG: Error fetching from Firestore: $e");
+  //       }
+  //     }
+  //
+  //     debugPrint("DEBUG: No buyerId found anywhere");
+  //     _showSnackBar("Could not retrieve your buyer information. Please logout and login again.");
+  //     return;
+  //   }
+  //
+  //   debugPrint("DEBUG: Found buyerId: $buyerId, navigating...");
+  //   _navigateWithBuyerId(buyerId);
+  // }
   Future<void> _navigateToBecomePilot() async {
-    debugPrint("DEBUG: Starting navigate to become pilot...");
+    // Check if user already has approved pilot
+    if (_currentUserPilotStatus?['isApproved'] == true) {
+      _showSnackBar(
+        "You are already an approved pilot! You can accept bookings from your profile.",
+        color: Colors.green,
+      );
+      return;
+    }
 
     final role = await RoleManager.getLocalRole();
-    debugPrint("DEBUG: Current role from RoleManager: $role");
 
     if (role != "buyer") {
-      debugPrint("DEBUG: User is not a buyer, showing auth dialog");
       await _showAuthRequiredDialog(role);
       return;
     }
 
-    // Get buyerId from RoleManager
     final buyerId = await RoleManager.getBuyerId();
-    debugPrint("DEBUG: BuyerId from RoleManager: $buyerId");
 
     if (buyerId == null || buyerId.isEmpty) {
-      debugPrint("DEBUG: BuyerId is null or empty, checking Firebase...");
-
-      // Try to get from Firebase current user
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        debugPrint("DEBUG: Firebase user found: ${user.uid}");
-        // Check Firestore for buyer document
         try {
           final buyerDoc = await FirebaseFirestore.instance
               .collection('buyers')
@@ -513,31 +712,41 @@ class _PilotPageState extends State<PilotPage> {
               .get();
 
           if (buyerDoc.docs.isNotEmpty) {
-            final buyerData = buyerDoc.docs.first;
-            final foundBuyerId = buyerData.id;
-            debugPrint("DEBUG: Found buyer in Firestore: $foundBuyerId");
-
-            // Save it to RoleManager for future use
+            final foundBuyerId = buyerDoc.docs.first.id;
             await RoleManager.saveBuyerId(foundBuyerId);
 
-            // Navigate with the found buyerId
+            // Check if this buyer already has a pending/rejected application
+            if (_currentUserPilotStatus?['hasRegistration'] == true) {
+              _showSnackBar(
+                "You already have a pilot application. Please wait for approval or contact support.",
+                color: Colors.orange,
+              );
+              return;
+            }
+
             _navigateWithBuyerId(foundBuyerId);
             return;
           }
         } catch (e) {
-          debugPrint("DEBUG: Error fetching from Firestore: $e");
+          debugPrint("Error: $e");
         }
       }
 
-      debugPrint("DEBUG: No buyerId found anywhere");
-      _showSnackBar("Could not retrieve your buyer information. Please logout and login again.");
+      _showSnackBar("Please login as a buyer first.");
       return;
     }
 
-    debugPrint("DEBUG: Found buyerId: $buyerId, navigating...");
+    // Check if already has a registration
+    if (_currentUserPilotStatus?['hasRegistration'] == true) {
+      _showSnackBar(
+        "You already have a pilot application. Please wait for approval.",
+        color: Colors.orange,
+      );
+      return;
+    }
+
     _navigateWithBuyerId(buyerId);
   }
-
   void _navigateWithBuyerId(String buyerId) {
     Navigator.push(
       context,
@@ -1896,6 +2105,148 @@ class _PilotPageState extends State<PilotPage> {
     );
   }
 
+  // Widget _buildHeaderSection() {
+  //   final int activeFilterCount = [
+  //     if (_searchController.text.isNotEmpty) 1,
+  //     if (selectedLocation.isNotEmpty) 1,
+  //     if (priceRange.start != 500 || priceRange.end != 5000) 1,
+  //     if (selectedSort != "Default") 1,
+  //   ].length;
+  //
+  //   return Container(
+  //     color: surfaceColor,
+  //     padding: EdgeInsets.symmetric(
+  //       horizontal: 16,
+  //       vertical: 12,
+  //     ),
+  //     child: Column(
+  //       children: [
+  //         Row(
+  //           children: [
+  //             // Back button - minimal
+  //             GestureDetector(
+  //               onTap: () => Navigator.pushReplacement(
+  //                 context,
+  //                 MaterialPageRoute(
+  //                   builder: (_) => const Dynamichome(selectedIndex: 0),
+  //                 ),
+  //               ),
+  //               child: Container(
+  //                 width: 40,
+  //                 height: 40,
+  //                 alignment: Alignment.center,
+  //                 child: Icon(
+  //                   Icons.arrow_back_ios_new_rounded,
+  //                   color: primaryColor,
+  //                   size: 20,
+  //                 ),
+  //               ),
+  //             ),
+  //             SizedBox(width: 8),
+  //             Expanded(
+  //               child: Text(
+  //                 "Certified Pilots",
+  //                 style: GoogleFonts.inter(
+  //                   fontWeight: FontWeight.w800,
+  //                   fontSize: 20,
+  //                   color: primaryColor,
+  //                   letterSpacing: -0.3,
+  //                 ),
+  //                 maxLines: 1,
+  //                 overflow: TextOverflow.ellipsis,
+  //               ),
+  //             ),
+  //
+  //             // Filter count badge (very compact)
+  //             if (activeFilterCount > 0)
+  //               Container(
+  //                 margin: EdgeInsets.only(right: 8),
+  //                 padding: EdgeInsets.all(4),
+  //                 decoration: BoxDecoration(
+  //                   color: accentColor.withOpacity(0.1),
+  //                   shape: BoxShape.circle,
+  //                   border: Border.all(color: accentColor.withOpacity(0.3)),
+  //                 ),
+  //                 child: Text(
+  //                   "$activeFilterCount",
+  //                   style: GoogleFonts.inter(
+  //                     color: accentColor,
+  //                     fontSize: 10,
+  //                     fontWeight: FontWeight.w800,
+  //                   ),
+  //                 ),
+  //               ),
+  //
+  //             // Become Pilot button with dynamic sizing
+  //             Container(
+  //               constraints: BoxConstraints(
+  //                 minWidth: 100,
+  //                 maxWidth: 130,
+  //               ),
+  //               height: 40,
+  //               child: ElevatedButton(
+  //                 onPressed: _navigateToBecomePilot,
+  //                 style: ElevatedButton.styleFrom(
+  //                   backgroundColor: primaryColor,
+  //                   foregroundColor: Colors.white,
+  //                   padding: EdgeInsets.symmetric(horizontal: 10),
+  //                   shape: RoundedRectangleBorder(
+  //                     borderRadius: BorderRadius.circular(8),
+  //                   ),
+  //                   elevation: 2,
+  //                 ),
+  //                 child: LayoutBuilder(
+  //                   builder: (context, constraints) {
+  //                     if (constraints.maxWidth < 110) {
+  //                       // Compact version
+  //                       return Row(
+  //                         mainAxisSize: MainAxisSize.min,
+  //                         children: [
+  //                           Icon(Icons.person_add_alt_1_rounded, size: 16),
+  //                           SizedBox(width: 4),
+  //                           Flexible(
+  //                             child: Text(
+  //                               "Become Pilot",
+  //                               style: TextStyle(
+  //                                 fontWeight: FontWeight.w600,
+  //                                 fontSize: 11,
+  //                               ),
+  //                               maxLines: 1,
+  //                               overflow: TextOverflow.ellipsis,
+  //                             ),
+  //                           ),
+  //                         ],
+  //                       );
+  //                     } else {
+  //                       // Full version
+  //                       return Row(
+  //                         mainAxisSize: MainAxisSize.min,
+  //                         children: [
+  //                           Icon(Icons.person_add_alt_1_rounded, size: 18),
+  //                           SizedBox(width: 6),
+  //                           Text(
+  //                             "Become Pilot",
+  //                             style: TextStyle(
+  //                               fontWeight: FontWeight.w700,
+  //                               fontSize: 13,
+  //                             ),
+  //                           ),
+  //                         ],
+  //                       );
+  //                     }
+  //                   },
+  //                 ),
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //
+  //         SizedBox(height: 16),
+  //         _buildSearchBar(),
+  //       ],
+  //     ),
+  //   );
+  // }
   Widget _buildHeaderSection() {
     final int activeFilterCount = [
       if (_searchController.text.isNotEmpty) 1,
@@ -1907,136 +2258,174 @@ class _PilotPageState extends State<PilotPage> {
     return Container(
       color: surfaceColor,
       padding: EdgeInsets.symmetric(
-        horizontal: ResponsiveUtils.getHorizontalPadding(context),
-        vertical: ResponsiveUtils.getVerticalPadding(context),
+        horizontal: 16,
+        vertical: 12,
       ),
       child: Column(
         children: [
-          SizedBox(
-            height: ResponsiveUtils.getAppBarHeight(context),
-            child: Row(
-              children: [
-                // Back button
-                IconButton(
-                  icon: Icon(
+          Row(
+            children: [
+              // Back button - minimal
+              GestureDetector(
+                onTap: () => Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const Dynamichome(selectedIndex: 0),
+                  ),
+                ),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  child: Icon(
                     Icons.arrow_back_ios_new_rounded,
                     color: primaryColor,
-                    size: ResponsiveUtils.getIconSize(context),
-                  ),
-                  onPressed: () => Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const Dynamichome(selectedIndex: 0),
-                    ),
+                    size: 20,
                   ),
                 ),
-
-                // Title section
-                Expanded(
-                  child: Container(
-                    padding: EdgeInsets.only(
-                      left: ResponsiveUtils.getDynamicPadding(context, 0.02),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Certified Pilots",
-                          style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w800,
-                            fontSize: ResponsiveUtils.getTitleFontSize(context),
-                            color: primaryColor,
-                            letterSpacing: -0.5,
-                            height: 1.1,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        SizedBox(
-                            height: ResponsiveUtils.getDynamicHeight(context, 0.003)),
-                        Row(
-                          children: [
-                            if (activeFilterCount > 0)
-                              Container(
-                                margin: EdgeInsets.only(left: 8),
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: accentColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: accentColor.withOpacity(0.3)),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.filter_alt,
-                                      size: 12,
-                                      color: accentColor,
-                                    ),
-                                    SizedBox(width: 2),
-                                    Text(
-                                      "$activeFilterCount",
-                                      style: GoogleFonts.inter(
-                                        color: accentColor,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  "Certified Pilots",
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                    color: primaryColor,
+                    letterSpacing: -0.3,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
+              ),
 
+              // Filter count badge (very compact)
+              if (activeFilterCount > 0)
                 Container(
-                  width: 100,
-                  height: 36,
-                  margin: const EdgeInsets.only(left: 8),
+                  margin: EdgeInsets.only(right: 8),
+                  padding: EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: accentColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: accentColor.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    "$activeFilterCount",
+                    style: GoogleFonts.inter(
+                      color: accentColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+
+              // ✅ FIXED: Show button only when NOT approved and status is loaded
+              if (_checkingUserPilotStatus)
+              // Show loading indicator while checking status
+                Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: primaryColor,
+                    valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                  ),
+                )
+              else if (_currentUserPilotStatus?['isApproved'] != true)
+              // Show "Become Pilot" or "View Status" button if not approved
+                Container(
+                  constraints: BoxConstraints(
+                    minWidth: 100,
+                    maxWidth: 130,
+                  ),
+                  height: 40,
                   child: ElevatedButton(
                     onPressed: _navigateToBecomePilot,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryColor,
                       foregroundColor: Colors.white,
-                      elevation: 2,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      padding: EdgeInsets.symmetric(horizontal: 10),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      shadowColor: accentColor.withOpacity(0.3),
+                      elevation: 2,
                     ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.person_add_alt_1_rounded,
-                          size: 16,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          "Become Pilot",
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
-                            height: 1.0,
-                          ),
-                        ),
-                      ],
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        if (constraints.maxWidth < 110) {
+                          // Compact version
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.person_add_alt_1_rounded, size: 16),
+                              SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  _currentUserPilotStatus?['hasRegistration'] == true
+                                      ? "View Status"  // If already has application
+                                      : "Become Pilot", // If no application
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 11,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          );
+                        } else {
+                          // Full version
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.person_add_alt_1_rounded, size: 18),
+                              SizedBox(width: 6),
+                              Text(
+                                _currentUserPilotStatus?['hasRegistration'] == true
+                                    ? "View Status"
+                                    : "Become Pilot",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+                      },
                     ),
                   ),
+                )
+              else
+              // User is already an approved pilot - show badge instead of button
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.green.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.verified, size: 14, color: Colors.green),
+                      SizedBox(width: 4),
+                      Text(
+                        "Approved Pilot",
+                        style: GoogleFonts.inter(
+                          color: Colors.green,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
+            ],
           ),
-          SizedBox(height: ResponsiveUtils.getSectionSpacing(context)),
+          SizedBox(height: 16),
           _buildSearchBar(),
         ],
       ),

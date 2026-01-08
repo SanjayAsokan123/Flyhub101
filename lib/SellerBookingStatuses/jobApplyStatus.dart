@@ -300,8 +300,8 @@ class _JobApplyStatusPageState extends State<JobApplyStatusPage>
           unselectedLabelColor:
           Colors.white.withOpacity(0.8), // Slightly transparent white for unselected
           tabs: const [
-            Tab(text: 'Approved'),
             Tab(text: 'Pending'),
+            Tab(text: 'Approved'),
             Tab(text: 'Rejected'),
           ],
         ),
@@ -309,8 +309,8 @@ class _JobApplyStatusPageState extends State<JobApplyStatusPage>
       body: TabBarView(
         controller: _tabController,
         children: [
-          buildTab('hired'),
           buildTab('pending'),
+          buildTab('hired'),
           buildTab('rejected'),
         ],
       ),

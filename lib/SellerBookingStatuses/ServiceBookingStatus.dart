@@ -182,9 +182,9 @@ class _ServiceBookingStatusPageState extends State<ServiceBookingStatusPage>
   GlobalKey<RefreshIndicatorState> _getRefreshKey(int tabIndex) {
     switch (tabIndex) {
       case 0:
-        return _approvedRefreshKey;
-      case 1:
         return _pendingRefreshKey;
+      case 1:
+        return _approvedRefreshKey;
       case 2:
         return _rejectedRefreshKey;
       case 3:
@@ -214,8 +214,8 @@ class _ServiceBookingStatusPageState extends State<ServiceBookingStatusPage>
   Widget buildBookingCard(Map<String, dynamic> b, int tabIndex) {
     final status = (b['status'] ?? '').toLowerCase();
     final statusColor = getStatusColor(status);
-    bool isApprovedTab = tabIndex == 0;
-    bool isPendingTab = tabIndex == 1;
+    bool isPendingTab = tabIndex == 0;
+    bool isApprovedTab = tabIndex == 1;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -591,8 +591,8 @@ class _ServiceBookingStatusPageState extends State<ServiceBookingStatusPage>
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white.withOpacity(0.7),
           tabs: const [
-            Tab(text: "Approved"),
             Tab(text: "Pending"),
+            Tab(text: "Approved"),
             Tab(text: "Rejected"),
             Tab(text: "Completed"),
           ],
@@ -601,8 +601,8 @@ class _ServiceBookingStatusPageState extends State<ServiceBookingStatusPage>
       body: TabBarView(
         controller: _tabController,
         children: [
-          buildTabContent("approved", 0),
-          buildTabContent("pending", 1),
+          buildTabContent("pending", 0),
+          buildTabContent("approved", 1),
           buildTabContent("rejected", 2),
           buildTabContent("completed", 3),
         ],

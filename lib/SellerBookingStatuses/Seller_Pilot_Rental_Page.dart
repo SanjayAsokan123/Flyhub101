@@ -741,10 +741,10 @@ class _SellerPilotBookingStatusPageState
 
     switch (tabIndex) {
       case 0:
-        _approvedRefreshController.refreshCompleted();
+        _pendingRefreshController.refreshCompleted();
         break;
       case 1:
-        _pendingRefreshController.refreshCompleted();
+        _approvedRefreshController.refreshCompleted();
         break;
       case 2:
         _rejectedRefreshController.refreshCompleted();
@@ -758,9 +758,9 @@ class _SellerPilotBookingStatusPageState
   RefreshController _getRefreshController(int tabIndex) {
     switch (tabIndex) {
       case 0:
-        return _approvedRefreshController;
-      case 1:
         return _pendingRefreshController;
+      case 1:
+        return _approvedRefreshController;
       case 2:
         return _rejectedRefreshController;
       case 3:
@@ -1013,8 +1013,8 @@ class _SellerPilotBookingStatusPageState
   @override
   void dispose() {
     _tabController.dispose();
-    _approvedRefreshController.dispose();
     _pendingRefreshController.dispose();
+    _approvedRefreshController.dispose();
     _rejectedRefreshController.dispose();
     _completedRefreshController.dispose();
     super.dispose();
@@ -1046,8 +1046,8 @@ class _SellerPilotBookingStatusPageState
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white.withOpacity(0.7),
           tabs: const [
-            Tab(text: "Approved"),
             Tab(text: "Pending"),
+            Tab(text: "Approved"),
             Tab(text: "Rejected"),
             Tab(text: "Completed"),
           ],
@@ -1056,8 +1056,8 @@ class _SellerPilotBookingStatusPageState
       body: TabBarView(
         controller: _tabController,
         children: [
-          buildTab("approved", 0),
-          buildTab("pending", 1),
+          buildTab("pending", 0),
+          buildTab("approved", 1),
           buildTab("rejected", 2),
           buildTab("completed", 3),
         ],

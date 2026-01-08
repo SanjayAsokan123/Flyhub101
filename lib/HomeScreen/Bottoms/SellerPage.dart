@@ -197,6 +197,8 @@ class _SellerPageState extends State<SellerPage> {
         return 'assets/categories/employee.svg';
       case 'hire pilot':
         return 'assets/categories/pilots.svg';
+      case 'orders':
+        return 'assets/categories/orders.svg';
       default:
         return 'assets/icons/default.svg';
     }
@@ -1243,7 +1245,7 @@ class _SellerPageState extends State<SellerPage> {
       {
         'svgAsset': _getStoreSvgAssetPath('Hire pilot'),
         'label': 'Orders',
-        'color': Colors.brown,
+        'color': Colors.black,
         'disabled': !_isApproved,
         'onTap': () {
           if (_sellerId == null) {

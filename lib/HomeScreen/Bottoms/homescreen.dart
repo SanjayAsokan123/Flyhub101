@@ -318,7 +318,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _marketplaceData["Drones"] = _sortByAvailability(filtered);
         }
 
-          },
+      },
     );
   }
 
@@ -336,7 +336,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _marketplaceData["Parts"] = _sortByAvailability(filtered);
         }
 
-          },
+      },
     );
   }
 
@@ -348,10 +348,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final List items =
         res.data?["items"] is List ? res.data["items"] : [];
-         if (mounted) {
-            final filtered = items.where((p) => p["status"] == "approved").toList();
-            _marketplaceData["Accessories"] = _sortByAvailability(filtered);
-            }
+        if (mounted) {
+          final filtered = items.where((p) => p["status"] == "approved").toList();
+          _marketplaceData["Accessories"] = _sortByAvailability(filtered);
+        }
       },
     );
   }
@@ -1178,35 +1178,35 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
 
         /// OUT OF STOCK (only for products)
-    /// 🟥 OUT OF STOCK BADGE (HOME = MARKET STYLE)
-    if (isStockCategory && !isAvailable)
-    Positioned(
-    top: 5, // ⬅ below wishlist icon
-    right: 8,
-    child: Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-    decoration: BoxDecoration(
-    color: Colors.red.shade600,
-    borderRadius: BorderRadius.circular(8),
-    boxShadow: [
-    BoxShadow(
-    color: Colors.black.withOpacity(0.15),
-    blurRadius: 4,
-    offset: const Offset(0, 2),
-    ),
-    ],
-    ),
-    child: Text(
-    "OUT OF STOCK",
-    style: GoogleFonts.inter(
-    fontSize: 10,
-    fontWeight: FontWeight.w800,
-    color: Colors.white,
-    letterSpacing: 0.4,
-    ),
-    ),
-    ),
-    ),
+        /// 🟥 OUT OF STOCK BADGE (HOME = MARKET STYLE)
+        if (isStockCategory && !isAvailable)
+          Positioned(
+            top: 5, // ⬅ below wishlist icon
+            right: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.red.shade600,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Text(
+                "OUT OF STOCK",
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ),
+          ),
 
       ],
     );
@@ -1268,9 +1268,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _handleProductTap(dynamic item, String sectionKey) {
     final normalized = normalizeHomeItem(
-  item,
-  sectionKey[0].toUpperCase() + sectionKey.substring(1),
-);
+      item,
+      sectionKey[0].toUpperCase() + sectionKey.substring(1),
+    );
     if (sectionKey == 'services') {
       Navigator.push(
         context,

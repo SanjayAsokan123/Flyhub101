@@ -4,7 +4,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config/env.dart';
-import '../services/network_wrapper.dart'; // Import NetworkWrapper
+import '../services/network_wrapper.dart';
 
 // 🧾 Model
 class RegulatoryInfo {
