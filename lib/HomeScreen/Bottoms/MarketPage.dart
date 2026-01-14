@@ -228,22 +228,53 @@ class _MarketPageState extends State<MarketPage> with SingleTickerProviderStateM
     }
   }
 
-  List<dynamic> _processItems(dynamic result, String category) {
-    if (result.status != "success") return [];
+  // List<dynamic> _processItems(dynamic result, String category) {
+  //   if (result.status != "success") return [];
+  //
+  //   // IMPORTANT: paginated result returns {items: [...], totalCount, ...}
+  //   final List items =
+  //   result.data is List ? result.data
+  //       : result.data["items"] is List ? result.data["items"]
+  //       : [];
+  //
+  //   return items
+  //       .map((d) => _normalizeItem(d, category))
+  //       .where((item) => item['status'] == "approved")
+  //       .toList();
+  // }
 
-    // IMPORTANT: paginated result returns {items: [...], totalCount, ...}
+  List<dynamic> _processItems(dynamic result, String category) {
+    if (result.status != "success") {
+      print("❌ API Error for $category: ${result.message}");
+      return [];
+    }
+
     final List items =
     result.data is List ? result.data
         : result.data["items"] is List ? result.data["items"]
         : [];
 
-    return items
+    print("📦 Raw items received for $category: ${items.length}");
+
+    // DEBUG: Print first item's status
+    if (items.isNotEmpty) {
+      final firstItem = items.first;
+      print("🔍 First item details:");
+      print("   ID: ${firstItem['droneId'] ?? firstItem['partId'] ?? firstItem['accessoryId']}");
+      print("   Name: ${firstItem['name']}");
+      print("   Status: ${firstItem['status']}");
+      print("   Status type: ${firstItem['status'].runtimeType}");
+    }
+
+    final filteredItems = items
         .map((d) => _normalizeItem(d, category))
         .where((item) => item['status'] == "approved")
         .toList();
+
+    print("✅ Approved items after filtering: ${filteredItems.length}");
+
+    return filteredItems;
   }
-
-
   Map<String, dynamic> _normalizeItem(dynamic raw, String category) {
     final Map<String, dynamic> m =
     (raw is Map) ? Map<String, dynamic>.from(raw) : {'raw': raw};
